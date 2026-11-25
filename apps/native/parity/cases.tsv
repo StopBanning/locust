@@ -2005,15 +2005,15 @@ apps/desktop/src/main/edit-check.test.ts	keeps the name of a test that ends in i
 apps/desktop/src/main/edit-check.test.ts	says it could not run, rather than throwing	yes
 apps/desktop/src/main/edit-check.test.ts	runs it in the folder, through the shell, and reports its exit and output	yes
 apps/desktop/src/main/edit-check.test.ts	stops a check that runs past its time	yes
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from a file path its conversation named, JSON-escaped, deep inside it	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from forward slashes too, as some runtimes write Windows paths	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is never guessed: no path that hashes to it, no answer	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found on macOS and Linux paths	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps each folder once, newest used first, and what was only recovered after	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's folder first, then the others by their newest conversation	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	no
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from a file path its conversation named, JSON-escaped, deep inside it	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from forward slashes too, as some runtimes write Windows paths	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is never guessed: no path that hashes to it, no answer	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found on macOS and Linux paths	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps each folder once, newest used first, and what was only recovered after	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's folder first, then the others by their newest conversation	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
@@ -3336,6 +3336,16 @@ apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	accepts only 
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	constructs and disposes without creating a voice directory	no
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	allows audio only from the owned main frame	yes
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses another sender, subframe, camera, unknown media, or permission (%s %s %s %s)	no
+apps/desktop/src/main/usage-is-counted.test.ts	names the model the run reported, and keeps a plan’s dollars out of the money	yes
+apps/desktop/src/main/usage-is-counted.test.ts	an API key’s turn is money; a turn with no receipt still counts, at its last moment	yes
+apps/desktop/src/main/usage-is-counted.test.ts	every turn the ledger holds, each named by its conversation’s first turn	yes
+apps/desktop/src/main/usage-is-counted.test.ts	reads a prompt in each runtime’s terms: Codex counts its cache inside, Claude beside	yes
+apps/desktop/src/main/usage-is-counted.test.ts	cuts the range by the day each turn ended, on this machine’s clock	yes
+apps/desktop/src/main/usage-is-counted.test.ts	twelve weeks of heatmap, Sunday first, ending today	yes
+apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or from yesterday while today has nothing yet	yes
+apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	yes
+apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	yes
+apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts every priced run of the month, not only the newest twenty, and nothing a plan paid for	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts a run in the month it ended	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	no
@@ -7167,18 +7177,18 @@ packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch
 packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	yes
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts	can be recorded, read back, and listed	yes
 packages/mission-store/test/mission-store.test.ts	persists a versioned append-only mission and recovers its terminal phase	yes
-packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	no
-packages/mission-store/test/mission-store.test.ts	rejects a mismatched or noncontiguous event before writing it	no
-packages/mission-store/test/mission-store.test.ts	ignores an incomplete crash tail and reports the recovered prefix	no
-packages/mission-store/test/mission-store.test.ts	records a generic host launch failure as a failed recovered mission	no
-packages/mission-store/test/mission-store.test.ts	does not trust unsupported or malformed ledger files	no
-packages/mission-store/test/mission-store.test.ts	stops recovery at a noncontiguous body record and refuses to extend the corrupt ledger	no
-packages/mission-store/test/mission-store.test.ts	detects external modification on append and fails closed afterwards	no
-packages/mission-store/test/mission-store.test.ts	orders history by recency and honors the list limit	no
-packages/mission-store/test/mission-store.test.ts	refuses an event its own reader would reject, rather than truncating recovery later	no
-packages/mission-store/test/mission-store.test.ts	reads the most recently updated ledgers rather than whichever sort first by name	no
-packages/mission-store/test/mission-store.test.ts	removes the record for good and reports whether there was one	no
-packages/mission-store/test/mission-store.test.ts	refuses to append to a mission that was deleted, rather than resurrecting it	no
+packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	yes
+packages/mission-store/test/mission-store.test.ts	rejects a mismatched or noncontiguous event before writing it	yes
+packages/mission-store/test/mission-store.test.ts	ignores an incomplete crash tail and reports the recovered prefix	yes
+packages/mission-store/test/mission-store.test.ts	records a generic host launch failure as a failed recovered mission	yes
+packages/mission-store/test/mission-store.test.ts	does not trust unsupported or malformed ledger files	yes
+packages/mission-store/test/mission-store.test.ts	stops recovery at a noncontiguous body record and refuses to extend the corrupt ledger	yes
+packages/mission-store/test/mission-store.test.ts	detects external modification on append and fails closed afterwards	yes
+packages/mission-store/test/mission-store.test.ts	orders history by recency and honors the list limit	yes
+packages/mission-store/test/mission-store.test.ts	refuses an event its own reader would reject, rather than truncating recovery later	yes
+packages/mission-store/test/mission-store.test.ts	reads the most recently updated ledgers rather than whichever sort first by name	yes
+packages/mission-store/test/mission-store.test.ts	removes the record for good and reports whether there was one	yes
+packages/mission-store/test/mission-store.test.ts	refuses to append to a mission that was deleted, rather than resurrecting it	yes
 packages/mission-store/test/mission-store.test.ts	leaves every other mission untouched	yes
 packages/mission-store/test/mission-store.test.ts	refuses an id that could name any other file	yes
 packages/mission-store/test/retention.test.ts	deletes what is older than the cutoff and keeps what is not	no
@@ -7199,53 +7209,53 @@ packages/mission-store/test/retention.test.ts	reports an empty history as empty 
 packages/mission-store/test/retention.test.ts	counts a file it cannot read separately, instead of leaving it out of a date it is inside	no
 packages/mission-store/test/schema-compat.test.ts	writes new missions at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	still recovers a mission recorded before the version bump	yes
-packages/mission-store/test/schema-compat.test.ts	appends to a version-1 mission in version 1, keeping the file walkable	no
-packages/mission-store/test/schema-compat.test.ts	stops recovery when a record disagrees with its file version	no
+packages/mission-store/test/schema-compat.test.ts	appends to a version-1 mission in version 1, keeping the file walkable	yes
+packages/mission-store/test/schema-compat.test.ts	stops recovery when a record disagrees with its file version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a version-1 file describing a runtime version 1 could not write	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v4 file claiming to continue another mission	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips a continuation through the durable record	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips what a handoff left out, and refuses a malformed list	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation that names an unsafe mission id	no
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation with an impossible checkpoint epoch	no
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation that names an unsafe mission id	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation with an impossible checkpoint epoch	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips a peer link through the durable record	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a peer link in a file written before version 5	yes
-packages/mission-store/test/schema-compat.test.ts	refuses to append a peer link to a mission written before version 5	no
+packages/mission-store/test/schema-compat.test.ts	refuses to append a peer link to a mission written before version 5	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a peer link with an unsafe id or an unknown direction	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a follow-up continuation, session handle and all	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a follow-up continuation, session handle and all	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a follow-up in a file written before version 6	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a Gemini mission in a file written before version 7	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips who started a run at the current version	no
+packages/mission-store/test/schema-compat.test.ts	round-trips who started a run at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a host-started run in a file written before version 10	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a starter it cannot read rather than dropping the field	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a routine starter at the current version	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a terminal starter at the current version (v18)	no
-packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter whose exchange is below 1	no
+packages/mission-store/test/schema-compat.test.ts	refuses a starter it cannot read rather than dropping the field	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a routine starter at the current version	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a terminal starter at the current version (v18)	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter whose exchange is below 1	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter in a file written before version 18	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a side starter at the current version (v19)	no
-packages/mission-store/test/schema-compat.test.ts	refuses a side starter with no conversation, or a question below 1	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a side starter at the current version (v19)	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a side starter with no conversation, or a question below 1	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a side starter in a file written before version 19	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a routine starter with no routine id or a step below 1	no
+packages/mission-store/test/schema-compat.test.ts	refuses a routine starter with no routine id or a step below 1	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips the mode a run was asked for, beside what it was allowed	yes
 packages/mission-store/test/schema-compat.test.ts	reads a mission with no mode as one, rather than inventing a default	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a mode in a file written before version 15	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a mission on an agent the person added, and refuses one in a file written before version 25	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a mission on Kilo, and refuses one in a file written before version 27	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a turn Locust sent back to fix a failing check, and refuses one in a file written before version 26	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a mode that is not one of the five	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a full-access mission at the current version	no
+packages/mission-store/test/schema-compat.test.ts	refuses a mode that is not one of the five	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a full-access mission at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a full-access mission in a file written before version 14	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a routine starter in a file written before version 13	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a resume starter at the current version	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a resume starter at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a resume starter in a file written before version 11	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a resume starter whose epoch is not an epoch	no
-packages/mission-store/test/schema-compat.test.ts	round-trips the command the host ran	no
+packages/mission-store/test/schema-compat.test.ts	refuses a resume starter whose epoch is not an epoch	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips the command the host ran	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a command in a file written before version 12	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a command carrying an argument it cannot vouch for	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a Cursor Agent mission at the current version	no
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation reason it does not know	no
+packages/mission-store/test/schema-compat.test.ts	refuses a command carrying an argument it cannot vouch for	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a Cursor Agent mission at the current version	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation reason it does not know	yes
 packages/mission-store/test/schema-compat.test.ts	rejects a file whose version this reader does not know	yes
-packages/mission-store/test/schema-compat.test.ts	accepts a Claude mission and its Claude events	no
-packages/mission-store/test/schema-compat.test.ts	refuses an event from a runtime the mission is not running	no
+packages/mission-store/test/schema-compat.test.ts	accepts a Claude mission and its Claude events	yes
+packages/mission-store/test/schema-compat.test.ts	refuses an event from a runtime the mission is not running	yes
 packages/mission-store/test/schema-compat.test.ts	records a workspace-write mission at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v3 file claiming a mission was allowed to write	yes
 packages/mission-store/test/schema-compat.test.ts	still reads v1 and v2 read-only missions	yes

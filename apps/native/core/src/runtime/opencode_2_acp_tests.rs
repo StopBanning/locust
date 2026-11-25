@@ -501,7 +501,7 @@ fn asks_a_side_question_in_a_freshly_briefed_acp_session_without_appending_to_th
         },
         Origin {
             mode: Some(Mode::Ask),
-            started_by: Some(json!({"kind": "side", "of": first.conversation_id, "question": 0})),
+            started_by: Some(json!({"kind": "side", "of": first.conversation_id, "question": 1})),
             runtime: Some("opencode".into()),
             ..Default::default()
         },

@@ -324,6 +324,97 @@ pub fn made_folder_note(path: &str) -> String {
     )
 }
 
+/// One conversation row input for `folder_sections_of` (shared/folder-sections.ts).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FolderRow {
+    pub mission_id: String,
+    pub folder_id: Option<String>,
+    pub last_at: String,
+}
+
+/// One sidebar project section returned by `folder_sections_of`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FolderSection {
+    pub id: String,
+    pub missions: Vec<FolderRow>,
+}
+
+/// Port of `shared/folder-sections.ts::folderSectionsOf`:
+/// the window's folder first, then each other folder by its newest conversation.
+/// A row with no folder counts as the window's; the window's folder is kept even when empty.
+pub fn folder_sections_of(conversations: &[FolderRow], current_folder_id: Option<&str>) -> Vec<FolderSection> {
+    let mut order: Vec<String> = Vec::new();
+    let mut by_folder: std::collections::HashMap<String, Vec<FolderRow>> = std::collections::HashMap::new();
+    let current = current_folder_id.unwrap_or("");
+    if let Some(cur) = current_folder_id {
+        order.push(cur.to_owned());
+        by_folder.insert(cur.to_owned(), Vec::new());
+    }
+    for row in conversations {
+        let id = row.folder_id.as_deref().unwrap_or(current).to_owned();
+        if !by_folder.contains_key(&id) {
+            order.push(id.clone());
+        }
+        by_folder.entry(id).or_default().push(row.clone());
+    }
+    let newest = |list: &[FolderRow]| -> String {
+        list.iter()
+            .map(|r| r.last_at.as_str())
+            .max()
+            .unwrap_or("")
+            .to_owned()
+    };
+    let mut sections: Vec<FolderSection> = order
+        .into_iter()
+        .filter_map(|id| {
+            let missions = by_folder.remove(&id)?;
+            (id == current || !missions.is_empty()).then_some(FolderSection { id, missions })
+        })
+        .collect();
+    sections.sort_by(|a, b| {
+        if a.id == current && b.id != current {
+            std::cmp::Ordering::Less
+        } else if b.id == current && a.id != current {
+            std::cmp::Ordering::Greater
+        } else {
+            newest(&b.missions).cmp(&newest(&a.missions))
+        }
+    });
+    sections
+}
+
+/// Port of `shared/folder-sections.ts::folderLabels`:
+/// what each folder is called on screen — its own name, and where two share one (case-insensitively),
+/// the folder above it too: `Locust (Documents)`. A path that says nothing more keeps the bare name.
+pub fn folder_labels(folders: &[KnownFolder]) -> Vec<KnownFolder> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for folder in folders {
+        *counts.entry(folder.name.to_lowercase()).or_insert(0) += 1;
+    }
+    folders
+        .iter()
+        .map(|folder| {
+            if counts.get(&folder.name.to_lowercase()).copied().unwrap_or(0) < 2 {
+                return folder.clone();
+            }
+            let parts: Vec<&str> = folder
+                .path
+                .split(['\\', '/'])
+                .filter(|p| !p.is_empty())
+                .collect();
+            let above = (parts.len() >= 2).then(|| parts[parts.len() - 2]);
+            match above {
+                Some(parent) => {
+                    let mut out = folder.clone();
+                    out.name = format!("{} ({parent})", folder.name);
+                    out
+                }
+                None => folder.clone(),
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -448,3 +539,7 @@ mod folders_nothing_yet_tests;
 #[cfg(test)]
 #[path = "folders_same_folder_tests.rs"]
 mod same_folder_tests;
+
+#[cfg(test)]
+#[path = "folders_kept_by_path_tests.rs"]
+mod kept_by_path_tests;

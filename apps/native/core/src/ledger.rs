@@ -583,6 +583,121 @@ fn one_line(text: &str) -> String {
         .collect()
 }
 
+/// mission-store `validateMetadata`: checks that optional metadata fields present on a `mission.created` record
+/// carry valid values rather than dropping or trusting malformed data.
+pub fn validate_metadata_fields(m: &Value) -> Result<(), &'static str> {
+    let text_ok = |v: &Value, max: usize| {
+        v.as_str()
+            .is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= max && !s.contains('\0'))
+    };
+    if let Some(mode) = m.get("mode").filter(|v| !v.is_null())
+        && !matches!(
+            mode.as_str(),
+            Some("ask" | "plan" | "accept-edits" | "approve-each" | "auto")
+        )
+    {
+        return Err("Mission mode is invalid");
+    }
+    if let Some(sandbox) = m.get("sandbox").filter(|v| !v.is_null())
+        && !matches!(sandbox.as_str(), Some("read-only" | "workspace-write" | "full-access"))
+    {
+        return Err("Mission execution policy is invalid");
+    }
+    if let Some(c) = m.get("continuesFrom").filter(|v| !v.is_null()) {
+        if !c.is_object() {
+            return Err("Mission continuation is invalid");
+        }
+        if !c.get("missionId").and_then(Value::as_str).is_some_and(safe_id) {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(ep) = c.get("checkpointEpoch").filter(|v| !v.is_null())
+            && !ep.as_u64().is_some_and(|n| n >= 1)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(reason) = c.get("reason").filter(|v| !v.is_null())
+            && !matches!(reason.as_str(), Some("route-switch" | "follow-up" | "carry-on"))
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(thread) = c.get("runtimeThreadId").filter(|v| !v.is_null())
+            && !text_ok(thread, 2_048)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(edited) = c.get("edited").filter(|v| !v.is_null())
+            && edited != &Value::Bool(true)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        for key in ["leftOut", "leftOutByYou"] {
+            if let Some(arr) = c.get(key).filter(|v| !v.is_null()) {
+                let Some(items) = arr.as_array().filter(|a| a.len() <= 8) else {
+                    return Err("Mission continuation is invalid");
+                };
+                if !items.iter().all(|item| text_ok(item, 40)) {
+                    return Err("Mission continuation is invalid");
+                }
+            }
+        }
+    }
+    if let Some(cmd) = m.get("command").filter(|v| !v.is_null()) {
+        if !cmd.is_object() {
+            return Err("Mission command is invalid");
+        }
+        if let Some(exe) = cmd.get("executablePath").filter(|v| !v.is_null())
+            && !text_ok(exe, 1_024)
+        {
+            return Err("Mission command is invalid");
+        }
+        if let Some(args) = cmd.get("args").filter(|v| !v.is_null()) {
+            let Some(items) = args.as_array().filter(|a| a.len() <= 128) else {
+                return Err("Mission command is invalid");
+            };
+            if !items
+                .iter()
+                .all(|a| a.as_str().is_some_and(|s| s.encode_utf16().count() <= 1_024 && !s.contains('\0')))
+            {
+                return Err("Mission command is invalid");
+            }
+        }
+    }
+    if let Some(sb) = m.get("startedBy").filter(|v| !v.is_null()) {
+        if !sb.is_object() {
+            return Err("Mission starter is invalid");
+        }
+        let ok = match sb.get("kind").and_then(Value::as_str) {
+            Some("relay") => sb.get("hop").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("resume") => sb.get("epoch").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("routine") => {
+                sb.get("step").and_then(Value::as_u64).is_some_and(|n| n >= 1)
+                    && sb.get("routineId").is_some_and(|r| text_ok(r, 200))
+            }
+            Some("terminal") => sb.get("exchange").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("side") => {
+                sb.get("question").and_then(Value::as_u64).is_some_and(|n| n >= 1)
+                    && sb.get("of").and_then(Value::as_str).is_some_and(safe_id)
+            }
+            Some("check-fix") => {
+                let fix = sb.get("fix").and_then(Value::as_u64).filter(|&n| n >= 1);
+                let of = fix.and_then(|f| sb.get("of").and_then(Value::as_u64).filter(|&n| n >= f && n <= 5));
+                of.is_some() && sb.get("command").is_some_and(|c| text_ok(c, 500))
+            }
+            Some("mcp") => sb.get("folder").filter(|v| !v.is_null()).is_none_or(|f| text_ok(f, 1_024)),
+            Some("carry-on") => sb
+                .get("from")
+                .filter(|v| !v.is_null())
+                .is_none_or(|f| f.as_str().is_some_and(|s| !s.is_empty())),
+            Some("scout" | "app") => true,
+            _ => false,
+        };
+        if !ok {
+            return Err("Mission starter is invalid");
+        }
+    }
+    Ok(())
+}
+
 /// mission-store `parsedMetadata`'s version gates: a record claiming what no writer of its version could write was
 /// hand-edited, and is refused rather than believed -- a v23 file saying Locust carried a turn on (v24), a v12 one naming
 /// a routine (v13), an agent a version did not know. Each gate refuses only what the record actually claims.
@@ -625,7 +740,9 @@ fn decode_value(mut value: Value) -> Option<Record> {
     match value.get("recordType")?.as_str()? {
         "mission.created" => {
             metadata(&value)?;
-            if !written_by_its_version(version, &value["metadata"]) {
+            if validate_metadata_fields(&value["metadata"]).is_err()
+                || !written_by_its_version(version, &value["metadata"])
+            {
                 return None;
             }
         }
@@ -672,15 +789,18 @@ fn decode_value(mut value: Value) -> Option<Record> {
             check.get("occurredAt")?.as_str()?;
         }
         "mission.peer" => {
+            if version < 5 {
+                return None;
+            }
             let link = value.get("link")?;
             let dir = link.get("direction")?.as_str()?;
             if dir != "posted" && dir != "received" {
                 return None;
             }
-            if link.get("messageId")?.as_str()?.is_empty() {
+            if !link.get("messageId")?.as_str().is_some_and(safe_id) {
                 return None;
             }
-            if link.get("peerTeammateId")?.as_str()?.is_empty() {
+            if !link.get("peerTeammateId")?.as_str().is_some_and(safe_id) {
                 return None;
             }
         }
@@ -1747,6 +1867,8 @@ pub enum Issue {
     TruncatedTail,
     /// A header or record that is not a ledger's, and everything after it.
     InvalidRecord,
+    /// A header whose schemaVersion this reader does not support.
+    UnsupportedSchema,
     /// Past `MAX_LEDGER_BYTES`, so not read.
     FileTooLarge,
 }
@@ -1756,6 +1878,7 @@ impl Issue {
         match self {
             Issue::TruncatedTail => "truncated-tail",
             Issue::InvalidRecord => "invalid-record",
+            Issue::UnsupportedSchema => "unsupported-schema",
             Issue::FileTooLarge => "file-too-large",
         }
     }
@@ -1803,13 +1926,22 @@ pub fn recover(bytes: &[u8]) -> Recovered {
     let Some((first, body)) = lines.split_first() else { return unreadable(issues) };
     // Every ledger a writer made numbers its records; one with no number at all was made by hand (a test's), and is
     // held to every rule but the numbering.
-    let Some(header) = serde_json::from_slice::<Value>(first).ok().filter(|h| {
+    let parsed_first = serde_json::from_slice::<Value>(first).ok();
+    if let Some(ref h) = parsed_first
+        && let Some(ver) = h.get("schemaVersion").and_then(Value::as_u64)
+        && !(1..=28).contains(&ver)
+    {
+        issues.push(Issue::UnsupportedSchema);
+        return Recovered { records: Vec::new(), issues, unreadable: true };
+    }
+    let Some(header) = parsed_first.filter(|h| {
         (h.get("ledgerSequence").is_none() || h["ledgerSequence"].as_u64() == Some(1))
             && decode_value(h.clone()).is_some_and(|r| metadata(&r).is_some())
     }) else {
         return unreadable(issues);
     };
     let version = header["schemaVersion"].clone();
+    let version_num = version.as_u64().unwrap_or(0);
     let numbered = header.get("ledgerSequence").is_some();
     let mission = header["metadata"].clone();
     let mut records = vec![header];
@@ -1823,6 +1955,7 @@ pub fn recover(bytes: &[u8]) -> Recovered {
                 && r["schemaVersion"] == version
                 && (!numbered || r["ledgerSequence"].as_u64() == Some(expected))
                 && r["recordType"].as_str().is_some_and(|t| BODY_RECORDS.contains(&t))
+                && (r["recordType"] != "mission.peer" || (version_num >= 5 && decode_value(r.clone()).is_some()))
                 && (r["recordType"] != "mission.checkpoint"
                     || crate::checkpoint_reader::checkpoint_record_fits(r, &mission, checkpoints, last_event))
         });
@@ -1937,9 +2070,12 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
     }
     paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
 
+    // Read past `limit` (newest files first) and keep the ones last updated: a file touched on disk earlier than another can
+    // still hold the newer conversation (Electron reads every file up to its cap, then sorts by lastUpdatedAt).
+    let scan_cap = limit.max(64);
     let mut summaries = Vec::new();
     for (modified, path, len) in paths {
-        if summaries.len() == limit {
+        if summaries.len() == scan_cap {
             break;
         }
         let Ok((mut records, read_bytes, lines)) = head_with_offset(&path) else {
@@ -2035,6 +2171,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             edited: m.edited,
         });
     }
+    summaries.sort_by(|a, b| b.updated.cmp(&a.updated));
+    summaries.truncate(limit);
     Ok(summaries)
 }
 
@@ -3778,6 +3916,33 @@ mod carry_tests {
                 .iter()
                 .any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))
         );
+    }
+    #[test]
+    fn decode_and_recover_enforce_metadata_and_peer_version_gates() {
+        let bad_meta = json!({"schemaVersion":10,"recordType":"mission.created","ledgerSequence":1,"occurredAt":"2026-08-31T16:00:00.000Z","metadata":{"missionId":"m1","prompt":"p","runtime":"codex","model":"account-default","createdAt":"2026-08-31T16:00:00.000Z","startedBy":{"kind":"relay","hop":0}}});
+        assert!(decode_value(bad_meta).is_none());
+        let v1_head = json!({"schemaVersion":1,"recordType":"mission.created","ledgerSequence":1,"occurredAt":"2026-08-31T16:00:00.000Z","metadata":{"missionId":"m1","prompt":"p","runtime":"codex","model":"account-default","sandbox":"read-only","createdAt":"2026-08-31T16:00:00.000Z"}});
+        let v1_peer = json!({"schemaVersion":1,"recordType":"mission.peer","ledgerSequence":2,"occurredAt":"2026-08-31T16:00:00.000Z","link":{"direction":"received","messageId":"wm_1","peerTeammateId":"tm_1","occurredAt":"2026-08-31T16:00:00.000Z"}});
+        let bytes = format!("{v1_head}\n{v1_peer}\n");
+        let rec = recover(bytes.as_bytes());
+        assert_eq!(rec.records.len(), 1);
+        assert_eq!(rec.issues, vec![Issue::InvalidRecord]);
+        let future = json!({"schemaVersion":99,"recordType":"mission.created","ledgerSequence":1,"metadata":{"missionId":"m2","prompt":"p","runtime":"codex","model":"account-default","createdAt":"2026-08-31T16:00:00.000Z"}});
+        let fut = recover(format!("{future}\n").as_bytes());
+        assert!(fut.unreadable);
+        assert_eq!(fut.issues, vec![Issue::UnsupportedSchema]);
+        let dir = std::env::temp_dir().join(format!("locust-recency-{}", crate::invariants::unique_nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_788_000_000);
+        for (idx, (id, at)) in [("mission_a", "2026-08-31T10:00:00.000Z"), ("mission_b", "2026-08-31T12:00:00.000Z"), ("mission_c", "2026-08-31T11:00:00.000Z")].into_iter().enumerate() {
+            let line = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{"missionId":id,"prompt":"p","runtime":"codex","model":"account-default","createdAt":at}});
+            let p = dir.join(format!("{id}.jsonl"));
+            std::fs::write(&p, format!("{line}\n")).unwrap();
+            std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(base + std::time::Duration::from_secs(idx as u64)).unwrap();
+        }
+        let ids: Vec<String> = try_list_recent(&dir, 2).unwrap().into_iter().map(|s| s.mission_id).collect();
+        assert_eq!(ids, ["mission_b", "mission_c"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

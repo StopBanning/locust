@@ -124,7 +124,11 @@ where
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
-        return Err(io::Error::other("Ledger does not end on a whole record"));
+        return Err(io::Error::other("Mission ledger is unavailable"));
+    }
+    let read = crate::ledger::read_ledger(path)?;
+    if read.unreadable || !read.issues.is_empty() {
+        return Err(io::Error::other("Mission ledger is unavailable"));
     }
     let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
@@ -148,6 +152,26 @@ where
     // it is written (mission-store's appendEvents, a-long-answer-is-not-too-much-to-record).
     if let Some(stranger) = events.iter().position(|e| e["runId"] != run || e["missionId"] != mission) {
         return Err(io::Error::other(format!("Event {} of {} is not this mission's run (correlation), so none were written", stranger + 1, events.len())));
+    }
+    let mut expected_seq = next_seq;
+    for e in &events {
+        if e["sequence"].as_u64() != Some(expected_seq) {
+            return Err(io::Error::other("Mission event sequence is invalid"));
+        }
+        expected_seq += 1;
+    }
+    let mission_runtime = meta["runtime"].as_str();
+    if events.iter().any(|e| {
+        let wrong_runtime = match (mission_runtime, e["sourceAdapter"].as_str()) {
+            (Some(rt), Some(ad)) if !rt.is_empty() && !ad.is_empty() => rt != ad,
+            _ => false,
+        };
+        let bad_delta = e["type"] == "message.delta"
+            && (e["payload"].get("operation").is_some_and(|op| !matches!(op.as_str(), Some("append" | "replace")))
+                || e["payload"].get("itemId").is_some_and(|id| !id.as_str().is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= 512)));
+        wrong_runtime || bad_delta
+    }) {
+        return Err(io::Error::other("Mission event is not readable by the ledger reader"));
     }
     let mut buf = Vec::new();
     for event in events {
@@ -386,18 +410,67 @@ pub fn began(kind: &str) -> bool {
 
 /// Electron's `schemaVersionWritten(runtime)`.
 /// The part of mission-store's `parsedEvent` a native writer can get wrong: a message's operation is one the reader
-/// knows (`append` or `replace`, never a word nobody defined), and a tool call's helper (`parentItemId`, v22) names a
-/// row -- absent, or text of 1 to 512 characters, never empty, so a reader never has to guess at one.
+/// knows (`append` or `replace`, never a word nobody defined), its `itemId` is nonblank, and a tool call's helper
+/// (`parentItemId`, v22) names a row -- absent, or text of 1 to 512 characters, never empty, so a reader never has to
+/// guess at one.
 pub fn readable_event(event: &Value) -> bool {
     let payload = &event["payload"];
     match event["type"].as_str().unwrap_or("") {
-        "message.delta" => matches!(payload["operation"].as_str(), Some("append" | "replace")),
+        "message.delta" => {
+            matches!(payload["operation"].as_str(), Some("append" | "replace"))
+                && payload
+                    .get("itemId")
+                    .is_none_or(|id| id.as_str().is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= 512))
+        }
         "tool.started" | "tool.completed" | "tool.failed" => match payload.get("parentItemId") {
             None => true,
             Some(parent) => parent.as_str().is_some_and(|p| !p.trim().is_empty() && p.encode_utf16().count() <= 512),
         },
         _ => true,
     }
+}
+
+/// Append a `mission.host_failure` record to a ledger (`mission-store` `appendHostFailure`).
+pub fn append_host_failure(path: &std::path::Path, code: &str, message: &str, occurred_at: &str) -> io::Result<()> {
+    if code != "runtime-start-failed" && code != "runtime-transport-failed" {
+        return Err(io::Error::other("Host failure code is invalid"));
+    }
+    require_text(&json!(message), "Host failure message", 1_024)?;
+    require_timestamp(&json!(occurred_at), "Host failure timestamp")?;
+    LEDGER_TAIL.run(|| append_host_failure_after_tail(path, code, message, occurred_at))
+}
+
+fn append_host_failure_after_tail(path: &std::path::Path, code: &str, message: &str, occurred_at: &str) -> io::Result<()> {
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Mission ledger is unavailable"));
+    }
+    let read = crate::ledger::read_ledger(path)?;
+    if read.unreadable || !read.issues.is_empty() {
+        return Err(io::Error::other("Mission ledger is unavailable"));
+    }
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let schema = first["schemaVersion"].as_u64().ok_or_else(|| io::Error::other("Ledger has no schemaVersion"))?;
+    let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    after_tail();
+    let record = json!({
+        "schemaVersion": schema,
+        "recordType": "mission.host_failure",
+        "ledgerSequence": next,
+        "occurredAt": occurred_at,
+        "failure": {
+            "code": code,
+            "message": message,
+            "occurredAt": occurred_at,
+        }
+    });
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    file.write_all(&line)?;
+    file.sync_all()
 }
 
 pub fn schema_written(runtime: &str) -> u64 {
@@ -487,6 +560,7 @@ impl LedgerWriter {
             runtime,
             "codex"
                 | "claude"
+                | "gemini"
                 | "acp"
                 | "opencode"
                 | "kilo"
@@ -514,31 +588,13 @@ impl LedgerWriter {
                 return Err(io::Error::other("Invalid continuation"));
             }
         }
-        let path = store.write_path(id)?;
-        // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
-        // ancestor race closes: no file is ever created through a swapped component.
-        let file = open_checked(store, &path)?;
         let route = format!("{runtime}:{model}");
         let resolved_route = extra
             .get("resolvedRouteId")
             .and_then(Value::as_str)
             .map(str::to_owned)
             .unwrap_or_else(|| format!("{route}-account:default"));
-        let mut writer = Self {
-            file,
-            path,
-            mission: id.into(),
-            run: format!("run_{id}"),
-            route,
-            resolved_route,
-            runtime: runtime.into(),
-            sequence: 0,
-            ledger_seq: 2,
-            poisoned: false,
-            bytes: 0,
-            keys: Vec::new(),
-            on_began: Vec::new(),
-        };
+        let run = format!("run_{id}");
         let at = now();
         let continuation = continues.map(|c| {
             let mut link =
@@ -548,9 +604,9 @@ impl LedgerWriter {
             }
             link
         });
-        let mut record = json!({"schemaVersion":writer.schema(),"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
-            "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
-            "requestedRouteId":writer.route,"resolvedRouteId":writer.resolved_route,"cliVersion":null,"workspaceId":"native",
+        let mut record = json!({"schemaVersion":schema_written(runtime),"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
+            "missionId":id,"runId":run,"prompt":prompt,"runtime":runtime,"model":model,
+            "requestedRouteId":route,"resolvedRouteId":resolved_route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
             "command":{"executablePath":executable,"args":recordable_args(args, prompt)}
         }});
@@ -566,6 +622,26 @@ impl LedgerWriter {
                 }
             }
         }
+        crate::ledger::validate_metadata_fields(&record["metadata"]).map_err(io::Error::other)?;
+        let path = store.write_path(id)?;
+        // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
+        // ancestor race closes: no file is ever created through a swapped component.
+        let file = open_checked(store, &path)?;
+        let mut writer = Self {
+            file,
+            path,
+            mission: id.into(),
+            run,
+            route,
+            resolved_route,
+            runtime: runtime.into(),
+            sequence: 0,
+            ledger_seq: 2,
+            poisoned: false,
+            bytes: 0,
+            keys: Vec::new(),
+            on_began: Vec::new(),
+        };
         writer.line(record)?;
         if let Ok(dir) = File::open(
             writer
@@ -842,6 +918,48 @@ mod tests {
             std::fs::metadata(&good).unwrap().permissions().mode() & 0o777,
             0o600
         );
+        let err = LedgerWriter::create_runtime_with(
+            &store,
+            "m_bad",
+            "p",
+            "account-default",
+            "codex",
+            "codex",
+            &[],
+            None,
+            &json!({"mode": "whatever"}),
+        );
+        assert!(err.is_err());
+        let w = LedgerWriter::create_runtime_with(
+            &store,
+            "m_ok",
+            "p",
+            "account-default",
+            "codex",
+            "codex",
+            &[],
+            None,
+            &Value::Null,
+        )
+        .unwrap();
+        let path = w.path.clone();
+        drop(w);
+        assert!(append_events(&path, |run, mission, _ad, seq, at| {
+            vec![json!({"id":format!("{run}:c:{seq}"),"runId":run,"missionId":mission,"sequence":seq,"occurredAt":at,"sourceAdapter":"claude","type":"run.started","payload":{}})]
+        })
+        .is_err());
+        assert!(append_events(&path, |run, mission, ad, seq, at| {
+            vec![json!({"id":format!("{run}:c:{seq}"),"runId":run,"missionId":mission,"sequence":seq + 1,"occurredAt":at,"sourceAdapter":ad,"type":"run.started","payload":{}})]
+        })
+        .is_err());
+        assert!(!readable_event(&json!({"type":"message.delta","payload":{"operation":"append","itemId":"   "}})));
+        append_host_failure(&path, "runtime-start-failed", "Could not start", "2026-08-31T16:00:00.000Z").unwrap();
+        assert!(append_host_failure(&path, "unknown", "Could not start", "2026-08-31T16:00:00.000Z").is_err());
+        std::fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(b"{\"half\":").unwrap();
+        assert!(append_events(&path, |run, mission, ad, seq, at| {
+            vec![json!({"id":format!("{run}:c:{seq}"),"runId":run,"missionId":mission,"sequence":seq,"occurredAt":at,"sourceAdapter":ad,"type":"run.started","payload":{}})]
+        })
+        .is_err());
         std::fs::remove_dir_all(temp).unwrap();
     }
 }

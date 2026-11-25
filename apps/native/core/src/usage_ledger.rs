@@ -575,3 +575,7 @@ mod tests {
 #[cfg(test)]
 #[path = "usage_carried_tests.rs"]
 mod usage_carried_tests;
+
+#[cfg(test)]
+#[path = "usage_is_counted_tests.rs"]
+mod usage_is_counted_tests;
