@@ -149,3 +149,22 @@ fn connector_rules_are_none_when_the_person_asked_to_be_asked_about_every_one_or
     assert!(claude_connector_rules(Mode::ApproveEach, false, &["github"]).is_empty());
     assert!(claude_connector_rules(Mode::AcceptEdits, false, &[]).is_empty());
 }
+
+// ask-asks-before-a-connector.test.ts, a teammate with no connector ticked: Electron's connectorsOn is
+// native::claude_args_for_turn (the app's Claude Code command, native.rs), which loads the person's connectors only
+// when the teammate's roster entry ticks one, whatever the mode; the roster read itself is driven end to end in
+// claude_host_grid_tests::native_claude_loads_only_ticked_connectors_and_honors_approval_mode.
+#[test]
+fn a_teammate_runs_without_the_persons_connectors_until_one_is_ticked() {
+    // case: runs without the person’s connectors, and with them once one is ticked
+    let turn = |mode: Mode, connectors: &[&str]| {
+        crate::native::claude_args_for_turn(PrintOptions { mode, bridge: Some(BRIDGE), connectors, ..Default::default() }, false).unwrap()
+    };
+    for mode in [Mode::Ask, Mode::AcceptEdits, Mode::Auto] {
+        let none = turn(mode, &[]);
+        assert!(none.iter().any(|x| x == "--strict-mcp-config"), "{mode:?}: {none:?}");
+        // Ticked: the person's connectors come along, even in Ask, where none is pre-approved.
+        let ticked = turn(mode, &["claude.ai Gmail"]);
+        assert!(!ticked.iter().any(|x| x == "--strict-mcp-config"), "{mode:?}: {ticked:?}");
+    }
+}

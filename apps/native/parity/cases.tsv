@@ -1660,7 +1660,7 @@ apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the host starts t
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none in Ask or Plan: every call goes to the card	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are the named ones in Edit, as before	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none when the person asked to be asked about every one, or none are named	yes
-apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	no
+apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	waits beside the kept memory, which stays as it was and briefed	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	a second rewrite before the person answers updates the same proposal	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Keep the change rewrites the kept memory, one step back kept, and the proposal goes	yes
