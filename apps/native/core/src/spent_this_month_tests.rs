@@ -53,3 +53,20 @@ fn counts_a_run_in_the_month_it_ended() {
     assert_eq!(spent_by(&turns, "2026-08", |c| owner(c) == Some("tm_wren")).usd, Some(1.0));
     assert_eq!(spent_by(&turns, "2026-10", |_| true).usd, None);
 }
+
+// case: sends every row its money, including the ones sent without their events
+#[test]
+fn every_run_is_read_with_its_money_the_oldest_included_and_a_plans_run_with_none() {
+    // Electron's history sent only the newest twenty rows with their events, so a row's money had to ride on the row.
+    // Rust's reader takes the money from every ledger itself: no run is read without it.
+    let (_t, store) = store();
+    let turns = crate::usage_ledger::usage_turns(&store).unwrap();
+    assert_eq!(turns.len(), 30, "every ledger is read, not only the newest twenty");
+    let of = |i: usize| turns.iter().find(|t| t.conversation == id(i)).unwrap_or_else(|| panic!("{} was not read", id(i)));
+    // Among the oldest: still priced.
+    assert_eq!(of(3).usd, Some(1.0));
+    assert_eq!(of(1).usd, Some(1.0));
+    // A plan's run carries no money.
+    assert_eq!(of(4).usd, None);
+    assert!(of(4).plan);
+}

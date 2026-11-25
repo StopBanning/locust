@@ -493,3 +493,25 @@ fn a_waiting_card_is_said_to_be_in_locusts_window_and_no_tool_answers_it() {
     }
     assert_eq!(tools.locust.starts.load(Ordering::SeqCst), 0);
 }
+
+// case: refuses a mode on a server whose apps may not choose (a voice call), even with the switch on
+#[test]
+fn a_voice_call_is_refused_a_mode_even_with_the_switch_on() {
+    let gated = Gated::default();
+    gated.own.store(true, Ordering::SeqCst);
+    let scope = Arc::new(crate::door_tools::VoiceScope::new(std::env::temp_dir(), None));
+    let on_call = Tools::new(gated).with_voice(scope);
+    for args in [json!({"mode": "auto"}), json!({"folder": "/known/tmp"})] {
+        let mut call = json!({"teammate": "Scout", "message": "Fix it."});
+        for (k, v) in args.as_object().unwrap() {
+            call[k] = v.clone();
+        }
+        let r = on_call.call("start_conversation", &call);
+        assert!(r.is_error, "{args}");
+        assert_eq!(r.text, "The call uses the teammate’s own agent, model, mode and folder. Nothing was started.");
+    }
+    assert_eq!(on_call.locust.starts.load(Ordering::SeqCst), 0);
+    // The same server, not on a call, takes the mode: the refusal is the call's, not the switch's.
+    let tools = tools(true);
+    assert!(!tools.call("start_conversation", &json!({"teammate": "Scout", "message": "Fix it.", "mode": "auto"})).is_error);
+}

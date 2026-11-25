@@ -3997,6 +3997,9 @@ mod an_app_started_turn;
 #[path = "unwritten_answer_tests.rs"]
 mod unwritten_answer;
 
+#[path = "approvals_from_the_window_tests.rs"]
+mod approvals_from_the_window;
+
 #[path = "a_comparison_runs_two_models_tests.rs"]
 mod a_comparison_runs_two_models;
 

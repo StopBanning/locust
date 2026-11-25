@@ -122,6 +122,7 @@ fn a_lone_delta_is_written_when_its_window_ends() {
 }
 
 // case: writes pending text before a run ending and drains the last fragment on process exit
+// case: collapses a burst of records into one durable append
 #[test]
 fn text_waiting_is_written_before_the_ending_and_the_last_on_flush() {
     let t = Temp::new();
@@ -195,6 +196,7 @@ fn paced_text_in_frame_and_fifty_millisecond_windows() {
 }
 
 // case: reads the entire batch from disk at send time and recovers it after a crash before send
+// case: still persists every event before any of them is emitted
 #[test]
 fn a_batch_is_on_disk_when_shown_and_survives_a_crash_before() {
     let t = Temp::new();

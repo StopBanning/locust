@@ -141,8 +141,11 @@ fn turns_every_tool_off_for_a_model_that_only_chats_and_only_for_it() {
     assert!(with_opencode_providers(json!({}), &[("own-a1b2".into(), acme_provider())]).unwrap().get("tools").is_none());
 }
 
+// case: changes nothing for any other OpenCode model
 #[test]
 fn changes_nothing_without_a_model_of_your_own_and_refuses_a_bad_id_or_address() {
+    // native.rs gives a run a provider only for a route is_own_route_model claims; OpenCode's own models are not.
+    assert!(!is_own_route_model("opencode/ling-3.0-flash-fin-free"));
     assert_eq!(with_opencode_providers(json!({"permission": {}}), &[]).unwrap(), json!({"permission": {}}));
     assert!(with_opencode_providers(json!({}), &[("Bad Id".into(), acme_provider())]).unwrap_err().contains("provider id"));
     let file = Provider { base_url: "file:///etc/passwd".into(), ..acme_provider() };
@@ -156,6 +159,7 @@ fn the_real_keychain_is_never_touched_in_a_test() {
     assert!(MacKeychain.seal("x").is_err() && MacKeychain.open("keychain:x").is_err());
 }
 
+// case: is declared to OpenCode for the run, key and all, in the child environment only
 #[test]
 fn a_run_on_your_own_model_carries_its_provider_in_the_environment_only() {
     let root = std::env::temp_dir().join(format!("locust-own-run-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
@@ -175,4 +179,18 @@ fn a_run_on_your_own_model_carries_its_provider_in_the_environment_only() {
     let mut again = std::process::Command::new("opencode");
     assert_eq!(add_provider_env(&mut again, &store, &route).unwrap_err(), "That model is no longer in Your own models. Choose another model for this teammate. Nothing was started.");
     let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_tests_own_stand_in_is_the_one_it_reads_whatever_another_test_puts_in_after_it() {
+    // cargo test runs every test in one process, each on a thread of its own: a stand-in another test puts in later
+    // must not take this test's keys, and a thread this test starts still reads a stand-in, never the real keychain.
+    let mine = Arc::new(Box_ { available: true, forgotten: Mutex::new(vec![]) });
+    use_secrets(mine.clone());
+    std::thread::spawn(|| use_secrets(Arc::new(Box_ { available: false, forgotten: Mutex::new(vec![]) }))).join().unwrap();
+    assert!(secrets().available(), "this test reads its own stand-in, not the one put in after it");
+    secrets().forget("sealed:x");
+    assert_eq!(mine.forgotten.lock().unwrap().clone(), vec!["sealed:x".to_owned()]);
+    // (Which one is the process's last: another test running beside this one may have put its own in since.)
+    assert!(std::thread::spawn(has_stand_in).join().unwrap(), "a thread with none of its own reads the one put in last");
 }

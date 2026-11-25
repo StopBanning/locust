@@ -277,6 +277,7 @@ fn a_real_start_on_a_fresh_ready_runtime_asks_nothing() {
 }
 
 // case: still sweeps for a runtime that was not ready, and for Antigravity
+// case: returns an actionable generic error when Codex is not ready
 #[test]
 fn a_real_start_on_a_signed_out_runtime_sweeps_and_is_refused_in_electrons_words_before_anything_is_recorded() {
     let t = Temp::new("signed-out");
@@ -312,6 +313,7 @@ fn your_own_agent_and_an_added_account_are_not_asked_the_default_sign_in() {
     assert!(crate::native::start_readiness_refusal("codex", None).is_some());
 }
 
+// case: says a runtime whose own service did not answer could not be reached, not that it is signed out (0.495)
 #[test]
 fn which_kind_of_not_ready_is_said_as_electron_says_it() {
     let found = |status: Probe, installed: bool| Found { installed, ..runtime("claude", status) };
@@ -325,6 +327,8 @@ fn which_kind_of_not_ready_is_said_as_electron_says_it() {
         not_ready_refusal("cursor", Some(&found(Probe::Offline, true))),
         "Cursor Agent could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model."
     );
+    let codex_down = not_ready_refusal("codex", Some(&runtime("codex", Probe::Offline)));
+    assert!(codex_down.contains("could not be reached just now") && !codex_down.contains("sign in"), "{codex_down}");
     assert_eq!(not_ready_refusal("opencode", Some(&found(Probe::ProbeFailed, true))), "OpenCode is not ready. Install or sign in to it, then retry discovery.");
 }
 

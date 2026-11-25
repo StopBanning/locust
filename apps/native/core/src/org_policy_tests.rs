@@ -382,3 +382,26 @@ fn refuses_an_unrestricted_cloud_terminal_when_it_cannot_enforce_the_managed_rou
 
     assert_eq!(cloud_terminal_refusal(Some(&state(json!({})))), None);
 }
+
+#[test]
+// case: refuses a saved route that exceeds the organizations ceiling
+fn a_saved_route_above_the_organizations_ceiling_is_refused_and_not_kept() {
+    let root = std::env::temp_dir().join(format!("locust-org-route-{}", crate::native::uuid_v4().unwrap()));
+    std::fs::create_dir_all(root.join("native")).unwrap();
+    std::fs::create_dir_all(root.join("electron")).unwrap();
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let id = crate::people::save_teammate_id(&store, json!({"name": "Wren", "hue": "lime", "role": "Code & Migrations"})).unwrap();
+    use_policy_on_this_thread(Some(state(json!({"monthlyLimitUsd": 10, "highestMode": "plan"}))));
+    let refused = crate::people::remember_route(&store, &id, &json!({"runtime": "codex", "model": "gpt-6", "mode": "auto"}));
+    let after_refusal = crate::people::team(&store).unwrap()["teammates"][0].get("route").cloned();
+    // A route at or under the ceiling is kept, so the refusal above is the ceiling's and not the route's shape.
+    let kept = crate::people::remember_route(&store, &id, &json!({"runtime": "codex", "model": "gpt-6", "mode": "plan"}));
+    use_policy_on_this_thread(None);
+    let saved = crate::people::team(&store).unwrap()["teammates"][0]["route"].clone();
+    let _ = std::fs::remove_dir_all(&root);
+    let why = refused.unwrap_err();
+    assert!(why.contains("highestMode"), "{why}");
+    assert_eq!(after_refusal, None, "a refused route is not saved");
+    kept.unwrap();
+    assert_eq!(saved, json!({"runtime": "codex", "model": "gpt-6", "mode": "plan"}));
+}

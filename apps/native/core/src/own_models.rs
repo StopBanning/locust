@@ -382,14 +382,27 @@ impl SecretBox for MacKeychain {
 
 static SECRETS: Mutex<Option<Arc<dyn SecretBox>>> = Mutex::new(None);
 
-/// The box this process keeps keys with: this Mac's keychain, unless a test put its own in.
+thread_local! {
+    /// The stand-in the test running on this thread put in. `cargo test` runs every test in one process, each on its
+    /// own thread: a test reads its own stand-in here, whichever stand-in another test put in the process-wide slot since.
+    static THIS_THREADS: std::cell::RefCell<Option<Arc<dyn SecretBox>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn this_threads() -> Option<Arc<dyn SecretBox>> {
+    THIS_THREADS.with(|own| own.borrow().clone())
+}
+
+/// The box this process keeps keys with: this Mac's keychain, unless a test put its own in. A thread that put one in
+/// reads its own; any other thread (a run's or a window's worker) reads the one put in last.
 pub fn secrets() -> Arc<dyn SecretBox> {
-    SECRETS.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_else(|| Arc::new(MacKeychain))
+    this_threads()
+        .or_else(|| SECRETS.lock().unwrap_or_else(|e| e.into_inner()).clone())
+        .unwrap_or_else(|| Arc::new(MacKeychain))
 }
 
 /// Whether a stand-in has been put in place of the keychain (the window's tests refuse the real one without it).
 pub fn has_stand_in() -> bool {
-    SECRETS.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+    this_threads().is_some() || SECRETS.lock().unwrap_or_else(|e| e.into_inner()).is_some()
 }
 
 /// A box that protects nothing, so keeps no key: what a test gets without a stand-in of its own.
@@ -406,8 +419,9 @@ impl SecretBox for NoBox {
     }
 }
 
-/// Tests keep keys in a stand-in, never the real keychain.
+/// Tests keep keys in a stand-in, never the real keychain: for the calling thread, and for the threads it starts.
 pub fn use_secrets(secrets: Arc<dyn SecretBox>) {
+    THIS_THREADS.with(|own| *own.borrow_mut() = Some(secrets.clone()));
     *SECRETS.lock().unwrap_or_else(|e| e.into_inner()) = Some(secrets);
 }
 

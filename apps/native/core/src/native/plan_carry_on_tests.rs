@@ -126,6 +126,7 @@ fn and_without_asking_says_why_when_it_could_not() {
     assert!(text.contains("Locust could not carry this on with Claude Code: Carry runs in Locust for now."), "{text}");
 }
 
+// case: is recorded as Locust's turn (v24), comes back so after a restart, and an older reader refuses it
 #[test]
 fn a_carried_turn_is_recorded_as_locusts_own_at_schema_twenty_four_or_later() {
     let t = Temp::new();
@@ -138,4 +139,60 @@ fn a_carried_turn_is_recorded_as_locusts_own_at_schema_twenty_four_or_later() {
     let header = &records(&path)[0];
     assert!(header["schemaVersion"].as_u64().unwrap_or(0) >= 24, "{header}");
     assert_eq!(header["metadata"]["startedBy"], json!({"kind": "carry-on", "from": "codex"}));
+    // Read again from disk, as after a restart: still Locust's carry-on.
+    let read = crate::ledger::read_metadata(&path).expect("the carried turn reads back");
+    assert_eq!(read.started_by_kind.as_deref(), Some("carry-on"));
+    // A v23 writer never carried a turn on, so a v23 file that says so is not believed.
+    let text = fs::read_to_string(&path).unwrap();
+    let (first, rest) = text.split_once('\n').unwrap();
+    let mut older: Value = serde_json::from_str(first).unwrap();
+    older["schemaVersion"] = json!(23);
+    fs::write(&path, format!("{older}\n{rest}")).unwrap();
+    assert!(crate::ledger::read_metadata(&path).is_none(), "an older reader refuses it");
+    // And a starter that names no agent is refused when it is written, leaving no file.
+    for starter in [json!({"kind": "carry-on", "from": "nobody"}), json!({"kind": "carry-on"})] {
+        let refused = crate::ledger_write::LedgerWriter::create_runtime_with(
+            &t.store(), "mission_plan_nobody", "Carry on", "account-default", "claude", "claude", &[], None,
+            &json!({"startedBy": starter}),
+        );
+        assert!(refused.is_err(), "{starter}");
+    }
+    assert!(!path_of(&t, "mission_plan_nobody").exists());
+}
+
+#[test]
+// case: checks a handoff target before stopping the existing run and sends resumes through start
+fn a_carry_on_target_the_organization_refuses_is_refused_before_anything_starts_and_can_be_pressed_again() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    team(&t, Value::Null);
+    stopped(&t, "mission_plan_policy", "codex", &[quota()]);
+    let policy = crate::org_policy::parse_policy(&json!({"allowedAgents": ["codex", "opencode"]}), &mut |_| {}).unwrap();
+    crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState { path: "/admin/policy.json".into(), present: true, policy, error: None }));
+    let refused = carry("mission_plan_policy", "claude", None);
+    crate::org_policy::use_policy_on_this_thread(None);
+    let why = refused.unwrap_err();
+    assert!(why.contains("allowedAgents") && why.contains("Nothing was started"), "{why}");
+    assert!(carried_from(&t, "mission_plan_policy").is_empty(), "a refused target records no turn");
+    // The stopped turn was left as it was: once the target is allowed, the same press carries it on.
+    let (id, _, _) = carry("mission_plan_policy", "claude", None).unwrap();
+    finished(&id);
+    assert_eq!(carried_from(&t, "mission_plan_policy").len(), 1);
+}
+
+// case: does not make the handed-to route the teammate's own
+#[test]
+fn a_carry_on_leaves_the_teammates_own_route_as_it_was() {
+    // App.tsx's handOffMission sets the picker's route only for a teammate that has none; native's start does the same
+    // (people::remember_route_of_start), so a teammate with a route keeps it after its turn is carried to another agent.
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    team(&t, Value::Null);
+    stopped(&t, "mission_plan_route", "codex", &[quota()]);
+    let before = crate::people::team(&t.store()).unwrap()["teammates"][0]["route"].clone();
+    assert_eq!(before["runtime"], "claude");
+    let (id, _, _) = carry("mission_plan_route", "opencode", None).unwrap();
+    finished(&id);
+    assert_eq!(carried_from(&t, "mission_plan_route")[0]["runtime"], "opencode", "the turn ran on the agent handed to");
+    assert_eq!(crate::people::team(&t.store()).unwrap()["teammates"][0]["route"], before, "and the teammate's own route is unchanged");
 }

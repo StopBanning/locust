@@ -68,7 +68,10 @@ fn record(store: &Store, id: &str, prompt: &str) {
     std::fs::write(store.ledger_dir().unwrap().join(format!("{id}.jsonl")), format!("{created}\n{ended}\n")).unwrap();
 }
 
-/// Read the history as the window does: `refresh_recent`, then `poll` until the read lists `id` (or a while passes).
+/// Read the history as the window does: one `refresh_recent`, then `poll` until the read lists `id` (or a while passes).
+/// The record is on disk before the read, so one read lists it. Asking again before `poll` took the answer threw that
+/// answer away (`Latest::request` drops one landed and not taken): in a release build the read and the team's land
+/// within one pass, so every pass asked again and dropped the answer it was waiting for.
 fn read_history(store: &Store, id: &str) -> Runtime<State> {
     let mut s = State::default();
     s.engine = Some(Kind::Native);
@@ -78,9 +81,6 @@ fn read_history(store: &Store, id: &str) -> Runtime<State> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     let mut now = 0.0;
     while !rt.state.recent.iter().any(|r| r.id == id) && std::time::Instant::now() < deadline {
-        if !rt.state.recents.is_pending() && !rt.state.team.is_pending() {
-            rt.update(|s, _| refresh_recent(s));
-        }
         rt.update(move |s, tx| {
             poll(s, now, tx);
         });
@@ -193,10 +193,6 @@ fn a_delete_is_remembered_and_written() {
 
 // case: checks every history read against that list
 #[test]
-// FOLLOW-UP (25 Nov, gate-0519): passes in debug; in a release test build the window's second history read never
-// answers within the 20 s (the first read's rows, with the record, do arrive). Not seen in the window's other
-// history tests. Skipped in release only until it is found; listed in the morning report.
-#[cfg_attr(not(debug_assertions), ignore = "release-only: the second history read stays pending (follow-up 25 Nov)")]
 fn a_history_read_that_brings_one_back_is_written() {
     let (_dirs, store, _hook) = deleted_then_back("m_back_2", "Plan the launch");
     let rt = read_history(&store, "m_back_2");
