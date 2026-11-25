@@ -3965,3 +3965,28 @@ mod qa_0365_concurrency;
 #[cfg(test)]
 #[path = "a_streamed_batch_is_written_tests.rs"]
 mod a_streamed_batch_is_written_tests;
+
+// case: refuses a forbidden Cursor effort variant before recording or dispatching a turn
+#[test]
+fn refuses_a_forbidden_cursor_effort_variant_before_recording_or_dispatching_a_turn() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"allowedModels": {"cursor": ["family-low"]}}));
+    use_cursor_catalog_on_this_thread(Some(vec![json!({"id": "family-low", "runtime": "cursor", "variants": {"low": "family-low", "high": "family-high"}})]));
+    struct Forget;
+    impl Drop for Forget {
+        fn drop(&mut self) {
+            use_cursor_catalog_on_this_thread(None);
+        }
+    }
+    let _forget = Forget;
+    let mut asked = job(&t, None, "Work");
+    asked.teammate.runtime = Some("cursor".into());
+    asked.teammate.runs_in = "accept-edits".into();
+    asked.model = Some("family-low".into());
+    asked.effort = Some("high".into());
+    let refused = send(asked).err().expect("refused");
+    assert!(refused.contains("(allowedModels in /admin/policy.json)"), "{refused}");
+    assert_eq!(turns_recorded(&store), 0, "nothing was recorded");
+}

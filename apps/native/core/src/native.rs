@@ -2576,6 +2576,25 @@ pub fn send(job: Send) -> Result<Started, String> {
     send_from(job, Origin::default())
 }
 
+thread_local! {
+    #[cfg(test)]
+    static CURSOR_CATALOG: std::cell::RefCell<Option<Vec<Value>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The models Cursor's effort variants are looked up in: this computer's catalog, or a test's own on its thread.
+fn cursor_catalog() -> Vec<Value> {
+    #[cfg(test)]
+    if let Some(models) = CURSOR_CATALOG.with(|c| c.borrow().clone()) {
+        return models;
+    }
+    crate::models::local()
+}
+
+#[cfg(test)]
+pub(crate) fn use_cursor_catalog_on_this_thread(models: Option<Vec<Value>>) {
+    CURSOR_CATALOG.with(|c| *c.borrow_mut() = models);
+}
+
 /// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
@@ -2870,12 +2889,26 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // that variant's id; one it does not list stays, and is refused in words below.
     // With no model there is no family to look in, so the catalog is not read.
     let model = if runtime_name == "cursor" && job.effort.is_some() && model.is_some() {
-        let (chosen, effort) = crate::models::cursor_choice_for(&crate::models::local(), model.as_deref(), job.effort.as_deref());
+        let (chosen, effort) = crate::models::cursor_choice_for(&cursor_catalog(), model.as_deref(), job.effort.as_deref());
         job.effort = effort;
         chosen
     } else {
         model
     };
+    // codex-mission.ts: the variant an effort picked crosses the organization's model list too, so a family the policy
+    // allows cannot reach a variant it does not (`family-low` allowed, `high` asked for, `family-high` refused).
+    if runtime_name == "cursor"
+        && let Some(why) = crate::org_policy::turn_refusal(
+            Some(&policy),
+            runtime_name,
+            model.as_deref(),
+            mode.as_str(),
+            false,
+            effective_account.is_some(),
+        )
+    {
+        return Err(why);
+    }
     // codex-mission.ts: options that cannot be turned into a command are refused before the mission is written, so no
     // record is left of a run that never existed. Cursor takes no effort level beyond its model's variants.
     if runtime_name == "cursor"
