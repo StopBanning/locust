@@ -598,6 +598,7 @@ pub(super) fn pull_link_chip(link: &LinkedPullRequest, p: &Palette) -> El {
     let hover = pull_link_hover(link);
     let word = pull_link_word(link.state);
     let mut chip = row()
+        .key("pr-link-chip")
         .py(2.0)
         .px(7.0)
         .gap(5.0)
@@ -615,9 +616,54 @@ pub(super) fn pull_link_chip(link: &LinkedPullRequest, p: &Palette) -> El {
             PullLinkChecks::Passing => "green",
             PullLinkChecks::None => "text-muted",
         };
-        chip = chip.child(el().size(6.0, 6.0).radius(3.0).fill(l.c(dot_tone)));
+        chip = chip.child(el().key("pr-link-mark").size(6.0, 6.0).radius(3.0).fill(l.c(dot_tone)));
     }
     chip
+}
+
+/// Renders a person's message words, turning bare GitHub pull-request/issue URLs and markdown links into clickable links.
+pub(super) fn linked_words(body: &str, style: rune::TextStyle, p: &Palette) -> El {
+    let pieces = conversation_pieces(body);
+    let has_link = pieces.iter().any(|piece| matches!(piece, ConversationPiece::Link { .. }));
+    if !has_link {
+        return text(body.to_owned())
+            .font(style)
+            .color(p.text)
+            .shrink()
+            .wrap_anywhere()
+            .selectable(true);
+    }
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut line = row().flex_wrap().shrink();
+    for piece in pieces {
+        match piece {
+            ConversationPiece::Text(words) => {
+                line = line.child(
+                    text(words)
+                        .font(style)
+                        .color(p.text)
+                        .shrink()
+                        .wrap_anywhere()
+                        .selectable(true),
+                );
+            }
+            ConversationPiece::Link { text: label, href, .. } => {
+                let url = href.clone();
+                line = line.child(
+                    text(label)
+                        .key("user-link")
+                        .font(style)
+                        .color(l.c("blue"))
+                        .shrink()
+                        .wrap_anywhere()
+                        .role("link")
+                        .label(href)
+                        .on_press(move |s: &mut State| open_github_url(s, &url)),
+                );
+            }
+        }
+    }
+    line
 }
 
 /// Chip for a linked GitHub issue in a conversation reply.
@@ -812,8 +858,10 @@ mod tests {
 
     // --- a-pull-request-link-wears-its-state.test.tsx ---
 
+    // case: wears the state in words, and the checks as one mark
     #[test]
     fn pull_link_chip_wears_state_in_words_and_hover() {
+        let l = crate::look::controls::Look::new(true);
         let running = LinkedPullRequest {
             state: PullRequestState::Open,
             checks: PullLinkChecks::Running,
@@ -826,6 +874,8 @@ mod tests {
         let t1 = collect_text(&rt1);
         assert!(t1.contains("Open"));
         assert!(t1.contains("Open · 3 of 4 checks passed · 1 running"));
+        let mark1 = rt1.elements().into_iter().find(|e| e.key.as_deref() == Some("pr-link-mark")).expect("running mark");
+        assert_eq!(mark1.fill, l.c("amber"));
 
         let failing = LinkedPullRequest {
             state: PullRequestState::Open,
@@ -837,6 +887,8 @@ mod tests {
         };
         let rt2 = render_tree(move |_| pull_link_chip(&failing, &Palette::new(true)));
         assert!(collect_text(&rt2).contains("Open · 1 of 2 checks passed · 1 failing"));
+        let mark2 = rt2.elements().into_iter().find(|e| e.key.as_deref() == Some("pr-link-mark")).expect("failing mark");
+        assert_eq!(mark2.fill, l.c("red"));
 
         let merged = LinkedPullRequest {
             state: PullRequestState::Merged,
@@ -850,6 +902,7 @@ mod tests {
         let t3 = collect_text(&rt3);
         assert!(t3.contains("Merged"));
         assert!(!t3.contains("checks"));
+        assert!(rt3.find("pr-link-mark").is_none(), "no checks mark once merged");
     }
 
     // --- pull-request-news-is-said.test.tsx ---

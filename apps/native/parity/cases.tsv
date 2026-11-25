@@ -4221,8 +4221,8 @@ apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads every few m
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads nothing when gh cannot	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
-apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
-apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	yes
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	chooses that option of the first question still without one	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	answers the question the focus is in, even one already answered	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing while typing, with a modifier held, past the options, or for other keys	yes
