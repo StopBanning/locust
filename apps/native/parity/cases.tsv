@@ -2035,9 +2035,9 @@ apps/desktop/src/main/forget-hits-one-memory.test.ts	says nothing matched when t
 apps/desktop/src/main/free-routes.test.ts	knows the free routes the drives use	yes
 apps/desktop/src/main/free-routes.test.ts	does not call a route free because of its runtime or a word in its name	yes
 apps/desktop/src/main/free-routes.test.ts	knows every free model OpenCode 1.18.27 lists	yes
-apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	no
-apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	no
-apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	no
+apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	yes
+apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	yes
+apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	lists six tools, every one marked read only	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	reads what a review needs: the change, the history, a file as it was	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of the same size made in the same second as the index was written	yes
