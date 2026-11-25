@@ -266,6 +266,7 @@ pub fn print_args(o: &PrintOptions) -> Result<Vec<String>, String> {
             args.push("--fork-session".into());
         }
     }
+    super::safety::assert_safe_runtime_command("claude", &args, Some(o.mode.sandbox()))?;
     Ok(args)
 }
 

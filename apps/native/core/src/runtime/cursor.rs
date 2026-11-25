@@ -114,6 +114,7 @@ pub fn print_args(
         args.push("--resume".into());
         args.push(resume.into());
     }
+    super::safety::assert_safe_runtime_command("cursor", &args, Some(sandbox)).map_err(err)?;
     Ok(args)
 }
 
