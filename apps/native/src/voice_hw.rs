@@ -351,8 +351,8 @@ impl Audio for NativeAudio {
         Err("Talk is not here yet.".into())
     }
 
-    fn play(&self, _audio: &[u8]) -> Result<Box<dyn Playback>, String> {
-        Err("Audio playback is not here yet.".into())
+    fn play(&self, audio: &[u8]) -> Result<Box<dyn Playback>, String> {
+        crate::voice_hw_play::play_audio(audio)
     }
 }
 

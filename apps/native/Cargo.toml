@@ -38,6 +38,8 @@ image = { version = "0.25", default-features = false, features = ["webp"] }
 # Native microphone capture and audio playback (voice typing and previews).
 cpal = "0.18"
 rubato = "5.1"
+opus2 = { version = "0.4", default-features = false, features = ["backend-mousiki"] }
+webm-iterable = "0.7"
 
 [dev-dependencies]
 locust-core = { path = "core", features = ["test-hooks"] }
