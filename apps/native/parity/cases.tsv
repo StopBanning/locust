@@ -1528,21 +1528,21 @@ apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	refuses, with 
 apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	lets the command run when the guard cannot be started, as OpenCode does for a plugin it cannot load	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the machine-wide path on each platform and ignores the test override in a packaged app	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	leaves a missing file unrestricted and never creates it	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reads a development override once without changing its bytes	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	accepts a UTF-8 byte order mark from Windows deployment tools	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	skips an unknown key with one log line	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reads a development override once without changing its bytes	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	accepts a UTF-8 byte order mark from Windows deployment tools	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	skips an unknown key with one log line	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed for broken JSON and names its file in every refusal	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed on an unreadable file and an invalid override	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reports an invalid known setting and an oversized file as blocking errors	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	validates every optional setting and rejects a malformed known key	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	enforces every mode ceiling in the documented authority order	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	allows only listed agents, including all own ACP agents under one runtime id	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	matches only allowed model ids with literal punctuation and star wildcards	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	cannot use an unresolved default to escape a model allowlist	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed on an unreadable file and an invalid override	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reports an invalid known setting and an oversized file as blocking errors	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	validates every optional setting and rejects a malformed known key	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	enforces every mode ceiling in the documented authority order	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	allows only listed agents, including all own ACP agents under one runtime id	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	matches only allowed model ids with literal punctuation and star wildcards	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	cannot use an unresolved default to escape a model allowlist	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode	no
