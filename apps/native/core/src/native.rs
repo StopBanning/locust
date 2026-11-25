@@ -1985,7 +1985,7 @@ fn org_spend_gate(store: &Store, policy: &crate::org_policy::PolicyState, owners
     let unreadable = || crate::org_policy::policy_refusal(policy, "monthlyLimitUsd", "The monthly spending limit could not be checked. Ask your administrator to restore access to the spending record.");
     let now = chrono::Local::now();
     let month = crate::spend::month_of(&now.to_rfc3339()).ok_or_else(unreadable)?;
-    let turns = crate::usage_ledger::usage_turns(store).map_err(|_| unreadable())?;
+    let turns = crate::usage_ledger::usage_turns_readable(store).map_err(|_| unreadable())?;
     let spent = if owned {
         crate::spend::spent_by(&turns, &month, |conversation| owners[conversation] == teammate.id.as_str())
     } else {

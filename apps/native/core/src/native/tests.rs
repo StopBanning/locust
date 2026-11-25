@@ -2080,6 +2080,80 @@ fn checks_the_monthly_cap_even_when_a_turn_has_no_teammate_owner() {
 }
 
 #[test]
+fn uses_receipts_for_the_current_month_and_refuses_at_the_effective_cap() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"monthlyLimitUsd": 10, "highestMode": "plan"}));
+    let now = chrono::Local::now();
+    let owners = json!({"mission_old": "tm_codec", "mission_plan": "tm_codec", "mission_priced": "tm_codec"});
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "monthlyLimitUsd": 50}], "missionOwners": owners, "settings": {}}))
+        .unwrap();
+    // Last month's spending and a plan's runs do not count toward this month's cap.
+    spend_receipt(&t, "mission_old", 100.0, &(now - chrono::Duration::days(62)).to_rfc3339(), false);
+    spend_receipt(&t, "mission_plan", 100.0, &now.to_rfc3339(), true);
+    let started = send(job(&t, None, "Work")).expect("under the cap it starts");
+    wait("the turn to end", || !owns(&started.conversation_id));
+    spend_receipt(&t, "mission_priced", 10.0, &now.to_rfc3339(), false);
+    let refused = send(job(&t, None, "Work")).err().expect("refused");
+    assert_eq!(
+        refused,
+        "Codec has reached this month's effective limit of 10.00 USD. It starts again next month. Set by your organization (monthlyLimitUsd in /admin/policy.json). Nothing was started."
+    );
+}
+
+#[test]
+fn also_caps_unowned_turns_and_cannot_escape_by_naming_a_missing_teammate() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"monthlyLimitUsd": 10, "highestMode": "plan"}));
+    store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec"}], "missionOwners": {}, "settings": {}})).unwrap();
+    spend_receipt(&t, "mission_unowned", 10.0, &chrono::Local::now().to_rfc3339(), false);
+    // Codec's own receipts are none, but nobody's turn counts toward the organization's cap...
+    assert!(send(job(&t, None, "Work")).is_ok_and(|started| {
+        wait("the turn to end", || !owns(&started.conversation_id));
+        true
+    }));
+    // ...and a teammate the roster does not hold is nobody: the month's receipts refuse it.
+    let mut missing = job(&t, None, "Work");
+    missing.teammate.id = "tm_missing".into();
+    let refused = send(missing).err().expect("refused");
+    assert!(refused.contains("monthlyLimitUsd") && refused.contains("10.00 USD"), "{refused}");
+}
+
+#[test]
+fn fails_closed_when_a_managed_spending_record_cannot_be_checked() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"monthlyLimitUsd": 10, "highestMode": "plan"}));
+    // The spending record's folder cannot be listed.
+    fs::remove_dir_all(t.electron().join("mission-ledger")).unwrap();
+    fs::write(t.electron().join("mission-ledger"), "not a folder").unwrap();
+    let refused = send(job(&t, None, "Work")).err().expect("refused");
+    assert_eq!(
+        refused,
+        "The monthly spending limit could not be checked. Ask your administrator to restore access to the spending record. Set by your organization (monthlyLimitUsd in /admin/policy.json). Nothing was started."
+    );
+    assert_eq!(turns_recorded(&store), 0);
+}
+
+#[test]
+fn fails_closed_if_even_one_saved_receipt_has_become_unreadable() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"monthlyLimitUsd": 10, "highestMode": "plan"}));
+    spend_receipt(&t, "mission_damaged", 10.0, &chrono::Local::now().to_rfc3339(), false);
+    fs::write(t.electron().join("mission-ledger").join("mission_damaged.jsonl"), "{broken").unwrap();
+    let refused = send(job(&t, None, "Work")).err().expect("refused");
+    assert!(refused.contains("could not be checked") && refused.contains("/admin/policy.json"), "{refused}");
+    assert_eq!(turns_recorded(&store), 0);
+}
+
+#[test]
 fn slot_instructions_override_brief_and_sealed_omits_candidate_skill() {
     let t = Temp::new();
     let store = t.store();

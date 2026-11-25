@@ -706,10 +706,10 @@ apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	refuses a higher limit or no limit and permits a lower personal amount	no
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	keeps Auto off for old preferences and forged writes without changing other switches	no
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	refuses a saved route that exceeds the organizations ceiling	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	uses receipts for the current month and refuses at the effective cap	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	also caps unowned turns and cannot escape by naming a missing teammate	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed when a managed spending record cannot be checked	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed if even one saved receipt has become unreadable	no
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	uses receipts for the current month and refuses at the effective cap	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	also caps unowned turns and cannot escape by naming a missing teammate	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed when a managed spending record cannot be checked	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed if even one saved receipt has become unreadable	yes
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	reads a lossless sheet, an extended one and a lossy one	yes
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	refuses what is not a WebP, or a file cut short	no
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	is exact for a version 2 sheet, and transparent	yes
