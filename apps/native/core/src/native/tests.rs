@@ -1979,6 +1979,106 @@ fn a_managed_turn_is_refused_before_an_agent_starts() {
     wait("the turn to end", || !owns(&started.conversation_id));
 }
 
+/// An organization's policy on this test's thread only, opened again when the test ends however it ends.
+struct ManagedHere;
+impl ManagedHere {
+    fn with(policy: Value) -> Self {
+        let mut skipped = Vec::new();
+        crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState {
+            path: "/admin/policy.json".into(),
+            present: true,
+            policy: crate::org_policy::parse_policy(&policy, &mut |k| skipped.push(k.to_owned())).unwrap(),
+            error: None,
+        }));
+        ManagedHere
+    }
+}
+impl Drop for ManagedHere {
+    fn drop(&mut self) {
+        crate::org_policy::use_policy_on_this_thread(None);
+    }
+}
+
+/// A spending receipt in the ledger: a finished run that cost `usd` (on a plan when `plan`), ended `at`.
+fn spend_receipt(t: &Temp, id: &str, usd: f64, at: &str, plan: bool) {
+    let usage = if plan { json!({"usd": usd, "billing": "subscription"}) } else { json!({"usd": usd}) };
+    let lines = [
+        json!({"recordType": "mission.created", "metadata": {"missionId": id, "runtime": "opencode", "model": "provider/model", "createdAt": at}}),
+        json!({"recordType": "event", "event": {"type": "run.completed", "occurredAt": at, "sourceAdapter": "opencode", "payload": {"usage": usage}}}),
+    ];
+    let text: String = lines.iter().map(|l| format!("{l}\n")).collect();
+    fs::write(t.electron().join("mission-ledger").join(format!("{id}.jsonl")), text).unwrap();
+}
+
+fn turns_recorded(store: &Store) -> usize {
+    fs::read_dir(store.ledger_dir().unwrap()).map(|d| d.count()).unwrap_or(0)
+}
+
+// case: refuses agents, models, modes, cloud turns and broken policies before discovery or recording
+#[test]
+fn each_managed_refusal_names_its_setting_before_the_turn_is_recorded() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    for (policy, mode, setting) in [
+        (json!({"allowedAgents": ["claude"]}), "ask", "allowedAgents"),
+        (json!({"allowedModels": {"codex": ["safe"]}}), "ask", "allowedModels"),
+        (json!({"highestMode": "plan"}), "accept-edits", "highestMode"),
+    ] {
+        let _managed = ManagedHere::with(policy);
+        let mut asked = job(&t, None, "Do work");
+        asked.teammate.runs_in = mode.into();
+        let refused = send(asked).err().expect("refused");
+        assert!(refused.contains(&format!("({setting} in /admin/policy.json)")) && refused.ends_with("Nothing was started."), "{refused}");
+    }
+    // A broken policy refuses in its own words.
+    crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState {
+        path: "/admin/policy.json".into(),
+        present: true,
+        policy: serde_json::Map::new(),
+        error: Some("Fix /admin/policy.json. Nothing can start.".into()),
+    }));
+    let broken = send(job(&t, None, "Do work")).err();
+    crate::org_policy::use_policy_on_this_thread(None);
+    assert_eq!(broken.as_deref(), Some("Fix /admin/policy.json. Nothing can start."));
+    // A cloud turn crosses the same gate with its cloud flag (cloud computers start from their own panel, not here).
+    let mut skipped = Vec::new();
+    let cloud_off = crate::org_policy::PolicyState { path: "/admin/policy.json".into(), present: true, policy: crate::org_policy::parse_policy(&json!({"cloud": false}), &mut |k| skipped.push(k.to_owned())).unwrap(), error: None };
+    assert!(crate::org_policy::turn_refusal(Some(&cloud_off), "codex", Some("safe"), "ask", true, false).unwrap().contains("(cloud in /admin/policy.json)"));
+    assert_eq!(turns_recorded(&store), 0, "a refused turn recorded something");
+}
+
+#[test]
+fn gates_antigravity_before_probing_its_app() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"highestMode": "approve-each"}));
+    let mut asked = job(&t, None, "Work");
+    asked.teammate.runtime = Some("antigravity".into());
+    asked.teammate.runs_in = "accept-edits".into();
+    asked.model = Some("flash".into());
+    let refused = send(asked).err().expect("refused");
+    assert!(refused.contains("highestMode") && refused.contains("Accept edits exceeds the highest allowed mode, Approve each."), "{refused}");
+    assert_eq!(turns_recorded(&store), 0);
+}
+
+#[test]
+fn checks_the_monthly_cap_even_when_a_turn_has_no_teammate_owner() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    let _managed = ManagedHere::with(json!({"monthlyLimitUsd": 10}));
+    spend_receipt(&t, "mission_unowned", 10.0, &chrono::Local::now().to_rfc3339(), false);
+    // tm_codec is in no roster: its turn is nobody's, and the whole month's receipts count.
+    let refused = send(job(&t, None, "Work")).err().expect("refused");
+    assert_eq!(
+        refused,
+        "Locust has reached this month's effective limit of 10.00 USD. It starts again next month. Set by your organization (monthlyLimitUsd in /admin/policy.json). Nothing was started."
+    );
+    assert_eq!(turns_recorded(&store), 0);
+}
+
 #[test]
 fn slot_instructions_override_brief_and_sealed_omits_candidate_skill() {
     let t = Temp::new();

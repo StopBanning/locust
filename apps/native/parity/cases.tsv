@@ -608,12 +608,12 @@ apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	a Mac window is made with 
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	its ground is clear, set after the theme's, and a theme change does not paint over it	yes
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the page marks itself glass only in the Mac window, never in a browser, the loading window or the cover	yes
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the sheet lets the glass through the sidebar and the title bar, and every other pane keeps a ground	yes
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	no
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	yes
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	yes
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates voice calls and voice previews before discovering or spawning Codex	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	cancels a voice start still waiting for its policy check	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	no
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved phone opt-in and refuses forged pairing without a listener or key	yes
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	records it, and when counting began; at most once a day, so a day of runs is one write	yes
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an id it does not keep, is not noted	yes
