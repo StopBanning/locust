@@ -9,32 +9,32 @@ apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	stops a co
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	stops everything the command started, and the shell itself only when that fails	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	lists a nested command and runs a global bang at once	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	waits for a yes before a project command runs a bang, then remembers the folder	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not roll a file that does not exist yet	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not roll a small one	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	rolls at the cap	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	keeps one generation, so a crash loop cannot fill a disk	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	still writes the line when the roll fails	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	carries the time, the label and the detail	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	never writes a blank detail, which reads as a truncated file	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a renderer that died	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a child process that died	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a window that stopped answering, and that it came back	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not log a window being closed on purpose	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	says what a death was, in words and in the raw token	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not pretend to recognise a reason it does not	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	names the build, the platform and whether it was packaged	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	distinguishes a development run, which reports different bugs	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	is built from no path, at the call site where a path could get in	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	starts the crash reporter with uploading off	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	starts it before the app is ready, since a startup crash is one worth catching	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	has a place in Settings that says what to send	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	says what is in it, because sending a file is a decision	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	reveals rather than opens	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	takes no path from the renderer at all	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	remembers what it deleted	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	checks every history read against that list	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	records ids and never a prompt, because this file is made to be sent	no
-apps/desktop/src/main/a-beta-can-report-itself.test.ts	forgets across restarts, since a durable list of deletions is the opposite of the point	no
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not roll a file that does not exist yet	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not roll a small one	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	rolls at the cap	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	keeps one generation, so a crash loop cannot fill a disk	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	still writes the line when the roll fails	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	carries the time, the label and the detail	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	never writes a blank detail, which reads as a truncated file	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a renderer that died	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a child process that died	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	records a window that stopped answering, and that it came back	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not log a window being closed on purpose	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	says what a death was, in words and in the raw token	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	does not pretend to recognise a reason it does not	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	names the build, the platform and whether it was packaged	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	distinguishes a development run, which reports different bugs	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	is built from no path, at the call site where a path could get in	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	starts the crash reporter with uploading off	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	starts it before the app is ready, since a startup crash is one worth catching	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	has a place in Settings that says what to send	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	says what is in it, because sending a file is a decision	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	reveals rather than opens	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	takes no path from the renderer at all	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	remembers what it deleted	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	checks every history read against that list	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	records ids and never a prompt, because this file is made to be sent	yes
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	forgets across restarts, since a durable list of deletions is the opposite of the point	yes
 apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	is never refused for its size: it works in the folder itself	yes
 apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	the menu never greys Auto out for it	yes
 apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	keeping one brings nothing in: its changes are already there	yes

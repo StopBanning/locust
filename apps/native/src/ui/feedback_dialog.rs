@@ -31,6 +31,8 @@ pub(super) struct Panel {
     pub last_sent: Option<FeedbackSent>,
     /// Test hook: when true, Send/Email record `last_sent` without launching the OS browser/mail app.
     pub suppress_os_open: bool,
+    /// The file Show the log last revealed in the file manager.
+    pub revealed: Option<PathBuf>,
 }
 
 pub(super) fn open(s: &mut State, conversation: Option<String>) {
@@ -44,6 +46,7 @@ pub(super) fn open(s: &mut State, conversation: Option<String>) {
         error: None,
         last_sent: None,
         suppress_os_open: suppress,
+        revealed: None,
     };
 }
 
@@ -181,13 +184,22 @@ pub(super) fn save_file(s: &mut State, tx: &mut Tx) {
     });
 }
 
-pub(super) fn settings_section(s: &State, p: &Palette) -> El {
+/// Show the log: reveal it in the file manager, never open or run it (`shell.showItemInFolder(errorLog())`). The press
+/// carries nothing: the one answer is the data folder's own log.
+fn show_log(s: &mut State) {
+    let Some(root) = s.data.as_ref().map(|d| d.root().to_path_buf()) else { return };
+    let path = locust_core::diagnostic_log::log_path(&root);
+    s.feedback_dialog.revealed = Some(path.clone());
+    if s.feedback_dialog.suppress_os_open {
+        return;
+    }
+    if crate::file_menu::reveal_path(&path).is_err() {
+        s.settings_panel.error = format!("Error log: {}", path.display());
+    }
+}
+
+pub(super) fn settings_section(_s: &State, p: &Palette) -> El {
     let l = Look::new(p.dark);
-    let log_path = s
-        .data
-        .as_ref()
-        .map(|d| d.root().join("locust-errors.log").display().to_string())
-        .unwrap_or_default();
     col()
         .w_full()
         .gap(6.0)
@@ -205,11 +217,7 @@ pub(super) fn settings_section(s: &State, p: &Palette) -> El {
                 .child(
                     ghost_button(&l, "Show the log")
                         .key("settings-show-log")
-                        .on_press(move |s: &mut State| {
-                            if !log_path.is_empty() {
-                                s.settings_panel.error = format!("Error log: {log_path}");
-                            }
-                        }),
+                        .on_press(show_log),
                 )
                 .child(
                     primary_button(&l, "Send feedback", false)
@@ -330,3 +338,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             ),
     )
 }
+
+#[cfg(test)]
+#[path = "a_beta_reports_itself_tests.rs"]
+mod a_beta_reports_itself_tests;
