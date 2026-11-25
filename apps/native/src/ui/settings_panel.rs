@@ -69,6 +69,8 @@ pub(super) struct Panel {
     pub update_refusal: Option<String>,
     pub update_installing: bool,
     pub update_service: Option<locust_core::updates::UpdateService<Box<dyn locust_core::updates::UpdaterLike>>>,
+    /// "Voice typing": the model picked, whether a key is kept, and the key field.
+    pub voice: crate::voice_settings::Line,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -209,6 +211,7 @@ fn reload(s: &mut State) {
             read_login_item(s);
             crate::phone_section::read(s);
             crate::your_account_section::read(s);
+            crate::voice_settings::read(s);
         }
     }
     crate::agents_section::request(s);
@@ -395,7 +398,7 @@ fn boot_screen_line(s: &State, p: &Palette) -> El {
 /// A setting that is one control, drawn as one line (`.lc-settings__section--line` > `.lc-settingline`): a hairline
 /// above it, no card and no fill, the name and description on the left (`words`) and the control on the right. The
 /// line is `key`; its hairline is `<key>-hairline` and the row under it `<key>-row`.
-fn line(l: &crate::look::controls::Look, key: &str, indent: f32, words: El, control: El) -> El {
+pub(crate) fn line(l: &crate::look::controls::Look, key: &str, indent: f32, words: El, control: El) -> El {
     col()
         .key(key.to_owned())
         .w_full()
@@ -1345,6 +1348,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     if let Some(remote) = crate::remote_mcp_card::section(s, p) {
                         body = body.child(remote);
                     }
+                } else if heading == crate::voice_settings::HEADING {
+                    body = body.child(crate::voice_settings::section(s, p));
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Updates" {

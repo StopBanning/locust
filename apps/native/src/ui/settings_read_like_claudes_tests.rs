@@ -112,6 +112,7 @@ const LINES: &[(SettingsPageId, &str, &str, &str)] = &[
     (SettingsPageId::Appearance, "What a face says", "settings-face-legend-row", "settings-face-legend"),
     (SettingsPageId::Appearance, "Sidebar", "settings-line-sidebar", "Rail"),
     (SettingsPageId::Appearance, "Boot screen", "settings-line-boot-screen", "settings-boot-screen-off"),
+    (SettingsPageId::App, "Voice typing", "settings-line-voice-typing", "settings-voice-typing"),
 ];
 
 #[test]
@@ -145,9 +146,8 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
     }
 }
 
-// Electron's ten: Swarm was cut (0.880, see swarm.test.ts's row), and Voice typing's control (the model picker and the
-// OpenAI key, voice_typing.rs) is the voice lane's, so it still says "runs in Locust for now". The others are held here,
-// with Code font, which Rust draws as a line too.
+// Electron's ten: Swarm was cut (0.880, see swarm.test.ts's row); the other nine are held here (Voice typing's control is
+// its model picker with the key under it, voice_settings.rs), with Code font, which Rust draws as a line too.
 #[test]
 fn draws_a_setting_that_is_one_control_as_one_line_name_and_description_left_the_control_right() {
     for (page, name, key, control) in LINES {
