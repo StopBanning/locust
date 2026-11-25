@@ -8261,9 +8261,6 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says o
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	yes
-packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	no
 packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is named in the same --mcp-config as the permission bridge, which stays with its prompt tool	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes
