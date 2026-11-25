@@ -2238,25 +2238,25 @@ apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that list
 apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are Muse Wonder 1.0 first, then Muse Spark 1.3, each with Muse Code's own eight efforts at its default	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are offered only when Muse Code is ready here	yes
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	says what it would have ended, to leave it running, and never to go and find its ids	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the id is the person’s Chrome, as it was ended on 2026-10-10	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped for the person’s editor, another teammate’s agent, this run’s own agent, and Locust	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when a teammate started it -- its own test browser, its own server -- or it is nobody’s to protect	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads the ids as each tool writes them	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads ids written out and ended through a variable	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when every process the filter matches is one a teammate started	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the filter also matches the person’s own	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as before when the narrowing cannot be read exactly, or the table cannot be read	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	never lets a filter reach Locust or this run’s own agent	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs: starting a browser, and the ordinary work of a turn	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads commands, not meaning: one that only writes such a command down is stopped too	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is let through when the question cannot be read	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	answers a refused command with a deny Claude Code reads, and anything else with nothing	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine’s real process table when an id is ended, and leaves an id nobody runs alone	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	no
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	says what it would have ended, to leave it running, and never to go and find its ids	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the id is the person’s Chrome, as it was ended on 2026-10-10	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped for the person’s editor, another teammate’s agent, this run’s own agent, and Locust	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when a teammate started it -- its own test browser, its own server -- or it is nobody’s to protect	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads the ids as each tool writes them	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads ids written out and ended through a variable	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when every process the filter matches is one a teammate started	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the filter also matches the person’s own	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as before when the narrowing cannot be read exactly, or the table cannot be read	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	never lets a filter reach Locust or this run’s own agent	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs: starting a browser, and the ordinary work of a turn	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads commands, not meaning: one that only writes such a command down is stopped too	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is let through when the question cannot be read	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	answers a refused command with a deny Claude Code reads, and anything else with nothing	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine’s real process table when an id is ended, and leaves an id nobody runs alone	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	yes
 apps/desktop/src/main/npm-precondition.test.ts	says so when npm is not there	yes
 apps/desktop/src/main/npm-precondition.test.ts	says so when it is	yes
 apps/desktop/src/main/npm-precondition.test.ts	assumes it is there when nobody asked	yes

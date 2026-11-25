@@ -5,7 +5,26 @@
 //! `apps/desktop/resources/locust-command-guard.mjs` (`stoppedBecause`).
 
 use regex::Regex;
+use std::collections::BTreeMap;
 use std::sync::LazyLock;
+
+/// One running process, as read from the OS process table (`GuardedProcess` in locust-command-guard.mjs).
+#[derive(Clone, Debug)]
+pub struct GuardedProcess {
+    pub ppid: u32,
+    pub name: String,
+    pub line: String,
+    pub created: u64,
+}
+
+/// A snapshot of the process table and where this run sits in it (`ProcessLook` in locust-command-guard.mjs).
+#[derive(Clone, Debug)]
+pub struct ProcessLook {
+    pub table: BTreeMap<u32, GuardedProcess>,
+    pub root: u32,
+    pub agent: Option<u32>,
+    pub above: Vec<u32>,
+}
 
 /// Context for a guard check without a live process table.
 pub struct GuardContext {
@@ -363,14 +382,16 @@ fn by_id_refusal(pid: u32, entry: &EndEntry) -> String {
 
 /// Process ids a command ends BY ID, as written in it.
 pub fn ended_ids(command: &str) -> Vec<u32> {
-    let mut ids = std::collections::BTreeSet::new();
-    let add = |ids: &mut std::collections::BTreeSet<u32>, text: &str| {
+    let mut ids = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut add = |text: &str| {
         for one in text.split(|c: char| c.is_whitespace() || c == ',') {
             if let Ok(n) = one.parse::<u32>()
                 && (1..=999_999_999).contains(&n)
                 && one.chars().all(|c| c.is_ascii_digit())
+                && seen.insert(n)
             {
-                ids.insert(n);
+                ids.push(n);
             }
         }
     };
@@ -382,61 +403,52 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
             for m in
                 crate::invariants::regex(r#"(?i)[/-]{1,2}pid\s+['"]?(\d+)"#).captures_iter(segment)
             {
-                add(&mut ids, &m[1]);
+                add(&m[1]);
             }
             for m in
                 crate::invariants::regex(r"(?i)\btskill(?:\.exe)?\s+(\d+)\b").captures_iter(segment)
             {
-                add(&mut ids, &m[1]);
+                add(&m[1]);
             }
         }
     }
 
-    let each = |ids: &mut std::collections::BTreeSet<u32>, pattern: &str, group: usize| {
+    let mut each = |pattern: &str, group: usize| {
         let re = Regex::new(pattern).expect("ended id pattern");
         for m in re.captures_iter(command) {
             if let Some(g) = m.get(group) {
-                add(ids, g.as_str());
+                add(g.as_str());
             }
         }
     };
 
+    each(r"(?i)\b(?:stop-process|spps)\b[^\n;&|]*?-id\s+([\d,\s]+)", 1);
+    each(r"(?i)\b(?:stop-process|spps)\s+(\d[\d,\s]*)", 1);
+    each(r"(?i)\bkill\s+-id\s+([\d,\s]+)", 1);
     each(
-        &mut ids,
-        r"(?i)\b(?:stop-process|spps)\b[^\n;&|]*?-id\s+([\d,\s]+)",
-        1,
-    );
-    each(&mut ids, r"(?i)\b(?:stop-process|spps)\s+(\d[\d,\s]*)", 1);
-    each(&mut ids, r"(?i)\bkill\s+-id\s+([\d,\s]+)", 1);
-    each(
-        &mut ids,
         r"(?i)\bget-process\s+-id\s+([\d,\s]+)[^\n;&]*?(?:\|\s*(?:stop-process|spps|kill)\b|\.kill\s*\()",
         1,
     );
+    each(r"(?i)getprocessbyid\(\s*(\d+)\s*\)\s*\.kill\s*\(", 1);
     each(
-        &mut ids,
-        r"(?i)getprocessbyid\(\s*(\d+)\s*\)\s*\.kill\s*\(",
-        1,
-    );
-    each(
-        &mut ids,
         r"(?i)(?:^|[^\w.-])kill((?:\s+-(?:s\s+\S+|\w+))*)((?:\s+\d+)+)(?:\s|$|[;&|)])",
         2,
     );
-    each(&mut ids, r"(?i)process\.kill\(\s*(\d+)", 1);
+    each(r"(?i)process\.kill\(\s*(\d+)", 1);
     each(
-        &mut ids,
         r#"(?i)\bwmic\b[^\n;&|]*?processid\s*=\s*['"]?(\d+)[^\n;&|]*?\b(?:delete|terminate)\b"#,
         1,
     );
     each(
-        &mut ids,
         r"(?i)\bwmic\s+process\s+(\d+)\s+(?:delete|call\s+terminate)\b",
         1,
     );
     each(
-        &mut ids,
         r#"(?i)\bwin32_process\b[^\n;&]*?processid\s*=\s*['"]?(\d+)[^\n;&]*?\b(?:terminate|remove-ciminstance)\b"#,
+        1,
+    );
+    each(
+        r#"(?i)\b(?:echo|printf)\s+['"]?([\d\s]+?)['"]?\s*\|\s*xargs\s+(?:-\S+\s+)*(?:kill|taskkill)\b"#,
         1,
     );
 
@@ -447,7 +459,7 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
         let name = &m[1];
         let body = &m[3];
         if kills_variable(body, name) {
-            add(&mut ids, &m[2]);
+            add(&m[2]);
         }
     }
     let foreach_re = Regex::new(
@@ -456,16 +468,20 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
     .expect("foreach");
     for m in foreach_re.captures_iter(command) {
         if kills_variable(&m[3], &m[1]) {
-            add(&mut ids, &m[2]);
+            add(&m[2]);
         }
     }
-    each(
-        &mut ids,
-        r#"(?i)\b(?:echo|printf)\s+['"]?([\d\s]+?)['"]?\s*\|\s*xargs\s+(?:-\S+\s+)*(?:kill|taskkill)\b"#,
-        1,
-    );
+    let pipe_foreach_re = Regex::new(
+        r#"(?i)(?:^|[\s;("'])@?\(?\s*(\d+(?:\s*,\s*\d+)*)\s*\)?\s*\|\s*(?:%|foreach-object|foreach)\s*\{([^}]*)\}"#,
+    )
+    .expect("pipe foreach");
+    for m in pipe_foreach_re.captures_iter(command) {
+        if kills_variable(&m[2], "_") {
+            add(&m[1]);
+        }
+    }
 
-    ids.into_iter().collect()
+    ids
 }
 
 fn kills_variable(body: &str, name: &str) -> bool {
@@ -493,14 +509,291 @@ fn named_in_id_kill(command: &str) -> Option<&'static EndEntry> {
     None
 }
 
+static AGENT_ON_NODE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)claude-code|@anthropic-ai[\\/]claude|gemini-cli|@github[\\/]copilot|[\\/]opencode|@openai[\\/]codex|cursor-agent")
+        .expect("agent on node")
+});
+
+static LAUNCHERS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:explorer|svchost|services|wininit|winlogon|userinit|sihost|runtimebroker|dwm|csrss|smss|system|launchd|systemd|init|loginwindow)$")
+        .expect("launchers")
+});
+
+static AGENT_ON_NODE_ENTRY: EndEntry = EndEntry {
+    names: &["node"],
+    what: "an AI agent on Node",
+    harm: Harm::Work,
+    browser: false,
+    agent: true,
+};
+
+fn normal_name(name: &str) -> String {
+    let base = name.replace('\\', "/");
+    let last = base.rsplit('/').next().unwrap_or("");
+    let lower = last.to_lowercase();
+    let stripped = lower
+        .strip_suffix(".exe")
+        .or_else(|| lower.strip_suffix(".app"))
+        .unwrap_or(&lower);
+    stripped.trim().to_owned()
+}
+
+fn protected_as(proc_row: &GuardedProcess) -> Option<&'static EndEntry> {
+    let name = normal_name(&proc_row.name);
+    let hit = all_names()
+        .into_iter()
+        .find(|(one, _)| name == *one || name.starts_with(&format!("{one} ")))
+        .map(|(_, e)| e)?;
+    if hit.what == "Node" {
+        return AGENT_ON_NODE.is_match(&proc_row.line).then_some(&AGENT_ON_NODE_ENTRY);
+    }
+    Some(hit)
+}
+
+fn started_under(table: &BTreeMap<u32, GuardedProcess>, pid: u32, root: u32) -> bool {
+    let root_start = table.get(&root).map(|p| p.created).unwrap_or(u64::MAX);
+    let mut at = pid;
+    for _ in 0..64 {
+        if at == root {
+            return true;
+        }
+        let Some(one) = table.get(&at) else {
+            return false;
+        };
+        let parent = if one.ppid > 0 && one.ppid != at {
+            table.get(&one.ppid)
+        } else {
+            None
+        };
+        if parent.is_none_or(|p| p.created > one.created) {
+            return !LAUNCHERS.is_match(&normal_name(&one.name)) && one.created >= root_start;
+        }
+        at = one.ppid;
+    }
+    false
+}
+
+fn windowless(table: &BTreeMap<u32, GuardedProcess>, pid: u32) -> bool {
+    let headless = crate::invariants::regex(r"(?i)--headless\b");
+    let helper = crate::invariants::regex(r"(?i)--type=");
+    let mut at = pid;
+    for _ in 0..16 {
+        let Some(one) = table.get(&at) else {
+            return false;
+        };
+        if headless.is_match(&one.line) {
+            return true;
+        }
+        if !helper.is_match(&one.line) {
+            return false;
+        }
+        at = one.ppid;
+    }
+    false
+}
+
+/// The command-line filter a find-by-name was narrowed with, or `None` when not exact.
+fn narrowed_to(text: &str) -> Option<Vec<Regex>> {
+    if crate::invariants::regex(r"(?i)\s-or\s|\sor\s").is_match(text) {
+        return None;
+    }
+    let mut filters: Vec<(String, char, char)> = Vec::new();
+    for m in crate::invariants::regex(r#"(?i)commandline\s+-[ci]?like\s+(?:\\?'(.*?)\\?'|\\?"(.*?)\\?")"#)
+        .captures_iter(text)
+    {
+        let pat = m.get(1).or_else(|| m.get(2)).map(|g| g.as_str()).unwrap_or("");
+        filters.push((pat.to_owned(), '*', '?'));
+    }
+    for m in crate::invariants::regex(r#"(?i)commandline\s+like\s+(?:\\?'(.*?)\\?'|\\?"(.*?)\\?")"#)
+        .captures_iter(text)
+    {
+        let pat = m.get(1).or_else(|| m.get(2)).map(|g| g.as_str()).unwrap_or("");
+        filters.push((pat.to_owned(), '%', '_'));
+    }
+    if filters.is_empty() || filters.iter().any(|(pat, _, _)| pat.is_empty() || pat.contains('[')) {
+        return None;
+    }
+    let mut compiled = Vec::with_capacity(filters.len());
+    for (pat, any, one) in filters {
+        let mut src = String::from("(?is)^");
+        for ch in pat.chars() {
+            if ch == any {
+                src.push_str(".*");
+            } else if ch == one {
+                src.push('.');
+            } else {
+                src.push_str(&escape_regex(&ch.to_string()));
+            }
+        }
+        src.push('$');
+        compiled.push(Regex::new(&src).ok()?);
+    }
+    Some(compiled)
+}
+
+fn not_the_runs(seen: &ProcessLook, entry: &EndEntry, filter: &[Regex]) -> Option<u32> {
+    let agent = seen.agent.unwrap_or(seen.root);
+    for (&pid, one) in &seen.table {
+        let norm = normal_name(&one.name);
+        if !entry.names.iter().any(|n| *n == norm) {
+            continue;
+        }
+        if !filter.iter().all(|re| re.is_match(&one.line)) {
+            continue;
+        }
+        if pid == seen.root || pid == agent || seen.above.contains(&pid) {
+            return Some(pid);
+        }
+        let ours = if entry.agent {
+            started_under(&seen.table, pid, agent)
+        } else {
+            started_under(&seen.table, pid, seen.root)
+        };
+        if ours || (entry.browser && windowless(&seen.table, pid)) {
+            continue;
+        }
+        return Some(pid);
+    }
+    None
+}
+
+/// Read this machine's live process table (`lookAtProcesses` in locust-command-guard.mjs).
+pub fn look_at_processes() -> Option<ProcessLook> {
+    let mut table = BTreeMap::new();
+    #[cfg(windows)]
+    {
+        let script = "Get-CimInstance Win32_Process | ForEach-Object { [string]$_.ProcessId + [char]9 + [string]$_.ParentProcessId + [char]9 + [string]$(if ($_.CreationDate) { ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() } else { 0 }) + [char]9 + $_.Name + [char]9 + (([string]$_.CommandLine) -replace '\\s+', ' ') }";
+        let out = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines() {
+            let mut parts = line.splitn(5, '\t');
+            let (Some(pid), Some(ppid), Some(created), Some(name), rest) = (
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next().unwrap_or(""),
+            ) else {
+                continue;
+            };
+            let (Ok(pid), Ok(ppid)) = (pid.parse::<u32>(), ppid.parse::<u32>()) else {
+                continue;
+            };
+            let created = created.parse::<u64>().unwrap_or(0);
+            table.insert(
+                pid,
+                GuardedProcess { ppid, name: name.to_owned(), line: rest.to_owned(), created },
+            );
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let names = std::process::Command::new("ps")
+            .args(["-A", "-o", "pid=", "-o", "ppid=", "-o", "etime=", "-o", "comm="])
+            .output()
+            .ok()?;
+        if !names.status.success() {
+            return None;
+        }
+        let lines = std::process::Command::new("ps")
+            .args(["-A", "-o", "pid=", "-o", "command="])
+            .output()
+            .ok();
+        let mut command_of = BTreeMap::new();
+        if let Some(lines) = lines.filter(|o| o.status.success()) {
+            let cmd_re = crate::invariants::regex(r"^\s*(\d+)\s+(.*)$");
+            for line in String::from_utf8_lossy(&lines.stdout).lines() {
+                if let Some(m) = cmd_re.captures(line)
+                    && let Ok(pid) = m[1].parse::<u32>()
+                {
+                    command_of.insert(pid, m[2].to_owned());
+                }
+            }
+        }
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let row_re = crate::invariants::regex(r"^\s*(\d+)\s+(\d+)\s+(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)\s+(.*)$");
+        for line in String::from_utf8_lossy(&names.stdout).lines() {
+            let Some(m) = row_re.captures(line) else {
+                continue;
+            };
+            let (Ok(pid), Ok(ppid)) = (m[1].parse::<u32>(), m[2].parse::<u32>()) else {
+                continue;
+            };
+            let days = m.get(3).and_then(|g| g.as_str().parse::<u64>().ok()).unwrap_or(0);
+            let hours = m.get(4).and_then(|g| g.as_str().parse::<u64>().ok()).unwrap_or(0);
+            let mins = m[5].parse::<u64>().unwrap_or(0);
+            let secs = m[6].parse::<u64>().unwrap_or(0);
+            let ago_ms = (((days * 24 + hours) * 60 + mins) * 60 + secs).saturating_mul(1000);
+            let cmd = command_of.remove(&pid).unwrap_or_default();
+            table.insert(
+                pid,
+                GuardedProcess {
+                    ppid,
+                    name: m[7].to_owned(),
+                    line: cmd,
+                    created: now_ms.saturating_sub(ago_ms),
+                },
+            );
+        }
+    }
+    if table.is_empty() {
+        return None;
+    }
+    let mut above = Vec::new();
+    let mut at = table.get(&std::process::id()).map(|p| p.ppid);
+    for _ in 0..64 {
+        let Some(pid) = at.filter(|&p| p > 0 && !above.contains(&p)) else {
+            break;
+        };
+        above.push(pid);
+        at = table.get(&pid).map(|p| p.ppid);
+    }
+    let locust = std::env::var("LOCUST_GUARD_PARENT")
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok())
+        .filter(|&p| p > 0 && table.contains_key(&p) && above.contains(&p));
+    let agent = match locust {
+        Some(l) => above.iter().copied().find(|pid| table.get(pid).is_some_and(|p| p.ppid == l)),
+        None => above.get(1).copied(),
+    };
+    let root = locust.or_else(|| above.get(1).copied()).or_else(|| above.first().copied())?;
+    Some(ProcessLook { table, root, agent: Some(agent.unwrap_or(root)), above })
+}
+
 /// Why a command is refused, in words the model reads, or `None` when it may run.
 pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
+    stopped_because_with(command, ctx, None)
+}
+
+/// `stopped_because`, with an optional process-table lookup (`lookAtProcesses` in Electron).
+pub fn stopped_because_with(
+    command: &str,
+    ctx: &GuardContext,
+    look: Option<&dyn Fn() -> Option<ProcessLook>>,
+) -> Option<String> {
     if command.is_empty() {
         return None;
     }
     if ctx.fix_copy && publishes_from_copy(command) {
         return Some(FIX_REFUSAL.to_string());
     }
+
+    fn load_seen<'a>(
+        seen: &'a mut Option<Option<ProcessLook>>,
+        look: Option<&dyn Fn() -> Option<ProcessLook>>,
+    ) -> Option<&'a ProcessLook> {
+        seen.get_or_insert_with(|| look.and_then(|f| f())).as_ref()
+    }
+    let mut seen: Option<Option<ProcessLook>> = None;
 
     for pattern in BY_NAME.iter() {
         for found in pattern.captures_iter(command) {
@@ -522,12 +815,58 @@ pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
             let Some(entry) = entry_for_name(&named) else {
                 continue;
             };
+            if let Some(filter) = narrowed_to(&found[0])
+                && let Some(table) = load_seen(&mut seen, look)
+            {
+                let Some(theirs) = not_the_runs(table, entry, &filter) else {
+                    continue;
+                };
+                return Some(format!(
+                    "Locust stopped this command before it ran: its command-line filter also matches process {theirs}, {} that no teammate started, so it is {}. Leave it running. {}",
+                    entry.what,
+                    entry.harm.owner(),
+                    tip_for(entry)
+                ));
+            }
             return Some(by_name_refusal(entry));
         }
     }
 
     let ids = ended_ids(command);
     if ids.is_empty() {
+        return None;
+    }
+    if let Some(table) = load_seen(&mut seen, look) {
+        let agent = table.agent.unwrap_or(table.root);
+        for pid in &ids {
+            let Some(one) = table.table.get(pid) else {
+                continue;
+            };
+            if *pid == agent
+                || (table.above.contains(pid) && matches!(normal_name(&one.name).as_str(), "locust" | "electron"))
+            {
+                let what = if *pid == agent { "the agent this run is" } else { "Locust itself" };
+                return Some(format!(
+                    "Locust stopped this command before it ran: process {pid} is {what}, so it is not this run's to end. Leave it running."
+                ));
+            }
+            let Some(entry) = protected_as(one) else {
+                continue;
+            };
+            let ours = if entry.agent {
+                started_under(&table.table, *pid, agent)
+            } else {
+                started_under(&table.table, *pid, table.root)
+            };
+            if ours || (entry.browser && windowless(&table.table, *pid)) {
+                continue;
+            }
+            return Some(by_id_refusal(*pid, entry));
+        }
+        return None;
+    }
+    if look.is_some() {
+        // Table could not be read: fail open, saying nothing.
         return None;
     }
     // Without a process table: refuse by-id when the command also names a protected
@@ -541,8 +880,6 @@ pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
     } else if !ctx.started_pids.is_empty() {
         for pid in &ids {
             if !ctx.started_pids.contains(pid) {
-                // Known protected names by common browser/editor id-kill without a table:
-                // refuse as not this run's when the caller tracks started pids.
                 return Some(format!(
                     "Locust stopped this command before it ran: process {pid} is not one this run started. Leave it running."
                 ));
@@ -554,14 +891,15 @@ pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
 
 /// The hook (resources/locust-command-guard.mjs `main`): one PreToolUse event as JSON; a deny to print, or `None` to
 /// let it run. Where it runs is the runtime's own word for it, then `here`, the folder the hook was started in.
-///
-/// The process table is not read yet, so a by-id kill of a process this run did not start is let through (as the
-/// approval cards' guard does); the by-name refusals and the fix-copy refusals are whole.
 pub fn hook_reply(input: &str, here: &str) -> Option<String> {
     let event: serde_json::Value = serde_json::from_str(input).ok()?;
     let command = event["tool_input"]["command"].as_str()?;
     let folders = [event["cwd"].as_str().unwrap_or(""), event["tool_input"]["workdir"].as_str().unwrap_or(""), here];
-    let reason = stopped_because(command, &GuardContext { fix_copy: in_fix_copy(&folders), started_pids: Vec::new() })?;
+    let reason = stopped_because_with(
+        command,
+        &GuardContext { fix_copy: in_fix_copy(&folders), started_pids: Vec::new() },
+        Some(&look_at_processes),
+    )?;
     Some(
         serde_json::json!({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":reason}})
             .to_string(),
@@ -615,6 +953,16 @@ pub fn guard_log_line(input: &str, refused: bool) -> String {
 /// PreToolUse hook on the shell tools. Claude Code runs a hook in a POSIX shell (Git Bash on Windows), so the path is
 /// quoted for one, with forward slashes.
 pub fn claude_settings(executable: &std::path::Path) -> String {
+    claude_settings_inner(executable, None)
+}
+
+/// `claude_settings` with Locust's own process id (`LOCUST_GUARD_PARENT`) so the hook knows which processes belong to
+/// Locust's teammates.
+pub fn claude_settings_with_parent(executable: &std::path::Path, parent: u32) -> String {
+    claude_settings_inner(executable, Some(parent))
+}
+
+fn claude_settings_inner(executable: &std::path::Path, parent: Option<u32>) -> String {
     // Claude Code runs hooks in a POSIX shell everywhere (Git Bash on Windows), so not hook_command's PowerShell form.
     let path = executable.to_string_lossy().replace('\\', "/");
     let mut quoted = String::from("\"");
@@ -625,8 +973,9 @@ pub fn claude_settings(executable: &std::path::Path) -> String {
         quoted.push(c);
     }
     quoted.push('"');
+    let prefix = parent.map(|p| format!("LOCUST_GUARD_PARENT={p} ")).unwrap_or_default();
     serde_json::to_string_pretty(&serde_json::json!({
-        "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": format!("{quoted} --command-guard"), "timeout": 15}]}]}
+        "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": format!("{prefix}{quoted} --command-guard"), "timeout": 15}]}]}
     }))
     .expect("plain JSON")
 }
@@ -824,7 +1173,7 @@ pub fn write_copilot_plugin(dir: &std::path::Path, executable: &std::path::Path)
 pub fn write_claude_settings(dir: &std::path::Path, executable: &std::path::Path) -> std::io::Result<String> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join("claude-settings.json");
-    let text = claude_settings(executable);
+    let text = claude_settings_with_parent(executable, std::process::id());
     if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
         // A new name, then a rename, so a turn starting meanwhile never reads half a file.
         let temp = dir.join(format!(".claude-settings.{}.tmp", std::process::id()));
@@ -1075,3 +1424,7 @@ mod tests {
 #[cfg(test)]
 #[path = "command_guard_log_tests.rs"]
 mod log_tests;
+
+#[cfg(test)]
+#[path = "command_guard_browser_tests.rs"]
+mod browser_tests;
