@@ -129,7 +129,7 @@ impl Process {
         if self.reaped {
             return true;
         }
-        kill(self.child.id());
+        kill_process(self.child.id());
         let _ = self.child.kill();
         self.reaped = confirm_exit(&mut self.child, Duration::from_secs(1));
         self.reaped
@@ -152,17 +152,27 @@ pub fn kill(pid: u32) {
     }
 }
 pub fn kill_process(pid: u32) {
+    // Read detached descendants before signaling the parent: once the parent exits, detached children are reparented.
+    let outside = read_descendants_outside_group(pid);
     kill(pid);
     #[cfg(unix)]
     unsafe {
         libc::kill(pid as i32, libc::SIGKILL);
+        for child in outside {
+            libc::kill(child as i32, libc::SIGKILL);
+        }
     }
 }
 pub fn interrupt_process(pid: u32) {
+    // Read detached descendants before signaling the parent: a CLI that obeys SIGINT exits at once, orphaning them.
+    let outside = read_descendants_outside_group(pid);
     #[cfg(unix)]
     unsafe {
         libc::kill(-(pid as i32), libc::SIGINT);
         libc::kill(pid as i32, libc::SIGINT);
+        for child in outside {
+            libc::kill(child as i32, libc::SIGINT);
+        }
     }
 }
 pub fn own_group(command: &mut Command) {
@@ -449,6 +459,95 @@ mod tests {
         }
         note_time("end_terminal_tree_kills_descendants_and_reaps_root", start.elapsed());
     }
+
+    #[test]
+    fn stop_kills_a_grandchild_the_run_started_not_just_the_process_it_launched() {
+        // case: kills a grandchild the run started, not just the process it launched
+        use crate::load_waits::wait_for;
+        let dir = std::env::temp_dir().join(format!("locust-stop-tree-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let pid_file = dir.join("grandchild.pid");
+        let marker = dir.join("grandchild-finished.txt");
+
+        let listed = |id: u32| {
+            Command::new("/bin/ps")
+                .args(["-p", &id.to_string(), "-o", "pid="])
+                .output()
+                .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
+                .unwrap_or(true)
+        };
+
+        // 1. Polite CLI (exits immediately on SIGINT) that started a detached grandchild (own process group via `set -m`).
+        let mut command = Command::new("/bin/sh");
+        command.args([
+            "-c",
+            "set -m; trap 'exit 0' INT; (sleep 3; echo done > \"$2\") </dev/null >/dev/null 2>&1 & echo $! > \"$1\"; while :; do sleep 0.1; done",
+            "sh",
+            pid_file.to_str().unwrap(),
+            marker.to_str().unwrap(),
+        ]);
+        let mut child = spawn(&mut command, Stdio::null(), Stdio::null()).unwrap();
+        let pid = child.id();
+        let mut gpid = 0u32;
+        wait_for("detached grandchild pid to be written", || {
+            gpid = std::fs::read_to_string(&pid_file)
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .unwrap_or(0);
+            gpid > 1 && listed(gpid)
+        });
+
+        interrupt_process(pid);
+        assert!(confirm_exit(&mut child, Duration::from_secs(2)), "parent did not exit on SIGINT");
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while listed(gpid) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let still_alive = listed(gpid);
+        if still_alive {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(gpid as i32, libc::SIGKILL);
+            }
+        }
+        assert!(!still_alive, "detached grandchild {gpid} survived interrupt_process");
+        assert!(!marker.exists(), "the stopped run's grandchild finished anyway");
+
+        // 2. Process::stop also kills a detached grandchild via kill_process.
+        let pid_file2 = dir.join("grandchild2.pid");
+        let mut command2 = Command::new("/bin/sh");
+        command2.args([
+            "-c",
+            "set -m; sleep 30 </dev/null >/dev/null 2>&1 & echo $! > \"$1\"; sleep 30",
+            "sh",
+            pid_file2.to_str().unwrap(),
+        ]);
+        let mut proc = Process::spawn(&mut command2).unwrap();
+        let mut gpid2 = 0u32;
+        wait_for("second detached grandchild pid", || {
+            gpid2 = std::fs::read_to_string(&pid_file2)
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .unwrap_or(0);
+            gpid2 > 1 && listed(gpid2)
+        });
+        assert!(proc.stop());
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while listed(gpid2) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let still_alive2 = listed(gpid2);
+        if still_alive2 {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(gpid2 as i32, libc::SIGKILL);
+            }
+        }
+        assert!(!still_alive2, "detached grandchild {gpid2} survived Process::stop");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 /// ACP's grace period is three seconds, and it signals only the process group.
@@ -502,6 +601,61 @@ pub fn descendants_of(snapshot: &str, root: u32) -> Vec<u32> {
         i += 1;
     }
     owned.into_iter().skip(1).rev().collect()
+}
+
+/// Descendants of `root` that are not in `root`'s process group, deepest first, from a `ps -axo pid=,ppid=,pgid=`
+/// snapshot. Matches Electron `descendantsOutsideGroup` in `process-runner.ts`.
+fn descendants_outside_group(snapshot: &str, root: u32) -> Vec<u32> {
+    if root <= 1 {
+        return Vec::new();
+    }
+    let mut children: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    for line in snapshot.lines() {
+        let mut words = line.split_whitespace();
+        let (Ok(pid), Ok(parent), Ok(pgid)) = (
+            words.next().unwrap_or("").parse::<u32>(),
+            words.next().unwrap_or("").parse::<u32>(),
+            words.next().unwrap_or("").parse::<u32>(),
+        ) else {
+            continue;
+        };
+        if pid <= 1 || parent < 1 {
+            continue;
+        }
+        children.entry(parent).or_default().push(pid);
+        groups.insert(pid, pgid);
+    }
+    let mut owned = vec![root];
+    let mut seen = std::collections::HashSet::from([root]);
+    let mut i = 0;
+    while i < owned.len() {
+        if let Some(kids) = children.get(&owned[i]) {
+            for &child in kids {
+                if seen.insert(child) {
+                    owned.push(child);
+                }
+            }
+        }
+        i += 1;
+    }
+    owned
+        .into_iter()
+        .skip(1)
+        .filter(|pid| groups.get(pid).copied() != Some(root))
+        .rev()
+        .collect()
+}
+
+fn read_descendants_outside_group(root: u32) -> Vec<u32> {
+    if root <= 1 {
+        return Vec::new();
+    }
+    Command::new("/bin/ps")
+        .args(["-axo", "pid=,ppid=,pgid="])
+        .output()
+        .map(|o| descendants_outside_group(&String::from_utf8_lossy(&o.stdout), root))
+        .unwrap_or_default()
 }
 
 /// Terminal jobs may leave the shell's group. Snapshot parentage while the root is owned.
