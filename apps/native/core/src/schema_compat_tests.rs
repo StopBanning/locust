@@ -721,3 +721,17 @@ fn keeps_the_starters_only_the_native_app_writes() {
     let bad = LedgerWriter::create_runtime_with(&store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None, &json!({"startedBy": {"kind": "room", "roomId": "../x", "postId": "post_1"}}));
     assert!(bad.is_err(), "a room with an unsafe id");
 }
+
+// mission-store MISSION_RUNTIMES: a carry-on may name any of the eleven agents a turn is recorded as running on
+// (Apple Intelligence since LEDGER v28, Kilo v27, an added agent v25), and nothing else. Merge check, Loose ends 1.
+#[test]
+fn a_carry_on_reads_from_every_agent_a_turn_runs_on_and_from_no_other() {
+    for from in ["codex", "claude", "cursor", "gemini", "opencode", "copilot", "antigravity", "muse", "kilo", "acp", "apple"] {
+        let m = json!({ "startedBy": { "kind": "carry-on", "from": from } });
+        assert_eq!(crate::ledger::validate_metadata_fields(&m), Ok(()), "a carry-on from {from} reads");
+    }
+    for from in [json!("omniroute"), json!(""), json!(null), json!(7)] {
+        let m = json!({ "startedBy": { "kind": "carry-on", "from": from } });
+        assert!(crate::ledger::validate_metadata_fields(&m).is_err(), "a carry-on from {from} is refused");
+    }
+}
