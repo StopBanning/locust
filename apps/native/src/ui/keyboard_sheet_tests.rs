@@ -119,6 +119,8 @@ const MARKS: &[(&str, &str, &str, &str)] = &[
     ("Up / Down", "Recall a sent message from an empty box", "keys.rs", "return KeyAction::HistoryUp;"),
     ("Escape", "Close a dialog", "main.rs", "s.keyboard_sheet.open = false;"),
     ("1–9", "Answer a question card", "main.rs", "question_card::handle_key(s, event)"),
+    ("1–9", "Pick that row in an open menu", "main.rs", "if thread_view::mode_menu_digit(s, event) {"),
+    ("+ / − / 0 / 1", "Zoom an image, fit it, or its actual size", "step_pictures.rs", r#"Key::Text(t) if t == "+" || t == "=" => { zoom_to(s, 1.25); true }"#),
     ("Ctrl+Shift+M", "Permission mode", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('m') {"),
     ("Ctrl+Shift+I", "Model", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('i') {"),
     ("Ctrl+Shift+E", "Effort", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('e') {"),
@@ -129,6 +131,7 @@ fn source(file: &str) -> &'static str {
         "main.rs" => include_str!("../main.rs"),
         "sidebar.rs" => include_str!("sidebar.rs"),
         "keys.rs" => include_str!("../composer/keys.rs"),
+        "step_pictures.rs" => include_str!("step_pictures.rs"),
         other => panic!("no source {other}"),
     }
 }

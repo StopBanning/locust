@@ -179,7 +179,7 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Panes,
         keys: "+ / − / 0 / 1",
         does: "Zoom an image, fit it, or its actual size",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
@@ -214,7 +214,7 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Menus,
         keys: "1–9",
         does: "Pick that row in an open menu",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {

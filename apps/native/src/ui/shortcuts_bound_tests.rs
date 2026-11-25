@@ -210,3 +210,63 @@ fn the_menu_chords_work_from_the_message_box_and_type_nothing_into_it() {
     press_with(&mut rt, Key::Text("M".into()), Mods { shift: true, ..Default::default() });
     assert!(rt.state.draft.text.ends_with('M'), "{}", rt.state.draft.text);
 }
+
+#[test]
+fn a_digit_picks_that_row_in_the_open_permission_mode_menu() {
+    let mut rt = window();
+    accel_shift(&mut rt, 'm');
+    // The chord leaves the focus where it was; a person clicks away from the message box before typing a digit.
+    rt.state.draft.focused = false;
+    press_with(&mut rt, Key::Text("3".into()), Mods::default());
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("plan"), "3 is the third row: Plan");
+    assert!(!rt.state.mode_menu, "choosing closes the menu");
+    assert!(!drawn(&rt, "mode-menu"));
+}
+
+/// A 4x2 red PNG, made by hand (as step_pictures_tests' own).
+const TINY_PNG: &[u8] = &[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 4, 0, 0, 0, 2, 8, 6, 0, 0, 0, 127, 168, 125, 99, 0, 0, 0, 18, 73, 68, 65, 84, 120, 156, 99, 56, 161, 161, 241, 31, 25, 51, 160, 11, 0, 0, 25, 213, 16, 185, 253, 47, 204, 55, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
+
+#[test]
+fn plus_minus_0_and_1_zoom_the_picture_in_the_viewer_fit_it_and_show_its_actual_size() {
+    let dir = std::env::temp_dir().join(format!("locust-keys-1-{}", crate::composer::new_queue_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let dir = dir.canonicalize().unwrap();
+    std::fs::write(dir.join("chart.png"), TINY_PNG).unwrap();
+    struct Gone(std::path::PathBuf);
+    impl Drop for Gone {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let _gone = Gone(dir.clone());
+    let mut rt = window();
+    let folder = dir.to_string_lossy().into_owned();
+    rt.update(move |s, _| {
+        s.image_cache = Some(std::sync::Arc::new(rune::ImageCache::new(std::sync::Arc::new(|| {}))));
+        s.teammates[0].folder = Some(folder.clone());
+        s.file_view = Some((crate::reply_actions::FileTarget { path: "chart.png".into(), start: 0, end: 0 }, Ok(String::new())));
+    });
+    settle(&mut rt);
+    let pane = "viewer-picture-pane:chart.png";
+    let (x, y) = rt.find(pane).expect("the picture drawn in the viewer");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    settle(&mut rt);
+    assert_eq!(rt.state.viewer_image_view, None, "it opens fitted");
+    let scale = |rt: &Runtime<State>| rt.state.viewer_image_view.map(|v| v.scale);
+    let typed = |rt: &mut Runtime<State>, k: &str| press_with(rt, Key::Text(k.into()), Mods::default());
+    typed(&mut rt, "+");
+    let once = scale(&rt).expect("+ zooms in");
+    typed(&mut rt, "=");
+    let twice = scale(&rt).unwrap();
+    assert!((twice / once - 1.25).abs() < 1e-6, "= is + unshifted: {once} then {twice}");
+    typed(&mut rt, "-");
+    assert!((scale(&rt).unwrap() - once).abs() < 1e-6, "- zooms back out");
+    typed(&mut rt, "0");
+    assert_eq!(rt.state.viewer_image_view, None, "0 fits it to the pane");
+    typed(&mut rt, "+");
+    typed(&mut rt, "+");
+    typed(&mut rt, "1");
+    assert!((scale(&rt).unwrap() - 1.0).abs() < 1e-6, "1 is its actual size: {:?}", scale(&rt));
+    assert!(rt.state.draft.text.is_empty(), "nothing typed into the message box");
+}
