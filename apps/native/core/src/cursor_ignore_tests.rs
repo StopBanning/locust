@@ -251,6 +251,8 @@ fn drain(wrapped: &mut ExplainsDeniedReads) -> Vec<(String, serde_json::Value)> 
     out
 }
 
+// case: says nothing when nothing was refused
+// case: explains it once, however many reads are refused
 #[test]
 fn beyond_electron_a_denied_read_is_explained_once_beside_the_failure_it_explains() {
     // codex-mission.ts explainADeniedRead: only after a failed tool whose record says "permission denied", never
@@ -303,6 +305,7 @@ fn beyond_electron_the_notice_is_a_diagnostic_the_thread_does_not_drop() {
     assert_eq!(notice_payload("x")["message"], "x");
 }
 
+// case: explains a refusal when one actually happens
 #[test]
 fn beyond_electron_a_refused_read_in_the_real_cursor_stream_is_explained_in_the_run() {
     // Through the real Cursor reader, not a stub: a read whose result is Cursor's own refusal ("Permission denied", as

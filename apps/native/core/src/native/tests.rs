@@ -704,6 +704,7 @@ fn started(path: &Path) -> bool {
     kinds(path).iter().any(|k| k == "run.started")
 }
 
+// case: ends the run when the person presses stop, and says it was cancelled
 #[test]
 fn stop_interrupts_the_runtime_records_cancelled_and_only_stops_what_this_window_started() {
     let t = Temp::new();
@@ -1607,6 +1608,7 @@ fn the_folder_the_native_app_opened_is_where_turns_work() {
     assert_eq!(folder_for(&mate, &t.electron()).unwrap(), mine.canonicalize().unwrap());
 }
 
+// case: caps how many missions can be live at once, and says the number
 #[test]
 fn a_ninth_turn_at_once_is_refused_in_electrons_words() {
     let flags: Vec<Arc<AtomicBool>> = (0..8).map(|_| Arc::new(AtomicBool::new(false))).collect();
@@ -1794,6 +1796,7 @@ fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_say
 }
 
 // case: ledgerFailure.test.ts, drawn: a turn whose record cannot be made is refused in the card's words, and nothing ran
+// case: never launches Codex when the durable mission header cannot be written
 #[test]
 fn a_turn_whose_record_cannot_be_made_is_refused_saying_locust_stopped_it_and_nothing_ran() {
     let t = Temp::new();

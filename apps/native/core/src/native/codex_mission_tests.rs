@@ -91,6 +91,7 @@ fn a_run_starts_when_its_teammates_limit_cannot_be_checked() {
     assert!(ended(&t, &started.conversation_id).contains(&"run.completed".to_owned()));
 }
 
+// case: runs read-only when the mode is ask
 #[test]
 fn an_ask_run_is_started_read_only_and_recorded_so() {
     let t = Temp::new();
@@ -100,6 +101,7 @@ fn an_ask_run_is_started_read_only_and_recorded_so() {
     assert_eq!(header(&path_of(&t, &started.conversation_id))["sandbox"], "read-only");
 }
 
+// case: records an MCP-origin Ask run with the actual read-only sandbox
 #[test]
 fn an_ask_run_another_app_started_is_recorded_with_its_read_only_sandbox_and_who_started_it() {
     let t = Temp::new();
@@ -112,6 +114,8 @@ fn an_ask_run_another_app_started_is_recorded_with_its_read_only_sandbox_and_who
     assert_eq!((&head["sandbox"], &head["mode"], &head["startedBy"]), (&json!("read-only"), &json!("ask"), &json!({"kind": "mcp"})));
 }
 
+// case: runs workspace-write only when edits were explicitly accepted
+// case: records the sandbox it actually used in the durable header
 #[test]
 fn a_run_writes_in_its_folder_only_when_edits_were_accepted_and_records_that_sandbox() {
     let t = Temp::new();
@@ -137,6 +141,7 @@ fn a_mode_it_does_not_recognise_never_widens_the_sandbox() {
 
 // ---- model selection ----
 
+// case: sends a chosen model to the runtime and records it
 #[test]
 fn a_chosen_model_is_sent_to_the_runtime_and_recorded() {
     let t = Temp::new();
@@ -146,6 +151,7 @@ fn a_chosen_model_is_sent_to_the_runtime_and_recorded() {
     assert_eq!(header(&path_of(&t, &started.conversation_id))["model"], "synthetic-model");
 }
 
+// case: treats account-default as "send no model", not as a model id
 #[test]
 fn account_default_is_sending_no_model_and_is_recorded_as_account_default() {
     let t = Temp::new();
@@ -170,6 +176,7 @@ fn no_model_is_sent_when_none_was_chosen() {
 
 // ---- a model of your own (0.357) ----
 
+// case: is refused in words, before anything is written, once it has been removed
 #[test]
 fn a_model_of_your_own_that_was_removed_is_refused_in_words_before_anything_is_written() {
     let t = Temp::new();
@@ -196,6 +203,7 @@ fn in_mode(t: &Temp, mode: &str, prompt: &str) -> Send {
     mine
 }
 
+// case: rejects invalid prompts before discovery or process launch
 #[test]
 fn an_invalid_prompt_is_refused_before_anything_is_started() {
     let t = Temp::new();
@@ -208,6 +216,7 @@ fn an_invalid_prompt_is_refused_before_anything_is_started() {
     assert!(valid_prompt(&"x".repeat(8_000)));
 }
 
+// case: records that a plan was a plan, while still holding it read-only
 #[test]
 fn a_plan_is_recorded_as_a_plan_and_held_read_only() {
     let t = Temp::new();
@@ -231,6 +240,7 @@ fn an_auto_run_is_refused_when_the_workspace_has_auto_switched_off_and_nothing_i
     assert!(ledgers(&t).is_empty());
 }
 
+// case: refuses an Auto mission when nobody wired the switch at all
 #[test]
 fn an_auto_run_is_refused_when_the_switch_was_never_set() {
     let t = Temp::new();
@@ -239,6 +249,8 @@ fn an_auto_run_is_refused_when_the_switch_was_never_set() {
     assert!(ledgers(&t).is_empty());
 }
 
+// case: runs an Auto mission on the widest sandbox once the workspace allows it
+// case: refuses the NEXT Auto run once the switch is taken back, on the same service
 #[test]
 fn an_auto_run_has_the_widest_sandbox_once_allowed_and_the_next_is_refused_once_the_switch_is_taken_back() {
     let t = Temp::new();
@@ -472,6 +484,7 @@ fn three_turns_on_claude(t: &Temp, first_continues: Value) -> Vec<PathBuf> {
 
 const EARLIER_TWO: &str = "Earlier in this conversation, oldest first:\n- Asked: \"build a price report\" -- no reply was recorded.\n- Asked: \"then make it weekly\" -- no reply was recorded.";
 
+// case: A2.11: carries the conversationu2019s earlier turns into the switch, oldest first, and stops at a loop
 #[test]
 fn a_switch_carries_the_conversations_earlier_turns_oldest_first() {
     let t = Temp::new();
@@ -497,6 +510,7 @@ fn the_earlier_turns_walk_stops_at_a_turn_that_continues_itself() {
     assert!(codex_requests(&t).is_empty(), "nothing was started");
 }
 
+// case: records a resume on another runtime as a route switch, not a follow-up
 #[test]
 fn another_runtimes_conversation_is_continued_from_a_checkpoint_with_the_reply_as_the_latest_word() {
     let t = Temp::new();
@@ -546,6 +560,7 @@ fn a_continuation_on_another_runtime_is_refused_when_the_record_cannot_be_truste
     assert_eq!(ledgers(&t), vec![prior]);
 }
 
+// case: starts a fresh conversation when nothing is being continued
 #[test]
 fn a_first_question_starts_a_fresh_conversation() {
     let t = Temp::new();
@@ -618,6 +633,7 @@ fn peer_links(path: &Path) -> Vec<Value> {
     records(path).into_iter().filter(|r| r["recordType"] == "mission.peer").map(|r| r["link"].clone()).collect()
 }
 
+// case: quotes a waiting message into the prompt as a claim, records it, and marks it delivered only once the runtime starts
 #[test]
 fn a_waiting_message_is_quoted_as_a_claim_recorded_and_delivered_once_the_run_starts() {
     let t = Temp::new();
@@ -789,6 +805,7 @@ fn codexs_plan_tool_is_switched_on_from_0_153_so_its_plan_reaches_the_panel() {
     assert_eq!(app_server_args(None), ["app-server"]);
 }
 
+// case: launches a server rather than an exec, and turns its deltas into message events
 #[test]
 fn codex_runs_as_a_server_its_pieces_become_message_events_and_the_mode_earns_its_policy() {
     let t = Temp::new();
@@ -821,6 +838,7 @@ fn a_read_only_mode_stays_read_only_and_never_asks_for_full_access() {
     assert!(!serde_json::to_string(&codex_requests(&t)).unwrap().contains("danger-full-access"));
 }
 
+// case: starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)
 #[test]
 fn ask_and_plan_start_none_of_the_persons_codex_programs_and_edit_leaves_codex_as_it_is() {
     let settings = json!({"mcp_servers": {"node_repl": {"command": "node", "args": ["repl.mjs"]}, "docs": {"url": "https://docs.example.com/mcp"}}});
@@ -870,6 +888,7 @@ fn a_sealed_look_starts_with_no_shell_web_search_apps_or_servers_connectors_incl
     }
 }
 
+// case: starts every Codex thread with Locust’s command guard, for its own folder, and without it when the guard says so (0.720)
 #[test]
 fn a_codex_thread_gets_locusts_command_guard_for_its_folder_and_none_when_codex_would_load_another_hook() {
     let t = Temp::new();
@@ -997,6 +1016,7 @@ fn a_claude_run_asked_to_read_is_still_recorded_read_only() {
     assert_eq!(head["sandbox"], "read-only");
 }
 
+// case: refuses a runtime whose event stream it cannot read yet, by name, recording nothing
 #[test]
 fn a_runtime_whose_event_stream_native_cannot_read_is_refused_before_anything_is_started_or_recorded() {
     let t = Temp::new();
@@ -1019,6 +1039,7 @@ fn on(t: &Temp, runtime: &str, mode: &str, prompt: &str) -> Send {
     mine
 }
 
+// case: runs a read-only Cursor mission where the sandbox is real, and asks for it
 #[test]
 fn a_read_only_cursor_mission_runs_under_its_own_command_where_the_sandbox_is_real() {
     let args = crate::runtime::cursor::print_args(Path::new("/workspace"), Mode::Ask, None, None, None).unwrap();
@@ -1158,6 +1179,7 @@ fn a_card_is_raised_mid_run_and_the_persons_answer_goes_back_to_the_runtime() {
     assert_eq!(replies[0]["result"]["decision"], "accept", "{replies:?}");
 }
 
+// case: refuses what a stopped run was still asking, so no card waits on a run that has gone
 #[test]
 fn a_stopped_run_leaves_no_card_waiting_on_it() {
     let t = Temp::new();
@@ -1291,6 +1313,7 @@ fn is_refused_not_run_here_when_its_folder_is_gone() {
     assert_eq!(ledgers(&t).len(), before);
 }
 
+// case: adds an observed edit row, after the terminal event, for a file no tool named
 #[test]
 fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_without_a_tool_event() {
     let t = Temp::new();
@@ -1328,6 +1351,7 @@ fn start_timing_note(recs: &[Value]) -> (usize, Value) {
     (events.len() - 1 - at, events[at].clone())
 }
 
+// case: says looking, briefing, reading the folder and starting, in that order, and the end writes the note
 #[test]
 fn a_writing_run_ends_with_a_note_naming_each_phase_of_its_start() {
     let t = Temp::new();
@@ -1353,6 +1377,7 @@ fn a_writing_run_ends_with_a_note_naming_each_phase_of_its_start() {
     assert!(said.find("looked for").unwrap() < said.find("briefed").unwrap() && said.find("briefed").unwrap() < said.find("read the folder").unwrap());
 }
 
+// case: reads no folder for a read-only start, and says so by leaving the phase out
 #[test]
 fn a_read_only_runs_note_reads_no_folder() {
     let t = Temp::new();
