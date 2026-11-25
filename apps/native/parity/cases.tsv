@@ -5922,9 +5922,9 @@ apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	in Settings, sa
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	shows the full reply, editable attribution, Post and Dismiss	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	says when posted or failed and never offers Post again	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show what it keeps watch for, in the person’s words, with no Save until it is changed	yes
-apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show Scout’s notes as lines the person can read and change, and how many	no
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show Scout’s notes as lines the person can read and change, and how many	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offer the folder’s check only once the folder has a check command, and say which	yes
-apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say quiet hours as a clock reads them, and offer waiting while the person works	no
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say quiet hours as a clock reads them, and offer waiting while the person works	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offer a morning brief at an hour of the morning	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	draw a morning brief as one card, its lines under its sentence	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say what today’s looks used	yes
