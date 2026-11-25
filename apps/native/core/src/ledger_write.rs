@@ -877,6 +877,25 @@ mod tests {
     fn temp(tag: &str) -> PathBuf {
         std::env::temp_dir().join(format!("locust-open-{tag}-{}", std::process::id()))
     }
+    // Electron's record and file limits: one record over 512 KB, or a ledger that would pass 64 MB, is refused in its words.
+    #[test]
+    fn a_record_or_a_ledger_past_electrons_limits_is_refused_in_their_words() {
+        let temp = temp("limits");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(temp.join("native")).unwrap();
+        std::fs::create_dir_all(temp.join("electron")).unwrap();
+        let store = Store::new(temp.join("native"), temp.join("electron")).unwrap();
+        let mut w = LedgerWriter::create_runtime_with(&store, "mission_limits", "p", "account-default", "codex", "codex", &[], None, &Value::Null).unwrap();
+        let big = json!({"note": "x".repeat(600 * 1024)});
+        let err = w.lines(vec![big]).unwrap_err();
+        assert!(err.to_string().contains("record/file safety limit"), "{err}");
+        let full = w.bytes;
+        w.bytes = 64 * 1024 * 1024 - 10;
+        let err = w.lines(vec![json!({"note": "a little more"})]).unwrap_err();
+        assert!(err.to_string().contains("record/file safety limit"), "{err}");
+        w.bytes = full;
+        let _ = std::fs::remove_dir_all(&temp);
+    }
     #[test]
     fn swapped_ancestor_is_refused_and_nothing_is_created_in_electrons_folder() {
         let temp = temp("race");
