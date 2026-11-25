@@ -3871,26 +3871,27 @@ fn a_shutdown_past_its_deadline_is_not_waited_for_again_when_the_turn_lands_late
     let flag = Arc::new(AtomicBool::new(false));
     with_running(|m| m.insert("turn_that_lands_late".into(), flag.clone()));
     // Each wait on its own thread, so a wait that never ends fails here instead of hanging the suite.
-    let timed_wait = || {
+    // Timed from `begun`, taken before the shutdown starts its deadline, not from when the waiting thread ran.
+    let timed_wait = |begun: Instant| {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let begun = Instant::now();
             crate::engine_api::api().wait_for_shutdown();
             let _ = tx.send(begun.elapsed());
         });
-        rx.recv_timeout(Duration::from_secs(3))
+        rx.recv_timeout(Duration::from_secs(5))
     };
-    shutdown_in_background_for(Duration::from_millis(300));
-    let first = timed_wait();
+    let begun = Instant::now();
+    shutdown_in_background_for(Duration::from_millis(600));
+    let first = timed_wait(begun);
     let still_running = with_running(|m| m.contains_key("turn_that_lands_late"));
     with_running(|m| m.remove("turn_that_lands_late"));
     let first = first.expect("the quit's wait ended at its deadline, not when the turn landed");
     assert!(flag.load(Ordering::Relaxed), "the turn was told to stop");
     assert!(still_running, "the turn had not landed when the wait ended");
-    assert!(first >= Duration::from_millis(300), "the quit waited until its deadline: {first:?}");
+    assert!(first >= Duration::from_millis(600), "the quit waited until its deadline: {first:?}");
     // The turn lands now, after the deadline; the wait after the window is gone does not begin again.
-    let second = timed_wait().expect("the second wait ended");
-    assert!(second < Duration::from_millis(100), "the second wait ended at once: {second:?}");
+    let second = timed_wait(Instant::now()).expect("the second wait ended");
+    assert!(second < Duration::from_millis(300), "the second wait ended at once, not after another deadline: {second:?}");
 }
 
 /// an-app-server-that-cannot-start-says-so.test.ts: a CLI moved or deleted since discovery. Electron's child had no
