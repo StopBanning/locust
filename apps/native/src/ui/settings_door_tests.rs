@@ -2,8 +2,8 @@
 //! builds, drawn headless with Electron's values and words: off state, enabled setup lines and tradeoffs,
 //! listener error message, `Use each teammate's own mode` off/on.
 //! Presses go to a door of the test's own (`TEST_DOOR`, this thread only), which records each change and answers as
-//! the host would. Not built in Rust: the editor switch (`editorSeen` / `editorAnswers`); `turnPromptLine` is the
-//! reply lane's.
+//! the host would. The editor switch (`editor_seen` / `editor_answers`) is pressed the same way; `turnPromptLine` is
+//! core's `conversation_turns::turn_line`, read with Electron's values.
 use super::*;
 use locust_core::door;
 use rune::{Env, Runtime};
@@ -203,4 +203,52 @@ fn turns_own_mode_on_only_after_a_press_and_says_who_answers_approvals() {
     assert!(said.contains("New turns use each teammate's own mode"), "{said}");
     assert!(said.contains("only you can answer them"), "{said}");
     assert!(said.contains("Auto runs only if Auto is on in Settings"), "{said}");
+}
+
+// case: shows the editor switch only once an editor has connected, off until a press, and says who answers
+#[test]
+fn shows_the_editor_switch_only_once_an_editor_has_connected_off_until_a_press_and_says_who_answers() {
+    use locust_core::engine_api::DoorChange;
+    const EDITORS: &str = "Let editors answer cards for their own turns";
+    let mut plain = enabled_door();
+    plain.settings.own_mode = true;
+    let (said, switches) = drawn(plain.clone());
+    assert!(!said.contains(EDITORS) && !switches.iter().any(|(l, _)| l == EDITORS), "no editor yet: {said}");
+
+    let mut first = plain;
+    first.settings.editor_seen = true;
+    let answered = first.clone();
+    let mut p = Pressing::new(first, move |change| {
+        let mut next = answered.clone();
+        if let DoorChange::EditorAnswers(on) = change {
+            next.settings.editor_answers = on;
+        }
+        next
+    });
+    assert!(p.rt.elements().iter().any(|e| e.role == "switch" && e.label.as_deref() == Some(EDITORS)), "{}", p.said());
+    assert!(!p.on(EDITORS), "off until a press");
+    let said = p.said();
+    assert!(said.contains("Cards for a turn an editor starts wait in this window, and only you answer them."), "{said}");
+    assert!(said.contains("only you can answer them"), "{said}");
+    assert!(p.asked.borrow().is_empty(), "drawing asked the door for {:?}", p.asked.borrow());
+
+    p.press(EDITORS);
+    assert_eq!(*p.asked.borrow(), vec![DoorChange::EditorAnswers(true)], "the editor switch only; own mode untouched");
+    assert!(p.on(EDITORS));
+    let said = p.said();
+    assert!(said.contains("An editor that starts a turn can approve or deny that turn\u{2019}s cards there."), "{said}");
+    assert!(said.contains("an editor can answer the ones for turns it started"), "{said}");
+}
+
+// case: keeps an externally sent message visible without turning it into relay instructions
+/// Electron's `turnPromptLine({ prompt: 'Review this.', startedBy: { kind: 'mcp' } })`: what another app sent is the
+/// bubble, word for word. Rust's is `conversation_turns::turn_line`, which the thread reads at messages.rs:357.
+#[test]
+fn keeps_an_externally_sent_message_visible_without_turning_it_into_relay_instructions() {
+    let sent = locust_core::ledger::Metadata {
+        prompt: "Review this.".into(),
+        started_by_kind: Some("mcp".into()),
+        ..Default::default()
+    };
+    assert_eq!(locust_core::conversation_turns::turn_line(&sent).as_deref(), Some("Review this."));
 }

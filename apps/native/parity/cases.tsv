@@ -5663,8 +5663,8 @@ apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	t
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps the actual off state and says why if the listener could not be enabled	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	offers each teammate's own mode only while the server is on, off by default and said so	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns own mode on only after a press, and says who answers approvals	yes
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	shows the editor switch only once an editor has connected, off until a press, and says who answers	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps an externally sent message visible without turning it into relay instructions	no
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	shows the editor switch only once an editor has connected, off until a press, and says who answers	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps an externally sent message visible without turning it into relay instructions	yes
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	speaks in Locust's words, not the plumbing's	yes
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	says why its Artifacts are empty for THIS run, not that every empty one was read-only (0.362)	no
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	is called what it is about, not "inspector" (0.361)	no
