@@ -693,9 +693,9 @@ apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading 
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	yes
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	reads a PDF in the folder, by its place in the folder, and answers its pictures	no
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	refuses what is not a PDF, what is outside the folder, and anything that is not a local path	no
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	says so when the PDF cannot be read, and when it is not there	no
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	reads a PDF in the folder, by its place in the folder, and answers its pictures	yes
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	refuses what is not a PDF, what is outside the folder, and anything that is not a local path	yes
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	says so when the PDF cannot be read, and when it is not there	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	leaves out the last reply when asked, and the brief says the person chose it	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	can leave out every section it offers at once, and the task and the reply stay	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	never leaves out the task, the reply or the steps that never reported back, whatever is sent	yes
