@@ -450,6 +450,14 @@ fn editor_folder(s: &State) -> Option<(String, String)> {
     })
 }
 
+/// RoutineDialog's note for an edit made while a run is going (0.493; App.tsx's `running`: the routine's execution is
+/// running or dispatching). The run follows the plan it started with (`routine_runner::started_plan`).
+const RUNNING_NOTE: &str = "It is running now. That run keeps the steps it started with; your changes apply from the next run.";
+
+fn edited_while_running(r: &Value) -> bool {
+    matches!(r["execution"]["status"].as_str(), Some("running" | "dispatching"))
+}
+
 fn runner_choice(s: &State, p: &Palette) -> El {
     let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
     let named = s.teammates.iter().find(|t| t.id == owner);
@@ -552,6 +560,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         }
         if let Some(may) = may_do_view(s, p) {
             body = body.child(may);
+        }
+        if edited_while_running(&panel.entry) {
+            body = body.child(text(RUNNING_NOTE).key("routine-running-note").font(type_::LABEL).color(p.secondary).wrap());
         }
         body = body
             .child(text("Name").font(type_::LABEL).color(p.secondary))
@@ -2435,6 +2446,29 @@ mod renderer_unowned_tests {
     fn press_save(rt: &mut rune::Runtime<State>) {
         let (x, y) = rt.find("routine-save").expect("save button");
         rt.pointer_down(x, y); rt.pointer_up(x, y); rt.frame(0.05);
+    }
+    // case: says a run going now keeps the steps it started with
+    #[test]
+    fn says_a_run_going_now_keeps_the_steps_it_started_with() {
+        const NOTE: &str = "That run keeps the steps it started with; your changes apply from the next run.";
+        let editing = |execution: Value| {
+            let mut s = editor(true, true, &["Write a todo page."]);
+            let mut r = s.routines.entry.clone();
+            r["routineId"] = json!("rt_todo");
+            r["execution"] = execution;
+            edit(&mut s, r);
+            let rt = runtime(s);
+            let note = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("routine-running-note")).and_then(|e| e.text);
+            (note, words(&rt))
+        };
+        for status in ["running", "dispatching"] {
+            let (note, shown) = editing(json!({"status": status, "step": 1, "of": 1}));
+            assert_eq!(note.as_deref(), Some(format!("It is running now. {NOTE}").as_str()), "{status}: {shown}");
+        }
+        for execution in [Value::Null, json!({"status": "held", "step": 1, "of": 1}), json!({"status": "abandoned"})] {
+            let (note, shown) = editing(execution.clone());
+            assert!(note.is_none() && !shown.contains("That run keeps the steps"), "{execution}: {shown}");
+        }
     }
     #[test]
     fn asks_who_will_run_it() {

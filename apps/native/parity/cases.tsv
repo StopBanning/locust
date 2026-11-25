@@ -4369,7 +4369,7 @@ apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names one 
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	still names each model when the routes differ, even one model through two tools	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names the one teammate of a plain routine with its model too	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says the model and the mode it runs in, not a rule about read-only	no
-apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says a run going now keeps the steps it started with	no
+apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says a run going now keeps the steps it started with	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	asks who takes each step, and whether it checks, when there is a team	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	draws no choice for a teammate on their own	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	names the chain in step order, each teammate once in a row, the checker marked	yes
