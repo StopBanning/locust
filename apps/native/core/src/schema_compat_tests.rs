@@ -682,3 +682,27 @@ fn refuses_an_event_from_a_runtime_the_mission_is_not_running() {
     }).unwrap_err();
     assert!(err.to_string().contains("not readable by the ledger reader"), "{err}");
 }
+
+// A continuation is refused, on read and on write, when its checkpoint is not one, its reason is not a known one, or it
+// lists more than eight things left out (schema-compat's continuation rules).
+#[test]
+fn a_continuation_with_a_zero_checkpoint_an_unknown_reason_or_too_much_left_out_is_refused() {
+    let nine: Vec<String> = (0..9).map(|i| format!("item{i}")).collect();
+    for link in [
+        json!({ "missionId": "mission_before", "checkpointEpoch": 0, "reason": "route-switch" }),
+        json!({ "missionId": "mission_before", "checkpointEpoch": 2, "reason": "because" }),
+        json!({ "missionId": "mission_before", "checkpointEpoch": 2, "reason": "route-switch", "leftOut": nine }),
+    ] {
+        let (_t, store) = temp();
+        let path = ledger_at(&store, 27, &codex_events(), json!({ "continuesFrom": link }));
+        assert!(refused(&path), "read: {link}");
+        let (_t, store) = temp();
+        let made = LedgerWriter::create_runtime_with(&store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None, &json!({ "continuesFrom": link }));
+        assert!(made.is_err(), "write: {link}");
+    }
+    // Eight left out is still fine.
+    let (_t, store) = temp();
+    let eight: Vec<String> = (0..8).map(|i| format!("item{i}")).collect();
+    let path = written(&store, json!({ "continuesFrom": { "missionId": "mission_before", "checkpointEpoch": 1, "reason": "carry-on", "leftOut": eight } }));
+    assert!(!refused(&path));
+}
