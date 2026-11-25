@@ -39,6 +39,7 @@ fn the_catalog_matches_electrons_model_for_model() {
             copilot: true,
             muse: machine["muse"] == true,
             apple: false,
+            antigravity_usage: None,
         };
         let ours = catalog(&listed);
         let want = machine["models"].as_array().unwrap();

@@ -1604,21 +1604,21 @@ apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still i
 apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	no
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	never runs /usage on an old or unknown version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	runs the built-in command on a supported version (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	puts the short window first and includes the lower Claude and GPT limit	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not call a full bucket a future reset, even without a description	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects invalid fractions (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	yes
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/approval-channel.test.ts	recognizes the three protocol methods and nothing else	yes
 apps/desktop/src/main/approval-channel.test.ts	carries the exact command so the card can say what would happen	yes

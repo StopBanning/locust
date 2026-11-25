@@ -17,8 +17,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-const USAGE_TIMEOUT: Duration = Duration::from_secs(30);
-const MAX_OUTPUT: usize = 256 * 1024;
+/// How long `/usage` may run, and how much it may print, before it is given up (antigravity-usage.ts `timeout`,
+/// `maxBuffer`).
+pub const USAGE_TIMEOUT: Duration = Duration::from_secs(30);
+pub const MAX_OUTPUT: usize = 256 * 1024;
 const CATALOG_WAIT: Duration = Duration::from_millis(1_500);
 const CACHE_TTL: Duration = Duration::from_secs(600);
 
@@ -245,7 +247,11 @@ pub fn antigravity_usage_text(answer: &Value) -> Option<String> {
 
 static USAGE_CACHE: OnceLock<Mutex<Option<(Instant, String)>>> = OnceLock::new();
 
-fn usage_cache() -> &'static Mutex<Option<(Instant, String)>> {
+/// Where a reading is kept between catalog reads, and when it was read.
+pub type UsageCache = Mutex<Option<(Instant, String)>>;
+
+/// The app's one reading of Antigravity's usage, which `limits` reads too.
+pub fn usage_cache() -> &'static Mutex<Option<(Instant, String)>> {
     USAGE_CACHE.get_or_init(|| Mutex::new(None))
 }
 
@@ -294,6 +300,47 @@ where
 
 pub fn default_catalog_wait() -> Duration {
     CATALOG_WAIT
+}
+
+/// `/usage` run for real: the discovered executable and its argv, no shell, bounded in time and output.
+pub fn run_usage(executable: &str, args: &[String], env: &HashMap<String, String>) -> Option<String> {
+    run_bounded_json(Path::new(executable), args, env, USAGE_TIMEOUT)
+}
+
+/// What the sweep discovered for Antigravity, as the catalog needs it to read `/usage` (model-catalog.ts reads the
+/// discovery entry): its command (`agy` for the CLI), how to run it, whether it is ready, and the version it said.
+#[derive(Clone, Debug)]
+pub struct AgyFound {
+    pub command_name: String,
+    pub spec: UsageExecSpec,
+    pub ready: bool,
+    pub version: Option<Version>,
+}
+
+/// Antigravity's usage as the model catalog reads it (model-catalog.ts 0.685/0.709): only for a ready `agy` the sweep
+/// discovered; a fresh reading in `cache` is used without starting anything; otherwise `/usage` is read through `run`
+/// (never on a version without it), said in words with when it was read, and kept in `cache`. The catalog waits `wait`
+/// for it and goes on without it after that; a late reading is still kept for the next read.
+pub fn catalog_reading<F>(cache: &'static UsageCache, found: Option<&AgyFound>, wait: Duration, run: F) -> Option<String>
+where
+    F: FnOnce(&str, &[String], &HashMap<String, String>) -> Option<String> + Send + 'static,
+{
+    let found = found.filter(|f| f.ready && f.command_name == "agy")?;
+    let held = crate::invariants::lock(cache).as_ref().filter(|(at, _)| at.elapsed() < CACHE_TTL).map(|(_, text)| text.clone());
+    if held.is_some() {
+        return held;
+    }
+    let (spec, version) = (found.spec.clone(), found.version.clone());
+    read_usage_without_holding(
+        wait,
+        move || {
+            let answer = read_antigravity_usage_with(&spec, version.as_ref(), run)?;
+            let reading = format!("{} \u{b7} as of {}", antigravity_usage_text(&answer)?, Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true));
+            *crate::invariants::lock(cache) = Some((Instant::now(), reading.clone()));
+            Some(reading)
+        },
+        |_| {},
+    )
 }
 
 #[cfg(test)]
