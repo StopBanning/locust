@@ -699,6 +699,8 @@ fn a_continuation_with_a_zero_checkpoint_an_unknown_reason_or_too_much_left_out_
         let (_t, store) = temp();
         let made = LedgerWriter::create_runtime_with(&store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None, &json!({ "continuesFrom": link }));
         assert!(made.is_err(), "write: {link}");
+        // Refused before anything is made: no ledger file is left for a mission that was never started.
+        assert_eq!(std::fs::read_dir(store.ledger_dir().unwrap()).unwrap().count(), 0, "a file was left: {link}");
     }
     // Eight left out is still fine.
     let (_t, store) = temp();
