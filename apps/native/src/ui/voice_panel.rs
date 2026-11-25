@@ -52,9 +52,10 @@ pub(super) struct Panel {
 }
 
 impl Panel {
-    /// Live app panel: wires the real HTTPS transcription transport.
+    /// Live app panel: wires real HTTPS transcription and native audio hardware.
     pub(super) fn live() -> Self {
         let mut panel = Self::default();
+        panel.audio = Some(Arc::new(crate::voice_hw::NativeAudio::new()));
         panel.transcriber = Some(Arc::new(
             locust_core::voice_http::UreqTranscriptionTransport::new(),
         ));

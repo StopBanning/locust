@@ -177,6 +177,7 @@ mod step_pictures;
 use activity_drawers::*;
 #[path = "ui/voice_panel.rs"]
 mod voice_panel;
+mod voice_hw;
 #[path = "ui/call_words.rs"]
 mod call_words;
 #[path = "ui/messages.rs"]

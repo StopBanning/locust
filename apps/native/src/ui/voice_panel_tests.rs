@@ -509,4 +509,5 @@ fn talk_is_pressed_and_ends_the_call_while_one_is_on() {
 fn live_state_wires_real_transcription_transport() {
     let s = State::default();
     assert!(s.voice.transcriber.is_some());
+    assert!(s.voice.audio.is_some());
 }
