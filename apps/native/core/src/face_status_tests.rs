@@ -478,19 +478,71 @@ fn a_runtime_that_says_it_is_signed_out_still_is() {
     assert_eq!(view(unanswered_base(&claude)).label, "Sign-in needed");
 }
 
-// --- a-question-makes-the-face-wait-on-you.test.ts (the two status cases) ---
+// --- a-question-makes-the-face-wait-on-you.test.ts ---
 
+fn approval_item(teammate_id: Option<&str>) -> crate::needs_you::NeedsYouItem {
+    crate::needs_you::NeedsYouItem::Approval {
+        key: format!("approval:{}", teammate_id.unwrap_or("none")),
+        mission_id: "mission_a".into(),
+        teammate_id: teammate_id.map(str::to_owned),
+        name: "Ada".into(),
+        what: "Run npm test".into(),
+        asking: false,
+        command: true,
+    }
+}
+
+fn decision_item(teammate_id: Option<&str>, mission_id: &str) -> crate::needs_you::NeedsYouItem {
+    crate::needs_you::NeedsYouItem::Decision {
+        key: format!("decision:{mission_id}"),
+        mission_id: mission_id.into(),
+        teammate_id: teammate_id.map(str::to_owned),
+        name: "Ada".into(),
+        what: "Cyan or amber?".into(),
+    }
+}
+
+// case: counts questions a teammate stopped on beside its paused runs
+#[test]
+fn counts_questions_a_teammate_stopped_on_beside_its_paused_runs() {
+    let counts = waiting_by_teammate(&[
+        approval_item(Some("tm_ada")),
+        decision_item(Some("tm_ada"), "mission_b"),
+        decision_item(Some("tm_bo"), "mission_c"),
+    ]);
+    assert_eq!(counts.get("tm_ada"), Some(&2));
+    assert_eq!(counts.get("tm_bo"), Some(&1));
+}
+
+// case: leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns
+#[test]
+fn leaves_out_memory_suggestions_scout_cards_waiting_routines_and_items_no_teammate_owns() {
+    use crate::needs_you::NeedsYouItem;
+    let counts = waiting_by_teammate(&[
+        NeedsYouItem::Memory { key: "memory".into(), count: 3 },
+        decision_item(None, "mission_b"),
+        approval_item(None),
+        NeedsYouItem::Scout { key: "scout:card_now".into(), card_id: "card_now".into(), name: "Scout".into(), what: "Checks failed.".into() },
+        NeedsYouItem::Routine { key: "routine:rt_1".into(), routine_id: "rt_1".into(), name: "Morning digest".into(), what: "Waiting for you".into() },
+    ]);
+    assert!(counts.is_empty());
+}
+
+// case: a question alone makes the face wait, in amber, with nothing running
 #[test]
 fn a_question_alone_makes_the_face_wait_in_amber_with_nothing_running() {
-    let said = view(StatusInputs { pending_approvals: 1, role_label: "Builder", ..Default::default() });
+    let waiting = waiting_by_teammate(&[decision_item(Some("tm_ada"), "mission_b")]).get("tm_ada").copied().unwrap_or(0);
+    let said = view(StatusInputs { pending_approvals: waiting, role_label: "Builder", ..Default::default() });
     assert_eq!(said.activity, FaceActivity::Waiting);
     assert_eq!(said.tone, Tone::Amber);
     assert_eq!(said.status, TeammateStatus::ApprovalNeeded);
 }
 
+// case: a teammate with no question and no paused run stays idle
 #[test]
 fn a_teammate_with_no_question_and_no_paused_run_stays_idle() {
-    assert_eq!(view(StatusInputs { pending_approvals: 0, role_label: "Builder", ..Default::default() }).activity, FaceActivity::Idle);
+    let waiting = waiting_by_teammate(&[decision_item(Some("tm_bo"), "mission_b")]).get("tm_ada").copied().unwrap_or(0);
+    assert_eq!(view(StatusInputs { pending_approvals: waiting, role_label: "Builder", ..Default::default() }).activity, FaceActivity::Idle);
 }
 
 // --- a-face-says-its-state-in-words.test.tsx: a state in words ---

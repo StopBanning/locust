@@ -4227,8 +4227,8 @@ apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	chooses t
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	answers the question the focus is in, even one already answered	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing while typing, with a modifier held, past the options, or for other keys	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing once every question with options has its answer, unless the focus says which	yes
-apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	no
-apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	no
+apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	yes
+apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	yes
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a question alone makes the face wait, in amber, with nothing running	yes
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a teammate with no question and no paused run stays idle	yes
 apps/desktop/src/renderer/src/a-queued-message-refused-as-busy-waits.test.ts	goes back pointed at the conversation it was typed in, not before its retry time	yes

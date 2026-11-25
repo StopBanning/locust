@@ -196,6 +196,24 @@ pub fn face_presence_for(status: TeammateStatus) -> Presence {
     }
 }
 
+/// `needsYou.ts` `waitingByTeammate` (0.564): how many things each teammate waits on the person for -- paused
+/// approvals AND questions they stopped on. Memory suggestions, Scout cards, waiting routines, and items no
+/// teammate owns are left out.
+pub fn waiting_by_teammate(items: &[crate::needs_you::NeedsYouItem]) -> std::collections::HashMap<String, usize> {
+    let mut counts = std::collections::HashMap::new();
+    for item in items {
+        let teammate_id = match item {
+            crate::needs_you::NeedsYouItem::Approval { teammate_id, .. }
+            | crate::needs_you::NeedsYouItem::Decision { teammate_id, .. } => teammate_id.as_deref(),
+            _ => None,
+        };
+        if let Some(id) = teammate_id {
+            *counts.entry(id.to_owned()).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
 #[cfg(test)]
 #[path = "face_status_tests.rs"]
 mod tests;

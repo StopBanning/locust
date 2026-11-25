@@ -90,8 +90,14 @@ fn runtimes(s: &State) -> Option<Vec<RuntimeFacts>> {
     })
 }
 
-/// `teammate`'s status now, given the agents discovery found and the cards waiting on the person.
-fn view_of(s: &State, teammate: &Teammate, agents: Option<&[RuntimeFacts]>, waiting: &[locust_core::approval::Request]) -> StatusView {
+/// `teammate`'s status now, given the agents discovery found and the cards/questions waiting on the person.
+fn view_of(
+    s: &State,
+    teammate: &Teammate,
+    agents: Option<&[RuntimeFacts]>,
+    waiting: &[locust_core::approval::Request],
+    needs_you: &HashMap<String, usize>,
+) -> StatusView {
     let own_id = teammate.runtime.as_deref();
     let own = agents.and_then(|all| all.iter().find(|r| Some(r.id.as_str()) == own_id));
     let theirs = |mission: &str| s.mission_owners.get(mission).is_some_and(|owner| owner == &teammate.id);
@@ -100,7 +106,8 @@ fn view_of(s: &State, teammate: &Teammate, agents: Option<&[RuntimeFacts]>, wait
         || teammate.busy
         || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id)
         || s.ledger.as_ref().is_some_and(|pane| pane.header.id == teammate.id && pane.snapshot.running);
-    let pending_approvals = waiting.iter().filter(|card| theirs(&card.mission_id)).count();
+    let engine_waiting = waiting.iter().filter(|card| theirs(&card.mission_id)).count();
+    let pending_approvals = engine_waiting.max(needs_you.get(&teammate.id).copied().unwrap_or(0));
     teammate_status_view(&StatusInputs {
         own_runtime: own,
         reach: agents.map(|all| runtime_reach(all, true)).unwrap_or_default(),
@@ -117,7 +124,8 @@ fn view_of(s: &State, teammate: &Teammate, agents: Option<&[RuntimeFacts]>, wait
 pub(super) fn views(s: &State) -> HashMap<String, StatusView> {
     let agents = runtimes(s);
     let waiting = locust_core::engine_api::api().waiting();
-    s.teammates.iter().map(|t| (t.id.clone(), view_of(s, t, agents.as_deref(), &waiting))).collect()
+    let needs_you = locust_core::face_status::waiting_by_teammate(&crate::rail::needs_you_items(s));
+    s.teammates.iter().map(|t| (t.id.clone(), view_of(s, t, agents.as_deref(), &waiting, &needs_you))).collect()
 }
 
 /// The dot a face wears for its status (status.ts `facePresenceFor`).
@@ -462,5 +470,48 @@ mod tests {
         stop.store(true, Ordering::SeqCst);
         asking.join().unwrap();
         result.unwrap();
+    }
+
+    // case: a question alone makes the face wait, in amber, with nothing running
+    #[test]
+    fn a_question_a_teammate_stopped_on_makes_its_rail_face_wait_in_amber() {
+        let mut ada = mate("tm_ada");
+        ada.name = "Ada".into();
+        ada.role = "Builder".into();
+        let mut bo = mate("tm_bo");
+        bo.name = "Bo".into();
+        bo.role = "Builder".into();
+        let mut s = State::default();
+        s.teammates = vec![ada.clone(), bo];
+        s.conversations = HashMap::from([("tm_ada".to_string(), Conversation { conversation_id: Some("m_q_1".into()), turns: vec![] })]);
+        s.mission_owners = HashMap::from([("m_q_1".to_string(), "tm_ada".to_string())]);
+        s.ledger = Some(LedgerPane {
+            cold_tip: None,
+            header: ada,
+            conversation: Conversation { conversation_id: Some("m_q_1".into()), turns: vec![] },
+            items: vec![ledger::Item::Assistant {
+                item_id: "a1".into(),
+                text: "<locust-ask>\nCyan or amber?\n- Cyan :: cool\n- Amber :: warm\n</locust-ask>".into(),
+                r#final: true,
+            }],
+            dir: std::path::PathBuf::new(),
+            worker: None,
+            snapshot: ledger::Snapshot {
+                tip: "m_q_1".into(),
+                running: false,
+                ..Default::default()
+            },
+            due: 0.0,
+            loading: false,
+            after_tip: None,
+            after_tip_deadline: None,
+            backoff: 0.0,
+        });
+        let mut rt = rune::Runtime::new(s, |s, _| crate::rail::rail(s, &Palette::new(true)), (72.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        assert_eq!(rt.state.bot_stage.desired_activity("rail-tm_ada"), Some(FaceActivity::Waiting));
+        assert_eq!(crate::look::faces::drawn_presence("rail-tm_ada"), Some(Some(crate::look::bot_stage::PresenceDot::Waiting)));
+        assert_eq!(rail_words(&rt, "tm_ada").1.as_deref(), Some("waiting on you"));
+        assert_eq!(rt.state.bot_stage.desired_activity("rail-tm_bo"), Some(FaceActivity::Idle));
     }
 }
