@@ -1728,7 +1728,7 @@ apps/desktop/src/main/block-placement.test.ts	is used by every briefing that ask
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves on its own when the work never settles	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves as soon as the work is done, and not again at the deadline	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	reports a failed flush as a failure rather than as a clean exit	no
-apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	no
+apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	yes
 apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	yes
 apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	yes
 apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	yes
