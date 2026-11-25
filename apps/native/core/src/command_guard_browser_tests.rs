@@ -286,6 +286,26 @@ fn filter_never_reaches_locust_or_own_agent() {
     );
 }
 
+// A filtered end that reaches a headless browser no teammate started still runs: a windowless browser is nobody's window.
+#[test]
+fn filter_lets_a_windowless_browser_end_even_when_no_teammate_started_it() {
+    let headless = r#"powershell -c "Get-CimInstance Win32_Process | Where-Object { \$_.Name -eq 'msedge.exe' -and \$_.CommandLine -like '*--headless*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId }""#;
+    assert_eq!(stopped_because_with(headless, &empty_ctx(), Some(&look)), None);
+}
+
+// A filtered end never reaches a process this hook runs under, even one the agent started (its own wrapper).
+#[test]
+fn filter_never_reaches_a_process_this_run_sits_inside() {
+    let inside = || {
+        let mut t = table();
+        t.insert(8999, row(7100, "node.exe", "node wrapper.js", 6000));
+        Some(ProcessLook { table: t, root: 7000, agent: Some(7100), above: vec![8999, 7100, 7000, 6000] })
+    };
+    let wrapper = r#"powershell -c "Get-CimInstance Win32_Process | Where-Object { \$_.Name -eq 'node.exe' -and \$_.CommandLine -like '*wrapper*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId }""#;
+    let said = stopped_because_with(wrapper, &empty_ctx(), Some(&inside)).unwrap_or_default();
+    assert!(said.contains("8999"), "{said}");
+}
+
 // case: runs: starting a browser, and the ordinary work of a turn
 #[test]
 fn ordinary_work_and_starting_a_browser_run() {

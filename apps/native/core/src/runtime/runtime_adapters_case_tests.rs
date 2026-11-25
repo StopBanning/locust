@@ -155,6 +155,8 @@ fn still_refuses_everything_else_auto_or_not() {
         assert!(err.contains("Forbidden"), "{arg}: {err}");
     }
     assert!(safety::assert_safe_runtime_command("codex", &s(&["--ask-for-approval", "never"]), Some("full-access")).unwrap_err().contains("never"));
+    // The one-word spelling is refused the same, in every sandbox.
+    assert!(safety::assert_safe_runtime_command("codex", &s(&["--ask-for-approval=never"]), Some("full-access")).unwrap_err().contains("never"));
     assert!(safety::assert_safe_runtime_command("gemini", &s(&["--approval-mode", "yolo"]), Some("full-access")).unwrap_err().contains("yolo"));
 }
 
