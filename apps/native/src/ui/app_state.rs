@@ -418,6 +418,8 @@ pub(super) struct State {
     pub(super) queue_rows: Vec<composer::QueuedRow>,
     pub(super) queue_error: Option<String>,
     pub(super) queue_send_now: Option<String>,
+    /// The queued row the queue just sent, until its send lands: refused as busy, it goes back in line (retried_after_busy).
+    pub(super) queue_in_flight: Option<composer::QueuedRow>,
     pub(super) composer_note: Option<String>,
     pub(super) slash_at: usize,
     pub(super) at_at: usize,
@@ -733,6 +735,7 @@ impl Default for State {
             queue_rows: Vec::new(),
             queue_error: None,
             queue_send_now: None,
+            queue_in_flight: None,
             composer_note: None,
             slash_at: 0,
             at_at: 0,

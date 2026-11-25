@@ -22,10 +22,8 @@ pub struct QueuedRow {
     pub held: Option<String>,
     /// When a row the host refused as busy may be tried again (ms since the epoch). See `retried_after_busy`. Never
     /// saved: Electron's queue file has no such field.
-    #[allow(dead_code)]
     pub retry_at: Option<u64>,
     /// How many times the host has refused it as busy.
-    #[allow(dead_code)]
     pub tries: Option<u32>,
 }
 
@@ -86,12 +84,8 @@ pub struct VerdictInput<'a> {
 
 /// A queued message the host refused as busy goes back in line (Electron's `retriedAfterBusy`, `steering.ts`): pointed
 /// at the conversation it was typed in, and tried again after half a second, then one, two, four, and every eight
-/// after that.
-///
-/// Not wired yet: the window hands a queued message to the host and does not hear a busy refusal back for that row
-/// (`drain_queue_after_turn` removes it first, so an uncertain result never retries itself). The backoff is here for
-/// when it does.
-#[allow(dead_code)]
+/// after that. The window calls it when the host refuses a row the queue sent (`ui::composer_wiring::requeued_after_busy`),
+/// and `drain_queue_after_turn` waits for `retry_at`.
 pub fn retried_after_busy(row: &QueuedRow, key: &str, now: u64) -> QueuedRow {
     let tries = row.tries.unwrap_or(0).saturating_add(1);
     let wait = 250u64.saturating_mul(2u64.saturating_pow(tries)).min(8_000);
