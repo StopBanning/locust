@@ -122,6 +122,8 @@ mod elsewhere_cover;
 mod reply_actions;
 #[path = "ui/pdf_pages_ui.rs"]
 mod pdf_pages_ui;
+#[path = "ui/sheet_view.rs"]
+mod sheet_view;
 #[path = "ui/markdown_prep.rs"]
 mod markdown_prep;
 #[path = "ui/routines_panel.rs"]

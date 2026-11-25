@@ -240,24 +240,30 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
         let path = root.join(&target.path);
         let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
         let book = crate::office::read_xlsx(&bytes)?;
-        return Ok(format_workbook(&book));
+        let words = format_workbook(&book);
+        // Its grid, for the viewer to draw (sheet_view, Electron SheetView).
+        crate::sheet_view::keep(root, &target.path, book);
+        return Ok(words);
     }
     if ext == "csv" || ext == "tsv" {
         let text = read_sheet_text(root, target)?;
         let book = crate::office::read_csv(&text, ext == "tsv");
-        return Ok(format_workbook(&book));
+        let words = format_workbook(&book);
+        crate::sheet_view::keep(root, &target.path, book);
+        return Ok(words);
     }
     read_file(root, target)
 }
 
 fn format_workbook(book: &crate::office::Workbook) -> String {
     let mut blocks = Vec::new();
-    for (name, rows) in &book.sheets {
+    for sheet in &book.sheets {
         blocks.push(crate::office::DocumentBlock::Heading {
             level: 2,
-            text: name.clone(),
+            text: sheet.name.clone(),
         });
-        let table_rows: Vec<Vec<String>> = rows
+        let table_rows: Vec<Vec<String>> = sheet
+            .rows
             .iter()
             .map(|row| row.iter().map(|c| c.text.clone()).collect())
             .collect();
@@ -761,8 +767,11 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
     }
     // A PDF is shown as the pages Locust drew of it (PdfPages, 0.714); its words stay its text when none were drawn.
     let pdf_pages = if body.is_ok() && crate::pdf::is_pdf_path(&target.path) { crate::pdf_pages_ui::pages(s, &target.path, p) } else { None };
+    // A spreadsheet is shown as its grid (SheetView, 0.364).
+    let sheet = if body.is_ok() { crate::sheet_view::grid(s, &target.path, p) } else { None };
     match body {
         Ok(_) if pdf_pages.is_some() => pane = pane.children(pdf_pages),
+        Ok(_) if sheet.is_some() => pane = pane.children(sheet),
         Ok(_) if picture => {
             // ThreadImage's press: the picture at the pane's width, with zoom and pan controls (ZoomableImage.tsx).
             pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(s, &image, &target.path, p)) {
