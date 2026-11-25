@@ -60,6 +60,9 @@ pub struct Metadata {
     pub started_by_voice: bool,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
+    /// The routine whose replay started it and which step (`startedBy.routineId`, `startedBy.step`).
+    pub started_by_routine: Option<String>,
+    pub started_by_step: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
     pub omitted_briefing: Vec<String>,
     pub left_out_by_you: Vec<String>,
@@ -115,6 +118,9 @@ pub struct Summary {
     pub updated: String,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
+    /// The routine whose replay started it and which step (`startedBy.routineId`, `startedBy.step`).
+    pub started_by_routine: Option<String>,
+    pub started_by_step: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
     pub cost: Option<crate::benchmark::RunCost>,
     pub peer_links: Vec<PeerLink>,
@@ -499,6 +505,18 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
                     .flatten()
             })
             .map(|h| h as usize),
+        started_by_routine: m
+            .get("startedBy")
+            .filter(|v| v.get("kind").and_then(Value::as_str) == Some("routine"))
+            .and_then(|v| v.get("routineId"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        started_by_step: m
+            .get("startedBy")
+            .filter(|v| v.get("kind").and_then(Value::as_str) == Some("routine"))
+            .and_then(|v| v.get("step"))
+            .and_then(Value::as_u64)
+            .map(|n| n as usize),
         relay: m
             .get("relay")
             .and_then(crate::relay::RelayOrigin::from_json),
@@ -1419,9 +1437,12 @@ impl Transcript {
                     } else if (level == "warning" || level == "error")
                         && (work_began || run_trouble(&code))
                     {
+                        // A provider's JSON is said as a sentence; the recorded event keeps its evidence (buildThread).
+                        let runtime = string(event, "sourceAdapter");
+                        let said = crate::provider_error::provider_error_sentence(&string(p, "message"), Some(runtime.as_str()).filter(|r| !r.is_empty()));
                         items.push(Item::Note {
                             level,
-                            text: scrub(&string(p, "message")),
+                            text: scrub(&said),
                         });
                     }
                 }
@@ -1430,8 +1451,20 @@ impl Transcript {
                         carry = true;
                         self.running = false;
                     }
-                    let text = scrub(&string(p, "message"));
+                    let runtime = string(event, "sourceAdapter");
+                    let runtime = Some(runtime.as_str()).filter(|r| !r.is_empty());
+                    let text = scrub(&crate::provider_error::provider_error_sentence(&string(p, "message"), runtime));
                     let kind = string(p, "kind");
+                    // A temporary warning that became the final failure is said by that error (buildThread's endedOn).
+                    let ended_on = self.events.values().find(|e| e["type"] == "run.failed").map(|e| {
+                        let failed = e.get("payload").unwrap_or(&Value::Null);
+                        crate::failure_words::failure_message(&string(failed, "message"), failed["process"]["stderr"].as_str(), runtime)
+                    });
+                    if kind == "temporary-rate-limit"
+                        && ended_on.is_some_and(|said| crate::failure_words::same_sentence(&text, &said))
+                    {
+                        continue;
+                    }
                     // One usage warning a run: the newest figure, where the first one stood (missionView, 2026-09-23).
                     let earlier = (kind == "temporary-rate-limit").then(|| items.iter_mut().find_map(|i| match i {
                         Item::Limit { kind, text } if kind == "temporary-rate-limit" => Some(text),
@@ -1572,7 +1605,9 @@ impl Transcript {
         if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
             for (at, e) in self.events.iter().filter(|(_, e)| e["type"] == "adapter.diagnostic") {
                 let code = string(&e["payload"], "code");
-                let text = scrub(&string(&e["payload"], "message"));
+                // A provider's JSON is said as a sentence, as it is where it stands in the turn (buildThread).
+                let runtime = string(e, "sourceAdapter");
+                let text = scrub(&crate::provider_error::provider_error_sentence(&string(&e["payload"], "message"), Some(runtime.as_str()).filter(|r| !r.is_empty())));
                 // Decided where it stands in the turn, above: never promoted as it was.
                 if retrying_note(&self.events, *at, &code, &string(&e["payload"], "message")).is_some() {
                     continue;
@@ -1991,6 +2026,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             updated,
             started_by_kind: m.started_by_kind,
             started_by_hop: m.started_by_hop,
+            started_by_routine: m.started_by_routine,
+            started_by_step: m.started_by_step,
             relay: m.relay,
             cost,
             peer_links,

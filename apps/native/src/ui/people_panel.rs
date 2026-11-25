@@ -2732,3 +2732,7 @@ mod titles_as_drawn_tests;
 #[cfg(test)]
 #[path = "a_teammate_named_like_an_agent_tests.rs"]
 mod a_teammate_named_like_an_agent_tests;
+
+#[cfg(test)]
+#[path = "proposed_change_tests.rs"]
+mod proposed_change_tests;

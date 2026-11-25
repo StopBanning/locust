@@ -475,11 +475,17 @@ fn default_compare_picks(s: &State) -> Vec<ComparePick> {
     let other_free = if free(first) {
         let answered = crate::thread_view::free_models_answered_here(s);
         let best = locust_core::connectors_off::FREE_MODELS_BEST_FIRST;
-        others.iter().filter(|pick| free(pick)).min_by_key(|pick| {
+        // Never one that is down right now while another is up (compareDefaults' `down`, missionView.downFreeModels).
+        let history: Vec<_> = s.ledger_summaries.values().filter_map(locust_core::connectors_off::RetiredMission::from_summary).collect();
+        let down = locust_core::connectors_off::down_free_models(&history, chrono::Utc::now().timestamp_millis());
+        let order = |pick: &&ComparePick| {
             let was_recent = s.recent_route_keys.iter().any(|key| key.strip_prefix("opencode:") == Some(pick.model.as_str()));
             let rank = best.iter().position(|id| *id == pick.model).unwrap_or(best.len());
-            (!answered.contains(&pick.model), !was_recent, if was_recent { 0 } else { rank })
-        })
+            (!was_recent, if was_recent { 0 } else { rank })
+        };
+        others.iter().filter(|pick| free(pick) && !down.contains(&pick.model))
+            .min_by_key(|pick| (!answered.contains(&pick.model), order(pick)))
+            .or_else(|| others.iter().filter(|pick| free(pick)).min_by_key(order))
     } else {
         None
     };

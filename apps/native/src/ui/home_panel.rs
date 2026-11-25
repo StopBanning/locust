@@ -405,7 +405,23 @@ fn mark_away_seen(s: &mut State) {
     s.home.away = None;
 }
 
+/// App.tsx `onCompareStarter`: comparison on, the work (each model in its own copy) or the answers as the starter asks,
+/// two models already chosen where there are two to offer, and the words in the box -- Send is the next press.
+fn compare_starter(s: &mut State, prompt: &str, changes: bool) {
+    use crate::compare_view::CompareComposerMode;
+    s.compare.composer_mode = CompareComposerMode::Compare;
+    s.compare.changes = changes;
+    crate::compare_view::ensure_default_picks(s);
+    if s.compare.picks.len() < 2 {
+        s.compare.model_menu = Some(0);
+    }
+    s.draft = TextEdit::new(prompt);
+    s.home.home_open = false;
+}
+
 fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&str>) {
+    // A starter is one teammate's work, not a comparison (App.tsx `setCompareOn(false)`).
+    s.compare.composer_mode = crate::compare_view::CompareComposerMode::Direct;
     if let Some(mode) = mode {
         s.composer_mode = Some(mode.into());
     }
@@ -1617,8 +1633,10 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         let starter_id = starter.id.clone();
         let prompt = starter.prompt.to_owned();
         let mode = starter.mode.map(str::to_owned);
-        let compare_label = if starter.compare_changes { COMPARE } else { "" };
-        let mut item = row()
+        let (compare_prompt, compare_changes) = (prompt.clone(), starter.compare_changes);
+        // StarterList.tsx: the row starts it with the teammate whose work it is; a quiet Compare beside every row
+        // starts it as a comparison instead. Either only fills the box: nothing is sent until Send.
+        let item = row()
             .w_frac(0.5)
             .pr(24.0)
             .child(
@@ -1630,16 +1648,30 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .center_y()
                     .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
                     .hover(l.c("hover-surface"))
-                    .child(crate::look::controls::glyph(&l, starter_icon(starter.label), 15.0, Some(l.c("text-muted"))))
-                    .child(text(starter.label.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-primary")).grow(1.0))
-                    .child(text(compare_label.to_owned()).font(l.ty.mono).color(l.c("text-muted")))
-                    .role("button")
-                    .label(starter.label.to_owned()),
-            )
-            .on_press(move |s: &mut State| {
-                apply_starter(s, &starter_id, &prompt, mode.as_deref());
-            });
-        item = item.key(format!("starter-{}", starter.id));
+                    .child(
+                        row()
+                            .grow(1.0)
+                            .gap(12.0)
+                            .center_y()
+                            .child(crate::look::controls::glyph(&l, starter_icon(starter.label), 15.0, Some(l.c("text-muted"))))
+                            .child(text(starter.label.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-primary")).grow(1.0))
+                            .role("button")
+                            .label(starter.label.to_owned())
+                            .on_press(move |s: &mut State| {
+                                apply_starter(s, &starter_id, &prompt, mode.as_deref());
+                            }),
+                    )
+                    .child(
+                        text(COMPARE.to_owned())
+                            .font(l.ty.mono)
+                            .color(l.c("text-muted"))
+                            .role("button")
+                            .label(format!("{COMPARE}: {}", starter.label))
+                            .key(format!("starter-compare-{}", starter.id))
+                            .on_press(move |s: &mut State| compare_starter(s, &compare_prompt, compare_changes)),
+                    ),
+            );
+        let item = item.key(format!("starter-{}", starter.id));
         list = list.child(item);
     }
     body = body.child(list);
@@ -1725,14 +1757,24 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         to_look_at: s.home.to_look_at.clone(),
     };
     let scout_waits = crate::scout_cards::board_waiting_cards(s);
+    // Routines whose copy waits for Keep or Discard, from the same list the title bar's Waiting for you reads
+    // (App.tsx `boardWaits`), after the Scout cards.
+    let routine_waits: Vec<(String, String)> = crate::rail::needs_you_items(s)
+        .into_iter()
+        .filter_map(|item| match item {
+            locust_core::needs_you::NeedsYouItem::Routine { routine_id, name, .. } => Some((routine_id, name)),
+            _ => None,
+        })
+        .collect();
+    let waits = scout_waits.len() + routine_waits.len();
     let board = conversation_board::conversation_board_with_extra(
         &missions,
         &[],
         &HashSet::new(),
         &facts,
-        scout_waits.len(),
+        waits,
     );
-    let meta = conversation_board::board_meta_with_extra(board.as_deref(), scout_waits.len());
+    let meta = conversation_board::board_meta_with_extra(board.as_deref(), waits);
     let mut body = col().w_full().gap(10.0).padding(16.0);
     body = body.child(
         row()
@@ -1804,7 +1846,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
             let l = crate::look::controls::Look::new(p.dark);
             for section in sections {
                 let section_count = if section.key == ConversationBoardKey::NeedsYou {
-                    section.members.len() + scout_waits.len()
+                    section.members.len() + waits
                 } else if quiet_count > 0 {
                     quiet_count
                 } else {
@@ -1840,6 +1882,9 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                 if section.key == ConversationBoardKey::NeedsYou {
                     for card in &scout_waits {
                         body = body.child(crate::scout_cards::board_wait_card(s, card, &l));
+                    }
+                    for (id, name) in &routine_waits {
+                        body = body.child(crate::routines_panel::board_wait_card(s, id, name, &l));
                     }
                 }
                 for card in section.members {
@@ -1900,7 +1945,8 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         } else {
                             state_line.clone()
                         };
-                        card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber));
+                        // The request's own mark (BoardScreen.tsx `data-board-ask`), on the line that says what it needs.
+                        card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber).key(format!("board-request-{}", ask.approval_id)));
                         if let Some(command) = &ask.command {
                             card_el = card_el.child(
                                 // BoardScreen.tsx: the command held at its flags (`CommandText`).
@@ -2458,6 +2504,10 @@ mod tests {
 }
 
 #[cfg(test)]
+#[path = "request_answered_on_board_tests.rs"]
+mod request_answered_on_board_tests;
+
+#[cfg(test)]
 mod review_tests {
     use super::*;
 
@@ -2793,3 +2843,7 @@ mod board_drawn_tests;
 #[cfg(test)]
 #[path = "page_starter_tests.rs"]
 mod page_starter_tests;
+
+#[cfg(test)]
+#[path = "home_starter_compares_tests.rs"]
+mod home_starter_compares_tests;

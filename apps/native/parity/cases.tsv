@@ -3677,12 +3677,12 @@ apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says nothing of the kind while the run goes on	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	spells family and version the way Anthropic writes them	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	guesses at nothing it does not recognise	yes
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	carries Claude Code's own alias table (2.1.293: Haiku 5.5)	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	is the version the alias means, until a run on it says otherwise	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Claude Code's own name for it over the copied table, and a run's report over both (0.697)	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	carries Claude Code's own alias table (2.1.293: Haiku 5.5)	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	is the version the alias means, until a run on it says otherwise	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Claude Code's own name for it over the copied table, and a run's report over both (0.697)	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form names the optional environment and explains when it is saved.	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form marks invalid environment ids and explains how to correct them.	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	Only a Claude cloud start form offers the organization environment field.	yes
@@ -3800,17 +3800,17 @@ apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what 
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds nothing for an empty or blank query, and stops at the most it looks for	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	counts the hit it is on, says when there are none, and says nothing before anything is typed	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	steps to the next hit and the one before, round the end and back to the start	yes
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	no
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	names the runtime whose interface opens, says what happens there comes back, and that its permissions are not this mode	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	says Locust won't see it for a runtime whose sessions it does not read back (0.391)	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is held while the run is going, saying until when and why	yes
@@ -3922,10 +3922,10 @@ apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	a r
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	one no longer listed is passed over for the next that is	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	with nothing answered yet, the steadiest listed free model (it was the catalogue's first)	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	never a model of the person's own, even one named -free	yes
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	is down after its latest run said so, for six hours, and not once it answers again	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	is down after its latest run said so, for six hours, and not once it answers again	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	"Use a free model" starts on one that is up, even one that answered before	yes
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	no
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	reads OpenCode's words for a model or endpoint that is unavailable	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and a free model OpenCode’s service refused outright (2026-10-12, "Invalid credential" on every free model)	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and nothing else: a retirement, a busy server or a plain failure is not it	yes
@@ -3978,10 +3978,10 @@ apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops bol
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops single-star emphasis without touching a star that is not emphasis	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	is what the helper row says when it reported back	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	folds a summary onto one line	yes
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	no
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	withholds Run it again for a relay and never makes its briefing your bubble	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	still offers Run it again for your own never-started run	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	keeps a $kind run with its host context	yes
@@ -3999,8 +3999,8 @@ apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx	
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	offers a masked box and Keep for each key asked for	no
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	says a key is kept, refuses a name no key may take, and says when the agent cannot use one	no
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	lists a teammate’s keys by name in its settings, with Remove, and adds one masked	no
-apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	no
-apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	no
+apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	yes
+apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	yes
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id while Kilo has not listed its models yet	yes
 apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	is a sentence for every reason, naming the teammate or the files	yes
 apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what would change it, where the person can act	yes
@@ -4082,10 +4082,10 @@ apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows 
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows nothing extra for a memory never changed	yes
 apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	says Missed, 08:00 today, and the row offers Run now	no
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	spells the id when no catalog has been read	yes
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	takes the runtime's spelling of the same name	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes an identifier for a name (seen on the probe: "nemotron-3-ultra-free" in the chip)	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "Account Default" as it reads everywhere (seen on the screen tour)	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	takes the runtime's spelling of the same name	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes an identifier for a name (seen on the probe: "nemotron-3-ultra-free" in the chip)	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "Account Default" as it reads everywhere (seen on the screen tour)	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
 apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	reads "Model not found" as retired, and only that	yes
@@ -4109,8 +4109,8 @@ apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	sends 
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says "all free" when every turn was on a free model	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says nothing of free when any turn was not	yes
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	not on the first the alphabet lists	yes
-apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and a failure there offers the next steadiest, with the unnamed after all of them	no
-apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and Compare puts the next steadiest beside it	no
+apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and a failure there offers the next steadiest, with the unnamed after all of them	yes
+apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and Compare puts the next steadiest beside it	yes
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	the order only orders: a name OpenCode no longer lists adds nothing	yes
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	lists each one as a button with its name, its size and what it does, in place of the sentence	no
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	offers them after the finished conversations, not instead of them	no
@@ -4201,20 +4201,20 @@ apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test
 apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a blocked page says it does not allow pointing	yes
 apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a pointed part is a chip with a note, its styles, and a way to remove it	yes
 apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a password field's chip has no picture of its contents	yes
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	no
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	yes
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	yes
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	is named for what it asks, not as something to remember	yes
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a card of new proposals only reads as it always did	no
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	names each change for what it is, in sentences -- no ".". after a quoted memory	no
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	ends a clause whose memory has no full stop of its own	no
-apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	is nothing at all when nothing happened	no
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	shows the recorded error %s once in a failed turn	no
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a failed turn readable when its diagnostic was never recorded	no
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	does not repeat a final rate-limit failure as a temporary warning	no
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	no
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a card of new proposals only reads as it always did	yes
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	names each change for what it is, in sentences -- no ".". after a quoted memory	yes
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	ends a clause whose memory has no full stop of its own	yes
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	is nothing at all when nothing happened	yes
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	shows the recorded error %s once in a failed turn	yes
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a failed turn readable when its diagnostic was never recorded	yes
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	does not repeat a final rate-limit failure as a temporary warning	yes
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	yes
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	reads a JSON stderr cause without appending the raw body to a readable error	yes
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	no
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	yes
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads once for many links, and again when the window comes back after a minute	yes
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	does not keep a timer once the checks have settled	yes
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads every few minutes only while checks are running, and stops when the link is gone	yes
@@ -4283,9 +4283,9 @@ apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	tells a s
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	say how many, each title and brief, a cross, Do it here, Start, and Start all	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	offer no Do it here where the conversation cannot take a turn now	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taught the block on every turn, and the window draws it only once the reply is whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	no
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	The restored queue shows the original words, its hold reason and Edit, Discard and Send.	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	A queue read failure is visible even when no rows can be displayed.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Restored messages wait for Send even when the previous turn completed.	yes
@@ -4309,11 +4309,11 @@ apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	ke
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps one row when the same file was written twice without a diff	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	knows a scratch path is not the compare folder	yes
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	no
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	yes
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Exo Free is left out before anyone here has run it: a new person starts on a free model that can answer	yes
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	no
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	no
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	no
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	yes
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	yes
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	fits in a mission prompt however long the turn was	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	leaves a reply that fits exactly as it was	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	cuts from the middle, and counts what it cut	yes
@@ -4355,13 +4355,13 @@ apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	fi
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the routine editor shows declarations and refuses a step with an undeclared input	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the import preview names steps, inputs, choices, source roles and present/missing connectors	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	export paths are shown with a conversion offer, and the routines screen has file actions	yes
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	no
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Edit: "Change files" is chosen, and the file trigger says what lands in the folder	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Ask: "Only read" is chosen, and the trigger says it changes nothing	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names each teammate with the model their steps run on	yes
@@ -4376,10 +4376,10 @@ apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	says nothing new for a routine one teammate runs throughout	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	is shown as the step's own words, not the answer and rule it was given	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	are the step, not the answer quoted above it	yes
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	no
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	asks with the next step in its own words and two answers, ready to press	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	a held routine that did not ask is still the recovery card	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	says waiting for your OK on the routine row	yes

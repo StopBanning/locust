@@ -611,3 +611,7 @@ mod tests {
         assert_eq!(clear_enabled(&mut s), Some(true));
     }
 }
+
+#[cfg(test)]
+#[path = "model_one_name_tests.rs"]
+mod model_one_name_tests;
