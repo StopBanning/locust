@@ -717,7 +717,7 @@ impl Default for State {
             ledger: None,
             ledger_job: Latest::default(),
             calls: crate::call_words::ThreadCalls::default(),
-            voice: crate::voice_panel::Panel::default(),
+            voice: crate::voice_panel::Panel::live(),
             opening: Latest::default(),
             team: Latest::default(),
             sending: Latest::default(),

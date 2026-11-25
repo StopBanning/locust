@@ -580,6 +580,7 @@ pub mod window_bounds;
 pub mod voice_call_rules;
 pub mod voice_call_folder;
 pub mod voice_typing;
+pub mod voice_http;
 pub mod voice_transcript;
 pub mod voice_audio;
 pub mod voice_capture;

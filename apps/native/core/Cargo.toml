@@ -29,7 +29,7 @@ p256 = { version = "0.13", default-features = false, features = ["ecdh"] }
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 getrandom = "0.3"
 subtle = "2"
-ureq = { version = "2", default-features = false, features = ["json"] }
+ureq = { version = "2", default-features = false, features = ["json", "tls", "native-certs"] }
 url = "2"
 # Read-only .xlsx (Electron xlsx.ts); no formula execution. 0.38 matches zip 2.
 calamine = "0.38"

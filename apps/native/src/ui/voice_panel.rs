@@ -51,6 +51,17 @@ pub(super) struct Panel {
     questions: Vec<(String, locust_core::runtime::codex_voice::ConnectorQuestion)>,
 }
 
+impl Panel {
+    /// Live app panel: wires the real HTTPS transcription transport.
+    pub(super) fn live() -> Self {
+        let mut panel = Self::default();
+        panel.transcriber = Some(Arc::new(
+            locust_core::voice_http::UreqTranscriptionTransport::new(),
+        ));
+        panel
+    }
+}
+
 impl Drop for Panel {
     fn drop(&mut self) {
         if let Some(capture) = &self.capture {
