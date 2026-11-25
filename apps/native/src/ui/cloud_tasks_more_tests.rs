@@ -592,3 +592,25 @@ fn stale_diff_answer_never_overwrites_a_newly_opened_task() {
         "stale diff must not overwrite fast diff: {shown}"
     );
 }
+
+// Newest first by the moment each task was made, not by how its time is written: a time with an offset sorts where it falls.
+#[test]
+fn tasks_sort_by_their_moment_even_when_their_times_are_written_with_different_offsets() {
+    let task = |id: &str, at: &str| locust_core::cloud_tasks::CloudTask {
+        task_id: id.into(),
+        url: format!("https://chatgpt.com/codex/tasks/{id}"),
+        runtime: "codex".into(),
+        repo: "acme/widgets".into(),
+        branch: None,
+        prompt: id.into(),
+        folder: "/tmp/w".into(),
+        created_at: at.into(),
+        teammate_id: None,
+        status: locust_core::cloud_tasks::CloudStatus { state: locust_core::cloud_tasks::CloudState::Pending, title: None, added: None, removed: None, files: None },
+        applied_at: None,
+    };
+    // 10:00 at +05:00 is 05:00 UTC: earlier than 06:00 UTC, though it reads later.
+    let tasks = [task("task_earlier", "2026-11-25T10:00:00+05:00"), task("task_later", "2026-11-25T06:00:00Z")];
+    let order: Vec<&str> = newest_first(&tasks).iter().map(|t| t.task_id.as_str()).collect();
+    assert_eq!(order, ["task_later", "task_earlier"]);
+}
