@@ -78,6 +78,7 @@ fn a_teammate_at_the_monthly_limit_is_refused_whoever_started_it_before_anything
     assert!(ended(&t, &started.conversation_id).contains(&"run.completed".to_owned()));
 }
 
+// case: lets the run start when the limit cannot be checked, and says why in the log
 #[test]
 fn a_run_starts_when_its_teammates_limit_cannot_be_checked() {
     let t = Temp::new();
@@ -89,6 +90,10 @@ fn a_run_starts_when_its_teammates_limit_cannot_be_checked() {
     let _hook = hooks::install(t.store(), fake("success"));
     let started = send(job(&t, None, "Synthetic prompt")).unwrap();
     assert!(ended(&t, &started.conversation_id).contains(&"run.completed".to_owned()));
+    // Said in the log a tester sends back (Electron's `note`), one line after its timestamp.
+    let log = fs::read_to_string(crate::diagnostic_log::log_path(t.store().root())).unwrap_or_default();
+    let said: Vec<&str> = log.lines().filter_map(|l| l.split_once(' ').map(|(_, rest)| rest)).filter(|l| l.starts_with("spend-limit:")).collect();
+    assert_eq!(said, ["spend-limit: could not check tm_codec's monthly limit: The spending record could not be read."], "{log}");
 }
 
 // case: runs read-only when the mode is ask
@@ -715,6 +720,7 @@ fn the_persons_own_words_are_the_recorded_prompt_not_the_briefing() {
     assert_ne!(told(&t), "Look around.", "the runtime was briefed");
 }
 
+// case: runs without the channel when it cannot be read, and reports that on the receipt
 #[test]
 fn a_run_goes_on_without_the_workroom_when_it_cannot_be_read_and_can_still_share() {
     let t = Temp::new();
@@ -727,6 +733,14 @@ fn a_run_goes_on_without_the_workroom_when_it_cannot_be_read_and_can_still_share
     let id = wren_ran(&t, "ask", "Task.");
     assert_eq!(kinds(&path_of(&t, &id)).last().map(String::as_str), Some("run.completed"));
     assert!(told(&t).contains("<locust-share to=\"Atlas\">"), "the share form still goes");
+    // Electron's receipt says `peerDeliveryFailed` and its window says so beside the turn; native says it there.
+    let said: Vec<(String, String)> = relay_live_state(std::slice::from_ref(&id)).notices.into_iter().map(|n| (n.message, n.level)).collect();
+    assert_eq!(said, [(WORKROOM_UNREADABLE.to_owned(), "warning".to_owned())]);
+    assert_eq!(WORKROOM_UNREADABLE, "Messages from teammates could not be read for this mission. Whatever was waiting is still waiting.");
+    // A workroom that reads says nothing of the kind.
+    fs::remove_file(room.join(crate::workroom::FILE_NAME)).unwrap();
+    let fine = wren_ran(&t, "ask", "Task.");
+    assert!(relay_live_state(&[fine]).notices.is_empty());
 }
 
 #[test]
@@ -771,6 +785,34 @@ fn a_run_that_did_not_complete_shares_nothing() {
     let id = wren_ran(&t, "ask", "Task.");
     assert!(kinds(&path_of(&t, &id)).contains(&"run.failed".to_owned()), "{:?}", kinds(&path_of(&t, &id)));
     assert!(crate::workroom::Workroom::for_store(&t.store()).read().messages.is_empty());
+}
+
+// ---- missions side by side ----
+
+// case: runs two teammatesu2019 missions at once, and stops each by its own run id
+#[test]
+fn two_teammates_turns_run_at_once_and_a_stop_ends_only_the_one_it_names() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    // The fake runs until it is interrupted, and takes only its own synthetic words.
+    let _hook = hooks::install(t.store(), fake("interrupt"));
+    let wren_turn = send(wren(&t, "ask", "Synthetic prompt")).unwrap();
+    let mut atlas_job = job(&t, None, "Synthetic prompt");
+    atlas_job.teammate.id = "tm_atlas".into();
+    atlas_job.teammate.name = "Atlas".into();
+    let atlas_turn = send(atlas_job).unwrap();
+    assert_ne!(wren_turn.conversation_id, atlas_turn.conversation_id);
+    let (wren_path, atlas_path) = (path_of(&t, &wren_turn.conversation_id), path_of(&t, &atlas_turn.conversation_id));
+    wait("both turns to start", || wren_path.exists() && atlas_path.exists() && started(&wren_path) && started(&atlas_path));
+    stop(&atlas_turn.conversation_id).unwrap();
+    finished(&atlas_turn.conversation_id);
+    assert_eq!(kinds(&atlas_path).last().map(String::as_str), Some("run.cancelled"));
+    // Wren's turn was not touched by Atlas's stop.
+    assert!(owns(&wren_turn.conversation_id));
+    assert!(!kinds(&wren_path).iter().any(|k| matches!(k.as_str(), "run.cancelled" | "run.completed" | "run.failed")), "{:?}", kinds(&wren_path));
+    stop(&wren_turn.conversation_id).unwrap();
+    finished(&wren_turn.conversation_id);
+    assert_eq!(kinds(&wren_path).last().map(String::as_str), Some("run.cancelled"));
 }
 
 /// Electron's `openCodeReadOnlySection` and `planSection`, word for word (workroom-briefing.ts).
@@ -1195,6 +1237,9 @@ fn a_stopped_run_leaves_no_card_waiting_on_it() {
     assert!(decide_approval(&card.approval_id, Decision::ApproveOnce, None).is_err());
 }
 
+// Native's approval channel is the engine's own and always there, so what is left to prove is the half that matters:
+// an answer with no card behind it is refused, never reported as taken.
+// case: answers nothing when no channel is wired, rather than pretending it did
 #[test]
 fn an_answer_to_a_card_nobody_raised_is_not_taken() {
     let t = Temp::new();

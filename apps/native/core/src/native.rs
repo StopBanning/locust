@@ -1958,7 +1958,8 @@ pub fn carry_on_without_asking(store: &Store, mission: &str) {
 /// `spendRefusalFor` does: only an organization's cap closes the gate on an unreadable record (`org_spend_gate`).
 fn spend_gate(store: &Store, owners: &Value, teammate: &Teammate, limit: f64) -> Result<(), String> {
     let now = chrono::Local::now();
-    let unchecked = |why: &str| eprintln!("spend-limit: could not check {}'s monthly limit: {why}", teammate.id);
+    // Electron's `note('spend-limit', ...)`: the line goes to locust-errors.log, the log a tester sends back.
+    let unchecked = |why: &str| crate::diagnostic_log::note(store.root(), "spend-limit", &format!("could not check {}'s monthly limit: {why}", teammate.id));
     let Some(month) = crate::spend::month_of(&now.to_rfc3339()) else {
         unchecked("The current month could not be read.");
         return Ok(());
@@ -2132,6 +2133,9 @@ pub(crate) fn reset_relay_state() {
     crate::invariants::lock(&RELAY_STARTING).clear();
     crate::invariants::lock(&ROOM_NOTICES).clear();
 }
+
+/// App.tsx's notice for a run whose teammate messages could not be read, word for word.
+pub(crate) const WORKROOM_UNREADABLE: &str = "Messages from teammates could not be read for this mission. Whatever was waiting is still waiting.";
 
 fn push_relay_notice(mission_id: &str, message: &str, level: &str) {
     let mut notices = crate::invariants::lock(&RELAY_NOTICES);
@@ -2969,6 +2973,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
     let mut delivered: Vec<crate::workroom::Message> = Vec::new();
+    // codex-mission.ts `peerDeliveryFailed`: the workroom could not be read, so the run went on shown nothing.
+    let mut workroom_unreadable = false;
     // What this turn's session will hold once it is sent (A2.5); none for a bare command, a side question or a
     // sealed run, whose next turn is then briefed whole.
     let mut brief_record: Option<crate::brief_sessions::BriefRecord> = None;
@@ -3041,10 +3047,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         let slot_inst = origin.slot.as_ref().and_then(|s| s.instructions.as_deref());
         // What teammates left for this one, quoted into its brief (peer-exchange.ts prepare). A workroom that cannot be
         // read is left out: the run goes on without it, and the messages wait.
-        let (waiting, remaining) = crate::workroom::Workroom::for_store(&store)
-            .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages)
-            .map(|u| (u.messages, u.remaining))
-            .unwrap_or_default();
+        let unread = crate::workroom::Workroom::for_store(&store).unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages);
+        workroom_unreadable = unread.is_err();
+        let (waiting, remaining) = unread.map(|u| (u.messages, u.remaining)).unwrap_or_default();
         // A cold start is told what was said before (an edit: before the point it went back to).
         let words = match &cold {
             Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &sent_words, *edited),
@@ -3541,6 +3546,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .as_ref()
         .and_then(crate::relay::MissionStarter::from_json);
     let relay_teammate = crate::people::peer_roster_entry(&store, &job.teammate.id);
+    let unreadable_workroom_of = workroom_unreadable.then(|| id.clone());
     // Counted before the spawn, so a test's guard can never look between the spawn and the count.
     #[cfg(any(test, feature = "test-hooks"))]
     let counted = TurnThread::begin();
@@ -3802,6 +3808,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;
+    // The receipt's `peerDeliveryFailed`, said beside the turn as Electron's window says it (App.tsx peerNotices).
+    if let Some(turn) = unreadable_workroom_of {
+        push_relay_notice(&turn, WORKROOM_UNREADABLE, "warning");
+    }
     Ok(Started {
         conversation_id: anchor,
         mode: mode.as_str().into(),

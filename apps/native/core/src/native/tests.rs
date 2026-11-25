@@ -744,6 +744,7 @@ fn stop_interrupts_the_runtime_records_cancelled_and_only_stops_what_this_window
     );
 }
 
+// case: allows one active run and synthesizes cancellation from the host signal
 #[test]
 fn a_second_send_while_a_turn_runs_is_refused_and_stop_works_on_a_continuation() {
     let t = Temp::new();
@@ -764,6 +765,7 @@ fn a_second_send_while_a_turn_runs_is_refused_and_stop_works_on_a_continuation()
         kinds(&child).last().map(String::as_str),
         Some("run.cancelled")
     );
+    assert!(!kinds(&child).iter().any(|k| k == "run.failed"), "a stop is a cancellation, not a failure");
 }
 fn wait_for_child(t: &Temp) -> PathBuf {
     wait("the ledger", || !ledgers(t).is_empty());
@@ -1850,6 +1852,8 @@ fn a_turn_whose_record_cannot_be_made_is_refused_saying_locust_stopped_it_and_no
 }
 
 // case: ledgerFailure.test.ts, drawn: a record that stops taking writes mid-run stops the run, and the thread says so
+// The window reads the record, so what is on disk is all that was ever shown: nothing past the failed write.
+// case: persists before emitting, aborts on a failed durable write, and frees the service afterwards
 #[test]
 fn a_record_that_cannot_be_written_mid_run_stops_the_run_and_says_what_is_safe() {
     use std::io::Write as _;
@@ -1867,6 +1871,12 @@ fn a_record_that_cannot_be_written_mid_run_stops_the_run_and_says_what_is_safe()
     assert!(said.iter().any(|m| m.ends_with("Locust stopped the run rather than continue without a durable record.")), "{said:?}");
     assert!(said.iter().any(|m| m.starts_with("Not undone: Files the run already changed are still changed.")), "{said:?}");
     assert!(!kinds(&path).iter().any(|k| k == "run.completed"), "nothing more is written: {:?}", kinds(&path));
+    // And the engine lets go of it: the next turn starts.
+    finished(&started.conversation_id);
+    assert!(!owns(&started.conversation_id));
+    let next = send(job(&t, None, "Synthetic prompt")).unwrap();
+    finished(&next.conversation_id);
+    assert_eq!(kinds(&path_of(&t, &next.conversation_id)).last().map(String::as_str), Some("run.completed"));
 }
 
 #[test]

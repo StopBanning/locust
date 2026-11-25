@@ -804,11 +804,11 @@ apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the host writes n
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	a write that fails puts the ones already written back as they were	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the window offers nothing to tick when it already knows some cannot go back, and says why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is a sign-in that expired, a provider that is down or busy, a throttle, or no network	yes
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is never a refusal, an error nobody can read, a run that finished, or one that had already run a tool	no
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a used-up plan to its own reason, which still carries on as it did	no
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is never a refusal, an error nobody can read, a run that finished, or one that had already run a tool	yes
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a used-up plan to its own reason, which still carries on as it did	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	one press starts the task from the start on the agent offered, told why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	goes on by itself with Without asking on, and says so when the picked agent is the one that failed	yes
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	no
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	a check that fails, a review that asks for changes, a conflict: each something to fix	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	checks passing, an approval, a merge: news, nothing to fix	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	nothing changed, or a check still failing, is not news again	yes
@@ -1802,9 +1802,9 @@ apps/desktop/src/main/codex-mission.test.ts	runs an Auto mission on the widest s
 apps/desktop/src/main/codex-mission.test.ts	says a runtime whose own service did not answer could not be reached, not that it is signed out (0.495)	no
 apps/desktop/src/main/codex-mission.test.ts	returns an actionable generic error when Codex is not ready	no
 apps/desktop/src/main/codex-mission.test.ts	does not launch a process when its owning window closes during discovery	no
-apps/desktop/src/main/codex-mission.test.ts	allows one active run and synthesizes cancellation from the host signal	no
+apps/desktop/src/main/codex-mission.test.ts	allows one active run and synthesizes cancellation from the host signal	yes
 apps/desktop/src/main/codex-mission.test.ts	never forwards process rejection details to the renderer	no
-apps/desktop/src/main/codex-mission.test.ts	persists before emitting, aborts on a failed durable write, and frees the service afterwards	no
+apps/desktop/src/main/codex-mission.test.ts	persists before emitting, aborts on a failed durable write, and frees the service afterwards	yes
 apps/desktop/src/main/codex-mission.test.ts	records host launch failures durably and reports a persistence failure when even that write fails	no
 apps/desktop/src/main/codex-mission.test.ts	persists a transport failure and downgrades to a persistence error when the write fails	no
 apps/desktop/src/main/codex-mission.test.ts	rejects a second start while the first is still resolving discovery	no
@@ -1815,7 +1815,7 @@ apps/desktop/src/main/codex-mission.test.ts	does not checkpoint when no mission 
 apps/desktop/src/main/codex-mission.test.ts	still shuts down when the checkpoint write fails	no
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate whose own branch could not be made, whoever started it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate at the monthly limit, whoever started it, before anything is recorded (%j)	yes
-apps/desktop/src/main/codex-mission.test.ts	lets the run start when the limit cannot be checked, and says why in the log	no
+apps/desktop/src/main/codex-mission.test.ts	lets the run start when the limit cannot be checked, and says why in the log	yes
 apps/desktop/src/main/codex-mission.test.ts	runs read-only when the mode is ask	yes
 apps/desktop/src/main/codex-mission.test.ts	records an MCP-origin Ask run with the actual read-only sandbox	yes
 apps/desktop/src/main/codex-mission.test.ts	runs workspace-write only when edits were explicitly accepted	yes
@@ -1858,12 +1858,12 @@ apps/desktop/src/main/codex-mission.test.ts	gives a read-only OpenCode run Locus
 apps/desktop/src/main/codex-mission.test.ts	runs a sealed look with no tool and no brief: OpenCode refuses it every tool (0.824, Grok’s review #4)	no
 apps/desktop/src/main/codex-mission.test.ts	keeps the person's own words as the recorded prompt, not the briefing	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses to run on messages the ledger cannot record, and says so	no
-apps/desktop/src/main/codex-mission.test.ts	runs without the channel when it cannot be read, and reports that on the receipt	no
+apps/desktop/src/main/codex-mission.test.ts	runs without the channel when it cannot be read, and reports that on the receipt	yes
 apps/desktop/src/main/codex-mission.test.ts	posts a share block to the named teammate, attributed to this mission, and links it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a share addressed to someone who is not on the roster, out loud	yes
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a run that did not complete	yes
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	no
-apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	no
+apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a second conversation with the same teammate, and holds a reply to a turn still running (0.551)	no
 apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	yes
 apps/desktop/src/main/codex-mission.test.ts	hands off one teammateu2019s run without waiting for another teammateu2019s to finish	no
@@ -1904,7 +1904,7 @@ apps/desktop/src/main/codex-mission.test.ts	shows pending text durably before an
 apps/desktop/src/main/codex-mission.test.ts	runs write-capable and stops to ask, rather than falling through to read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	raises a card mid-run and sends the personu2019s answer back to the runtime	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses what a stopped run was still asking, so no card waits on a run that has gone	yes
-apps/desktop/src/main/codex-mission.test.ts	answers nothing when no channel is wired, rather than pretending it did	no
+apps/desktop/src/main/codex-mission.test.ts	answers nothing when no channel is wired, rather than pretending it did	yes
 apps/desktop/src/main/codex-mission.test.ts	is declared to OpenCode for the run, key and all, in the child environment only	no
 apps/desktop/src/main/codex-mission.test.ts	is refused in words, before anything is written, once it has been removed	yes
 apps/desktop/src/main/codex-mission.test.ts	changes nothing for any other OpenCode model	no
