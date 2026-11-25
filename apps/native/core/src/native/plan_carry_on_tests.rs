@@ -139,3 +139,23 @@ fn a_carried_turn_is_recorded_as_locusts_own_at_schema_twenty_four_or_later() {
     assert!(header["schemaVersion"].as_u64().unwrap_or(0) >= 24, "{header}");
     assert_eq!(header["metadata"]["startedBy"], json!({"kind": "carry-on", "from": "codex"}));
 }
+
+#[test]
+// case: checks a handoff target before stopping the existing run and sends resumes through start
+fn a_carry_on_target_the_organization_refuses_is_refused_before_anything_starts_and_can_be_pressed_again() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    team(&t, Value::Null);
+    stopped(&t, "mission_plan_policy", "codex", &[quota()]);
+    let policy = crate::org_policy::parse_policy(&json!({"allowedAgents": ["codex", "opencode"]}), &mut |_| {}).unwrap();
+    crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState { path: "/admin/policy.json".into(), present: true, policy, error: None }));
+    let refused = carry("mission_plan_policy", "claude", None);
+    crate::org_policy::use_policy_on_this_thread(None);
+    let why = refused.unwrap_err();
+    assert!(why.contains("allowedAgents") && why.contains("Nothing was started"), "{why}");
+    assert!(carried_from(&t, "mission_plan_policy").is_empty(), "a refused target records no turn");
+    // The stopped turn was left as it was: once the target is allowed, the same press carries it on.
+    let (id, _, _) = carry("mission_plan_policy", "claude", None).unwrap();
+    finished(&id);
+    assert_eq!(carried_from(&t, "mission_plan_policy").len(), 1);
+}
