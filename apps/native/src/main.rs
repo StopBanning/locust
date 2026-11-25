@@ -1941,6 +1941,35 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if sidebar::step_from_key(s, event, tx) { return true; }
+    // Ctrl+Shift+M, I and E open the message box's own menus (App.tsx `setMenuChord`, Composer.tsx): Permission mode,
+    // the model picker, and the model picker for its effort, which sits at the picker's foot. One menu at a time; a
+    // chord opens its menu and never closes it.
+    fn open_route_picker(s: &mut State) {
+        let Some(id) = selected_conversation(s).map(|(t, _)| t.id.clone()) else { return };
+        s.mode_menu = false;
+        s.reference_menu = false;
+        s.plus_menu = false;
+        if s.model_menu.as_ref() != Some(&id) {
+            open_models(s, id);
+        }
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('m') {
+        if selected_conversation(s).is_some() {
+            s.model_menu = None;
+            s.reference_menu = false;
+            s.plus_menu = false;
+            s.mode_menu = true;
+        }
+        return true;
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('i') {
+        open_route_picker(s);
+        return true;
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('e') {
+        open_route_picker(s);
+        return true;
+    }
     if event.mods.shift || event.mods.alt {
         return false;
     }
@@ -1967,6 +1996,23 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         settings_panel::toggle_transcript_view(s);
         return true;
     }
+    // Ctrl+I is the inspector, as the header's Activity button opens it (App.tsx `setInspectorOpen`).
+    if event.is_command('i') {
+        if selected_conversation(s).is_some() {
+            s.inspector_open = !s.inspector_open;
+            if s.inspector_open {
+                s.review = None;
+                s.changes.open = false;
+                s.terminal.open = false;
+            }
+        }
+        return true;
+    }
+    // Ctrl+/ opens and closes the Keyboard shortcuts sheet (App.tsx `setShortcutsOpen`).
+    if event.is_command('/') {
+        s.keyboard_sheet.open = !s.keyboard_sheet.open;
+        return true;
+    }
     if event.is_command('n') {
         fresh_conversation(s);
         tx.scroll_to_bottom("messages");
@@ -1977,7 +2023,41 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         missions_screen::open(s);
         return true;
     }
-    for digit in '2'..='9' {
+    // Ctrl 2-5 are Teammates, Settings, Rooms and Memory (App.tsx `setScreen`): one screen at a time, each opened as
+    // its own button opens it.
+    if ('2'..='5').any(|d| event.is_command(d)) {
+        missions_screen::close(s);
+        room_screen::close(s);
+        s.home.home_open = false;
+        s.home.board_open = false;
+        s.home.boot_open = false;
+        s.settings_panel.open = false;
+        s.people_panel.open = false;
+        s.routines.open = false;
+        s.benchmarks_open = false;
+        s.changes.open = false;
+    }
+    if event.is_command('2') {
+        people_panel::open(s);
+        s.people_panel.tab = 0;
+        s.people_panel.memory_tab = false;
+        return true;
+    }
+    if event.is_command('3') {
+        settings_panel::open(s);
+        return true;
+    }
+    if event.is_command('4') {
+        room_screen::open_list(s);
+        return true;
+    }
+    if event.is_command('5') {
+        people_panel::open(s);
+        s.people_panel.tab = 1;
+        s.people_panel.memory_tab = true;
+        return true;
+    }
+    for digit in '6'..='9' {
         if event.is_command(digit) {
             if let Some(id) = s
                 .teammates
@@ -3634,6 +3714,9 @@ mod modal_keyboard_tests;
 #[cfg(test)]
 #[path = "ui/select_keys_tests.rs"]
 mod select_keys_tests;
+#[cfg(test)]
+#[path = "ui/shortcuts_bound_tests.rs"]
+mod shortcuts_bound_tests;
 #[cfg(test)]
 #[path = "ui/compare_window_tests.rs"]
 mod compare_window_tests;

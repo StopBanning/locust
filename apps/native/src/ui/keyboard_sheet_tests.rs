@@ -102,6 +102,13 @@ const MARKS: &[(&str, &str, &str, &str)] = &[
     ("Alt+Up / Alt+Down", "Previous or next conversation", "main.rs", "if sidebar::step_from_key(s, event, tx)"),
     ("Alt+Shift+Up / Alt+Shift+Down", "A conversation that is waiting for you", "sidebar.rs", "s.home.waiting_for.contains_key(key)"),
     ("Ctrl+1", "Home", "main.rs", "missions_screen::open(s);"),
+    ("Ctrl+I", "Open the inspector", "main.rs", "if event.is_command('i') {"),
+    ("Ctrl+2", "Teammates", "main.rs", "if event.is_command('2') {"),
+    ("Ctrl+3", "Settings", "main.rs", "if event.is_command('3') {"),
+    ("Ctrl+4", "Rooms", "main.rs", "if event.is_command('4') {"),
+    ("Ctrl+5", "Memory", "main.rs", "if event.is_command('5') {"),
+    ("Ctrl+`", "Terminal", "main.rs", "if terminal_panel::is_toggle_key(event) {"),
+    ("Ctrl+/", "Keyboard shortcuts", "main.rs", "if event.is_command('/') {"),
     ("Ctrl+Alt+Up / Ctrl+Alt+Down", "Move among your own messages", "main.rs", "prompt_rail::handle_key(s, event, tx)"),
     ("Ctrl+O", "Normal or Verbose steps", "main.rs", "settings_panel::toggle_transcript_view(s);"),
     ("Enter", "Send", "keys.rs", "if key == ComposerKey::Enter && !mods.shift {"),
@@ -112,6 +119,11 @@ const MARKS: &[(&str, &str, &str, &str)] = &[
     ("Up / Down", "Recall a sent message from an empty box", "keys.rs", "return KeyAction::HistoryUp;"),
     ("Escape", "Close a dialog", "main.rs", "s.keyboard_sheet.open = false;"),
     ("1–9", "Answer a question card", "main.rs", "question_card::handle_key(s, event)"),
+    ("1–9", "Pick that row in an open menu", "main.rs", "if thread_view::mode_menu_digit(s, event) {"),
+    ("+ / − / 0 / 1", "Zoom an image, fit it, or its actual size", "step_pictures.rs", r#"Key::Text(t) if t == "+" || t == "=" => { zoom_to(s, 1.25); true }"#),
+    ("Ctrl+Shift+M", "Permission mode", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('m') {"),
+    ("Ctrl+Shift+I", "Model", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('i') {"),
+    ("Ctrl+Shift+E", "Effort", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('e') {"),
 ];
 
 fn source(file: &str) -> &'static str {
@@ -119,6 +131,7 @@ fn source(file: &str) -> &'static str {
         "main.rs" => include_str!("../main.rs"),
         "sidebar.rs" => include_str!("sidebar.rs"),
         "keys.rs" => include_str!("../composer/keys.rs"),
+        "step_pictures.rs" => include_str!("step_pictures.rs"),
         other => panic!("no source {other}"),
     }
 }

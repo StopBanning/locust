@@ -53,7 +53,7 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+I",
         does: "Open the inspector",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
@@ -81,35 +81,35 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+2",
         does: "Teammates",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+3",
         does: "Settings",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+4",
         does: "Rooms",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+5",
         does: "Memory",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+`",
         does: "Terminal",
-        native: false,
+        native: true,
         control_on_mac: true,
     },
     ShortcutRow {
@@ -172,14 +172,14 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Panes,
         keys: "Ctrl+/",
         does: "Keyboard shortcuts",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Panes,
         keys: "+ / − / 0 / 1",
         does: "Zoom an image, fit it, or its actual size",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
@@ -193,28 +193,28 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Menus,
         keys: "Ctrl+Shift+M",
         does: "Permission mode",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Menus,
         keys: "Ctrl+Shift+I",
         does: "Model",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Menus,
         keys: "Ctrl+Shift+E",
         does: "Effort",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Menus,
         keys: "1–9",
         does: "Pick that row in an open menu",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
@@ -308,7 +308,8 @@ mod tests {
     fn native_binds_are_marked_and_lacking_uses_exact_words() {
         assert!(SHORTCUTS.iter().any(|r| r.keys == "Ctrl+F" && r.native));
         assert!(SHORTCUTS.iter().any(|r| r.keys == "Ctrl+K" && r.native));
-        assert!(SHORTCUTS.iter().any(|r| r.does == "Terminal" && !r.native));
+        assert!(SHORTCUTS.iter().any(|r| r.does == "Terminal" && r.native));
+        assert!(SHORTCUTS.iter().any(|r| r.does == "Talk, from any app" && !r.native));
         assert_eq!(lacking_note(false), Some("runs in Locust for now"));
         assert_eq!(lacking_note(true), None);
         assert_eq!(SHEET_TITLE, "Keyboard shortcuts");
