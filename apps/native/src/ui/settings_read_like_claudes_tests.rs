@@ -201,17 +201,28 @@ fn says_how_it_works_in_sentence_case() {
     assert!(!shown(&rt).iter().any(|e| e.key.as_deref() == Some("how-it-works-auto-mode-text")), "a second press folds it");
 }
 
-/// Where Electron says "How it works" (`<More>`) under a section Rust draws, and the page it is on.
+/// Where Electron says "How it works" (`<More>`) under a section Rust draws, in Electron's order, and the page it is on.
 const FOLDED: &[(&str, SettingsPageId)] = &[
-    ("auto-mode", SettingsPageId::Teammates),
     ("report-a-problem", SettingsPageId::App),
+    ("project-folder", SettingsPageId::Workspace),
     ("between-teammates", SettingsPageId::Relay),
+    ("agents", SettingsPageId::Runtimes),
     ("own-models", SettingsPageId::Models),
     ("github", SettingsPageId::Connectors),
+    ("connectors", SettingsPageId::Connectors),
+    ("add-connector", SettingsPageId::Connectors),
+    ("plan-runs-out", SettingsPageId::Runtimes),
+    ("auto-mode", SettingsPageId::Teammates),
+    ("plans", SettingsPageId::Teammates),
+    ("own-skills", SettingsPageId::Teammates),
+    ("skills-from-github", SettingsPageId::Teammates),
     ("memory", SettingsPageId::Memory),
+    ("reply-size", SettingsPageId::Appearance),
+    ("boot-screen", SettingsPageId::Appearance),
+    ("phone", SettingsPageId::App),
     ("chat-apps", SettingsPageId::App),
-    ("privacy", SettingsPageId::Privacy),
     ("updates", SettingsPageId::App),
+    ("privacy", SettingsPageId::Privacy),
 ];
 
 // Not an Electron case of its own: the fold the sentence-case case holds on Auto mode, held wherever it is used.

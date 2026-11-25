@@ -1245,7 +1245,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 if heading == "Sidebar" {
                     body = body.child(sidebar_line(s, p));
                 } else if heading == "Reply text size" {
-                    body = body.child(reply_size_line(s, p, &l));
+                    body = body.child(reply_size_line(s, p, &l)).child(more(s, p, "reply-size"));
                 } else if heading == "Code font" {
                     let paper = s.settings_panel.settings.code_font == "paper";
                     body = body.child(line(
@@ -1296,7 +1296,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 } else if heading == "What a face says" {
                     body = body.child(face_legend(s, p, &l));
                 } else if heading == "Boot screen" {
-                    body = body.child(boot_screen_line(s, p));
+                    body = body.child(boot_screen_line(s, p)).child(more(s, p, "boot-screen"));
                 } else if heading == "Plush" {
                     body = body.child(
                         col()
@@ -1348,6 +1348,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     if let Some(remote) = crate::remote_mcp_card::section(s, p) {
                         body = body.child(remote);
                     }
+                    body = body.child(more(s, p, "phone"));
                 } else if heading == crate::voice_settings::HEADING {
                     body = body.child(crate::voice_settings::section(s, p));
                 } else if heading == "Startup" {
@@ -1400,9 +1401,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 if heading == "GitHub" {
                     body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p)).child(more(s, p, "github"));
                 } else if heading == "Connectors" {
-                    body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p)).child(more(s, p, "connectors"));
                 } else if heading == "Add a connector" {
-                    body = body.child(section_heading(heading, p)).child(crate::add_connector::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::add_connector::section(s, p)).child(more(s, p, "add-connector"));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1411,7 +1412,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         SettingsPageId::Runtimes => {
             for heading in headings {
                 if heading == "When an agent cannot go on" {
-                    body = body.child(plan_runs_out_section(s, p));
+                    body = body.child(plan_runs_out_section(s, p)).child(more(s, p, "plan-runs-out"));
                 } else if heading == crate::what_locust_can_stop_ui::HEADING {
                     body = body.child(crate::what_locust_can_stop_ui::section(s, p));
                 } else if heading == crate::agents_section::HEADING {
@@ -1422,6 +1423,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     if let Some(remote) = crate::remote_control_card::section(s, p) {
                         body = body.child(remote);
                     }
+                    body = body.child(more(s, p, "agents"));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1457,9 +1459,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             }));
                     }
                     "Auto mode" => body = body.child(auto_mode_section(s, p)),
-                    "Plans" => body = body.child(plans_line(s, p)),
-                    "Your skills" => body = body.child(own_skills_line(s, p)),
-                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)),
+                    "Plans" => body = body.child(plans_line(s, p)).child(more(s, p, "plans")),
+                    "Your skills" => body = body.child(own_skills_line(s, p)).child(more(s, p, "own-skills")),
+                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)).child(more(s, p, "skills-from-github")),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }
@@ -1534,6 +1536,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         .wrap()
                         .padding(10.0),
                 )
+                .child(more(s, p, "project-folder"))
                 .child(
                     col()
                         .w_full()
