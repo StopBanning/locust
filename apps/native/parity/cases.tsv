@@ -1781,7 +1781,7 @@ apps/desktop/src/main/codex-mission.test.ts	says nothing when nothing was refuse
 apps/desktop/src/main/codex-mission.test.ts	explains a refusal when one actually happens	yes
 apps/desktop/src/main/codex-mission.test.ts	explains it once, however many reads are refused	yes
 apps/desktop/src/main/codex-mission.test.ts	never writes it to the ledger, which once broke every run in such a folder	no
-apps/desktop/src/main/codex-mission.test.ts	refuses a forbidden Cursor effort variant before recording or dispatching a turn	no
+apps/desktop/src/main/codex-mission.test.ts	refuses a forbidden Cursor effort variant before recording or dispatching a turn	yes
 apps/desktop/src/main/codex-mission.test.ts	keeps a running mission untouched when organization policy refuses the handoff target	no
 apps/desktop/src/main/codex-mission.test.ts	does not spawn a run the app stopped while it looked at the tree	no
 apps/desktop/src/main/codex-mission.test.ts	runs one fixed read-only Codex route and streams normalized events	no
