@@ -8181,21 +8181,21 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	carries the sandbox on t
 packages/runtime-adapters/test/runtime-adapters.test.ts	parses prerelease versions returned by installed CLIs	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers native Windows executables and safely wraps PowerShell shims	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	probes a CLI launched through the app binary with the launch's environment	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads a logged-out Cursor Agent from its text, because its status command exits 0 either way	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	calls Muse Code ready from the line its own version command prints	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	says nobody has signed in rather than calling Muse Code ready	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not take an API key as a credential, because no run is given one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	looks where Muse looks when XDG_CONFIG_HOME is set	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not claim nobody signed in when it cannot look	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports a signed-in Cursor Agent ready and reads its models off --list-models	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads a model list the CLI printed on stderr, and says so when it cannot read one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	says a model list it cannot read is unreadable, rather than leaving the picker silently empty	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads a logged-out Cursor Agent from its text, because its status command exits 0 either way	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	calls Muse Code ready from the line its own version command prints	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	says nobody has signed in rather than calling Muse Code ready	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not take an API key as a credential, because no run is given one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	looks where Muse looks when XDG_CONFIG_HOME is set	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not claim nobody signed in when it cannot look	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports a signed-in Cursor Agent ready and reads its models off --list-models	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads a model list the CLI printed on stderr, and says so when it cannot read one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	says a model list it cannot read is unreadable, rather than leaving the picker silently empty	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from a Cursor that is signed out, and none from a list it cannot read	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads a Gemini sign-in that Google then refused, which exits 0 with the refusal in its text	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	asks only the runtimes it is told to, and spawns nothing for the rest	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	asks a CLI whose readiness IS its version question once, not twice	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	asks only the runtimes it is told to, and spawns nothing for the rest	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	asks a CLI whose readiness IS its version question once, not twice	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads Gemini CLI's sign-in state from its session listing's exit code	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	runs a read-only Cursor mission in ask mode, with the sandbox where it runs, and never forces commands	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	approves the connectors the person already configured, because nobody is here to be asked -- outside Ask and Plan	yes
@@ -8231,13 +8231,13 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	PASSES an effort to Copi
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads OpenCode's model list as it prints it, and marks the free models free	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from output that is not a model list	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	still says signed out when a CLI says so in its own words	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not report an OpenCode that cannot list a single model as ready to run one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports Copilot CLI ready on its version alone, and says on the record why that is a guess	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	offers Copilot only the route where the CLI picks, because it names no models before a run	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports a Copilot whose version command says something else as not ready	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	still says signed out when a CLI says so in its own words	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not report an OpenCode that cannot list a single model as ready to run one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports Copilot CLI ready on its version alone, and says on the record why that is a guess	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	offers Copilot only the route where the CLI picks, because it names no models before a run	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports a Copilot whose version command says something else as not ready	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	caps captured output and never asks Node for a shell	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	terminates a timed-out probe	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	kills every probe still in flight when the app is leaving, tree first	no

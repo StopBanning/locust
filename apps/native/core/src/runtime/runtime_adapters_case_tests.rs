@@ -2,12 +2,17 @@
 //! mode-containment, safety-guard, version-parsing, and model-list cases).
 
 use super::{claude, codex, copilot, cursor, opencode_config, opencode_serve, safety, version, Runtime, Turn};
+use crate::agents::{self, Answer, Auth, EachOptions, Machine, Probe, Seams};
 use crate::approval::{Mode, codex_app_server_policy};
-use crate::models::{parse_claude_model_hints, parse_cursor_model_list, parse_opencode_model_list};
+use crate::models::{
+    copilot_models, lists_its_models_but_listed_none, parse_claude_model_hints, parse_cursor_model_list,
+    parse_opencode_model_list,
+};
 use serde_json::json;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 fn s(slice: &[&str]) -> Vec<String> {
     slice.iter().map(|x| (*x).to_owned()).collect()
@@ -625,4 +630,416 @@ fn refuses_to_build_command_with_no_prompt() {
     assert!(empty.unwrap_err().to_string().contains("Prompt"));
     assert!(blank.unwrap_err().to_string().contains("Prompt"));
     assert!(ok.is_ok());
+}
+
+// ---- Group 2: readiness and sign-in -------------------------------------------------------------------------------
+
+const CURSOR_HELP: &str = "-p, --print  --output-format <format> text | json | stream-json  --stream-partial-output  --mode <mode> plan: read-only  --workspace <path>  --resume [chatId]  --model <model>";
+const CURSOR_MODELS: &str = "Available models\n\nauto - Auto (default)\ncursor-grok-4.6-high - Cursor Grok 4.6\ncomposer-2.5 - Composer 2.5\n";
+const GEMINI_HELP: &str = "-p, --prompt  Run in non-interactive (headless) mode. Appended to input on stdin  -o, --output-format  text json stream-json  --approval-mode default auto_edit yolo plan  -r, --resume";
+const MUSE_VERSION: &str = "Muse Code 1.3.0 (1.3.0-R3401.1)\n";
+const MUSE_HELP: &str = "muse exec --json --workspace <path> --disable-write --disable-shell\n";
+const OPENCODE_HELP: &str = "opencode run [message..]  --format <format>  text | json  -m, --model  -s, --session";
+const OPENCODE_MODELS: &str = "opencode/muse-spark-1.3-contributor-free\nopencode/big-pickle\n";
+const COPILOT_HELP: &str = "-p, --prompt <prompt>  --output-format <format> text | json  --allow-all-tools  --deny-tool <tools>  --session-id  --resume";
+
+fn ok_ans(stdout: &str) -> Option<Answer> {
+    Some(Answer { exit: Some(0), stdout: stdout.to_owned(), stderr: String::new(), timed_out: false })
+}
+
+fn find_only<'a>(bin: &'a str) -> impl Fn(&str) -> Option<PathBuf> + Sync + 'a {
+    move |cmd| (cmd == bin).then(|| PathBuf::from(format!("/tools/{bin}")))
+}
+
+fn no_files(_: &Path) -> bool {
+    false
+}
+
+// case: separates installation, safe capability support, and authentication
+#[test]
+fn separates_installation_safe_capability_support_and_authentication() {
+    let find = |cmd: &str| match cmd {
+        "codex" => Some(PathBuf::from("/tools/codex")),
+        "claude" => Some(PathBuf::from("/tools/claude")),
+        _ => None,
+    };
+    let run = |path: &Path, args: &[&str]| {
+        let is_claude = path.to_string_lossy().contains("claude");
+        if args == ["--version"] {
+            return ok_ans(if is_claude { "2.1.251 (Claude Code)" } else { "codex-cli 0.151.0-alpha.7.2" });
+        }
+        if args.contains(&"--help") {
+            return ok_ans(if is_claude {
+                "--print stdin --output-format stream-json --restricted --verbose --include-partial-messages --permission-mode default --tools --disallowedTools"
+            } else {
+                "Run non-interactively stdin --json --cd --sandbox read-only"
+            });
+        }
+        Some(Answer {
+            exit: Some(if args == ["login", "status"] { 1 } else { 0 }),
+            stdout: String::new(),
+            stderr: String::new(),
+            timed_out: false,
+        })
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let codex = agents::discover_one("codex", &seams).unwrap();
+    assert!(codex.installed);
+    assert_eq!(codex.status, Probe::AuthRequired);
+    assert_eq!(codex.auth, Auth::Unauthenticated);
+    let claude = agents::discover_one("claude", &seams).unwrap();
+    assert!(claude.installed);
+    assert_eq!(claude.status, Probe::Ready);
+    assert_eq!(claude.auth, Auth::Authenticated);
+    for absent in ["cursor", "gemini", "opencode", "copilot", "muse", "kilo"] {
+        let entry = agents::discover_one(absent, &seams).unwrap();
+        assert!(!entry.installed, "{absent}");
+        assert_eq!(entry.status, Probe::Missing, "{absent}");
+    }
+}
+
+// case: reads a logged-out Cursor Agent from its text, because its status command exits 0 either way
+#[test]
+fn reads_logged_out_cursor_agent_from_text_even_when_exit_0() {
+    let find = find_only("cursor-agent");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--version"] => ok_ans("2026.08.31-4057e58"),
+        ["--help"] => ok_ans(CURSOR_HELP),
+        ["--list-models"] => ok_ans("Error: Authentication required."),
+        _ => ok_ans("Not logged in\n"),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let cursor = agents::discover_one("cursor", &seams).unwrap();
+    assert!(cursor.installed);
+    assert_eq!(cursor.status, Probe::AuthRequired);
+    assert_eq!(cursor.auth, Auth::Unauthenticated);
+}
+
+fn muse_discover(home: Option<&str>, xdg: Option<&str>, exists: &(dyn Fn(&Path) -> bool + Sync)) -> agents::Found {
+    let find = find_only("muse");
+    let run = |_: &Path, args: &[&str]| {
+        if args == ["exec", "--help"] { ok_ans(MUSE_HELP) } else { ok_ans(MUSE_VERSION) }
+    };
+    let seams = Seams {
+        find: &find,
+        run: &run,
+        exists,
+        home: home.map(PathBuf::from),
+        xdg_config_home: xdg.map(str::to_owned),
+        recall: None,
+    };
+    agents::discover_one("muse", &seams).unwrap()
+}
+
+// case: calls Muse Code ready from the line its own version command prints
+#[test]
+fn calls_muse_code_ready_from_its_version_line() {
+    let has_auth = |p: &Path| p.to_string_lossy().ends_with("auth.json");
+    let muse = muse_discover(Some("/home/dev"), None, &has_auth);
+    assert!(muse.installed);
+    assert!(muse.ready);
+    assert_eq!(muse.status, Probe::Ready);
+    assert_eq!(muse.version.as_deref(), Some("1.3.0"));
+}
+
+// case: says nobody has signed in rather than calling Muse Code ready
+#[test]
+fn says_nobody_signed_in_rather_than_calling_muse_ready() {
+    let muse = muse_discover(Some("/home/dev"), None, &no_files);
+    assert!(muse.installed);
+    assert!(!muse.ready);
+    assert_eq!(muse.status, Probe::AuthRequired);
+    assert_eq!(muse.auth, Auth::Unauthenticated);
+}
+
+// case: does not take an API key as a credential, because no run is given one
+#[test]
+fn does_not_take_api_key_as_muse_credential() {
+    // `agents::missing_credentials` checks only `auth.json` on disk and ignores provider API keys.
+    let muse = muse_discover(Some("/home/dev"), None, &no_files);
+    assert_eq!(muse.status, Probe::AuthRequired);
+}
+
+// case: looks where Muse looks when XDG_CONFIG_HOME is set
+#[test]
+fn looks_where_muse_looks_when_xdg_config_home_is_set() {
+    let at_xdg = |p: &Path| p == Path::new("/xdg/muse/auth.json");
+    let at_home = |p: &Path| p == Path::new("/home/dev/.config/muse/auth.json");
+    assert_eq!(muse_discover(Some("/home/dev"), Some("/xdg"), &at_xdg).status, Probe::Ready);
+    assert_eq!(muse_discover(Some("/home/dev"), Some("/xdg"), &at_home).status, Probe::AuthRequired);
+}
+
+// case: does not claim nobody signed in when it cannot look
+#[test]
+fn does_not_claim_nobody_signed_in_when_muse_cannot_look() {
+    let muse = muse_discover(None, None, &no_files);
+    assert_eq!(muse.status, Probe::Ready);
+}
+
+// case: reports a signed-in Cursor Agent ready and reads its models off --list-models
+#[test]
+fn reports_signed_in_cursor_ready_and_reads_models_off_list_models() {
+    let saw_list = Arc::new(AtomicBool::new(false));
+    let find = find_only("cursor-agent");
+    let run = {
+        let saw_list = saw_list.clone();
+        move |_: &Path, args: &[&str]| match args {
+            ["--version"] => ok_ans("2026.08.31-4057e58"),
+            ["--help"] => ok_ans(CURSOR_HELP),
+            ["--list-models"] => {
+                saw_list.store(true, std::sync::atomic::Ordering::SeqCst);
+                ok_ans(CURSOR_MODELS)
+            }
+            _ => ok_ans("Logged in as someone@example.com\n"),
+        }
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let cursor = agents::discover_one("cursor", &seams).unwrap();
+    assert_eq!(cursor.status, Probe::Ready);
+    assert!(saw_list.load(std::sync::atomic::Ordering::SeqCst));
+    let parsed = parse_cursor_model_list(CURSOR_MODELS).unwrap();
+    assert_eq!(
+        parsed["models"],
+        json!([
+            { "id": "auto", "displayName": "Auto (default)" },
+            { "id": "cursor-grok-4.6-high", "displayName": "Cursor Grok 4.6" },
+            { "id": "composer-2.5", "displayName": "Composer 2.5" }
+        ])
+    );
+    assert_eq!(parsed["efforts"], json!([]));
+}
+
+// case: reads a model list the CLI printed on stderr, and says so when it cannot read one
+#[test]
+fn reads_model_list_printed_on_stderr() {
+    let find = find_only("cursor-agent");
+    let stderr_list = Arc::new(Mutex::new(String::new()));
+    let run = {
+        let stderr_list = stderr_list.clone();
+        move |_: &Path, args: &[&str]| match args {
+            ["--version"] => ok_ans("2026.08.31-4057e58"),
+            ["--help"] => ok_ans(CURSOR_HELP),
+            ["--list-models"] => {
+                *stderr_list.lock().unwrap() = CURSOR_MODELS.to_owned();
+                Some(Answer { exit: Some(0), stdout: String::new(), stderr: CURSOR_MODELS.to_owned(), timed_out: false })
+            }
+            _ => ok_ans("Logged in as someone@example.com"),
+        }
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let cursor = agents::discover_one("cursor", &seams).unwrap();
+    assert_eq!(cursor.status, Probe::Ready);
+    let ids: Vec<String> = parse_cursor_model_list(&stderr_list.lock().unwrap()).unwrap()["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["id"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(ids, vec!["auto", "cursor-grok-4.6-high", "composer-2.5"]);
+}
+
+// case: says a model list it cannot read is unreadable, rather than leaving the picker silently empty
+#[test]
+fn says_unreadable_model_list_is_unreadable() {
+    assert!(parse_cursor_model_list("a completely different layout").is_none());
+    assert!(lists_its_models_but_listed_none(&[("cursor", None)]));
+}
+
+// case: does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong
+#[test]
+fn does_not_ask_gemini_to_sign_in_when_planned() {
+    let asked = Arc::new(Mutex::new(Vec::<Vec<String>>::new()));
+    let find = find_only("gemini");
+    let run = {
+        let asked = asked.clone();
+        move |_: &Path, args: &[&str]| {
+            asked.lock().unwrap().push(args.iter().map(|s| (*s).to_owned()).collect());
+            match args {
+                ["--version"] => ok_ans("0.58.0"),
+                ["--help"] => ok_ans(GEMINI_HELP),
+                _ => Some(Answer { exit: Some(41), stdout: String::new(), stderr: "Please set an Auth method".into(), timed_out: false }),
+            }
+        }
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let gemini = agents::discover_one("gemini", &seams).unwrap();
+    assert!(gemini.installed);
+    assert_eq!(gemini.version.as_deref(), Some("0.58.0"));
+    assert!(!asked.lock().unwrap().iter().any(|a| a.iter().any(|s| s == "--list-sessions")));
+}
+
+// case: asks only the runtimes it is told to, and spawns nothing for the rest
+#[test]
+fn asks_only_the_runtimes_it_is_told_to() {
+    let asked = Arc::new(Mutex::new(Vec::<String>::new()));
+    let machine = Machine {
+        find: Arc::new({
+            let asked = asked.clone();
+            move |cmd: &str| {
+                asked.lock().unwrap().push(format!("find {cmd}"));
+                Some(PathBuf::from(format!("/tools/{cmd}")))
+            }
+        }),
+        run: Arc::new({
+            let asked = asked.clone();
+            move |path: &Path, args: &[&str]| {
+                asked.lock().unwrap().push(format!("run {} {}", path.display(), args.join(" ")));
+                ok_ans("2.1.0 (Claude Code)")
+            }
+        }),
+        exists: Arc::new(|_| false),
+        home: None,
+        xdg_config_home: None,
+        facts: None,
+        stat: Arc::new(|_| None),
+        canonical: Arc::new(|_| None),
+    };
+    let only: HashSet<String> = ["claude".to_owned()].into_iter().collect();
+    let checks = agents::discover_each(&machine, &EachOptions { only: Some(only), ..Default::default() });
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].id, "claude");
+    let settled = agents::settle_within(checks, std::time::Duration::from_secs(5), |_, _| {});
+    assert_eq!(settled.answers.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), vec!["claude"]);
+    let seen = asked.lock().unwrap();
+    assert!(!seen.is_empty());
+    assert!(seen.iter().all(|line| line.contains("claude")), "{seen:?}");
+}
+
+// case: asks a CLI whose readiness IS its version question once, not twice
+#[test]
+fn asks_cli_whose_readiness_is_version_once_not_twice() {
+    let asked = Arc::new(Mutex::new(Vec::<Vec<String>>::new()));
+    let find = find_only("copilot");
+    let run = {
+        let asked = asked.clone();
+        move |_: &Path, args: &[&str]| {
+            asked.lock().unwrap().push(args.iter().map(|s| (*s).to_owned()).collect());
+            ok_ans(if args == ["--help"] { COPILOT_HELP } else { "GitHub Copilot CLI 1.0.82." })
+        }
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let copilot = agents::discover_one("copilot", &seams).unwrap();
+    assert_eq!(copilot.status, Probe::Ready);
+    let version_calls = asked.lock().unwrap().iter().filter(|a| a.as_slice() == ["--version"]).count();
+    assert_eq!(version_calls, 1);
+}
+
+// case: reports OpenCode ready with no sign-in at all, and reads the models it ships
+#[test]
+fn reports_opencode_ready_with_no_sign_in_and_reads_models() {
+    let find = find_only("opencode");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--version"] => ok_ans("1.18.27"),
+        ["run", "--help"] => ok_ans(OPENCODE_HELP),
+        ["models"] | ["models", "--verbose"] => ok_ans(OPENCODE_MODELS),
+        other => panic!("unexpected opencode probe args: {other:?}"),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let opencode = agents::discover_one("opencode", &seams).unwrap();
+    assert!(opencode.installed);
+    assert!(opencode.ready);
+    assert_eq!(opencode.status, Probe::Ready);
+    assert_eq!(opencode.auth, Auth::NotApplicable);
+    assert_eq!(opencode.version.as_deref(), Some("1.18.27"));
+    let ids: Vec<String> = parse_opencode_model_list(OPENCODE_MODELS).unwrap()["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["id"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(ids, vec!["opencode/muse-spark-1.3-contributor-free", "opencode/big-pickle"]);
+}
+
+// case: reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it
+#[test]
+fn reads_opencode_verbose_efforts_and_falls_back_to_plain_list() {
+    let verbose = "opencode/ling-3.0-flash-fin-free\n{\n  \"variants\": { \"low\": {}, \"high\": {} }\n}\n";
+    let find = find_only("opencode");
+    let run_older = |_: &Path, args: &[&str]| match args {
+        ["--version"] => ok_ans("1.18.27"),
+        ["run", "--help"] => ok_ans(OPENCODE_HELP),
+        ["models", "--verbose"] => Some(Answer { exit: Some(1), stdout: String::new(), stderr: "Unknown argument: verbose".into(), timed_out: false }),
+        ["models"] => ok_ans("opencode/ling-3.0-flash-fin-free\n"),
+        other => panic!("unexpected opencode probe args: {other:?}"),
+    };
+    let seams = Seams { find: &find, run: &run_older, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let older = agents::discover_one("opencode", &seams).unwrap();
+    assert_eq!(older.status, Probe::Ready);
+    assert_eq!(
+        parse_opencode_model_list(verbose).unwrap()["models"],
+        json!([{ "id": "opencode/ling-3.0-flash-fin-free", "displayName": "ling-3.0-flash-fin-free", "description": "free", "efforts": ["low", "high"] }])
+    );
+    assert_eq!(
+        parse_opencode_model_list("opencode/ling-3.0-flash-fin-free\n").unwrap()["models"],
+        json!([{ "id": "opencode/ling-3.0-flash-fin-free", "displayName": "ling-3.0-flash-fin-free", "description": "free" }])
+    );
+}
+
+// case: still says signed out when a CLI says so in its own words
+#[test]
+fn still_says_signed_out_when_cli_says_so_in_own_words() {
+    let find = find_only("copilot");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--help"] => ok_ans(COPILOT_HELP),
+        _ => Some(Answer { exit: Some(1), stdout: String::new(), stderr: "Error: not logged in. Run copilot login.".into(), timed_out: false }),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let copilot = agents::discover_one("copilot", &seams).unwrap();
+    assert_eq!(copilot.status, Probe::AuthRequired);
+    assert_eq!(copilot.auth, Auth::Unauthenticated);
+}
+
+// case: does not report an OpenCode that cannot list a single model as ready to run one
+#[test]
+fn does_not_report_opencode_without_models_as_ready() {
+    let find = find_only("opencode");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--version"] => ok_ans("1.18.27"),
+        ["run", "--help"] => ok_ans(OPENCODE_HELP),
+        _ => ok_ans("Error: could not reach the model registry"),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let opencode = agents::discover_one("opencode", &seams).unwrap();
+    assert!(!opencode.ready);
+    assert_eq!(opencode.status, Probe::Offline);
+}
+
+// case: reports Copilot CLI ready on its version alone, and says on the record why that is a guess
+#[test]
+fn reports_copilot_ready_on_version_alone() {
+    let find = find_only("copilot");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--help"] => ok_ans(COPILOT_HELP),
+        ["--version"] => ok_ans("GitHub Copilot CLI 1.0.82."),
+        other => panic!("unexpected copilot probe args: {other:?}"),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let copilot = agents::discover_one("copilot", &seams).unwrap();
+    assert!(copilot.ready);
+    assert_eq!(copilot.status, Probe::Ready);
+    assert_eq!(copilot.version.as_deref(), Some("1.0.82"));
+}
+
+// case: offers Copilot only the route where the CLI picks, because it names no models before a run
+#[test]
+fn offers_copilot_only_auto_route_before_run() {
+    let models = copilot_models();
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0]["id"], "auto");
+    assert_eq!(models[0]["displayName"], "Auto");
+    assert_eq!(models[0]["runtime"], "copilot");
+}
+
+// case: reports a Copilot whose version command says something else as not ready
+#[test]
+fn reports_copilot_with_unexpected_version_output_as_not_ready() {
+    let find = find_only("copilot");
+    let run = |_: &Path, args: &[&str]| match args {
+        ["--help"] => ok_ans(COPILOT_HELP),
+        _ => ok_ans("command not recognized"),
+    };
+    let seams = Seams { find: &find, run: &run, exists: &no_files, home: None, xdg_config_home: None, recall: None };
+    let copilot = agents::discover_one("copilot", &seams).unwrap();
+    assert!(!copilot.ready);
+    assert_eq!(copilot.status, Probe::Offline);
 }
