@@ -1946,15 +1946,15 @@ apps/desktop/src/main/edit-check.test.ts	keeps the name of a test that ends in i
 apps/desktop/src/main/edit-check.test.ts	says it could not run, rather than throwing	yes
 apps/desktop/src/main/edit-check.test.ts	runs it in the folder, through the shell, and reports its exit and output	yes
 apps/desktop/src/main/edit-check.test.ts	stops a check that runs past its time	yes
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from a file path its conversation named, JSON-escaped, deep inside it	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from forward slashes too, as some runtimes write Windows paths	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is never guessed: no path that hashes to it, no answer	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found on macOS and Linux paths	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps each folder once, newest used first, and what was only recovered after	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's folder first, then the others by their newest conversation	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	no
-apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	no
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from a file path its conversation named, JSON-escaped, deep inside it	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from forward slashes too, as some runtimes write Windows paths	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is never guessed: no path that hashes to it, no answer	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found on macOS and Linux paths	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps each folder once, newest used first, and what was only recovered after	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's folder first, then the others by their newest conversation	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	yes
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
