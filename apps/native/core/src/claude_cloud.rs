@@ -1331,6 +1331,7 @@ pub fn on_this_computer(store: &crate::store::Store, reads: Arc<CloudReads>) -> 
         Some(ClaudeLaunch { discovered_path: path.clone(), executable_path: path, prefix_args: Vec::new(), env: None })
     })
     .with_reads(reads)
+    .with_exec(run_exec)
     .with_run_window(move |run: &WindowRun| {
         if run.kind != WindowKind::ScriptTerminal {
             return Err(WINDOW_NOT_OPENED.into());
@@ -1342,6 +1343,35 @@ pub fn on_this_computer(store: &crate::store::Store, reads: Arc<CloudReads>) -> 
         let env: Vec<(&str, &str)> = run.env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
         crate::runtime_terminal::open_with_env(Path::new(&run.file), &run.args, Path::new(&run.cwd), &script, &windows, &env)
     })
+}
+
+/// Claude Code run to its end with nothing on stdin, for a follow-up's receipt (Electron's `execFile`): stdout apart,
+/// and stdout then stderr together as what it said. Verbatim arguments are Windows' own command line, passed as is.
+pub fn run_exec(file: &str, args: &[String], options: &ExecOptions) -> ExecReply {
+    let mut command = std::process::Command::new(file);
+    #[cfg(windows)]
+    if options.verbatim {
+        use std::os::windows::process::CommandExt;
+        for arg in args {
+            command.raw_arg(arg);
+        }
+    } else {
+        command.args(args);
+    }
+    #[cfg(not(windows))]
+    command.args(args);
+    command.envs(&options.env).stdin(std::process::Stdio::null());
+    if !options.cwd.is_empty() {
+        command.current_dir(&options.cwd);
+    }
+    match command.output() {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+            let output = format!("{stdout}{}", String::from_utf8_lossy(&out.stderr));
+            ExecReply { code: out.status.code().unwrap_or(-1), output, stdout: Some(stdout) }
+        }
+        Err(e) => ExecReply { code: -1, output: e.to_string(), stdout: None },
+    }
 }
 
 /// git, its output apart, with what it reads on stdin.
@@ -1509,3 +1539,7 @@ mod once_tests;
 #[cfg(test)]
 #[path = "claude_cloud_task_tests.rs"]
 mod task_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_exec_tests.rs"]
+mod exec_tests;

@@ -5,10 +5,14 @@
 //! Reached from the composer's chat type menu (Cloud, offered while a Claude model is picked), as Electron's App.tsx
 //! does: choosing it opens this panel beside the conversation and reads where a send would go, and the start form
 //! gains the organization environment field. A send with Cloud on starts a Claude cloud session instead of a turn.
-//! The session rows (`ClaudeCloudSessions`) and Codex's task rows are built below them.
+//! Under them, Claude's session rows (`ClaudeCloudSessions`, one `CloudWatch` each); Codex's task rows wait.
 
 use super::*;
-use locust_core::claude_cloud::{ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudSession, CloudChoice, CloudReads};
+use locust_core::claude_cloud::{
+    ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudReading, ClaudeCloudSession, CloudChoice, CloudReads, CloudSendResult,
+};
+use locust_core::cloud_watch::{cloud_updated_label, CloudWatch, WatchStep, WatchStop};
+use std::collections::HashMap;
 use locust_core::store::Store;
 use std::sync::Mutex;
 
@@ -113,6 +117,31 @@ pub(crate) type MakeClaude = Arc<dyn Fn(&Store, Arc<CloudReads>) -> ClaudeCloud<
 /// What a read off the window's thread brought.
 enum Answer {
     Where { folder: String, place: CloudWhere, folders: Vec<CloudFolder>, sessions: Vec<ClaudeCloudSession>, environment: Option<String> },
+    /// A session read in its own worktree (Show what it did, Check again, or the watch).
+    Read { id: String, reading: ClaudeCloudReading },
+    Applied { id: String, result: CloudSendResult },
+    Sent { id: String, result: CloudSendResult },
+    Home { result: CloudSendResult, known: bool },
+}
+
+/// One session row's own state (`ClaudeCloudRow`'s hooks).
+#[derive(Default)]
+pub(crate) struct Row {
+    /// Tell it more.
+    pub(crate) draft: TextEdit,
+    pub(crate) sending: bool,
+    /// The line said under the row.
+    pub(crate) said: Option<String>,
+    pub(crate) reading: Option<ClaudeCloudReading>,
+    pub(crate) checking: bool,
+    pub(crate) applying: bool,
+    pub(crate) applied: bool,
+    /// What it did is shown.
+    pub(crate) expanded: bool,
+    /// The row's watch while Watch is on; None once it stops.
+    pub(crate) watch: Option<CloudWatch>,
+    /// The read under way was asked for by the watch, which takes what it brings.
+    watch_waiting: bool,
 }
 
 /// Claude's cloud in the window (App.tsx's `cloudOn`, `cloudPanel`, `claudeCloud` and `cloudEnvironment`).
@@ -135,6 +164,12 @@ pub(crate) struct Cloud {
     pub(crate) reads: Arc<CloudReads>,
     inbox: Arc<Mutex<Vec<Answer>>>,
     pub(crate) make: Option<MakeClaude>,
+    /// Each session row's state, by the session's id; gone with the panel, as Electron's rows unmount.
+    pub(crate) rows: HashMap<String, Row>,
+    /// The line over the rows (Bring it home's answer).
+    pub(crate) note: Option<String>,
+    /// The window's clock at its last poll, in milliseconds: what a watch starts from.
+    pub(crate) now_ms: u64,
 }
 
 /// The conversation's teammate.
@@ -223,8 +258,16 @@ pub(super) fn choose(s: &mut State, on: bool) {
 }
 
 /// What came back from off the window's thread, and Cloud set back once the conversation or the agent changes.
-pub(super) fn poll(s: &mut State, _now: f64) -> bool {
+pub(super) fn poll(s: &mut State, now: f64) -> bool {
     let mut changed = false;
+    let now_ms = (now.max(0.0) * 1000.0) as u64;
+    s.cloud.now_ms = now_ms;
+    // A closed panel's rows are gone, their watches with them (Electron unmounts them).
+    if !s.cloud.open && !s.cloud.rows.is_empty() {
+        s.cloud.rows.clear();
+        changed = true;
+    }
+    changed |= tick_watches(s, now_ms);
     if s.cloud.on && (teammate(s).map(|mate| mate.id.clone()) != s.cloud.on_for || !claude_picked(s)) {
         s.cloud.on = false;
         changed = true;
@@ -247,6 +290,48 @@ pub(super) fn poll(s: &mut State, _now: f64) -> bool {
                     s.cloud.environment_read = saved;
                     s.cloud.environment_folder = Some(there);
                 }
+            }
+            Answer::Read { id, reading } => {
+                let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
+                row.checking = false;
+                row.applied = false;
+                if std::mem::take(&mut row.watch_waiting) {
+                    let stopped = row.watch.as_mut().and_then(|watch| watch.read(now_ms, Some(reading.clone()))).and_then(|(_, stop)| stop);
+                    if let Some(stop) = stopped {
+                        row.watch = None;
+                        row.said = Some(watch_stopped(stop).into());
+                    }
+                }
+                row.reading = Some(reading);
+            }
+            Answer::Applied { id, result } => {
+                let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
+                row.applying = false;
+                match result {
+                    CloudSendResult::Ok => {
+                        row.applied = true;
+                        row.said = Some(APPLIED.into());
+                    }
+                    CloudSendResult::Err { message } => row.said = Some(message),
+                }
+            }
+            Answer::Sent { id, result } => {
+                let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
+                row.sending = false;
+                match result {
+                    CloudSendResult::Ok => {
+                        row.draft.clear();
+                        row.said = Some(SENT.into());
+                    }
+                    CloudSendResult::Err { message } => row.said = Some(message),
+                }
+            }
+            Answer::Home { result, known } => {
+                s.cloud.note = Some(match result {
+                    CloudSendResult::Ok if known => HOME_KNOWN.into(),
+                    CloudSendResult::Ok => HOME_UNKNOWN.into(),
+                    CloudSendResult::Err { message } => message,
+                });
             }
         }
         changed = true;
@@ -331,7 +416,357 @@ pub(super) fn beside(s: &State, p: &Palette) -> Option<El> {
     if let Some(side) = panel.claude.as_mut() {
         side.picked = claude_picked(s);
     }
-    Some(col().key("cloud-tasks-beside").w(380.0).h_full().fill(p.raised).border(1.0, p.hairline).child(view(&panel, p)))
+    Some(
+        col()
+            .key("cloud-tasks-beside")
+            .w(380.0)
+            .h_full()
+            .fill(p.raised)
+            .border(1.0, p.hairline)
+            .child(view(&panel, p))
+            .children(sessions_view(s, p)),
+    )
+}
+
+const INTRO: &str = "Describe a task and send it. Claude does the work on Anthropic\u{2019}s machines, not this computer. Show what it \
+     did reads its conversation and its change here; Apply brings the change into this folder. If Claude Code needs to ask \
+     you something first, such as whether you trust this folder, it opens a window for that.";
+const APPLIED: &str = "Its change is in this folder, not committed. Look it over before you keep it.";
+const SENT: &str = "Sent. Check again in a moment to read its reply.";
+const HOME_KNOWN: &str = "Claude Code opened in this folder and is bringing this session\u{2019}s work into it.";
+const HOME_UNKNOWN: &str =
+    "Claude Code opened in this folder with its list of cloud sessions. Pick this one, and its work comes into this folder.";
+const CLAUDE_CODE_SESSIONS: &str = "https://claude.ai/code";
+
+fn watch_stopped(stop: WatchStop) -> &'static str {
+    match stop {
+        WatchStop::Time => "Watch stopped after 30 minutes.",
+        WatchStop::Unchanged => "Watch stopped after two reads with nothing new.",
+        WatchStop::Failed => "Watch stopped because the session could not be read. Check again; the last reading stays here.",
+    }
+}
+
+/// One job for the window's `ClaudeCloud`, run off the window's thread; what it answers lands in `poll`.
+fn off_thread(s: &State, job: impl FnOnce(&ClaudeCloud<'static>) -> Option<Answer> + Send + 'static) {
+    let Some(store) = s.data.clone() else { return };
+    let (make, reads, inbox) = (s.cloud.make.clone(), s.cloud.reads.clone(), s.cloud.inbox.clone());
+    std::thread::spawn(move || {
+        let claude = match &make {
+            Some(make) => make(&store, reads),
+            None => locust_core::claude_cloud::on_this_computer(&store, reads),
+        };
+        if let Some(answer) = job(&claude) {
+            inbox.lock().unwrap_or_else(|e| e.into_inner()).push(answer);
+        }
+    });
+}
+
+/// Read the session once; a read already under way is the one answer (`readOnce`).
+fn read_once(s: &mut State, id: &str) {
+    let row = s.cloud.rows.entry(id.to_owned()).or_default();
+    if row.checking {
+        return;
+    }
+    row.checking = true;
+    row.said = None;
+    let id = id.to_owned();
+    off_thread(s, move |claude| Some(Answer::Read { reading: claude.check(&id), id }));
+}
+
+/// Show what it did / Check again.
+pub(super) fn check(s: &mut State, id: &str) {
+    s.cloud.rows.entry(id.to_owned()).or_default().expanded = true;
+    read_once(s, id);
+}
+
+/// Watch / Stop watching: a watch from the window's clock, its first read at once unless a reading is shown.
+pub(super) fn toggle_watch(s: &mut State, id: &str) {
+    let now = s.cloud.now_ms;
+    let row = s.cloud.rows.entry(id.to_owned()).or_default();
+    if row.applying {
+        return;
+    }
+    row.expanded = true;
+    row.watch = match row.watch.take() {
+        Some(_) => None,
+        None => Some(CloudWatch::start(now, row.reading.as_ref())),
+    };
+    row.watch_waiting = false;
+}
+
+/// Hide what it did: the watch stops with it.
+fn hide(s: &mut State, id: &str) {
+    let row = s.cloud.rows.entry(id.to_owned()).or_default();
+    row.expanded = false;
+    row.watch = None;
+}
+
+/// Every open row's watch, from the window's poll: a read when one is due, the line said when it stops.
+fn tick_watches(s: &mut State, now_ms: u64) -> bool {
+    let mut changed = false;
+    let ids: Vec<String> = s.cloud.rows.iter().filter(|(_, row)| row.watch.is_some()).map(|(id, _)| id.clone()).collect();
+    for id in ids {
+        let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
+        let Some(watch) = row.watch.as_mut() else { continue };
+        match watch.poll(now_ms) {
+            WatchStep::Wait => {}
+            WatchStep::Read => {
+                row.watch_waiting = true;
+                read_once(s, &id);
+                changed = true;
+            }
+            WatchStep::Stopped(stop) => {
+                row.watch = None;
+                row.said = Some(watch_stopped(stop).into());
+                changed = true;
+            }
+        }
+    }
+    changed
+}
+
+/// Apply to this folder: its change comes in, not committed.
+pub(super) fn apply(s: &mut State, id: &str) {
+    let row = s.cloud.rows.entry(id.to_owned()).or_default();
+    if row.applying {
+        return;
+    }
+    row.watch = None;
+    row.applying = true;
+    let id = id.to_owned();
+    off_thread(s, move |claude| Some(Answer::Applied { result: claude.apply(&id), id }));
+}
+
+/// Tell it more: a follow-up to the session by its id.
+pub(super) fn tell_more(s: &mut State, id: &str) {
+    let row = s.cloud.rows.entry(id.to_owned()).or_default();
+    let words = row.draft.text.trim().to_owned();
+    if words.is_empty() || row.sending {
+        return;
+    }
+    row.sending = true;
+    row.said = None;
+    let id = id.to_owned();
+    off_thread(s, move |claude| Some(Answer::Sent { result: claude.send(&id, &words), id }));
+}
+
+/// Bring it home: Claude Code opens in this folder and brings the session's work into it.
+pub(super) fn home(s: &mut State, id: &str) {
+    let known = s.cloud.panel.claude.iter().flat_map(|side| &side.sessions).any(|one| one.id == id && one.session_id.is_some());
+    let id = id.to_owned();
+    off_thread(s, move |claude| Some(Answer::Home { result: claude.home(&id), known }));
+}
+
+/// Remove from this list; the session itself stays on claude.ai.
+pub(super) fn forget(s: &mut State, id: &str) {
+    if let Some(side) = s.cloud.panel.claude.as_mut() {
+        side.sessions.retain(|one| one.id != id);
+    }
+    s.cloud.rows.remove(id);
+    let id = id.to_owned();
+    off_thread(s, move |claude| {
+        claude.forget(&id);
+        None
+    });
+}
+
+/// A unified diff's files with their added and removed line counts, in order.
+fn diff_files(diff: &str) -> Vec<(String, usize, usize)> {
+    let mut files: Vec<(String, usize, usize)> = Vec::new();
+    for line in diff.lines() {
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            let path = rest.rsplit_once(" b/").map(|(_, b)| b).unwrap_or(rest);
+            files.push((path.to_owned(), 0, 0));
+        } else if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        } else if let Some(file) = files.last_mut() {
+            if line.starts_with('+') {
+                file.1 += 1;
+            } else if line.starts_with('-') {
+                file.2 += 1;
+            }
+        }
+    }
+    files
+}
+
+/// Claude's cloud sessions from this folder (`ClaudeCloudSessions`), while Claude is picked or a session is here.
+pub(super) fn sessions_view(s: &State, p: &Palette) -> Option<El> {
+    let side = s.cloud.panel.claude.as_ref()?;
+    let picked = claude_picked(s);
+    if !picked && side.sessions.is_empty() {
+        return None;
+    }
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut list = col().key("cloud-sessions").w_full().gap(10.0).px(16.0).py(6.0);
+    if picked || side.sessions.is_empty() {
+        list = list.child(text(INTRO).key("cloud-sessions-intro").font(l.ty.body).color(l.c("text-secondary")).wrap());
+    }
+    if let Some(note) = &s.cloud.note {
+        list = list.child(text(note.clone()).key("cloud-sessions-note").role("status").font(l.ty.body).color(l.c("text-primary")).wrap());
+    }
+    for session in &side.sessions {
+        list = list.child(session_row(s, session, &l, p));
+    }
+    Some(list)
+}
+
+fn session_row(s: &State, session: &ClaudeCloudSession, l: &crate::look::controls::Look, p: &Palette) -> El {
+    use crate::look::controls::{button, primary_button, Tone};
+    let blank = Row::default();
+    let state = s.cloud.rows.get(&session.id).unwrap_or(&blank);
+    let id = session.id.clone();
+    let key = |what: &str| format!("cloud-session-{what}-{id}");
+    let note = |words: String| text(words).font(l.ty.body).color(l.c("text-secondary")).w_full().wrap();
+    let known = session.session_id.is_some();
+    let ago = locust_core::home_team_state::ago_label(&session.started_at, chrono::Utc::now()).unwrap_or_else(|| "just now".into());
+    let read = match &state.reading {
+        Some(ClaudeCloudReading::Ok { exchanges, checked_at, diff, change_too_big, note }) => {
+            Some((exchanges, checked_at, diff, *change_too_big, note))
+        }
+        _ => None,
+    };
+    let mut el = col()
+        .key(format!("cloud-session-{id}"))
+        .role("group")
+        .label(session.title.clone().unwrap_or_else(|| session.prompt.clone()))
+        .w_full()
+        .gap(6.0)
+        .px(10.0).py(10.0)
+        .radius(l.t.px("radius-control"))
+        .border(1.0, p.hairline);
+    if let Some(title) = &session.title {
+        el = el.child(text(title.clone()).font(l.ty.control).color(l.c("text-primary")).wrap());
+    }
+    el = el.child(text(session.prompt.clone()).font(l.ty.body).color(l.c("text-primary")).w_full().wrap()).child(note(if known {
+        format!("In Claude\u{2019}s cloud since {ago}.")
+    } else {
+        format!("Sent to Claude\u{2019}s cloud {ago}. Follow it on claude.ai or in the Claude app.")
+    }));
+    if let Some(said) = &session.note {
+        el = el.child(note(said.clone()));
+    }
+    let mut actions = row().w_full().gap(6.0).flex_wrap();
+    if known {
+        let label = if state.checking {
+            "Reading it…"
+        } else if read.is_none() {
+            "Show what it did"
+        } else {
+            "Check again"
+        };
+        let one = id.clone();
+        actions = actions.child(primary_button(l, label, state.checking).key(key("check")).on_press(move |s: &mut State| {
+            if !s.cloud.rows.get(&one).is_some_and(|row| row.checking) {
+                check(s, &one)
+            }
+        }));
+        let one = id.clone();
+        actions = actions.child(
+            button(l, if state.watch.is_some() { "Stop watching" } else { "Watch" }, Tone::Neutral, state.applying)
+                .key(key("watch"))
+                .on_press(move |s: &mut State| toggle_watch(s, &one)),
+        );
+        if state.expanded {
+            let one = id.clone();
+            actions = actions.child(button(l, "Hide what it did", Tone::Neutral, false).key(key("hide")).on_press(move |s: &mut State| hide(s, &one)));
+        }
+    }
+    let url = session.url.clone().unwrap_or_else(|| CLAUDE_CODE_SESSIONS.into());
+    let web = if known { button(l, "See it on claude.ai", Tone::Neutral, false) } else { primary_button(l, "See it on claude.ai", false) };
+    actions = actions.child(web.key(key("web")).on_press(move |s: &mut State| crate::published_cards::open_web_link(s, &url)));
+    let one = id.clone();
+    actions = actions.child(button(l, "Bring it home", Tone::Neutral, false).key(key("home")).on_press(move |s: &mut State| home(s, &one)));
+    let one = id.clone();
+    actions = actions.child(
+        crate::look::controls::ghost_button(l, "Remove")
+            .key(key("forget"))
+            .label(format!("Remove \"{}\" from this list", session.prompt))
+            .on_press(move |s: &mut State| forget(s, &one)),
+    );
+    el = el.child(actions);
+    if state.expanded {
+        if let Some(ClaudeCloudReading::Err { message }) = &state.reading {
+            el = el.child(note(message.clone()).key(key("problem")).role("alert"));
+        }
+    }
+    if let (true, Some((exchanges, checked_at, diff, too_big, read_note))) = (state.expanded, read) {
+        let mut shown = col().key(key("read")).w_full().gap(6.0);
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        shown = shown.child(note(cloud_updated_label(checked_at, now_ms)).role("status"));
+        if !exchanges.is_empty() || read_note.is_none() {
+            shown = shown.child(note(if exchanges.is_empty() {
+                "Claude Code brought it in, but it has no finished reply yet.".into()
+            } else {
+                let at = locust_core::home_team_state::ago_label(checked_at, chrono::Utc::now()).unwrap_or_else(|| "just now".into());
+                format!("What it said, as of {at}:")
+            }));
+        }
+        for exchange in exchanges {
+            let mut one = col().w_full().gap(3.0).child(text(exchange.prompt.clone()).font(l.ty.body).color(l.c("text-secondary")).w_full().wrap());
+            if let Some(answer) = &exchange.answer {
+                one = one.child(text(answer.clone()).font(l.ty.body).color(l.c("text-primary")).w_full().wrap());
+            }
+            shown = shown.child(one);
+        }
+        if let Some(said) = read_note {
+            shown = shown.child(note(said.clone()));
+        }
+        if too_big {
+            shown = shown.child(note("Its change is too big to show here. Apply still brings it in whole.".into()));
+        }
+        let files = diff.as_deref().map(diff_files).unwrap_or_default();
+        for (path, added, removed) in &files {
+            shown = shown.child(text(format!("{path}  +{added} \u{2212}{removed}")).font(l.ty.mono).color(l.c("text-secondary")));
+        }
+        if !files.is_empty() || too_big {
+            let label = if state.applied {
+                "Applied"
+            } else if state.applying {
+                "Applying…"
+            } else {
+                "Apply to this folder"
+            };
+            let one = id.clone();
+            shown = shown.child(primary_button(l, label, state.applying || state.applied).key(key("apply")).on_press(move |s: &mut State| {
+                if !s.cloud.rows.get(&one).is_some_and(|row| row.applying || row.applied) {
+                    apply(s, &one)
+                }
+            }));
+        }
+        if diff.is_none() && !too_big && read_note.is_none() {
+            shown = shown.child(note("It has changed nothing yet.".into()));
+        }
+        el = el.child(shown);
+    }
+    if known {
+        let one = id.clone();
+        let sent = id.clone();
+        let more = text_input(&state.draft, l.ty.body)
+            .key(key("more"))
+            .single_line()
+            .label(format!("Tell \"{}\" more", session.title.as_deref().unwrap_or(&session.prompt)))
+            .placeholder("Tell it more…", p.muted)
+            .grow(1.0)
+            .h(30.0)
+            .border(1.0, p.hairline)
+            .on_edit(move |s: &mut State| &mut s.cloud.rows.entry(one.clone()).or_default().draft)
+            .on_submit(move |s: &mut State, _: &mut Tx| tell_more(s, &sent));
+        let one = id.clone();
+        let busy = state.sending || state.draft.text.trim().is_empty();
+        el = el.child(
+            row()
+                .w_full()
+                .gap(6.0)
+                .center_y()
+                .child(more)
+                .child(button(l, if state.sending { "Sending…" } else { "Send" }, Tone::Neutral, busy).key(key("send")).on_press(move |s: &mut State| tell_more(s, &one))),
+        );
+    }
+    if let Some(said) = &state.said {
+        el = el.child(note(said.clone()).key(key("said")).role("status"));
+    }
+    el
 }
 
 /// Open one of the person's folders, as Choose folder does with the one chosen.
@@ -459,3 +894,7 @@ mod claude_cloud_panel_tests;
 #[cfg(test)]
 #[path = "claude_cloud_panel_window_tests.rs"]
 mod claude_cloud_panel_window_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_panel_rows_tests.rs"]
+mod claude_cloud_panel_rows_tests;
