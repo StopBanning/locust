@@ -167,88 +167,72 @@ pub fn page_count(bytes: &[u8]) -> Option<usize> {
     }
 }
 
-/// Open `pdf` relative to `folder`, write text + page PNGs beside the attachment under
-/// native's own tree, and return the readable descriptor (Electron `readablePdf`).
-pub fn readable_pdf(
+/// Open `pdf` relative to `folder` and write what an agent reads instead (Electron `readablePdf`, 0.713): its text in
+/// `.locust/attachments/<name>.txt` and a picture of each of the first `max_pictures` pages in
+/// `.locust/attachments/<name>-pages/`, both in `folder`, never beside a project file. What was written is kept in
+/// that pictures folder (`locust-reading.json`, with the PDF's digest), so the same PDF is read once and read again
+/// when it changes or its files are gone. An absolute `pdf` is read where it is; what is written still goes in `folder`.
+pub fn readable_pdf(folder: &Path, pdf: &str, name: &str, max_pictures: usize) -> Result<ReadablePdf, String> {
+    readable_pdf_with(folder, pdf, name, max_pictures, read_pdf_bytes)
+}
+
+/// `readable_pdf` with the reader given: PDFKit in the app, a fake in tests (Electron's `ReadPdf`).
+pub fn readable_pdf_with(
     folder: &Path,
     pdf: &str,
     name: &str,
     max_pictures: usize,
+    read: impl FnOnce(&[u8]) -> Result<PdfReading, String>,
 ) -> Result<ReadablePdf, String> {
-    let path = folder.join(pdf);
-    let meta = fs::metadata(&path).map_err(|_| pages_refusal("could-not").to_string())?;
+    let could_not = || pages_refusal("could-not").to_string();
+    let meta = fs::metadata(folder.join(pdf)).map_err(|_| could_not())?;
     if !meta.is_file() || meta.len() == 0 || meta.len() > MAX_PDF_BYTES {
-        return Err(pages_refusal("could-not").into());
+        return Err(could_not());
     }
-    let bytes = fs::read(&path).map_err(|_| pages_refusal("could-not").to_string())?;
+    let bytes = fs::read(folder.join(pdf)).map_err(|_| could_not())?;
     let digest = hex_sha(&bytes);
-    let cache = folder.join(".locust").join("pdf-cache").join(format!("{digest}.json"));
-    if let Ok(raw) = fs::read_to_string(&cache)
-        && let Ok(kept) = serde_json::from_str::<serde_json::Value>(&raw)
-        && kept.get("digest").and_then(|v| v.as_str()) == Some(digest.as_str())
+    let dir = crate::attachments::ATTACHMENT_DIR;
+    let text_rel = format!("{dir}/{name}.txt");
+    let pictures_rel = format!("{dir}/{name}-pages");
+    let kept_path = folder.join(&pictures_rel).join("locust-reading.json");
+    if let Some((text, pictures, pages)) = kept(&kept_path, &digest)
+        && text.iter().chain(pictures.iter()).all(|path| folder.join(path).is_file())
     {
-        let pictures = kept
-            .get("pictures")
-            .and_then(|v| v.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(str::to_owned))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let pages = kept.get("pages").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-        let text = kept
-            .get("text")
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-        return Ok(ReadablePdf {
-            pdf: pdf.to_owned(),
-            text,
-            pictures,
-            pages,
-        });
+        return Ok(ReadablePdf { pdf: pdf.to_owned(), text, pictures, pages });
     }
-    let reading = read_pdf_bytes(&bytes)?;
-    let text_rel = format!("{pdf}.txt");
-    let pictures_folder = format!("{pdf}-pages");
-    let text_path = folder.join(&text_rel);
-    if let Some(parent) = text_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+    let reading = read(&bytes)?;
     let has_text = reading.text.iter().any(|t| !t.trim().is_empty());
-    let text_field = if has_text {
-        fs::write(&text_path, reading_text(name, &reading)).map_err(|e| e.to_string())?;
-        Some(text_rel)
-    } else {
-        None
-    };
-    let pics_dir = folder.join(&pictures_folder);
-    fs::create_dir_all(&pics_dir).map_err(|e| e.to_string())?;
+    let _ = fs::remove_dir_all(folder.join(&pictures_rel));
+    fs::create_dir_all(folder.join(&pictures_rel)).map_err(|e| e.to_string())?;
     let mut pictures = Vec::new();
     for (i, png) in reading.pictures.iter().take(max_pictures).enumerate() {
-        let rel = format!("{pictures_folder}/{}", picture_name(i + 1));
+        let rel = format!("{pictures_rel}/{}", picture_name(i + 1));
         fs::write(folder.join(&rel), png).map_err(|e| e.to_string())?;
         pictures.push(rel);
     }
-    if let Some(parent) = cache.parent() {
-        let _ = fs::create_dir_all(parent);
+    let text = if has_text {
+        fs::write(folder.join(&text_rel), reading_text(name, &reading)).map_err(|e| e.to_string())?;
+        Some(text_rel)
+    } else {
+        let _ = fs::remove_file(folder.join(&text_rel));
+        None
+    };
+    let record = serde_json::json!({ "digest": digest, "readable": { "pages": reading.pages, "pictures": pictures, "text": text } });
+    fs::write(&kept_path, serde_json::to_string_pretty(&record).unwrap_or_default()).map_err(|e| e.to_string())?;
+    Ok(ReadablePdf { pdf: pdf.to_owned(), text, pictures, pages: reading.pages })
+}
+
+/// What `locust-reading.json` says was written, when it was written for these bytes.
+fn kept(path: &Path, digest: &str) -> Option<(Option<String>, Vec<String>, usize)> {
+    let kept: serde_json::Value = serde_json::from_str(&fs::read_to_string(path).ok()?).ok()?;
+    if kept.get("digest").and_then(|v| v.as_str()) != Some(digest) {
+        return None;
     }
-    let _ = fs::write(
-        &cache,
-        serde_json::json!({
-            "digest": digest,
-            "text": text_field,
-            "pictures": pictures,
-            "pages": reading.pages,
-        })
-        .to_string(),
-    );
-    Ok(ReadablePdf {
-        pdf: pdf.to_owned(),
-        text: text_field,
-        pictures,
-        pages: reading.pages,
-    })
+    let readable = kept.get("readable")?;
+    let text = readable.get("text").and_then(|v| v.as_str()).map(str::to_owned);
+    let pictures = readable.get("pictures")?.as_array()?.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect();
+    let pages = readable.get("pages")?.as_u64()? as usize;
+    Some((text, pictures, pages))
 }
 
 fn hex_sha(bytes: &[u8]) -> String {
@@ -625,3 +609,7 @@ startxref
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "pdf_arrives_readable_tests.rs"]
+mod pdf_arrives_readable_tests;

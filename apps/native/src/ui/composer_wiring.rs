@@ -10,6 +10,26 @@ pub(super) fn restore_failed_draft(s: &mut State, message: String) {
     s.draft.replace_text(text);
 }
 
+/// A message the queue sent that the host refused as busy goes back in front of the line, pointed at the conversation
+/// it was typed in and not tried again before its retry time (App.tsx `startMission`'s `requeue`, `retriedAfterBusy`).
+/// True when it did, so the words are not also put back in the box. Any other failure is the box's, as before.
+pub(super) fn requeued_after_busy(s: &mut State, error: &str) -> bool {
+    let Some(row) = s.queue_in_flight.take() else {
+        return false;
+    };
+    if !error.contains("already running") {
+        return false;
+    }
+    let back = composer::queue::retried_after_busy(&row, &row.key, epoch_ms());
+    s.queue_rows.insert(0, back);
+    persist_queue(s);
+    true
+}
+
+fn epoch_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
 pub(super) fn conversation_draft_key(s: &State) -> Option<String> {
     let (teammate, conversation) = selected_conversation(s)?;
     Some(composer::draft_key(
@@ -638,6 +658,8 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
     s.attached.clear();
     s.tagged.clear();
     s.off_the_queue = false;
+    // The person's own send: no queued row is in flight, whatever an earlier one left.
+    s.queue_in_flight = None;
     send(s, tx);
 }
 
@@ -673,6 +695,11 @@ pub(super) fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
     if turn_running(s) || (!forced && !matches!(verdict, composer::QueuedVerdict::Send)) {
         return;
     }
+    // Refused as busy a moment ago: not before its retry time, and the window looks again then.
+    if let Some(wait) = front.retry_at.and_then(|at| at.checked_sub(epoch_ms())).filter(|wait| *wait > 0) {
+        tx.wake_after(std::time::Duration::from_millis(wait));
+        return;
+    }
     let (going, rest) = composer::take_next(&s.queue_rows, &key);
     let Some(going) = going else {
         return;
@@ -690,11 +717,20 @@ pub(super) fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
         s.draft.replace_text(draft);
         return;
     }
-    // Remove durably BEFORE dispatch. An uncertain transport result must never retry itself.
+    // Remove durably BEFORE dispatch. An uncertain transport result must never retry itself; a busy refusal, which
+    // says nothing started, goes back in line (requeued_after_busy).
     s.queue_send_now = None;
+    s.queue_in_flight = Some(going);
     send(s, tx);
+    if s.flight.is_none() {
+        s.queue_in_flight = None;
+    }
     s.draft.replace_text(draft);
 }
+
+#[cfg(test)]
+#[path = "queued_busy_waits_tests.rs"]
+mod queued_busy_waits_tests;
 
 #[cfg(test)]
 #[path = "mode_cycle_tests.rs"]

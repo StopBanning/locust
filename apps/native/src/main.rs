@@ -2434,6 +2434,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         }
                     }
                     edit_message::sent(s, &started.conversation_id);
+                    s.queue_in_flight = None;
                     if let Some(from) = queue_key_now(s) {
                         s.queue_rows = composer::queue::requeued_rows(
                             &s.queue_rows,
@@ -2516,7 +2517,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 }
                 Err(error) => {
                     s.scout.in_flight_comment_card = None;
-                    if let Some(message) = message {
+                    if let Some(message) = message
+                        && !requeued_after_busy(s, &error)
+                    {
                         restore_failed_draft(s, message);
                     }
                     set_status(s, &id, &error, StatusTone::Red);

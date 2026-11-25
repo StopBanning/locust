@@ -683,16 +683,16 @@ apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	resumed, coun
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	counts from its last run when that is later than an old resume	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	is counted out of the tray's "next routine" line (its chip: renderer/src/a-paused-routine-says-so.test.ts)	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	keeps pause and resume in the routine file, and ignores what is not a yes or no	yes
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	names the text and the pictures, and says no tool is needed	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	says when only the first pages are pictures, and when there is no text at all	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	sits between the file list and the person’s words, and only in what is sent	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	writes the text with each page under its number, and one picture a page	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	reads the same PDF once, and again when it changes	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a scan has pictures and no text file	no
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	names the text and the pictures, and says no tool is needed	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	says when only the first pages are pictures, and when there is no text at all	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	sits between the file list and the person’s words, and only in what is sent	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	writes the text with each page under its number, and one picture a page	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	reads the same PDF once, and again when it changes	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a scan has pictures and no text file	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading the attach button started, rather than starting a second	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	no
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	no
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	yes
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	yes
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	reads a PDF in the folder, by its place in the folder, and answers its pictures	no
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	refuses what is not a PDF, what is outside the folder, and anything that is not a local path	no
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	says so when the PDF cannot be read, and when it is not there	no

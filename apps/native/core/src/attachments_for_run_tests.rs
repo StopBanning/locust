@@ -2,6 +2,7 @@
 //! of its six cases, in its order, with its files and words. Some carry more than Electron asks, so that breaking a
 //! rule fails a test: a second file of the same name, the exclude file, and a real file outside the project.
 use super::*;
+use crate::attachments::with_attachments;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
