@@ -360,8 +360,8 @@ struct NativeRecording {
 
 impl Drop for NativeRecording {
     fn drop(&mut self) {
+        // Tell the collector to stop; `capture`, the first field, is dropped right after this, which closes the stream.
         self.collector.stop.store(true, Ordering::Release);
-        self.capture.take();
     }
 }
 
@@ -444,6 +444,18 @@ mod tests {
     use super::*;
     use locust_core::voice_typing::{valid_wav, wav};
     use std::f32::consts::TAU;
+
+    // The 60-second cap stops the recording, not only trims it: push_capped says "full" exactly when the cap is
+    // reached, which is what makes the collector stop the microphone (merge check, Voice 3).
+    #[test]
+    fn the_sixty_second_cap_says_full_once_reached_and_keeps_nothing_past_it() {
+        let mut out = Vec::new();
+        assert!(!push_capped(&mut out, &vec![0.0; MAX_PCM_SAMPLES - 1]), "a sample short of the cap is not full");
+        assert!(push_capped(&mut out, &[0.0, 0.0, 0.0]), "reaching the cap is full");
+        assert_eq!(out.len(), MAX_PCM_SAMPLES, "and nothing past the cap is kept");
+        assert!(push_capped(&mut out, &[0.0]), "still full after");
+        assert_eq!(out.len(), MAX_PCM_SAMPLES);
+    }
 
     fn sine_interleaved(rate: u32, channels: usize, seconds: f32, freq: f32) -> Vec<f32> {
         let frames = (rate as f32 * seconds).round() as usize;
