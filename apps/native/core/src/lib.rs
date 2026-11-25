@@ -123,6 +123,7 @@ pub mod command_reach;
 pub mod commit_draft;
 pub mod panel_runs;
 pub mod compare;
+pub mod compare_chart;
 pub mod compare_copies;
 pub mod compare_judge;
 pub mod compare_reruns;

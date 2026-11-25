@@ -5264,8 +5264,8 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	tells the person a j
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	counts the runs each model's copy passed it	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	has no such column where no run was checked	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says a run again by the batch's own count, and three judges as three	yes
-apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	no
-apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	sets the effort the kept column ran at	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	lands on the model's own default when the column ran at a level it does not offer	yes

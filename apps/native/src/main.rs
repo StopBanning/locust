@@ -329,6 +329,8 @@ mod tune_teammate;
 mod benchmarks_panel;
 #[path = "ui/compare_view.rs"]
 mod compare_view;
+#[path = "ui/compare_chart.rs"]
+mod compare_chart;
 #[path = "ui/trash_section.rs"]
 mod trash_section;
 #[path = "ui/phone_section.rs"]
