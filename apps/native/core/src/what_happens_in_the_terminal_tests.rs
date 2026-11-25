@@ -457,3 +457,34 @@ fn is_found_from_any_turn_of_it_the_latest_made_where_it_branches() {
     assert_eq!(crate::native::real_tip("mission_second").unwrap(), "mission_second");
     assert_eq!(crate::native::real_tip("mission_fourth").unwrap(), "mission_fourth");
 }
+
+// A session's name is 8 to 80 letters, digits or dashes; anything else is never looked up, even when a file has that name.
+#[test]
+fn a_name_too_short_or_too_long_is_never_looked_for() {
+    let root = temp_root("transcript-names");
+    let dir = root.join("claude/projects/C--work");
+    std::fs::create_dir_all(&dir).unwrap();
+    let long = "a".repeat(81);
+    for name in ["abcdefg", long.as_str(), "abcdefgh"] {
+        std::fs::write(dir.join(format!("{name}.jsonl")), claude_session()).unwrap();
+    }
+    let read = TranscriptReader::new(Some(root.join("claude")), None);
+    assert_eq!(read.read("claude", "abcdefg"), None, "seven letters");
+    assert_eq!(read.read("claude", &long), None, "eighty-one letters");
+    assert_eq!(read.read("claude", "abcdefgh"), Some(claude_session()), "eight letters is a name");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+// A link in Claude Code's folders is never followed: the file read is always one Claude Code wrote there.
+#[test]
+fn a_transcript_that_is_a_link_is_not_read() {
+    let root = temp_root("transcript-link");
+    let dir = root.join("claude/projects/C--work");
+    std::fs::create_dir_all(&dir).unwrap();
+    let elsewhere = root.join("elsewhere.jsonl");
+    std::fs::write(&elsewhere, claude_session()).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, dir.join(format!("{SESSION}.jsonl"))).unwrap();
+    let read = TranscriptReader::new(Some(root.join("claude")), None);
+    assert_eq!(read.read("claude", SESSION), None);
+    let _ = std::fs::remove_dir_all(root);
+}
