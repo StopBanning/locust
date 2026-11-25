@@ -166,6 +166,9 @@ pub fn command(
         super::safety::assert_safe_runtime_command("copilot", &args, Some(sandbox_for(mode))).map_err(err)?;
         c.args(args);
     } else {
+        if prompt.trim().is_empty() {
+            return Err(err("Prompt must be nonempty"));
+        }
         let args = prompt_args(prompt, mode, model, effort, resume, session_id, references, skills);
         super::safety::assert_safe_runtime_command("copilot", &args, Some(sandbox_for(mode))).map_err(err)?;
         c.args(args);

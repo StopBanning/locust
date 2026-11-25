@@ -8165,7 +8165,7 @@ packages/runtime-adapters/test/refusal-is-readable.test.ts	still says something 
 packages/runtime-adapters/test/refusal-is-readable.test.ts	names a connector the way the activity rows name it	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	gives a connector refusal a reason the person can act on	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	says a refused read reached outside the folder, and never claims a mode it does not know (0.443)	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Claude mission in default mode with a reading tool list plus Task, never plan mode	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a Claude mission that may edit actually edit, and run what it changed	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	rejects permission bypass arguments	yes
@@ -8218,17 +8218,17 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	finds Copilot CLI where 
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Cursor's launcher in its own install directory without PATH	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only OpenCode mission with the permission config that actually enforces it	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	gives a run with no shell Locust's git tool, and only such a run	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a worktree run reach the repository it belongs to, and only that	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write OpenCode mission edit, and states its confinement rather than assuming it	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Copilot mission with the tool denylist that was measured refusing writes	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	starts none of the person's own MCP servers in a read-only Copilot mission, and only there (0.824)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	never offers a Copilot teammate the machine's other Copilot conversations, on either route (0.378)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Copilot mission edit, and resumes by the id the host minted	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	passes an OpenCode effort as its variant, and only an effort word	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	passes an OpenCode effort as its variant, and only an effort word	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads each OpenCode model's variants as its efforts, in the scale's order	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	PASSES an effort to Copilot, which does take one	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads OpenCode's model list as it prints it, and marks the free models free	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from output that is not a model list	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	no

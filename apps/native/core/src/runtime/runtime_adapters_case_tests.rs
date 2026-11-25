@@ -1,11 +1,13 @@
 //! Parity tests for `packages/runtime-adapters/test/runtime-adapters.test.ts` (launch-argument,
 //! mode-containment, safety-guard, version-parsing, and model-list cases).
 
-use super::{claude, copilot, cursor, opencode_config, safety, version};
+use super::{claude, codex, copilot, cursor, opencode_config, opencode_serve, safety, version, Runtime, Turn};
 use crate::approval::{Mode, codex_app_server_policy};
 use crate::models::{parse_claude_model_hints, parse_cursor_model_list, parse_opencode_model_list};
 use serde_json::json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::{Arc, atomic::AtomicBool};
 
 fn s(slice: &[&str]) -> Vec<String> {
     slice.iter().map(|x| (*x).to_owned()).collect()
@@ -538,4 +540,89 @@ fn starts_fresh_conversation_when_no_session_given() {
 fn refuses_session_id_not_plain_text() {
     assert!(claude::print_args(&claude::PrintOptions { mode: Mode::Ask, resume: Some(""), ..Default::default() }).is_err());
     assert!(claude::print_args(&claude::PrintOptions { mode: Mode::Ask, resume: Some("bad\0id"), ..Default::default() }).is_err());
+}
+
+// case: builds prompt-on-stdin, read-only Codex and restricted Claude commands
+#[test]
+fn builds_prompt_on_stdin_read_only_codex_and_restricted_claude_commands() {
+    // Rust drives Codex through `codex app-server` (not `codex exec`), enforcing read-only via the
+    // app-server policy (`sandbox: "read-only"`) and read-only thread config.
+    let codex_policy = codex_app_server_policy(Mode::Ask, None);
+    assert_eq!(codex_policy.sandbox, "read-only");
+    assert_eq!(codex_app_server_policy(Mode::Plan, None).sandbox, "read-only");
+    assert_eq!(codex::app_server_args(Some("0.160.0"))[0], "app-server");
+    assert!(codex::read_only_config(&json!({})).is_ok());
+
+    let claude = claude::print_args(&claude::PrintOptions { mode: Mode::Ask, ..Default::default() }).unwrap();
+    assert!(claude.iter().any(|a| a == "--restricted"));
+    assert!(claude.iter().any(|a| a == "stream-json"));
+    assert!(claude.iter().any(|a| a == "default"));
+    assert!(!claude.iter().any(|a| a == "--dangerously-skip-permissions"));
+    let input_at = claude.iter().position(|a| a == "--input-format").expect("has --input-format");
+    assert_eq!(&claude[input_at..input_at + 2], &["--input-format", "stream-json"]);
+}
+
+// case: titles only a NEW OpenCode session, and keeps plugins for a run that may edit
+#[test]
+fn titles_only_a_new_opencode_session_and_keeps_plugins_for_editing() {
+    let dir = std::env::temp_dir().join(format!(
+        "locust-rt-adapters-{}-{}",
+        std::process::id(),
+        crate::invariants::unique_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = crate::store::Store::new(dir.clone(), dir.join("electron")).unwrap();
+    let has_pure = |mode: Mode| {
+        let mut cmd = Command::new("opencode");
+        opencode_config::configure_with_seal(&mut cmd, mode, &store, false, false).unwrap();
+        cmd.get_envs().any(|(k, v)| k == "OPENCODE_PURE" && v == Some(std::ffi::OsStr::new("1")))
+    };
+    assert!(has_pure(Mode::Ask), "Ask must set OPENCODE_PURE=1");
+    assert!(has_pure(Mode::Plan), "Plan must set OPENCODE_PURE=1");
+    assert!(!has_pure(Mode::AcceptEdits), "AcceptEdits keeps plugins (no OPENCODE_PURE)");
+    assert!(!has_pure(Mode::Auto), "Auto keeps plugins (no OPENCODE_PURE)");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: passes an OpenCode effort as its variant, and only an effort word
+#[test]
+fn passes_opencode_effort_as_variant_and_only_an_effort_word() {
+    for valid in ["none", "minimal", "low", "medium", "high", "xhigh", "max"] {
+        assert_eq!(opencode_serve::validate_effort(valid).unwrap(), valid);
+    }
+    let err = opencode_serve::validate_effort("bogus").unwrap_err().to_string();
+    assert!(err.contains("effort level called \"bogus\""), "{err}");
+
+    // Exercise the live call site in `Serve::begin`: a bogus effort is refused before spawning.
+    let mut serve = opencode_serve::Serve::new(Command::new("opencode"), Arc::new(AtomicBool::new(false)));
+    let turn = Turn {
+        prompt: "Summarize the README.".into(),
+        folder: PathBuf::from("/work/repo"),
+        model: Some("opencode/ling-3.0-flash-fin-free".into()),
+        effort: Some("bogus".into()),
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "m1".into(),
+        run_id: "r1".into(),
+    };
+    serve.start(&turn).unwrap();
+    let failed = serve.next_event().unwrap().expect("run.failed event");
+    assert_eq!(failed.kind, "run.failed");
+    let msg = failed.payload["message"].as_str().unwrap_or_default();
+    assert!(msg.contains("effort level called \"bogus\""), "{msg}");
+}
+
+// case: refuses to build a command with no prompt, because the prompt IS the argv here
+#[test]
+fn refuses_to_build_command_with_no_prompt() {
+    let fake = PathBuf::from("/usr/bin/true");
+    copilot::FAKE_LAUNCHER.with(|f| *f.borrow_mut() = Some(fake));
+    let empty = copilot::command(Path::new("/work/repo"), "", Mode::Ask, None, None, None, None, &[], None);
+    let blank = copilot::command(Path::new("/work/repo"), "   ", Mode::Ask, None, None, None, None, &[], None);
+    let ok = copilot::command(Path::new("/work/repo"), "Summarize the README.", Mode::Ask, None, None, None, None, &[], None);
+    copilot::FAKE_LAUNCHER.with(|f| *f.borrow_mut() = None);
+    assert!(empty.unwrap_err().to_string().contains("Prompt"));
+    assert!(blank.unwrap_err().to_string().contains("Prompt"));
+    assert!(ok.is_ok());
 }

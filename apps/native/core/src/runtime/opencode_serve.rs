@@ -17,6 +17,18 @@ use std::{
     },
     time::{Duration, Instant},
 };
+/// Effort words OpenCode accepts as `--variant` / request `variant` (`OPENCODE_EFFORT_VARIANTS` in commands.ts).
+pub const EFFORT_VARIANTS: &[&str] = &["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+/// Validate an OpenCode effort word before sending it as `variant`: OpenCode silently ignores unknown names, so
+/// anything outside `EFFORT_VARIANTS` is refused rather than shown as applied.
+pub fn validate_effort(effort: &str) -> io::Result<&str> {
+    if !EFFORT_VARIANTS.contains(&effort) {
+        return Err(err(format!("OpenCode takes no effort level called \"{effort}\"")));
+    }
+    Ok(effort)
+}
+
 fn err(s: impl ToString) -> io::Error {
     io::Error::other(s.to_string())
 }
@@ -270,6 +282,9 @@ impl Serve {
         }
     }
     fn begin(&mut self, t: &Turn) -> io::Result<()> {
+        if let Some(e) = t.effort.as_deref() {
+            validate_effort(e)?;
+        }
         self.turn = Some(Turn {
             prompt: t.prompt.clone(),
             folder: t.folder.clone(),
@@ -434,7 +449,7 @@ impl Serve {
                 body["model"] = json!(model);
             }
             if let Some(e) = &t.effort {
-                body["variant"] = json!(e);
+                body["variant"] = json!(validate_effort(e)?);
             }
             self.prompted = true;
             let (api, refused, path) = (api.patient(), self.refused.clone(), format!("/session/{}/command", encoded(&self.session)));
@@ -454,7 +469,7 @@ impl Serve {
             body["model"] = json!({"providerID":provider,"modelID":model});
         }
         if let Some(e) = &t.effort {
-            body["variant"] = json!(e);
+            body["variant"] = json!(validate_effort(e)?);
         }
         self.prompted = true;
         api.request(
