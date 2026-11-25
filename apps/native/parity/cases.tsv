@@ -2044,41 +2044,41 @@ apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of t
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	takes no option, no path outside the folder, and nothing it does not name	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	writes nothing: no index refresh, no lock, and no program a variable names	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	says so when the folder is not a repository	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	yes
 apps/desktop/src/main/groups-remember-leaving.test.ts	records the group as it was, and when	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	keeps the name and words the group HAD, after it is renamed, edited or removed	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	treats a move between groups as a leave and a join at the same moment	no
