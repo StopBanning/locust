@@ -338,6 +338,12 @@ mod tests {
         assert_eq!(activity(&s, "wren"), FaceActivity::Idle);
     }
 
+    fn ask_browser_card(mission_id: &'static str, stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let _ = locust_core::native::approvals_channel().ask_browser(mission_id, "Open a page", "example", &|| stop.load(Ordering::SeqCst));
+        })
+    }
+
     #[test]
     fn a_card_waiting_on_the_person_shows_waiting_on_the_rail_face_and_in_its_words() {
         // The card is the whole process's, and the window counts a card's conversation as live: hold the engine, as
@@ -349,12 +355,7 @@ mod tests {
         s.seen_live = vec!["m_face_4".into()];
         s.mission_owners = HashMap::from([("m_face_4".to_string(), "sable".to_string())]);
         let stop = Arc::new(AtomicBool::new(false));
-        let asking = {
-            let stop = stop.clone();
-            std::thread::spawn(move || {
-                let _ = locust_core::native::approvals_channel().ask_browser("m_face_4", "Open a page", "example", &|| stop.load(Ordering::SeqCst));
-            })
-        };
+        let asking = ask_browser_card("m_face_4", stop.clone());
         let mut rt = rune::Runtime::new(s, |s, _| crate::rail::rail(s, &Palette::new(true)), (72.0, 800.0), rune::Env::new(true, 1.0));
         let mut now = 0.0;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -478,12 +479,7 @@ mod tests {
         s.seen_live = vec!["m_rail_words_1".into()];
         s.mission_owners = HashMap::from([("m_rail_words_1".to_string(), "tm_wren".to_string())]);
         let stop = Arc::new(AtomicBool::new(false));
-        let asking = {
-            let stop = stop.clone();
-            std::thread::spawn(move || {
-                let _ = locust_core::native::approvals_channel().ask_browser("m_rail_words_1", "Open a page", "example", &|| stop.load(Ordering::SeqCst));
-            })
-        };
+        let asking = ask_browser_card("m_rail_words_1", stop.clone());
         let mut rt = rune::Runtime::new(s, |s, _| crate::rail::rail(s, &Palette::new(true)), (72.0, 800.0), rune::Env::new(true, 1.0));
         let mut now = 0.0;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
