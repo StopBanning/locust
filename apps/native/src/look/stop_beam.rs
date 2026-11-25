@@ -21,6 +21,10 @@ pub const RIM: f32 = 1.5;
 pub const RING_SIZE: f32 = SEND_SIZE + 2.0 * RIM;
 /// Beam intensity (`Composer.tsx`: `<Beam size="sm" strength={1} ...>`).
 pub const STRENGTH: f32 = 1.0;
+/// `.lc-stopbeam` per-layer opacity lifts past the package mono default (1.0): stroke 1.8, inner 1.5, bloom 1.5.
+pub const STROKE_OPACITY_LIFT: f32 = 1.8;
+pub const INNER_OPACITY_LIFT: f32 = 1.5;
+pub const BLOOM_OPACITY_LIFT: f32 = 1.5;
 /// Still step held under reduced motion.
 pub const STILL_STEP: usize = 0;
 

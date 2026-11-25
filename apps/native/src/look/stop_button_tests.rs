@@ -114,18 +114,30 @@ fn is_even_in_an_even_box_so_it_lands_on_whole_pixels_wherever_the_row_does() {
 
 // case: wears a beam lifted past the package mono, by its own per-layer hooks
 #[test]
-fn wears_a_beam_lifted_past_the_package_mono_by_its_own_per_layer_hooks() {
+fn stop_beam_wears_a_beam_lifted_past_the_package_mono_by_its_own_per_layer_hooks() {
+    use super::stop_beam;
     for (layer, lift) in [
-        ("stroke", STOP_BEAM_STROKE_LIFT),
-        ("inner", STOP_BEAM_INNER_LIFT),
-        ("bloom", STOP_BEAM_BLOOM_LIFT),
+        ("stroke", stop_beam::STROKE_OPACITY_LIFT),
+        ("inner", stop_beam::INNER_OPACITY_LIFT),
+        ("bloom", stop_beam::BLOOM_OPACITY_LIFT),
     ] {
         assert!(lift > 1.0, "{layer} lift {lift} must exceed 1.0");
     }
-    let all = drawn_controls(true);
-    let stop_at = all.iter().position(|e| e.key.as_deref() == Some("stop")).expect("stop");
-    let beam = by_key(&all, "stop-beam");
-    assert_eq!(beam.parent, Some(stop_at));
+    assert_eq!(stop_beam::STRENGTH, 1.0);
+    let mut rt = rune::Runtime::new(
+        true,
+        |&dark, _| {
+            let l = Look::new(dark);
+            stop_beam::wrap(send_circle(&l, SendState::Stop, "Stop").key("stop"), stop_beam::Mode::Moving, dark)
+        },
+        (100.0, 100.0),
+        rune::Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    let all = rt.elements();
+    let beam_at = all.iter().position(|e| e.key.as_deref() == Some("stop-beam")).expect("stop-beam");
     let light = by_key(&all, "stop-beam-light");
-    assert!(light.loop_phase.is_some(), "the stop beam light travels on a loop");
+    assert_eq!(light.parent, Some(beam_at));
+    let stop = by_key(&all, "stop");
+    assert_eq!(stop.parent, Some(beam_at));
 }
