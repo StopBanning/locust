@@ -187,8 +187,8 @@ mod tests {
         views(s).get(id).map(|v| v.activity).expect("a status for every teammate")
     }
 
-    /// The rail face's (name, description), as the accessibility tree tells a screen reader.
-    fn rail_words(rt: &rune::Runtime<State>, id: &str) -> (Option<String>, Option<String>) {
+    /// The face's (name, description) by its accessibility node key.
+    fn face_words(rt: &rune::Runtime<State>, key: &str) -> (Option<String>, Option<String>) {
         fn find<'a>(node: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
             if node["key"] == key {
                 return Some(node);
@@ -196,9 +196,14 @@ mod tests {
             node["children"].as_array()?.iter().find_map(|child| find(child, key))
         }
         let tree = rt.accessibility_json();
-        let face = find(&tree, &format!("rail-{id}")).expect("the rail face in the accessibility tree");
+        let face = find(&tree, key).unwrap_or_else(|| panic!("face {key:?} in the accessibility tree"));
         let said = |field: &str| face[field].as_str().map(str::to_owned);
         (said("name"), said("description"))
+    }
+
+    /// The rail face's (name, description), as the accessibility tree tells a screen reader.
+    fn rail_words(rt: &rune::Runtime<State>, id: &str) -> (Option<String>, Option<String>) {
+        face_words(rt, &format!("rail-{id}"))
     }
 
     fn listed(id: &str, state: &str) -> ConversationRow {
@@ -386,5 +391,76 @@ mod tests {
         assert_eq!(rail_words(&rt, "sable").1.as_deref(), Some("Sign-in needed"), "a blocked face says why");
         assert_eq!(crate::look::faces::drawn_presence("rail-sable"), Some(Some(crate::look::bot_stage::PresenceDot::Blocked)));
         assert_eq!(rt.state.bot_stage.desired_activity("rail-wren"), Some(FaceActivity::Idle), "codex is ready");
+    }
+
+    // case: tells a screen reader what each face is doing, and keeps the name the drives find it by
+    #[test]
+    fn tells_a_screen_reader_what_each_face_is_doing_and_keeps_the_name_the_drives_find_it_by() {
+        use locust_core::agents::Probe;
+        let mut wren = mate("tm_wren");
+        wren.name = "Wren".into();
+        wren.role = "Code & Migrations".into();
+        wren.busy = true;
+        let mut sable = mate("tm_sable");
+        sable.name = "Sable".into();
+        sable.role = "Ops & Scheduling".into();
+        sable.runtime = Some("claude".into());
+        let mut s = State::default();
+        s.teammates = vec![wren, sable];
+        s.settings_panel.agents = Some(vec![
+            found("codex", true, true, Probe::Ready),
+            found("claude", false, true, Probe::AuthRequired),
+        ]);
+        let mut rt = rune::Runtime::new(s, |s, _| crate::sidebar::sidebar(s, &Palette::new(true)), (280.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        assert_eq!(
+            face_words(&rt, "teammate-tm_wren"),
+            (Some("Wren — open their conversation".into()), Some("working".into()))
+        );
+        assert_eq!(
+            face_words(&rt, "teammate-tm_sable"),
+            (Some("Sable — open their conversation".into()), Some("Sign-in needed".into()))
+        );
+    }
+
+    // case: says the state its hidden row would have shown
+    #[test]
+    fn says_the_state_its_hidden_row_would_have_shown() {
+        let (_dir, store) = crate::org::tests::temp_store();
+        let _engine = locust_core::native::hooks::install(store, None);
+        let mut wren = mate("tm_wren");
+        wren.name = "Wren".into();
+        wren.role = "Code & Migrations".into();
+        let mut sable = mate("tm_sable");
+        sable.name = "Sable".into();
+        sable.role = "Ops & Scheduling".into();
+        sable.busy = true;
+        let mut s = State::default();
+        s.teammates = vec![wren, sable];
+        s.seen_live = vec!["m_rail_words_1".into()];
+        s.mission_owners = HashMap::from([("m_rail_words_1".to_string(), "tm_wren".to_string())]);
+        let stop = Arc::new(AtomicBool::new(false));
+        let asking = {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let _ = locust_core::native::approvals_channel().ask_browser("m_rail_words_1", "Open a page", "example", &|| stop.load(Ordering::SeqCst));
+            })
+        };
+        let mut rt = rune::Runtime::new(s, |s, _| crate::rail::rail(s, &Palette::new(true)), (72.0, 800.0), rune::Env::new(true, 1.0));
+        let mut now = 0.0;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_until(&mut rt, &mut now, "wren waiting", |rt| rt.state.bot_stage.desired_activity("rail-tm_wren") == Some(FaceActivity::Waiting));
+            assert_eq!(
+                rail_words(&rt, "tm_wren"),
+                (Some("Message Wren · Code & Migrations".into()), Some("waiting on you".into()))
+            );
+            assert_eq!(
+                rail_words(&rt, "tm_sable"),
+                (Some("Message Sable · Ops & Scheduling".into()), Some("working".into()))
+            );
+        }));
+        stop.store(true, Ordering::SeqCst);
+        asking.join().unwrap();
+        result.unwrap();
     }
 }

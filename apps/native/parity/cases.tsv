@@ -3888,8 +3888,8 @@ apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts	reads th
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts	never holds the loading window: its motion says Locust is starting, focused or not	no
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts	is in front where there is no window at all, as in a server render	no
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	is what the teammate is doing, or why they are blocked	yes
-apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	tells a screen reader what each face is doing, and keeps the name the drives find it by	no
-apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	says the state its hidden row would have shown	no
+apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	tells a screen reader what each face is doing, and keeps the name the drives find it by	yes
+apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	says the state its hidden row would have shown	yes
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	shows its approval card in the column, answerable there	no
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	is offered on a finished answer and refused on a failed one, saying why	no
 apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	lists every one, with or without text lines, as git said it changed	yes
