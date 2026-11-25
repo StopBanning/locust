@@ -85,7 +85,7 @@ pub fn render_png_with_baseline(tex: &str, display: bool, dark: bool) -> Option<
 }
 
 /// Draw `tex` to PNG. `None` means show the TeX as written (RaTeX could not read it).
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn render_png(tex: &str, display: bool, dark: bool) -> Option<Arc<[u8]>> {
     render_png_with_baseline(tex, display, dark).map(|(png, _)| png)
 }
@@ -101,7 +101,7 @@ pub fn fallback_tex(tex: &str, display: bool) -> String {
 
 /// Rewrite math outside fenced code into `![…](locust-math:…)` images; return the Markdown and
 /// a map of those sources to PNG bytes. Undrawable math is left as the TeX that was written.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String, Arc<[u8]>>) {
     let (out, images, _) = prepare_math_with_inline(body, dark);
     (out, images)

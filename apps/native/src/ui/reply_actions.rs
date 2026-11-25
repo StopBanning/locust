@@ -600,7 +600,17 @@ pub(super) fn split_inline_math_segments(
     segments
 }
 
-fn inline_markdown_spans(
+/// Resolved single-line height and baseline (in points from box top) for `type_::BODY`.
+pub(super) fn body_text_metrics() -> (f32, f32) {
+    let (_, h) = rune::text::measure("H", &[], type_::BODY, None);
+    let lh = if h > 0.0 { h } else { type_::BODY.line_px() };
+    let base = rune::text::ink("H", type_::BODY)
+        .map(|i| i.bounds[1] + i.bounds[3])
+        .unwrap_or(lh * 0.78);
+    (lh, base)
+}
+
+pub(super) fn inline_markdown_spans(
     inl: &rune_kit::markdown::Inline,
     p: &Palette,
 ) -> Vec<rune::Span> {
@@ -617,8 +627,23 @@ fn inline_markdown_spans(
                 sp = sp.bg(p.raised, 4.0);
             }
             rune_kit::markdown::Style::Link => {
-                sp.color = Some(p.green);
-                sp.underline = Some(p.green);
+                let url = inl
+                    .links
+                    .iter()
+                    .find(|l| (l.0, l.1) == (a, b))
+                    .map(|l| l.2.as_str());
+                if let Some((own, _)) =
+                    url.and_then(|u| crate::markdown_prep::reply_link_look(u, p.dark))
+                {
+                    sp = rune::Span {
+                        start: a as u32,
+                        end: b as u32,
+                        ..own
+                    };
+                } else {
+                    sp.color = Some(p.green);
+                    sp.underline = Some(p.green);
+                }
             }
             rune_kit::markdown::Style::CodePad | rune_kit::markdown::Style::Strike => continue,
         }
@@ -627,11 +652,57 @@ fn inline_markdown_spans(
     spans
 }
 
+/// Byte ranges of strikethrough runs in `inl`, matching `rune_kit::markdown::Renderer::select_inline`.
+pub(super) fn inline_strike_ranges(inl: &rune_kit::markdown::Inline) -> Vec<(usize, usize)> {
+    inl.spans
+        .iter()
+        .filter_map(|&(a, b, st)| match st {
+            rune_kit::markdown::Style::Strike => Some((a, b)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn handle_reply_link(s: &mut State, url: &str, can_draft: bool, chip_reply: u64) {
+    if crate::markdown_prep::status_of_link(url).is_some() {
+        status_pressed(s, url, can_draft, chip_reply);
+    } else if crate::markdown_prep::is_own_mark(url) {
+        // A status chip or a colour swatch: drawn, never opened.
+    } else if let Some(target) = file_target(url) {
+        open_file(s, target);
+    } else {
+        // A web address opens in the person's browser; any other scheme is refused, and says so.
+        crate::published_cards::open_web_link(s, url);
+    }
+}
+
+fn wire_inline_links(
+    mut item: El,
+    links: &[(usize, usize, String)],
+    p: &Palette,
+    can_draft: bool,
+    chip_reply: u64,
+) -> El {
+    let default_hover = rune::LinkPaint::new().color(p.green).underline(p.green);
+    for (a, b, url) in links {
+        let hover = crate::markdown_prep::reply_link_look(url, p.dark)
+            .map_or(default_hover, |(_, h)| h);
+        let mut link = rune::Link::new(*a..*b, url.clone()).hover(hover);
+        if let Some(help) = crate::markdown_prep::link_host(url) {
+            link = link.help(help);
+        }
+        item = item.link(link);
+    }
+    item.on_link(move |s: &mut State, url, _tx| handle_reply_link(s, url, can_draft, chip_reply))
+}
+
 fn prose_flex_items(
     raw: &str,
     p: &Palette,
     space_w: f32,
     trail_space: bool,
+    can_draft: bool,
+    chip_reply: u64,
 ) -> Vec<El> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -642,12 +713,13 @@ fn prose_flex_items(
         rune_kit::markdown::Block::Para(i) => Some(i),
         _ => None,
     });
-    let (plain, spans) = match inl {
+    let (plain, spans, strikes, links) = match inl {
         Some(i) => {
             let sp = inline_markdown_spans(&i, p);
-            (i.text, sp)
+            let st = inline_strike_ranges(&i);
+            (i.text, sp, st, i.links)
         }
-        None => (trimmed.to_owned(), Vec::new()),
+        None => (trimmed.to_owned(), Vec::new(), Vec::new(), Vec::new()),
     };
     if plain.is_empty() {
         return Vec::new();
@@ -659,6 +731,12 @@ fn prose_flex_items(
             .font(type_::BODY)
             .color(p.text)
             .exact_lines();
+        for (a, b) in strikes {
+            item = item.strike(a, b, None);
+        }
+        if !links.is_empty() {
+            item = wire_inline_links(item, &links, p, can_draft, chip_reply);
+        }
         if trail_space {
             item = item.mr(space_w);
         }
@@ -702,6 +780,24 @@ fn prose_flex_items(
                 .font(type_::BODY)
                 .color(p.text)
                 .exact_lines();
+            for &(sa, sb) in &strikes {
+                let a = sa.max(start);
+                let b = sb.min(end);
+                if a < b {
+                    item = item.strike(a - start, b - start, None);
+                }
+            }
+            let word_links: Vec<(usize, usize, String)> = links
+                .iter()
+                .filter_map(|(la, lb, url)| {
+                    let a = (*la).max(start);
+                    let b = (*lb).min(end);
+                    (a < b).then(|| (a - start, b - start, url.clone()))
+                })
+                .collect();
+            if !word_links.is_empty() {
+                item = wire_inline_links(item, &word_links, p, can_draft, chip_reply);
+            }
             if k + 1 < count || trail_space {
                 item = item.mr(space_w);
             }
@@ -715,10 +811,13 @@ fn render_inline_math_para(
     math_pngs: &std::collections::HashMap<String, std::sync::Arc<[u8]>>,
     image_cache: Option<&std::sync::Arc<rune::ImageCache>>,
     p: &Palette,
+    can_draft: bool,
+    chip_reply: u64,
 ) -> El {
     let space_w = (rune::text::measure("x x", &[], type_::BODY, None).0
         - rune::text::measure("xx", &[], type_::BODY, None).0)
     .max(3.0);
+    let (lh, text_base) = body_text_metrics();
     let mut items: Vec<El> = Vec::new();
     let mut i = 0usize;
     let mut pending_prefix: Option<String> = None;
@@ -734,14 +833,14 @@ fn render_inline_math_para(
                     if let Some(ws) = slice.rfind(char::is_whitespace) {
                         let body = &slice[..ws];
                         let attach = &slice[ws..].trim_start();
-                        items.extend(prose_flex_items(body, p, space_w, true));
+                        items.extend(prose_flex_items(body, p, space_w, true, can_draft, chip_reply));
                         pending_prefix = Some((*attach).to_owned());
                     } else {
                         pending_prefix = Some(slice.to_owned());
                     }
                 } else {
                     let trail = slice.ends_with(char::is_whitespace) || next_is_math;
-                    items.extend(prose_flex_items(slice, p, space_w, trail));
+                    items.extend(prose_flex_items(slice, p, space_w, trail, can_draft, chip_reply));
                 }
             }
             InlinePiece::Math { alt, src, baseline } => {
@@ -769,10 +868,8 @@ fn render_inline_math_para(
                         let (w, h) = math_image_size(px, super::thread_view::THREAD_MAX)?;
                         let scale_y = h / (px[1] as f32 / 2.0);
                         let base = *baseline * scale_y;
-                        let lh: f32 = type_::BODY.line_height;
-                        let text_base: f32 = lh * 0.78;
                         let d: f32 =
-                            (2.0_f32 * ((text_base - lh * 0.5) - (base - h * 0.5))).clamp(-8.0, 8.0);
+                            (2.0_f32 * ((text_base - lh * 0.5) - (base - h * 0.5))).clamp(-12.0, 12.0);
                         let raw_img = el()
                             .role("image")
                             .label(if alt.is_empty() { "Math" } else { alt.as_str() })
@@ -1022,6 +1119,8 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         &math_pngs,
                         image_cache.as_ref(),
                         p,
+                        can_draft,
+                        chip_reply,
                     ));
                 }
             }
