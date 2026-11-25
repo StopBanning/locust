@@ -8165,7 +8165,7 @@ packages/runtime-adapters/test/refusal-is-readable.test.ts	still says something 
 packages/runtime-adapters/test/refusal-is-readable.test.ts	names a connector the way the activity rows name it	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	gives a connector refusal a reason the person can act on	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	says a refused read reached outside the folder, and never claims a mode it does not know (0.443)	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Claude mission in default mode with a reading tool list plus Task, never plan mode	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a Claude mission that may edit actually edit, and run what it changed	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	rejects permission bypass arguments	yes
@@ -8181,21 +8181,21 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	carries the sandbox on t
 packages/runtime-adapters/test/runtime-adapters.test.ts	parses prerelease versions returned by installed CLIs	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers native Windows executables and safely wraps PowerShell shims	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	probes a CLI launched through the app binary with the launch's environment	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads a logged-out Cursor Agent from its text, because its status command exits 0 either way	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	calls Muse Code ready from the line its own version command prints	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	says nobody has signed in rather than calling Muse Code ready	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not take an API key as a credential, because no run is given one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	looks where Muse looks when XDG_CONFIG_HOME is set	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not claim nobody signed in when it cannot look	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports a signed-in Cursor Agent ready and reads its models off --list-models	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads a model list the CLI printed on stderr, and says so when it cannot read one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	says a model list it cannot read is unreadable, rather than leaving the picker silently empty	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads a logged-out Cursor Agent from its text, because its status command exits 0 either way	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	calls Muse Code ready from the line its own version command prints	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	says nobody has signed in rather than calling Muse Code ready	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not take an API key as a credential, because no run is given one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	looks where Muse looks when XDG_CONFIG_HOME is set	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not claim nobody signed in when it cannot look	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports a signed-in Cursor Agent ready and reads its models off --list-models	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads a model list the CLI printed on stderr, and says so when it cannot read one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	says a model list it cannot read is unreadable, rather than leaving the picker silently empty	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from a Cursor that is signed out, and none from a list it cannot read	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads a Gemini sign-in that Google then refused, which exits 0 with the refusal in its text	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	asks only the runtimes it is told to, and spawns nothing for the rest	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	asks a CLI whose readiness IS its version question once, not twice	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	asks only the runtimes it is told to, and spawns nothing for the rest	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	asks a CLI whose readiness IS its version question once, not twice	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads Gemini CLI's sign-in state from its session listing's exit code	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	runs a read-only Cursor mission in ask mode, with the sandbox where it runs, and never forces commands	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	approves the connectors the person already configured, because nobody is here to be asked -- outside Ask and Plan	yes
@@ -8218,33 +8218,33 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	finds Copilot CLI where 
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Cursor's launcher in its own install directory without PATH	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only OpenCode mission with the permission config that actually enforces it	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	gives a run with no shell Locust's git tool, and only such a run	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a worktree run reach the repository it belongs to, and only that	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write OpenCode mission edit, and states its confinement rather than assuming it	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Copilot mission with the tool denylist that was measured refusing writes	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	starts none of the person's own MCP servers in a read-only Copilot mission, and only there (0.824)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	never offers a Copilot teammate the machine's other Copilot conversations, on either route (0.378)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Copilot mission edit, and resumes by the id the host minted	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	passes an OpenCode effort as its variant, and only an effort word	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	passes an OpenCode effort as its variant, and only an effort word	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads each OpenCode model's variants as its efforts, in the scale's order	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	PASSES an effort to Copilot, which does take one	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads OpenCode's model list as it prints it, and marks the free models free	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from output that is not a model list	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	still says signed out when a CLI says so in its own words	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	does not report an OpenCode that cannot list a single model as ready to run one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports Copilot CLI ready on its version alone, and says on the record why that is a guess	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	offers Copilot only the route where the CLI picks, because it names no models before a run	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports a Copilot whose version command says something else as not ready	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	caps captured output and never asks Node for a shell	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	terminates a timed-out probe	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	still says signed out when a CLI says so in its own words	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	does not report an OpenCode that cannot list a single model as ready to run one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports Copilot CLI ready on its version alone, and says on the record why that is a guess	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	offers Copilot only the route where the CLI picks, because it names no models before a run	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports a Copilot whose version command says something else as not ready	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	caps captured output and never asks Node for a shell	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	terminates a timed-out probe	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	kills every probe still in flight when the app is leaving, tree first	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	spawns nothing once it has been disposed	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	does not reach a probe that already closed	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	takes a timed-out probe's whole tree down, not only the shim it spawned	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	off Windows, spawns the probe as its own process group and signals the group on timeout	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	takes a timed-out probe's whole tree down, not only the shim it spawned	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	off Windows, spawns the probe as its own process group and signals the group on timeout	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	on Windows, does not detach: a detached child there gets its own console	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes the chosen model and effort to Claude Code	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes effort to codex exec through the config override its docs describe	no
@@ -8257,10 +8257,10 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	carries a write-capable 
 packages/runtime-adapters/test/runtime-adapters.test.ts	starts a fresh conversation when no session is given	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses a session id that is not plain text	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Codex in its versioned install root when PATH knows nothing	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	yes
 packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is named in the same --mcp-config as the permission bridge, which stays with its prompt tool	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes
