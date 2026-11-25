@@ -187,6 +187,18 @@ pub fn is_outbound_link(url: &str) -> bool {
 mod tests {
     use super::*;
 
+    // outbound-links.ts isOutboundLink: the addresses the app itself links to open, and nothing near them does
+    // (merge check, Leftovers 1: the fixed list was only checked from the window crate).
+    #[test]
+    fn the_apps_own_outbound_addresses_open_and_nothing_near_them() {
+        for url in [NODE_LINK, OPENPETS_LINK, OPENPETS_REPORT_LINK, NETWORK_DOC_LINK] {
+            assert!(is_outbound_link(url), "{url}");
+        }
+        for url in ["https://nodejs.org/evil", "https://openpets.dev.example.com", "http://nodejs.org", "mailto:someone@openpets.dev"] { // public-guard: allow (made-up address in a test)
+            assert!(!is_outbound_link(url), "{url}");
+        }
+    }
+
     // Electron's what-a-teammate-published-is-a-card.test.tsx.
     #[test]
     fn knows_each_kind_by_its_address_and_names_it() {

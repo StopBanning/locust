@@ -230,3 +230,15 @@ fn follows_a_redirect_that_stays_on_githubs_hosts() {
     });
     assert_eq!(images, vec![IssueImage { name: "issue-5-1.png".into(), bytes: png }]);
 }
+
+// github-issue.ts allowedImageUrl, edge by edge (merge check, Leftovers 1): an address carrying a user name is refused
+// even on GitHub's own host; github.com serves pictures only under /user-attachments/; and a host merely ending in the
+// letters "githubusercontent.com" is not one of GitHub's.
+#[test]
+fn a_picture_address_is_refused_for_a_user_name_a_github_page_or_a_look_alike_host() {
+    assert_eq!(allowed_image_url("https://avatars.githubusercontent.com/u/1.png").as_deref(), Some("https://avatars.githubusercontent.com/u/1.png"));
+    assert!(allowed_image_url("https://github.com/user-attachments/assets/one").is_some());
+    assert_eq!(allowed_image_url("https://someone@avatars.githubusercontent.com/u/1.png"), None, "a user name in the address"); // public-guard: allow (made-up address in a test)
+    assert_eq!(allowed_image_url("https://github.com/StopBanning/locust/raw/main/one.png"), None, "a github.com page, not an attachment");
+    assert_eq!(allowed_image_url("https://evilgithubusercontent.com/one.png"), None, "a look-alike host");
+}

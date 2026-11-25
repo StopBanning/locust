@@ -2907,5 +2907,18 @@ mod home_issue_starter_tests {
         rt_present.pointer_up(x, y);
         rt_present.frame(0.0);
         assert!(!rt_present.state.home.home_open);
+        // The press was this chip's own, not a starter's beside it: no prompt was put in the box, no compare opened.
+        assert!(rt_present.state.draft.text.is_empty(), "the issue chip puts nothing in the message box");
+        assert!(rt_present.state.compare.picks.is_empty(), "and opens no comparison");
+    }
+
+    // Opening the Board takes Home's place: Home closes as the Board opens (merge check, Leftovers 1).
+    #[test]
+    fn opening_the_board_closes_home() {
+        let mut s = State::default();
+        s.home.home_open = true;
+        open_board(&mut s);
+        assert!(s.home.board_open, "the Board is open");
+        assert!(!s.home.home_open, "and Home is not drawn over it");
     }
 }
