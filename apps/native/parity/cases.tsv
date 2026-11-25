@@ -2378,8 +2378,8 @@ apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	forwards an 
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	never sends a token to a non-loopback address from a modified profile file	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	refuses unknown tools and methods without forwarding them	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not return a bearer token or connection metadata in the window settings	yes
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	yes
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	yes
 apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
 apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
 apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
