@@ -14,7 +14,8 @@ fn wren() -> Teammate {
 
 /// A profile whose saved routines are `routines`, read the way the sidebar reads them (org.rs `load_org`).
 fn with_routines(routines: &str) -> State {
-    let temp = std::env::temp_dir().join(format!("locust-sb-routine-run-{}-{}", std::process::id(), routines.len()));
+    // Its own folder per call: tests share one process under `cargo test`, and two routine lists of one length collided.
+    let temp = std::env::temp_dir().join(format!("locust-sb-routine-run-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()));
     let _ = std::fs::remove_dir_all(&temp);
     let (electron, native) = (temp.join("electron"), temp.join("native"));
     std::fs::create_dir_all(&electron).unwrap();
