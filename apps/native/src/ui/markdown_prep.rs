@@ -8,11 +8,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// What a reply draws: its Markdown, the diagram markers taken out of it, and the pictures of its equations.
+/// What a reply draws: its Markdown, the diagram markers taken out of it, the pictures of its
+/// equations, and the baseline offsets (in points from top) of inline equations.
 pub struct Prepared {
     pub markdown: String,
     pub undrawn: HashMap<usize, String>,
     pub math: HashMap<String, Arc<[u8]>>,
+    pub inline_math: HashMap<String, f32>,
 }
 
 /// The reply's words as the thread draws them (`reply_actions::reply_markdown`).
@@ -22,10 +24,10 @@ pub fn prepare_reply(body: &str, dark: bool) -> Prepared {
     let body = mark_colours(&mark_table_statuses(&body));
     let prepared = crate::diagram::prepare_reply_markdown(&body);
     let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
-    let (markdown, math) = crate::math_tex::prepare_math_markdown(&prepared, dark);
+    let (markdown, math, inline_math) = crate::math_tex::prepare_math_with_inline(&prepared, dark);
     // Last, once math has been read: `$0<x<1$` is an equation, not a tag.
     let markdown = keep_html_as_words(&markdown);
-    Prepared { markdown, undrawn, math }
+    Prepared { markdown, undrawn, math, inline_math }
 }
 
 /// A line that starts a list item: `-`, `*` or `+`, or a number and `.` or `)`, then a space or the line's end.

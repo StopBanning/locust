@@ -15,9 +15,9 @@ use std::sync::{Arc, Mutex};
 /// Image source prefix used inside rewritten Markdown (`![…](locust-math:HEX)`).
 pub const MATH_SRC_PREFIX: &str = "locust-math:";
 
-static PNG_CACHE: Mutex<Option<HashMap<u64, Arc<[u8]>>>> = Mutex::new(None);
+static PNG_CACHE: Mutex<Option<HashMap<u64, (Arc<[u8]>, f32)>>> = Mutex::new(None);
 
-fn cache_map() -> std::sync::MutexGuard<'static, Option<HashMap<u64, Arc<[u8]>>>> {
+fn cache_map() -> std::sync::MutexGuard<'static, Option<HashMap<u64, (Arc<[u8]>, f32)>>> {
     PNG_CACHE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -39,8 +39,8 @@ fn ink(dark: bool) -> Color {
     }
 }
 
-/// Draw `tex` to PNG. `Ok(None)` means show the TeX as written (RaTeX could not read it).
-pub fn render_png(tex: &str, display: bool, dark: bool) -> Option<Arc<[u8]>> {
+/// Draw `tex` to PNG and return its bytes along with its baseline offset (in points from top).
+pub fn render_png_with_baseline(tex: &str, display: bool, dark: bool) -> Option<(Arc<[u8]>, f32)> {
     let key = tex_key(tex, display, dark);
     {
         let guard = cache_map();
@@ -62,11 +62,14 @@ pub fn render_png(tex: &str, display: bool, dark: bool) -> Option<Arc<[u8]>> {
     let laid = layout(&nodes, &opts);
     validate_layout(&laid).ok()?;
     let list = to_display_list(&laid);
+    let font_size = if display { 22.0 } else { 16.0 };
+    let padding = if display { 6.0 } else { 2.0 };
+    let baseline = padding + list.height as f32 * font_size;
     let png = render_to_png(
         &list,
         &RenderOptions {
-            font_size: if display { 22.0 } else { 16.0 },
-            padding: if display { 6.0 } else { 2.0 },
+            font_size,
+            padding,
             background_color: Color::new(0.0, 0.0, 0.0, 0.0),
             font_dir: String::new(),
             device_pixel_ratio: 2.0,
@@ -74,10 +77,17 @@ pub fn render_png(tex: &str, display: bool, dark: bool) -> Option<Arc<[u8]>> {
     )
     .ok()?;
     let arc: Arc<[u8]> = Arc::from(png.into_boxed_slice());
+    let entry = (arc, baseline);
     let mut guard = cache_map();
     let map = guard.get_or_insert_with(HashMap::new);
-    map.insert(key, arc.clone());
-    Some(arc)
+    map.insert(key, entry.clone());
+    Some(entry)
+}
+
+/// Draw `tex` to PNG. `None` means show the TeX as written (RaTeX could not read it).
+#[allow(dead_code)]
+pub fn render_png(tex: &str, display: bool, dark: bool) -> Option<Arc<[u8]>> {
+    render_png_with_baseline(tex, display, dark).map(|(png, _)| png)
 }
 
 /// Fallback text when drawing fails (`MathTex.tsx`).
@@ -91,8 +101,21 @@ pub fn fallback_tex(tex: &str, display: bool) -> String {
 
 /// Rewrite math outside fenced code into `![…](locust-math:…)` images; return the Markdown and
 /// a map of those sources to PNG bytes. Undrawable math is left as the TeX that was written.
+#[allow(dead_code)]
 pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String, Arc<[u8]>>) {
+    let (out, images, _) = prepare_math_with_inline(body, dark);
+    (out, images)
+}
+
+/// Like [`prepare_math_markdown`], also returning the baseline offset (in points from top) for
+/// every inline (`$...$` / `\(...\)`) equation so the reply layout can set it inline on the
+/// sentence's baseline instead of splitting the paragraph into blocks.
+pub fn prepare_math_with_inline(
+    body: &str,
+    dark: bool,
+) -> (String, HashMap<String, Arc<[u8]>>, HashMap<String, f32>) {
     let mut images = HashMap::new();
+    let mut inline_baselines = HashMap::new();
     let mut out = String::with_capacity(body.len());
     let mut fenced = false;
     let mut fence_ticks = 0usize;
@@ -117,7 +140,7 @@ pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String,
             // 'math' block): only when nothing but punctuation follows the close.
             if let Some((tex, last)) = take_display_block(&lines, index - 1) {
                 out.push_str(prefix);
-                push_math(&mut out, &mut images, &tex, true, dark, pad);
+                push_math(&mut out, &mut images, &mut inline_baselines, &tex, true, dark, pad);
                 let end = lines[last];
                 out.push_str(&end[end.trim_end_matches(['\r', '\n']).len()..]);
                 index = last + 1;
@@ -126,13 +149,13 @@ pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String,
             // Display math that opens the line.
             if let Some((tex, rest)) = take_display_line(content) {
                 out.push_str(prefix);
-                push_math(&mut out, &mut images, &tex, true, dark, pad);
+                push_math(&mut out, &mut images, &mut inline_baselines, &tex, true, dark, pad);
                 out.push_str(rest);
                 out.push_str(newline);
                 continue;
             }
             out.push_str(prefix);
-            rewrite_inline(&mut out, &mut images, content, dark, pad);
+            rewrite_inline(&mut out, &mut images, &mut inline_baselines, content, dark, pad);
             out.push_str(newline);
         } else {
             if closing_fence(trimmed.trim_start(), fence_ticks) {
@@ -142,21 +165,25 @@ pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String,
             out.push_str(line);
         }
     }
-    (out, images)
+    (out, images, inline_baselines)
 }
 
 fn push_math(
     out: &mut String,
     images: &mut HashMap<String, Arc<[u8]>>,
+    inline_baselines: &mut HashMap<String, f32>,
     tex: &str,
     display: bool,
     dark: bool,
     pad: bool,
 ) {
-    match render_png(tex, display, dark) {
-        Some(png) => {
+    match render_png_with_baseline(tex, display, dark) {
+        Some((png, baseline)) => {
             let src = format!("{MATH_SRC_PREFIX}{:016x}", tex_key(tex, display, dark));
             images.insert(src.clone(), png);
+            if !display {
+                inline_baselines.insert(src.clone(), baseline);
+            }
             // An equation gathered from several lines is named on one, or its own lines would end the quote.
             let alt = tex.split_whitespace().collect::<Vec<_>>().join(" ");
             if display && pad {
@@ -351,6 +378,7 @@ fn lone_macro(s: &str) -> Option<(&'static str, usize)> {
 fn rewrite_inline(
     out: &mut String,
     images: &mut HashMap<String, Arc<[u8]>>,
+    inline_baselines: &mut HashMap<String, f32>,
     line: &str,
     dark: bool,
     pad: bool,
@@ -388,7 +416,7 @@ fn rewrite_inline(
         {
             let tex = line[i + 2..end].trim();
             if !tex.is_empty() {
-                push_math(out, images, tex, false, dark, pad);
+                push_math(out, images, inline_baselines, tex, false, dark, pad);
                 i = end + 2;
                 continue;
             }
@@ -401,7 +429,7 @@ fn rewrite_inline(
         {
             let tex = line[i + 2..end].trim();
             if !tex.is_empty() && tex.chars().any(|c| "\\^_={}".contains(c)) {
-                push_math(out, images, tex, true, dark, pad);
+                push_math(out, images, inline_baselines, tex, true, dark, pad);
                 i = end + 2;
                 continue;
             }
@@ -416,7 +444,7 @@ fn rewrite_inline(
             if let Some(end) = find_dollar_pair(line, i + 2, true) {
                 let tex = line[i + 2..end].trim();
                 if !tex.is_empty() {
-                    push_math(out, images, tex, true, dark, pad);
+                    push_math(out, images, inline_baselines, tex, true, dark, pad);
                     i = end + 2;
                     continue;
                 }
@@ -437,7 +465,7 @@ fn rewrite_inline(
             {
                 let tex = line[i + 1..end].trim();
                 if !tex.is_empty() {
-                    push_math(out, images, tex, false, dark, pad);
+                    push_math(out, images, inline_baselines, tex, false, dark, pad);
                     i = end + 1;
                     continue;
                 }
