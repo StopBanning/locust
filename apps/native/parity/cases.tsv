@@ -4893,8 +4893,8 @@ apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	yes
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	yes
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	yes
-apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	no
-apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	no
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	yes
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	yes
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx	says a folder not on GitHub starts with no project, and offers the folders that are	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	no

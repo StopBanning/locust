@@ -3259,6 +3259,7 @@ fn a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box(
 
 /// choosing-an-issue-sends-nothing, in the window: /issue lists the folder's open issues through gh (a fake here),
 /// Enter on one fills the message box with its brief, and nothing is sent.
+// case: lists the issue and does not send by being chosen
 #[test]
 fn issues_lists_the_folders_issues_and_choosing_one_fills_the_box_and_sends_nothing() {
     let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
