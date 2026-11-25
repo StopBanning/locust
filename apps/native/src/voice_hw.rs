@@ -5,7 +5,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use locust_core::{
     voice_audio::{Audio, AudioPeer, Playback, Recording},
-    voice_capture::{Capture, Graph, Level, pcm},
+    voice_capture::{CANCELLED, Capture, Graph, Level, pcm},
     voice_typing::{MAX_PCM_SAMPLES, SAMPLE_RATE},
 };
 use rubato::{
@@ -159,17 +159,94 @@ fn collect_pcm(pipeline: &mut MicPipeline, chunks: &[&[f32]]) -> Vec<i16> {
     pcm(&mono_16k)
 }
 
-fn map_cpal_error(err: &cpal::Error) -> String {
-    match err.kind() {
-        cpal::ErrorKind::PermissionDenied => {
-            "Locust does not have permission to use the microphone. Allow it in System Settings > Privacy & Security > Microphone.".into()
-        }
-        cpal::ErrorKind::DeviceBusy => {
-            "The microphone is busy in another app. Try again.".into()
-        }
-        cpal::ErrorKind::DeviceNotAvailable => "No microphone is available.".into(),
-        _ => "Voice typing could not open the microphone.".into(),
+/// VoiceButton.tsx's words when the microphone could not be had (refused, missing or busy): Electron says the same
+/// sentence for each, since the person's next step is the same.
+pub const MIC_REFUSED: &str =
+    "Voice typing could not finish. Your message is unchanged; check microphone access and try again.";
+
+fn map_cpal_error(_err: &cpal::Error) -> String {
+    MIC_REFUSED.into()
+}
+
+/// Whether the system lets Locust have the microphone, asked before any device opens.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Access {
+    Allowed,
+    Denied,
+    /// The person pressed Escape while the system was still asking.
+    Cancelled,
+}
+
+/// macOS: AVCaptureDevice's authorization for audio. Not yet asked, it asks (the system prompt, with Info.plist's
+/// NSMicrophoneUsageDescription) and waits for the answer or a cancel; denied or restricted is refused at once, so a
+/// refused microphone is said instead of recording silence.
+#[cfg(target_os = "macos")]
+fn system_access(cancel: &AtomicBool) -> Access {
+    use objc2::runtime::Bool;
+    use objc2_av_foundation::{AVAuthorizationStatus, AVCaptureDevice, AVMediaTypeAudio};
+    let Some(audio) = (unsafe { AVMediaTypeAudio }) else {
+        return Access::Denied;
+    };
+    let status = unsafe { AVCaptureDevice::authorizationStatusForMediaType(audio) };
+    if status == AVAuthorizationStatus::Authorized {
+        return Access::Allowed;
     }
+    if status != AVAuthorizationStatus::NotDetermined {
+        return Access::Denied;
+    }
+    let (send, answer) = mpsc::channel::<bool>();
+    let send = Mutex::new(send);
+    let handler = block2::RcBlock::new(move |granted: Bool| {
+        if let Ok(send) = send.lock() {
+            let _ = send.send(granted.as_bool());
+        }
+    });
+    unsafe { AVCaptureDevice::requestAccessForMediaType_completionHandler(audio, &handler) };
+    loop {
+        if cancel.load(Ordering::Acquire) {
+            return Access::Cancelled;
+        }
+        match answer.recv_timeout(std::time::Duration::from_millis(100)) {
+            Ok(true) => return Access::Allowed,
+            Ok(false) | Err(mpsc::RecvTimeoutError::Disconnected) => return Access::Denied,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
+}
+
+/// Elsewhere the device's own refusal (cpal's error) is what says the microphone was refused.
+#[cfg(not(target_os = "macos"))]
+fn system_access(_cancel: &AtomicBool) -> Access {
+    Access::Allowed
+}
+
+/// The collector a device's graph hands its 16 kHz samples to, and the flag that stops it.
+#[derive(Clone, Default)]
+pub struct Collector {
+    stop: Arc<AtomicBool>,
+    samples: Arc<Mutex<Option<JoinHandle<Vec<i16>>>>>,
+}
+
+type AccessCheck = Box<dyn Fn(&AtomicBool) -> Access + Send + Sync>;
+type Device = Box<dyn Fn(&Collector) -> Result<Box<dyn Graph>, String> + Send + Sync>;
+
+/// The default input device through cpal, as a capture graph: nothing opens until `Graph::open`.
+fn cpal_device(collector: &Collector) -> Result<Box<dyn Graph>, String> {
+    let host = cpal::default_host();
+    let device = host
+        .default_input_device()
+        .ok_or_else(|| MIC_REFUSED.to_owned())?;
+    let config = device
+        .default_input_config()
+        .map_err(|err| map_cpal_error(&err))?;
+    Ok(Box::new(CpalGraph {
+        device,
+        config,
+        stop: collector.stop.clone(),
+        sender: None,
+        collector: collector.samples.clone(),
+        stream: None,
+    }))
 }
 
 struct CpalGraph {
@@ -278,24 +355,24 @@ impl Graph for CpalGraph {
 
 struct NativeRecording {
     capture: Option<Capture>,
-    stop: Arc<AtomicBool>,
-    collector: Arc<Mutex<Option<JoinHandle<Vec<i16>>>>>,
+    collector: Collector,
 }
 
 impl Drop for NativeRecording {
     fn drop(&mut self) {
-        self.stop.store(true, Ordering::Release);
-        self.capture.take();
+        // Tell the collector to stop; `capture`, the first field, is dropped right after this, which closes the stream.
+        self.collector.stop.store(true, Ordering::Release);
     }
 }
 
 impl Recording for NativeRecording {
     fn finish(mut self: Box<Self>) -> Result<Vec<i16>, String> {
-        self.stop.store(true, Ordering::Release);
+        self.collector.stop.store(true, Ordering::Release);
         // Dropping Capture closes the cpal stream and drops the channel sender so the collector exits.
         self.capture.take();
         let handle = self
             .collector
+            .samples
             .lock()
             .ok()
             .and_then(|mut slot| slot.take());
@@ -308,41 +385,47 @@ impl Recording for NativeRecording {
     }
 }
 
-/// Platform audio implementation backed by `cpal` and `rubato`.
-#[derive(Default)]
-pub struct NativeAudio;
+/// Platform audio implementation backed by `cpal` and `rubato`: the system's permission, then the default input.
+pub struct NativeAudio {
+    access: AccessCheck,
+    device: Device,
+}
+
+impl Default for NativeAudio {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl NativeAudio {
     pub fn new() -> Self {
-        Self
+        Self {
+            access: Box::new(system_access),
+            device: Box::new(cpal_device),
+        }
+    }
+
+    /// The same recorder over a stand-in permission and device (tests: no microphone is needed).
+    #[cfg(test)]
+    fn with(access: AccessCheck, device: Device) -> Self {
+        Self { access, device }
     }
 }
 
 impl Audio for NativeAudio {
     fn record(&self, cancel: &AtomicBool) -> Result<Box<dyn Recording>, String> {
-        let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or_else(|| "No microphone is available.".to_owned())?;
-        let config = device
-            .default_input_config()
-            .map_err(|err| map_cpal_error(&err))?;
-        let stop = Arc::new(AtomicBool::new(false));
-        let collector = Arc::new(Mutex::new(None));
-        let graph = CpalGraph {
-            device,
-            config,
-            stop: stop.clone(),
-            sender: None,
-            collector: collector.clone(),
-            stream: None,
-        };
+        match (self.access)(cancel) {
+            Access::Allowed => {}
+            Access::Denied => return Err(MIC_REFUSED.into()),
+            Access::Cancelled => return Err(CANCELLED.into()),
+        }
+        let collector = Collector::default();
+        let graph = (self.device)(&collector)?;
         let level = Arc::new(Mutex::new(Level::default()));
         // Capture::start enforces Graph::ready() before Graph::open() and closes on cancel or error.
-        let capture = Capture::start(Box::new(graph), cancel, level)?;
+        let capture = Capture::start(graph, cancel, level)?;
         Ok(Box::new(NativeRecording {
             capture: Some(capture),
-            stop,
             collector,
         }))
     }
@@ -361,6 +444,18 @@ mod tests {
     use super::*;
     use locust_core::voice_typing::{valid_wav, wav};
     use std::f32::consts::TAU;
+
+    // The 60-second cap stops the recording, not only trims it: push_capped says "full" exactly when the cap is
+    // reached, which is what makes the collector stop the microphone (merge check, Voice 3).
+    #[test]
+    fn the_sixty_second_cap_says_full_once_reached_and_keeps_nothing_past_it() {
+        let mut out = Vec::new();
+        assert!(!push_capped(&mut out, &vec![0.0; MAX_PCM_SAMPLES - 1]), "a sample short of the cap is not full");
+        assert!(push_capped(&mut out, &[0.0, 0.0, 0.0]), "reaching the cap is full");
+        assert_eq!(out.len(), MAX_PCM_SAMPLES, "and nothing past the cap is kept");
+        assert!(push_capped(&mut out, &[0.0]), "still full after");
+        assert_eq!(out.len(), MAX_PCM_SAMPLES);
+    }
 
     fn sine_interleaved(rate: u32, channels: usize, seconds: f32, freq: f32) -> Vec<f32> {
         let frames = (rate as f32 * seconds).round() as usize;
@@ -433,6 +528,110 @@ mod tests {
     fn rejects_zero_rate_or_channels() {
         assert!(MicPipeline::new(0, 1).is_err());
         assert!(MicPipeline::new(48_000, 0).is_err());
+    }
+
+    /// What the stand-in device was asked to do, in order.
+    type Seen = Arc<Mutex<Vec<&'static str>>>;
+
+    /// A stand-in microphone: its graph hands back `samples` once closed, and its open can refuse or be granted
+    /// after an Escape.
+    struct FakeGraph {
+        seen: Seen,
+        collector: Collector,
+        samples: Vec<i16>,
+        open: Result<(), String>,
+        escape_on_open: Option<Arc<AtomicBool>>,
+    }
+
+    impl Graph for FakeGraph {
+        fn ready(&mut self) -> Result<(), String> {
+            self.seen.lock().unwrap().push("ready");
+            let samples = self.samples.clone();
+            let stop = self.collector.stop.clone();
+            *self.collector.samples.lock().unwrap() = Some(thread::spawn(move || {
+                while !stop.load(Ordering::Acquire) {
+                    thread::yield_now();
+                }
+                samples
+            }));
+            Ok(())
+        }
+        fn open(&mut self) -> Result<(), String> {
+            self.seen.lock().unwrap().push("open");
+            if let Some(escape) = &self.escape_on_open {
+                escape.store(true, Ordering::Release);
+            }
+            self.open.clone()
+        }
+        fn close(&mut self) {
+            self.seen.lock().unwrap().push("close");
+        }
+    }
+
+    fn stand_in(access: Access, open: Result<(), String>, escape_on_open: Option<Arc<AtomicBool>>) -> (NativeAudio, Seen) {
+        let seen: Seen = Arc::default();
+        let device_seen = seen.clone();
+        let audio = NativeAudio::with(
+            Box::new(move |_| access),
+            Box::new(move |collector| {
+                device_seen.lock().unwrap().push("device");
+                Ok(Box::new(FakeGraph {
+                    seen: device_seen.clone(),
+                    collector: collector.clone(),
+                    samples: vec![1, -1, 2],
+                    open: open.clone(),
+                    escape_on_open: escape_on_open.clone(),
+                }) as Box<dyn Graph>)
+            }),
+        );
+        (audio, seen)
+    }
+
+    // case: readies the graph before opening audio and stops tracks, context, and port
+    #[test]
+    fn the_recorder_readies_before_it_opens_and_closes_once_when_finished() {
+        let (audio, seen) = stand_in(Access::Allowed, Ok(()), None);
+        let cancel = AtomicBool::new(false);
+        let recording = audio.record(&cancel).unwrap();
+        assert_eq!(*seen.lock().unwrap(), ["device", "ready", "open"]);
+        assert_eq!(recording.finish().unwrap(), [1, -1, 2]);
+        assert_eq!(*seen.lock().unwrap(), ["device", "ready", "open", "close"]);
+    }
+
+    // case: closes the audio graph when microphone access is denied
+    #[test]
+    fn a_refused_microphone_is_said_in_electrons_words_and_opens_nothing() {
+        let (audio, seen) = stand_in(Access::Denied, Ok(()), None);
+        let refused = audio.record(&AtomicBool::new(false)).err().unwrap();
+        assert_eq!(refused, "Voice typing could not finish. Your message is unchanged; check microphone access and try again.");
+        assert!(seen.lock().unwrap().is_empty(), "the device was touched after the system refused it");
+        // The device itself refusing (cpal's error) closes what was readied.
+        let (audio, seen) = stand_in(Access::Allowed, Err(MIC_REFUSED.into()), None);
+        assert_eq!(audio.record(&AtomicBool::new(false)).err().unwrap(), MIC_REFUSED);
+        assert_eq!(*seen.lock().unwrap(), ["device", "ready", "open", "close"]);
+    }
+
+    // case: stops even a device granted after Escape while its prompt was pending
+    #[test]
+    fn a_microphone_granted_after_escape_is_closed_and_nothing_is_recorded() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (audio, seen) = stand_in(Access::Allowed, Ok(()), Some(cancel.clone()));
+        let refused = audio.record(&cancel).err().unwrap();
+        assert_eq!(refused, CANCELLED);
+        assert_eq!(*seen.lock().unwrap(), ["device", "ready", "open", "close"]);
+        // Escape while the system was still asking opens no device at all.
+        let (audio, seen) = stand_in(Access::Cancelled, Ok(()), None);
+        assert_eq!(audio.record(&AtomicBool::new(true)).err().unwrap(), CANCELLED);
+        assert!(seen.lock().unwrap().is_empty());
+    }
+
+    // case: cancel returns no WAV and clears RMS
+    #[test]
+    fn a_cancelled_recording_closes_the_microphone_once() {
+        let (audio, seen) = stand_in(Access::Allowed, Ok(()), None);
+        let recording = audio.record(&AtomicBool::new(false)).unwrap();
+        drop(recording);
+        assert_eq!(*seen.lock().unwrap(), ["device", "ready", "open", "close"]);
     }
 
     #[test]

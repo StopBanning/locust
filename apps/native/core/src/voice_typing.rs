@@ -12,7 +12,7 @@ const OPENAI_URL: &str = "https://api.openai.com/v1/audio/transcriptions";
 const MODEL: &str = "gpt-4o-transcribe";
 const SAVE_FAILED: &str = "Voice typing settings could not be saved. Your message is unchanged.";
 const CANCELLED: &str = "Voice typing was cancelled. Nothing was inserted.";
-const UNREACHABLE: &str = "OpenAI could not be reached. Your message is unchanged. Try again.";
+const UNREACHABLE: &str = "OpenAI could not be reached. Your message is unchanged; try again.";
 static SETTINGS_WRITES: Mutex<()> = Mutex::new(());
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

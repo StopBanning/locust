@@ -190,6 +190,17 @@ fn mac_draws_voice_typing_and_talk_together() {
     assert!((mic.1 - talk.1).abs() < 1.0);
 }
 
+// case: draws it on a Mac too
+// The live app's own microphone and transcription, not a fixture: without them the button is not drawn.
+#[test]
+fn the_live_app_offers_voice_typing_with_its_own_microphone() {
+    let (mut s, _profile, _) = state("darwin", false, false);
+    let live = State::default();
+    s.voice.audio = live.voice.audio.clone();
+    s.voice.transcriber = live.voice.transcriber.clone();
+    assert!(window(s).find("voice-typing").is_some());
+}
+
 // case: draws it on Windows and loads nothing on mount
 #[test]
 fn drawing_audio_controls_does_not_open_the_microphone() {
