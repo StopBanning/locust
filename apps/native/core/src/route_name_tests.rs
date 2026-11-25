@@ -137,3 +137,31 @@ fn route_chrome_says_a_route_as_the_composer_chip_does() {
     // Not own: the hex is not eight, so the runtime is said.
     assert_eq!(route_chrome("opencode", "own-a1b2/acme", "Acme", " / "), "OpenCode / Acme");
 }
+
+// your-own-model-is-named-as-yours.test.tsx: the catalogue hands the name the person typed to every surface that names
+// a route -- the hover, the group's route line and a mission row (`route_chrome` over `model_display_name`), the chip's
+// `route_model_name` -- so none reads "OpenCode / Acme 70b".
+#[test]
+fn a_model_of_your_own_is_named_by_its_own_name_on_every_surface_that_names_a_route() {
+    // case: is named by its own name on every surface that names a route
+    use crate::teammate_tooltip::{remember_own_models, route_chrome};
+    let acme = "own-a1b2c3d0/acme-70b";
+    assert_eq!(route_chrome("opencode", acme, "Acme Chat", " / "), "Acme Chat");
+    assert_eq!(route_chrome("opencode", acme, "Acme Chat", " · "), "Acme Chat");
+    // Every other route keeps its runtime in front, as before.
+    assert_eq!(route_chrome("codex", "gpt-6-astra", "GPT-6 Astra", " / "), "Codex / GPT-6 Astra");
+    assert_eq!(route_chrome("opencode", "opencode/ling-3.0-flash-fin-free", "Ling 3.0 Flash Fin Free", " · "), "OpenCode · Ling 3.0 Flash Fin Free");
+    remember_own_models([("opencode", acme, "Acme Chat")]);
+    // GroupSettingsDialog's routeLabel, as group_settings_dialog.rs draws it.
+    assert_eq!(route_chrome("opencode", acme, &name("opencode", acme), " / "), "Acme Chat");
+    assert_eq!(model_display_name("opencode", acme), "Acme Chat");
+    // The teammate's hover, in the same words: no runtime in front.
+    assert_eq!(route("opencode", acme), "Acme Chat");
+    assert_eq!(route("opencode", "opencode/ling-3.0-flash-fin-free"), "OpenCode / Ling 3.0 Flash Fin Free");
+    // A name that is only its model's id is spelt; a model since removed says its id, spelt, never the internal half.
+    remember_own_models([("opencode", acme, "acme-70b")]);
+    assert_eq!(model_display_name("opencode", acme), "Acme 70b");
+    remember_own_models(std::iter::empty());
+    assert_eq!(model_display_name("opencode", acme), "Acme 70b");
+    assert_eq!(route("opencode", acme), "Acme 70b");
+}

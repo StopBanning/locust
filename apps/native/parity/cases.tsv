@@ -4103,8 +4103,8 @@ apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	still opens a
 apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	offers no Open where the fold has no viewer to open	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers to make something, not to read a project that is not there	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers its own starters once the folder holds something, and a template teammate without fresh ones keeps its own	yes
-apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	no
-apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	keeps the first-run line and its free model until the first conversation	no
+apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	yes
+apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	keeps the first-run line and its free model until the first conversation	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	sends a starter row to the teammate whose work it is	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says "all free" when every turn was on a free model	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says nothing of free when any turn was not	yes
@@ -4369,7 +4369,7 @@ apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names one 
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	still names each model when the routes differ, even one model through two tools	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names the one teammate of a plain routine with its model too	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says the model and the mode it runs in, not a rule about read-only	no
-apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says a run going now keeps the steps it started with	no
+apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	says a run going now keeps the steps it started with	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	asks who takes each step, and whether it checks, when there is a team	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	draws no choice for a teammate on their own	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	names the chain in step order, each teammate once in a row, the checker marked	yes
@@ -4771,7 +4771,7 @@ apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws a b
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws no meter for an agent whose runs reported none: its name and state alone	yes
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws a window reset since the reading as reset, without its old bar, and says when the reading was taken	yes
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is the marks alone, each carrying its card; no rings	no
-apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is quiet with room left, and wears its amber dot from 80% -- as before the rings	no
+apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is quiet with room left, and wears its amber dot from 80% -- as before the rings	yes
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says each thing as a plain yes or no	yes
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says it is the agent’s own word, and when it said it	yes
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	names both accounts alongside the machine sign-in and separates their limit status	no
@@ -5264,8 +5264,8 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	tells the person a j
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	counts the runs each model's copy passed it	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	has no such column where no run was checked	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says a run again by the batch's own count, and three judges as three	yes
-apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	no
-apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	yes
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	sets the effort the kept column ran at	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	lands on the model's own default when the column ran at a level it does not offer	yes
@@ -5663,8 +5663,8 @@ apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	t
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps the actual off state and says why if the listener could not be enabled	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	offers each teammate's own mode only while the server is on, off by default and said so	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns own mode on only after a press, and says who answers approvals	yes
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	shows the editor switch only once an editor has connected, off until a press, and says who answers	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps an externally sent message visible without turning it into relay instructions	no
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	shows the editor switch only once an editor has connected, off until a press, and says who answers	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps an externally sent message visible without turning it into relay instructions	yes
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	speaks in Locust's words, not the plumbing's	yes
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	says why its Artifacts are empty for THIS run, not that every empty one was read-only (0.362)	no
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	is called what it is about, not "inspector" (0.361)	no
@@ -5922,9 +5922,9 @@ apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	in Settings, sa
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	shows the full reply, editable attribution, Post and Dismiss	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	says when posted or failed and never offers Post again	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show what it keeps watch for, in the person’s words, with no Save until it is changed	yes
-apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show Scout’s notes as lines the person can read and change, and how many	no
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	show Scout’s notes as lines the person can read and change, and how many	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offer the folder’s check only once the folder has a check command, and say which	yes
-apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say quiet hours as a clock reads them, and offer waiting while the person works	no
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say quiet hours as a clock reads them, and offer waiting while the person works	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offer a morning brief at an hour of the morning	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	draw a morning brief as one card, its lines under its sentence	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say what today’s looks used	yes
@@ -6611,7 +6611,7 @@ apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	shows the one-time code while the sign-in waits, with a way to stop	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	is found by the words a person types for it	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is known by its route	yes
-apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	no
+apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes

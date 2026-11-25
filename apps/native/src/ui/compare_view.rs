@@ -2,8 +2,8 @@
 
 use super::*;
 use locust_core::benchmark::{
-    BenchmarkAnswer, BenchmarkCheck, BenchmarkEntry, BenchmarkRow, BenchmarkRunInput, ChartAxis,
-    RunCost, TimeBecause, benchmark_chart, benchmark_note, benchmark_rows, cost_cell, cost_line, step_words,
+    BenchmarkAnswer, BenchmarkCheck, BenchmarkEntry, BenchmarkRow, BenchmarkRunInput,
+    RunCost, benchmark_chart, benchmark_note, benchmark_rows, cost_cell, cost_line, step_words,
 };
 use locust_core::compare::{
     ChangesIn, Compare, CompareRoute, CompareSlotId, CreateCompareInput, JudgePanelMember,
@@ -3611,44 +3611,9 @@ fn render_benchmark_section(
             .wrap(),
     );
 
+    // SCORE AGAINST COST A TASK (0.763): Electron's ScoreChart, its labels a line apart with a leader to each one moved.
     if let Some(chart) = benchmark_chart(&rows) {
-        let axis_note = match chart.axis {
-            ChartAxis::Cost => "Score against cost a task: Up is better, left is cheaper.",
-            ChartAxis::Time => match chart.because {
-                Some(TimeBecause::SamePrice) => {
-                    "Score against time a task: every one cost the same here, so the chart is against time."
-                }
-                _ => {
-                    "Score against time a task: too few of these runs were priced in dollars to chart cost."
-                }
-            },
-        };
-        let pts_summary: Vec<String> = chart
-            .points
-            .iter()
-            .map(|pt| {
-                let x_lbl = if chart.axis == ChartAxis::Cost {
-                    if pt.free {
-                        "free".to_owned()
-                    } else if pt.x < 0.1 {
-                        format!("${:.3}", pt.x)
-                    } else {
-                        format!("${:.2}", pt.x)
-                    }
-                } else {
-                    ledger::duration_text(pt.x.round() as u64)
-                };
-                format!("{} · {} · {x_lbl}", pt.name, pt.score)
-            })
-            .collect();
-        box_col = box_col.child(
-            col()
-                .key("benchmark-chart")
-                .w_full()
-                .gap(4.0)
-                .child(text(axis_note).font(l.ty.label).color(p.muted).wrap())
-                .child(text(pts_summary.join("   ")).font(l.ty.label).color(p.text).wrap()),
-        );
+        box_col = box_col.child(crate::compare_chart::score_chart(&chart, l));
     }
 
     let mut chips = row().w_full().gap(6.0).wrap();

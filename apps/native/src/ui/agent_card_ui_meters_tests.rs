@@ -122,3 +122,46 @@ fn say_what_is_left_when_the_runtime_reported_what_it_used() {
     assert!(words.iter().any(|w| w == "100% left"), "{words:?}");
     assert!(!words.iter().any(|w| w.contains("% used")), "the same bar in one language: {words:?}");
 }
+
+// case: is quiet with room left, and wears its amber dot from 80% -- as before the rings
+/// Composer.tsx's model button: no `is-pressing` below 80%, the amber dot from 80% (`.lc-control.is-pressing::after`),
+/// and no usage ring at any reading. Drawn through the conversation view the person sees, on Codex's 5-hour window.
+#[test]
+fn the_model_button_is_quiet_with_room_left_and_wears_its_amber_dot_from_80_and_no_ring() {
+    let drawn = |percent: u32| {
+        let mut s = State::default();
+        s.demo = true;
+        s.teammates = vec![Teammate { id: "tm_wren".into(), name: "Wren".into(), role: "Code & Migrations".into(),
+            runtime: Some("codex".into()), model: Some("gpt-6-astra".into()), account: None, busy: false,
+            runs_in: "accept-edits".into(), folder: None }];
+        s.selected = 0;
+        s.conversations.insert("tm_wren".into(), Conversation::default());
+        s.usage_readings.insert("codex".into(), format!("5-hour window {percent}% used · resets 2099-10-31T05:51:36.000Z"));
+        let mut rt = Runtime::new(s, |s, _| crate::thread_view::thread_view(s, &Palette::new(true)), (1200.0, 900.0),
+            Env::new(true, 1.0));
+        rt.frame(0.0);
+        let all = rt.elements();
+        assert!(all.iter().any(|e| e.key.as_deref() == Some("model-chip")), "the model button");
+        let dot = all.iter().any(|e| e.key.as_deref() == Some("model-chip-dot"));
+        let ring = all.iter().any(|e| e.key.as_deref().is_some_and(|k| k.contains("ring")) || e.label.as_deref().is_some_and(|l| l.contains("ring")));
+        fn find<'a>(node: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+            if node["key"] == key {
+                return Some(node);
+            }
+            node["children"].as_array()?.iter().find_map(|child| find(child, key))
+        }
+        let said = find(&rt.accessibility_json(), "model-chip").and_then(|n| n["description"].as_str().map(str::to_owned));
+        (said, dot, ring)
+    };
+    let (said, dot, ring) = drawn(40);
+    assert!(!dot && !ring, "quiet with room left");
+    assert!(said.as_deref().is_some_and(|d| d.starts_with("40% of the 5-hour window used")), "{said:?}");
+    let (said, dot, ring) = drawn(85);
+    assert!(dot, "the amber dot from 80%");
+    assert!(!ring, "a dot, not a ring");
+    // Read aloud as Electron's aria-description, with its reset in local time between.
+    let said = said.unwrap_or_default();
+    assert!(said.starts_with("85% of the 5-hour window used") && said.ends_with(". Long runs may be cut short."), "{said}");
+    assert!(drawn(80).1, "80% itself wears it");
+    assert!(!drawn(79).1);
+}

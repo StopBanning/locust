@@ -1128,6 +1128,7 @@ mod tests {
         assert!(collect_rt_text(&empty_rt).contains(SCOUT_GOAL_PLACEHOLDER));
     }
 
+    // case: show Scout’s notes as lines the person can read and change, and how many
     #[test]
     fn shows_scouts_notes_as_lines_and_how_many() {
         let mut s = State::default();
@@ -1145,6 +1146,9 @@ mod tests {
         assert!(words.contains("Scout’s notes · 2"));
         assert!(words.contains("The person merges on Fridays\n2026-10-22: Wren owns the Mac build."));
         assert!(words.contains("It keeps the newest 40 lines, each up to 240 characters."));
+        // One line each, in the field the person types in (Electron's textarea), not a printed list.
+        let field = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("scout-notes-input")).expect("the notes field");
+        assert_eq!(field.text.as_deref(), Some("The person merges on Fridays\n2026-10-22: Wren owns the Mac build."));
 
         let mut empty = State::default();
         empty.scout.state = Some(on_state(|_| {}, |_| {}));
@@ -1184,6 +1188,7 @@ mod tests {
         assert!(with_rt.find("scout-watch-check").is_some());
     }
 
+    // case: say quiet hours as a clock reads them, and offer waiting while the person works
     #[test]
     fn says_quiet_hours_as_clock_reads_them_and_offers_wait_while_working() {
         let mut s = State::default();
@@ -1197,6 +1202,9 @@ mod tests {
         assert!(words.contains("10 PM to 7 AM"));
         assert!(words.contains("Wait while you’re working"));
         assert!(rt.find("scout-wait-working").is_some());
+        // On by default, as Electron's aria-checked="true" says it.
+        let states = toggle_states(&rt, "scout-wait-working");
+        assert!(states.contains(&"checked".to_owned()) && !states.contains(&"unchecked".to_owned()), "{states:?}");
     }
 
     #[test]

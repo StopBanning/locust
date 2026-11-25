@@ -58,14 +58,17 @@ pub fn route_model_name_earned(runtime: &str, model: &str, earned: Option<&str>)
     model_display_name(runtime, model)
 }
 
+/// `routeName.ts` `OWN_ROUTE_MODEL`: a route on one of the person's own models, `own-<8 hex>/<model>`, gives `<model>`.
+fn own_route_bare(model_id: &str) -> Option<&str> {
+    let (hex, name) = model_id.strip_prefix("own-")?.split_once('/')?;
+    (hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) && !name.is_empty()).then_some(name)
+}
+
 /// `routeName.ts` `routeChrome`: a route as the composer's chip says it. A model of the person's own by its name alone;
 /// a name that already starts with the runtime's says it once ("Kilo Auto Free"); the account's own default is the
 /// runtime's name alone ("Codex"), keeping what follows it ("Codex · Medium"); else runtime, `separator`, model.
 pub fn route_chrome(runtime: &str, model_id: &str, model: &str, separator: &str) -> String {
-    let own = model_id.strip_prefix("own-").and_then(|rest| rest.split_once('/')).is_some_and(|(hex, name)| {
-        hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) && !name.is_empty()
-    });
-    if own {
+    if own_route_bare(model_id).is_some() {
         return model.to_owned();
     }
     let short = short_runtime_name(runtime);
@@ -93,6 +96,7 @@ pub fn route_chrome(runtime: &str, model_id: &str, model: &str, separator: &str)
 struct Catalog {
     spellings: std::collections::HashMap<String, String>,
     claude_aliases: std::collections::HashMap<String, String>,
+    own_names: std::collections::HashMap<String, String>,
 }
 
 thread_local! {
@@ -107,6 +111,14 @@ pub fn remember_own_models<'a>(models: impl IntoIterator<Item = (&'a str, &'a st
     for (runtime, id, name) in models {
         if runtime == "claude" && !id.starts_with("claude-") && id != crate::models::ACCOUNT_DEFAULT {
             fresh.claude_aliases.insert(id.to_owned(), name.to_owned());
+        }
+        // A model of the person's own by the name they gave it (`ownModelNames`, via `shownRouteLabel`): a name that
+        // is only its model's id ("claude-haiku-5-5") is spelt out; else the name as the catalogue gives it.
+        if let Some(bare) = own_route_bare(id) {
+            let label = name.trim();
+            let spellable = label.contains('-') && label.split('-').all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '.'));
+            fresh.own_names.insert(id.to_owned(), if label == bare && spellable { spell(label) } else { name.to_owned() });
+            continue;
         }
         if id != crate::models::ACCOUNT_DEFAULT && name != id && !id.ends_with(&format!("/{name}")) {
             fresh.spellings.insert(format!("{runtime}:{id}"), name.to_owned());
@@ -123,14 +135,9 @@ fn same_name(name: &str) -> String {
 /// `routeName.ts` `modelDisplayName`: an id spelt out with no alias read (`claude`/`sonnet` is "Sonnet"); the chip's
 /// `route_model_name` and the hover both end here.
 pub fn model_display_name(runtime: &str, model: &str) -> String {
-    // A model of the person's own (`own-1a2b3c4d/acme-70b`) by its own name.
-    if let Some(rest) = model.strip_prefix("own-")
-        && let Some((hex, name)) = rest.split_once('/')
-        && hex.len() == 8
-        && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        && !name.is_empty()
-    {
-        return spell(name);
+    // A model of the person's own (`own-1a2b3c4d/acme-70b`) by the name they gave it; one since removed by its id.
+    if let Some(name) = own_route_bare(model) {
+        return CATALOG.with(|c| c.borrow().own_names.get(model).cloned()).unwrap_or_else(|| spell(name));
     }
     let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
     if bare.trim().eq_ignore_ascii_case("auto") {
@@ -172,7 +179,7 @@ pub fn teammate_tooltip(teammate: &Teammate) -> String {
             // (antigravity-tiers-are-named-once); everything else keeps its whole id, as Electron's modelDisplayName.
             let name = if let Some(tier) = (runtime == "antigravity").then(|| crate::runtime::antigravity::antigravity_tier_name(model)).flatten() { tier.to_owned() }
                 else { model_display_name(runtime, model) };
-            if name.to_lowercase().starts_with(&format!("{} ", runtime_label.to_lowercase())) { name }
+            if own_route_bare(model).is_some() || name.to_lowercase().starts_with(&format!("{} ", runtime_label.to_lowercase())) { name }
             else { format!("{runtime_label} / {name}") }
         };
         said.push_str(" · "); said.push_str(&route);
