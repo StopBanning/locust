@@ -1119,14 +1119,14 @@ apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks nothing while t
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks the starting runtime ALONE once the answer is stale	yes
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	still sweeps for a runtime that was not ready, and for Antigravity	yes
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	falls back to the full sweep when asking alone fails	yes
-apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	measures frame to fifty millisecond windows on the same paced answer and keeps its first-fragment deadline	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	reads the entire batch from disk at send time and recovers it after a crash before send	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	sends nothing when the durable append fails	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	flushes text ahead of activity immediately and preserves order across both batches	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	delivers a lone delta at the deadline without another record or a run ending	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	writes pending text before a run ending and drains the last fragment on process exit	yes
-apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	keeps one write in flight, awaits backpressure, and stops after a timer write fails	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	keeps one write in flight, awaits backpressure, and stops after a timer write fails	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by what they did, from the ledger’s own start events	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	from a checkpoint written before names existed are counted, not listed as ids	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by the command run and the file read or written, never the tool twice	yes

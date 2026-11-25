@@ -158,3 +158,7 @@ pub fn persist_event_updates(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "long_answer_batch_tests.rs"]
+mod tests;
