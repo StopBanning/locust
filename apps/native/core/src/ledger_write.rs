@@ -578,19 +578,27 @@ impl LedgerWriter {
         Ok(writer)
     }
     fn line(&mut self, value: Value) -> io::Result<()> {
+        self.lines(vec![value])
+    }
+    /// Records in one write and one sync (a streamed batch, long_answer_batch.rs); each keeps the one-record limit.
+    fn lines(&mut self, values: Vec<Value>) -> io::Result<()> {
         if self.poisoned {
             return Err(io::Error::other(
                 // mission-store's words for a ledger it will not extend.
                 "Mission ledger is unavailable",
             ));
         }
-        let value = if self.keys.is_empty() { value } else { crate::teammate_keys::scrub_key_values(&value, &self.keys) };
-        let mut bytes = serde_json::to_vec(&value)?;
-        bytes.push(b'\n');
-        if bytes.len() > 512 * 1024 || self.bytes + bytes.len() as u64 > 64 * 1024 * 1024 {
-            return Err(io::Error::other(
-                "Ledger exceeds Electron's record/file safety limit",
-            ));
+        let mut bytes = Vec::new();
+        for value in values {
+            let value = if self.keys.is_empty() { value } else { crate::teammate_keys::scrub_key_values(&value, &self.keys) };
+            let mut one = serde_json::to_vec(&value)?;
+            one.push(b'\n');
+            if one.len() > 512 * 1024 || self.bytes + (bytes.len() + one.len()) as u64 > 64 * 1024 * 1024 {
+                return Err(io::Error::other(
+                    "Ledger exceeds Electron's record/file safety limit",
+                ));
+            }
+            bytes.extend(one);
         }
         if self.file.metadata()?.len() != self.bytes {
             self.poisoned = true;
@@ -640,6 +648,38 @@ impl LedgerWriter {
             }
         }
         Ok(event)
+    }
+    /// A streamed batch (mission-store `appendEvents`): each event its own record, as `append` makes it, and all of
+    /// them in one write and one sync, so the batch is on disk whole before anything shows it.
+    pub fn append_all(&mut self, events: &[crate::runtime::Event]) -> io::Result<Vec<Value>> {
+        let (first_seq, first_ledger) = (self.sequence, self.ledger_seq);
+        let mut written = Vec::new();
+        let mut records = Vec::new();
+        for (i, one) in events.iter().enumerate() {
+            let (seq, ledger, at) = (first_seq + 1 + i as u64, first_ledger + i as u64, now());
+            let mut event = json!({"id":format!("{}:app:{seq}",self.run),"runId":self.run,"missionId":self.mission,
+                "sequence":seq,"occurredAt":at,"sourceAdapter":self.runtime,"requestedRouteId":self.route,"resolvedRouteId":self.resolved_route});
+            if let Some(thread) = &one.thread {
+                event["runtimeThreadId"] = json!(thread);
+            }
+            event["type"] = json!(one.kind);
+            event["payload"] = one.payload.clone();
+            let event = crate::ledger_fit::fit_event(event);
+            if !readable_event(&event) {
+                return Err(io::Error::other("Mission event is not readable by the ledger reader"));
+            }
+            records.push(json!({"schemaVersion":self.schema(),"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}));
+            written.push(event);
+        }
+        self.lines(records)?;
+        self.sequence = first_seq + events.len() as u64;
+        self.ledger_seq = first_ledger + events.len() as u64;
+        if events.iter().any(|e| began(&e.kind)) {
+            for then in std::mem::take(&mut self.on_began) {
+                then();
+            }
+        }
+        Ok(written)
     }
     /// `mission-store` appendApproval: a card the person answered (schema ≥ 20).
     pub fn append_approval(&mut self, approval: &Value) -> io::Result<()> {

@@ -184,6 +184,7 @@ pub mod kilo_models;
 pub mod ledger;
 pub mod ledger_fit;
 pub mod ledger_write;
+pub mod long_answer_batch;
 pub mod limits;
 pub mod linux_install;
 pub mod login_item;

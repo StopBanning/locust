@@ -3959,7 +3959,33 @@ fn record_failure(writer: &mut LedgerWriter, cancelled: bool, error: &io::Error)
 /// Every card answered is written to the turn's ledger; an answer the ledger refused is remembered, to be written (or
 /// said) when the run ends (approval-record-note.ts, `unwrittenAnswers.remember` in main/index.ts recordAnswer).
 fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &str) {
-    for recorded in channel.take_recorded_for(mission_id) {
+    write_approvals(writer, mission_id, channel.take_recorded_for(mission_id));
+}
+
+/// An approval flush in a run that streams (streamed-event-batches.ts): the text that came before the card is written
+/// first, so the card's record stands after it.
+fn flush_approvals_after_text(
+    writer: &mut LedgerWriter,
+    channel: &Channel,
+    mission_id: &str,
+    text: &mut crate::long_answer_batch::StreamBatcher,
+) -> io::Result<()> {
+    let recorded = channel.take_recorded_for(mission_id);
+    if recorded.is_empty() {
+        return Ok(());
+    }
+    let flushed = text.flush(|batch| write_text(writer, batch));
+    write_approvals(writer, mission_id, recorded);
+    flushed
+}
+
+/// A streamed batch, in one write, on disk before the window can read it (long_answer_batch.rs).
+fn write_text(writer: &mut LedgerWriter, batch: Vec<crate::runtime::Event>) -> io::Result<()> {
+    crate::long_answer_batch::persist_event_updates(writer, &batch, |_| Ok(()), |_| {})
+}
+
+fn write_approvals(writer: &mut LedgerWriter, mission_id: &str, recorded: Vec<crate::approval::Recorded>) {
+    for recorded in recorded {
         let approval = recorded.to_json();
         let written = match crate::approval_record_note::refused_for_test() {
             Some(why) => Err(why),
@@ -4308,8 +4334,22 @@ fn drive_runtime(
         }
     };
     let mut stopped = false;
+    // Text is held up to 50 ms and written in one go; anything else writes it at once, ahead of itself.
+    let mut text = crate::long_answer_batch::StreamBatcher::default();
     loop {
-        flush_approvals(writer, channel, mission_id);
+        let late = text
+            .tick(std::time::Instant::now(), |batch| write_text(writer, batch))
+            .and_then(|()| flush_approvals_after_text(writer, channel, mission_id, &mut text));
+        if let Err(error) = &late {
+            for line in crate::ledger_failure::lines(Some(&format!("{error}.")), None, false) {
+                push_relay_notice(mission_id, &line, "warning");
+            }
+            pass_on_denials(runtime, channel, mission_id);
+            finish_steer();
+            channel.release(mission_id);
+            drop(registered.take());
+            return;
+        }
         pass_on_denials(runtime, channel, mission_id);
         if !stopped && flag.load(Ordering::Relaxed) {
             stopped = true;
@@ -4336,7 +4376,7 @@ fn drive_runtime(
                     crate::scout::host::on_diagnostic(store, mission_id, &event.payload);
                 }
                 let done = terminal(&event.kind);
-                let written = writer.append(&event.kind, event.payload, event.thread.as_deref());
+                let written = text.push(vec![event], std::time::Instant::now(), |batch| write_text(writer, batch));
                 // A record that cannot be written stops the run (returning drops the runtime, which ends its process),
                 // and the thread says so in ledgerFailure.ts's words: the run was stopped, never held.
                 if let Err(error) = &written {
@@ -4355,6 +4395,7 @@ fn drive_runtime(
             }
             Ok(None) => {}
             Err(e) => {
+                let _ = text.flush(|batch| write_text(writer, batch));
                 record_failure(writer, stopped, &e);
                 flush_approvals(writer, channel, mission_id);
                 pass_on_denials(runtime, channel, mission_id);
