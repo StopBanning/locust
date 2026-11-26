@@ -132,3 +132,56 @@ pub(super) fn view(
 
     Some(box_col)
 }
+
+#[cfg(test)]
+mod tests {
+    //! Electron's `a-reply-suggests-tasks-as-cards.test.tsx`, the cards and the window's side of "the teammates", drawn
+    //! in the window from a reply that ends in a `<locust-next>` block.
+    use super::*;
+    use rune::{Env, Runtime};
+
+    const REPLY: &str = "Done: the update images are cleaned up after an install.\n\n<locust-next>\n\
+        Clean the Linux cache too :: Do the same for the AppImage cache, keeping the one waiting to install.\n\
+        - Tell people in What's new :: Add a line to the next changelog saying old updates no longer pile up.\n\
+        </locust-next>";
+
+    /// The thread with that reply as its last message: a turn `running` or not, the reply `whole` (final) or not.
+    fn thread(running: bool, whole: bool) -> String {
+        let mut s = State::default();
+        crate::scenes::ledger_scene(&mut s, false, false);
+        let pane = s.ledger.as_mut().expect("a conversation");
+        pane.items = vec![
+            ledger::Item::User("Clean up the update images.".into()),
+            ledger::Item::Assistant { item_id: "reply-next".into(), r#final: whole, text: REPLY.into() },
+        ];
+        pane.snapshot.running = running;
+        pane.after_tip = None;
+        s.flight = None;
+        let mut rt = Runtime::new(s, crate::view, (1200.0, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        rt.elements().into_iter().filter(|e| !e.exiting).flat_map(|e| [e.text, e.label]).flatten().collect::<Vec<_>>().join("\n")
+    }
+
+    #[test]
+    fn offer_no_do_it_here_where_the_conversation_cannot_take_a_turn_now() {
+        // case: offer no Do it here where the conversation cannot take a turn now
+        let idle = thread(false, true);
+        assert!(idle.contains("2 suggested tasks") && idle.contains("Do it here"), "{idle}");
+        // Another turn is running: the cards stay, each with its Start, and none offers Do it here.
+        let busy = thread(true, true);
+        assert!(busy.contains("2 suggested tasks") && busy.contains("Clean the Linux cache too"), "{busy}");
+        assert!(busy.contains("Start") && !busy.contains("Do it here"), "{busy}");
+    }
+
+    #[test]
+    fn the_window_draws_the_cards_only_once_the_reply_is_whole() {
+        // Electron: `const suggested = message.final || !options.running ? parseNextSteps(message.text) : []`. A reply still
+        // arriving in a running turn shows no cards and never its half-written tags; a whole one, or a turn that is over,
+        // shows them.
+        let arriving = thread(true, false);
+        assert!(!arriving.contains("suggested task") && !arriving.contains("locust-next"), "{arriving}");
+        assert!(thread(true, true).contains("2 suggested tasks"));
+        assert!(thread(false, false).contains("2 suggested tasks"), "a turn that is over shows them whatever final says");
+    }
+}
