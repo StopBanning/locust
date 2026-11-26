@@ -78,6 +78,31 @@ fn click(rt: &mut Runtime<State>, key: &str) {
     settle(rt);
 }
 
+/// Like `click`, for an element Home may have scrolled below its fold now that the message box sits under it: wheel
+/// Home's own scroll pane until the press would land on the element itself, then press it.
+fn click_into_view(rt: &mut Runtime<State>, key: &str) {
+    let mut dy = 120.0;
+    let mut last_y = f32::MAX;
+    for _ in 0..40 {
+        settle(rt);
+        let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no element {key} on screen"));
+        if rt.element_at(x, y).is_some_and(|hit| hit.key() == Some(key) || hit.path().contains(&format!("/{key}"))) {
+            rt.pointer_down(x, y);
+            rt.pointer_up(x, y);
+            settle(rt);
+            return;
+        }
+        if y >= last_y {
+            dy = -dy;
+        }
+        last_y = y;
+        let (hx, hy) = rt.find("home-close-row").unwrap_or((x, 120.0));
+        rt.wheel(hx, hy + 40.0, dy);
+        rt.frame(0.3);
+    }
+    panic!("{key} never came into view under Home's scroll pane");
+}
+
 /// Text into whatever holds the keyboard, then Return.
 fn type_and_send(rt: &mut Runtime<State>, text: &str) {
     click(rt, "composer");
@@ -5587,7 +5612,7 @@ fn scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card() {
     settle(&mut rt);
     assert!(rt.find("scout-send-c_send").is_some());
 
-    click(&mut rt, "scout-send-c_send");
+    click_into_view(&mut rt, "scout-send-c_send");
     pump(&mut rt, "drafted turn answered and card dismissed", |s| {
         !s.home.home_open
             && answered(s)
