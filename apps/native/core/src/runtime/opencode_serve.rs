@@ -43,7 +43,7 @@ pub fn encoded(s: &str) -> String {
     }
     out
 }
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::new();
     for b in bytes.chunks(3) {
@@ -65,7 +65,7 @@ fn base64(bytes: &[u8]) -> String {
     }
     out
 }
-fn password() -> io::Result<String> {
+pub(crate) fn password() -> io::Result<String> {
     let mut bytes = [0u8; 24];
     #[cfg(unix)]
     {
@@ -115,13 +115,25 @@ impl Api {
         }
     }
     fn request(&self, path: &str, body: Option<&Value>) -> io::Result<Value> {
-        let request = self
+        self.send(path, body, None)
+    }
+    /// A session check, bounded as a whole (opencode-serve-run.ts `streamCloseRequestTimeoutMs`, 10 s): the agent's
+    /// read timeout is not applied to a connection taken from its pool, so a check that never answers would hold the
+    /// run for good.
+    fn check(&self, path: &str) -> io::Result<Value> {
+        self.send(path, None, Some(Duration::from_secs(10)))
+    }
+    fn send(&self, path: &str, body: Option<&Value>, within: Option<Duration>) -> io::Result<Value> {
+        let mut request = self
             .agent
             .request(
                 if body.is_some() { "POST" } else { "GET" },
                 &format!("{}{path}", self.base),
             )
             .set("authorization", &self.auth);
+        if let Some(d) = within {
+            request = request.timeout(d);
+        }
         let response = if let Some(body) = body {
             request.send_json(body)
         } else {
@@ -183,8 +195,16 @@ pub struct Serve {
     recovery: Option<Instant>,
     last_check: Instant,
     begin_check: Duration,
+    /// How long a closed stream's session is polled before the run gives up (opencode-serve-run.ts
+    /// `streamCloseTimeoutMs`, 300 s).
+    recovery_budget: Duration,
+    /// The last status check said the session was busy (or retrying).
+    busy: bool,
     stopping: Option<Instant>,
     overflow: Arc<AtomicBool>,
+    /// Each record the run made, as its type and its part's id: Electron's `run.records`, which tests read.
+    #[cfg(test)]
+    pub(super) records: Vec<(String, String)>,
 }
 impl Serve {
     pub fn new(command: Command, cancel: Arc<AtomicBool>) -> Self {
@@ -218,8 +238,12 @@ impl Serve {
             recovery: None,
             last_check: Instant::now(),
             begin_check: Duration::from_secs(60),
+            recovery_budget: Duration::from_secs(300),
+            busy: false,
             stopping: None,
             overflow: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            records: Vec::new(),
         }
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -233,6 +257,11 @@ impl Serve {
     #[cfg(test)]
     pub fn with_begin_check(mut self, d: Duration) -> Self {
         self.begin_check = d;
+        self
+    }
+    #[cfg(test)]
+    pub fn with_recovery_budget(mut self, d: Duration) -> Self {
+        self.recovery_budget = d;
         self
     }
     fn cancelled(&self) -> bool {
@@ -441,6 +470,11 @@ impl Serve {
         if self.cancelled() {
             return Err(err("OpenCode startup stopped"));
         }
+        // A stream lost before the message was sent could never show its turn: nothing is sent
+        // (opencode-serve-run.ts readEvents, `sessionId === undefined || !prompted`).
+        if self.stream_ended.load(Ordering::Relaxed) {
+            return Err(err(format!("{CLOSED} Its outcome could not be confirmed.")));
+        }
         if let Some(name) = self.slash.clone() {
             // Answered only when the command's turn is over, so it is not waited for here: the turn is read from the
             // event stream like any other, and a refusal ends the run with the server's reason.
@@ -482,6 +516,11 @@ impl Serve {
     }
     fn push(&mut self, mut record: Value) {
         record["sessionID"] = json!(self.session);
+        #[cfg(test)]
+        self.records.push((
+            record["type"].as_str().unwrap_or("").to_owned(),
+            record["part"]["id"].as_str().unwrap_or("").to_owned(),
+        ));
         self.queued.extend(self.normal.accept(&record));
     }
     fn partial(&mut self, id: &str, force: bool) {
@@ -619,6 +658,7 @@ impl Serve {
                     if self.prompted
                         && self.prompt_id.is_none()
                         && role == "user"
+                        && p["info"]["sessionID"] == self.session.as_str()
                         && !self.roles.contains_key(id)
                     {
                         self.prompt_id = Some(id.into());
@@ -739,25 +779,40 @@ impl Serve {
             .as_ref()
             .ok_or_else(|| err("OpenCode API is unavailable"))?
             .clone();
-        let statuses = api.request("/session/status", None)?;
+        let statuses = api.check("/session/status")?;
+        // A stop that came while the server was asked is the person's, not the check's (`settled || cancelled`).
+        if self.cancelled() || self.stopping.is_some() {
+            return Ok(());
+        }
         if !statuses.is_object() {
             return Err(err("OpenCode's session status was not readable."));
         }
         let status = &statuses[&self.session];
         let kind = status["type"].as_str();
-        if matches!(kind, Some("busy" | "retry")) {
+        self.busy = matches!(kind, Some("busy" | "retry"));
+        if self.busy {
             return Ok(());
         }
         if !status.is_null() && kind != Some("idle") {
             return Err(err("OpenCode's session status could not be identified."));
         }
-        let messages = api.request(
-            &format!("/session/{}/message", encoded(&self.session)),
-            None,
-        )?;
+        let messages = api.check(&format!("/session/{}/message", encoded(&self.session)))?;
+        if self.cancelled() || self.stopping.is_some() {
+            return Ok(());
+        }
         let messages = messages
             .as_array()
             .ok_or_else(|| err("OpenCode's session messages were not readable."))?;
+        // A stream that closed while this check was out is read as closed: the same check serves both
+        // (opencode-serve-run.ts checkBegun, `if (!streamClosed)` after the messages arrive).
+        if self.recovery.is_none() && self.stream_ended.load(Ordering::Relaxed) {
+            // Every record the stream carried is read before it counts as closed.
+            while let Some(Ok(Ok(v))) = self.rx.as_ref().map(|rx| rx.try_recv()) {
+                self.accept(&v)?;
+            }
+            self.flush();
+            self.recovery = Some(Instant::now());
+        }
         if self.recovery.is_none() {
             if messages
                 .iter()
@@ -766,9 +821,10 @@ impl Serve {
             {
                 return Ok(());
             }
-            return Err(err(
+            self.finish(Some(
                 "OpenCode took the message but never began on it: its own storage was likely busy with another OpenCode on this computer. Send it again.",
             ));
+            return Ok(());
         }
         let mut owned: Vec<_> = messages
             .iter()
@@ -823,12 +879,7 @@ impl Serve {
                 .flatten()
                 .filter(|p| p["messageID"] == m["info"]["id"] && p["sessionID"] == self.session)
                 .collect();
-            if parts
-                .iter()
-                .all(|p| p["id"].as_str().is_some_and(|id| id.starts_with("prt_")))
-            {
-                parts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-            }
+            chronological_parts(&mut parts);
             for p in parts {
                 self.accept(&json!({"type":"message.part.updated","properties":{"sessionID":self.session,"part":p}}))?;
             }
@@ -837,6 +888,37 @@ impl Serve {
         Ok(())
     }
 }
+/// opencode-serve-run.ts `chronologicalParts`: OpenCode's own part ids carry their creation order; imported or
+/// id-less parts are put in order by their clock within each step, and step markers stay where they are.
+fn chronological_parts(parts: &mut Vec<&Value>) {
+    fn at(p: &Value) -> Option<f64> {
+        let time = if p["time"].is_object() { &p["time"] } else { &p["state"]["time"] };
+        time["start"].as_f64().filter(|t| t.is_finite())
+    }
+    fn flush<'a>(span: &mut Vec<&'a Value>, ordered: &mut Vec<&'a Value>) {
+        if span.iter().all(|p| at(p).is_some()) {
+            span.sort_by(|a, b| at(a).unwrap_or(0.).total_cmp(&at(b).unwrap_or(0.)));
+        }
+        ordered.append(span);
+    }
+    if parts.iter().all(|p| p["id"].as_str().is_some_and(|id| id.starts_with("prt_"))) {
+        parts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        return;
+    }
+    let mut ordered = Vec::with_capacity(parts.len());
+    let mut span = vec![];
+    for p in parts.drain(..) {
+        if matches!(p["type"].as_str(), Some("step-start" | "step-finish")) {
+            flush(&mut span, &mut ordered);
+            ordered.push(p);
+        } else {
+            span.push(p);
+        }
+    }
+    flush(&mut span, &mut ordered);
+    *parts = ordered;
+}
+const CLOSED: &str = "OpenCode's event stream closed before the turn finished.";
 fn canonical(v: &Value) -> String {
     fn sorted(v: &Value) -> Value {
         match v {
@@ -903,6 +985,9 @@ impl Runtime for Serve {
             .as_ref()
             .ok_or_else(|| err("OpenCode's event stream is unavailable"))?
             .recv_timeout(Duration::from_millis(50));
+        // The reader marks the stream ended only after its last record was sent, so a poll that found nothing
+        // after that has read every record (Electron reads the whole stream before it sees the close).
+        let drained = result.is_err();
         match result {
             Ok(Ok(v)) => {
                 if let Err(e) = self.accept(&v) {
@@ -915,20 +1000,28 @@ impl Runtime for Serve {
         if self.ended {
             return Ok(self.queued.pop_front());
         }
-        if self.stream_ended.load(Ordering::Relaxed) && self.recovery.is_none() {
+        if drained && self.stream_ended.load(Ordering::Relaxed) && self.recovery.is_none() {
             self.flush();
             self.recovery = Some(Instant::now());
             self.last_check = Instant::now() - Duration::from_secs(1);
         }
-        if self
+        if self.stopping.is_some() {
+            // Stopped: nothing more is asked of the server; the stop settles the run.
+        } else if self
             .recovery
-            .is_some_and(|t| t.elapsed() >= Duration::from_secs(300))
+            .is_some_and(|t| t.elapsed() >= self.recovery_budget)
         {
-            self.finish(Some("OpenCode's event stream closed before the turn finished. Recovery deadline expired; its outcome could not be confirmed."));
+            let said = if self.busy { "The session was still busy" } else { "The status check did not finish" };
+            self.finish(Some(&format!(
+                "{CLOSED} {said} before the recovery deadline; its outcome could not be confirmed."
+            )));
         } else if (self.recovery.is_some()
             && self.last_check.elapsed() >= Duration::from_millis(250)
             || !self.begun && self.last_check.elapsed() >= self.begin_check)
             && let Err(e) = self.recover()
+            // While the stream is open a failed check is asked again later (opencode-serve-run.ts checkBegun's
+            // `catch`: `else scheduleBeginCheck()`); once it has closed, a check that fails ends the run.
+            && self.recovery.is_some()
         {
             self.finish(Some(&e.to_string()));
         }

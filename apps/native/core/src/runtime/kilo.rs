@@ -63,30 +63,22 @@ pub fn isolation_env(directory: &Path) -> Vec<(String, String)> {
     ]
 }
 
-fn git_on_path() -> Option<PathBuf> {
-    let paths = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&paths) {
-        if !dir.is_absolute() {
-            continue;
-        }
-        let candidate = dir.join("git");
-        if candidate.is_file() {
-            let path = candidate.to_string_lossy();
-            if path.starts_with('/')
-                && !path
-                    .chars()
-                    .any(|c| matches!(c, '\0' | '\r' | '\n' | '"' | '\'' | '`' | '$' | '\\'))
-            {
-                return Some(candidate);
-            }
-        }
-    }
-    None
+/// resolveGitOnPath: the `git` this PATH runs, the first one on it.
+fn git_on(paths: &std::ffi::OsStr) -> Option<PathBuf> {
+    std::env::split_paths(paths).filter(|dir| dir.is_absolute()).map(|dir| dir.join("git")).find(|git| git.is_file())
 }
 
-/// withKiloGitShim: first `git` on PATH runs the real git with stdin from /dev/null.
-pub fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
-    let Some(git) = git_on_path() else {
+/// gitPathIsSafe: a path the shim's `exec "..."` line reads as that path and nothing else.
+fn git_is_safe(git: &Path) -> bool {
+    let path = git.to_string_lossy();
+    path.starts_with('/') && !path.chars().any(|c| matches!(c, '\0' | '\r' | '\n' | '"' | '\'' | '`' | '$' | '\\'))
+}
+
+/// withKiloGitShim: the first `git` on the child's PATH runs the git `path_env` would run, with stdin from /dev/null,
+/// so a git Kilo starts never reads the ACP pipe. None, and nothing written, when this PATH has no git, or its git's
+/// path could be read as more than a path: the git PATH runs is never swapped for a later one.
+pub fn write_git_shim(store: &Store, path_env: &std::ffi::OsStr) -> io::Result<Option<PathBuf>> {
+    let Some(git) = git_on(path_env).filter(|git| git_is_safe(git)) else {
         return Ok(None);
     };
     let root = store
@@ -135,18 +127,23 @@ pub fn conversation_home(store: &Store, conversation: &str) -> io::Result<(PathB
 
 /// The Kilo process for a turn, its config and data in `home` (`conversation_home`), never the person's.
 pub fn command(folder: &Path, store: &Store, home: &Path) -> io::Result<Command> {
-    let path = super::discovery::find_named("kilo")?;
-    let mut c = Command::new(path);
+    let kilo = super::discovery::find_named("kilo")?;
+    command_at(kilo, folder, store, home, &std::env::var_os("PATH").unwrap_or_default())
+}
+
+/// createKiloAcpCommand + withKiloGitShim: `kilo acp` at `kilo`, in `folder`, with the run's own Kilo folder and,
+/// when `path_env` has a git, the shim first on the child's PATH. Only the command's environment is changed, never
+/// this process's.
+fn command_at(kilo: PathBuf, folder: &Path, store: &Store, home: &Path, path_env: &std::ffi::OsStr) -> io::Result<Command> {
+    let mut c = Command::new(kilo);
     c.arg("acp").current_dir(folder);
     for (k, v) in isolation_env(home) {
         c.env(k, v);
     }
-    if let Some(shim) = write_git_shim(store)? {
-        let path_key = "PATH";
-        let current = std::env::var_os(path_key).unwrap_or_default();
+    if let Some(shim) = write_git_shim(store, path_env)? {
         let mut entries = vec![shim];
-        entries.extend(std::env::split_paths(&current));
-        c.env(path_key, std::env::join_paths(entries).map_err(err)?);
+        entries.extend(std::env::split_paths(path_env));
+        c.env("PATH", std::env::join_paths(entries).map_err(err)?);
     }
     Ok(c)
 }
@@ -355,3 +352,7 @@ mod tests;
 #[cfg(test)]
 #[path = "kilo_follow_up_tests.rs"]
 mod kilo_follow_up_tests;
+
+#[cfg(test)]
+#[path = "kilo_discovered_case_tests.rs"]
+mod kilo_discovered_case_tests;
