@@ -311,6 +311,8 @@ mod usage_line;
 mod agent_card_ui;
 #[path = "ui/cancellation_card.rs"]
 mod cancellation_card;
+#[path = "ui/failed_turn_cards.rs"]
+mod failed_turn_cards;
 #[path = "ui/own_models_card.rs"]
 mod own_models_card;
 #[path = "ui/key_card.rs"]

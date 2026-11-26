@@ -557,17 +557,16 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     }
                 }
             }
-            ledger::Item::Limit { text: body, .. } => text(body).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
-            ledger::Item::Note { level, text: body } => text(if level.is_empty() {
-                body.clone()
-            } else {
-                format!("{level}: {body}")
-            })
-            .font(type_::LABEL)
-            .color(p.muted)
-            .w_full()
-            .wrap_anywhere()
-            .selectable(true),
+            // A limit the run ended on is Electron's red card; a notice with a level is its line in its colour, never
+            // "error: ..." (Thread.tsx `limit`, DiagnosticLine; live hour 1, faults 15-16).
+            ledger::Item::Limit { kind, text: body } => crate::failed_turn_cards::limit(kind, body, p),
+            ledger::Item::Note { level, text: body } if !level.is_empty() => crate::failed_turn_cards::diagnostic(level, body, p),
+            ledger::Item::Note { text: body, .. } => text(body.clone())
+                .font(type_::LABEL)
+                .color(p.muted)
+                .w_full()
+                .wrap_anywhere()
+                .selectable(true),
             ledger::Item::CheckFix {
                 command,
                 fix,
@@ -806,6 +805,10 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
     }
     if snap.damaged {
         messages = messages.child(text(tv::DAMAGED_RECORD_NOTE).key("damaged-record-note").font(type_::LABEL).color(p.muted).w_full().wrap());
+    }
+    // The durable receipt closes the thread, under the notes and the offers (Thread.tsx `ReceiptCard`, fault 17).
+    if !turn_running(s) && let Some(card) = crate::failed_turn_cards::receipt(s, p) {
+        messages = messages.child(card);
     }
     messages
 }
