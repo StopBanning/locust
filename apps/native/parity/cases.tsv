@@ -308,20 +308,20 @@ apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.te
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	matches the same folder only, as Windows spells it either way	yes
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	starts nothing for a new conversation there until the folder is said yes to, and asks in the window	yes
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	keeps only the current folder, only from its own window, and only one that needed asking	yes
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the Node script, the native binary, or the .cmd launcher itself -- never cmd wrapping cmd	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes to Windows Terminal as a new window titled for the conversation, in the teammate’s folder	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	does not go to Windows Terminal with a ";" anywhere in it: wt splits its own commands there	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	in a console window, is one cmd line with every path quoted, the way the sign-in window does it	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts Windows Terminal when it is there, detached, and says so	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	falls back to a console window of its own when Windows Terminal will not start	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes straight to the console window for a CLI run under Locust’s own Node, with its environment	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts nothing for a session id that is not a plain token, or on a system with no terminal Locust knows (macOS and Linux: a-mac-opens-its-own-terminal, a-linux-terminal-is-the-one-the-desktop-has)	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the mission’s own session, in its teammate’s folder, titled for them	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused while the run is going, and says why	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused, with the reason, for Antigravity, a model of your own, a turn with no session, and a CLI not found	no
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the Node script, the native binary, or the .cmd launcher itself -- never cmd wrapping cmd	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes to Windows Terminal as a new window titled for the conversation, in the teammate’s folder	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	does not go to Windows Terminal with a ";" anywhere in it: wt splits its own commands there	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	in a console window, is one cmd line with every path quoted, the way the sign-in window does it	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts Windows Terminal when it is there, detached, and says so	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	falls back to a console window of its own when Windows Terminal will not start	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes straight to the console window for a CLI run under Locust’s own Node, with its environment	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts nothing for a session id that is not a plain token, or on a system with no terminal Locust knows (macOS and Linux: a-mac-opens-its-own-terminal, a-linux-terminal-is-the-one-the-desktop-has)	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the mission’s own session, in its teammate’s folder, titled for them	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused while the run is going, and says why	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused, with the reason, for Antigravity, a model of your own, a turn with no session, and a CLI not found	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	runs in its conversation's folder, not the window's, and is recorded there	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	continues a restored Windows conversation in the chosen Mac folder	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	a new conversation still starts in the window's folder	yes
@@ -1210,10 +1210,10 @@ apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.tes
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	keeps output in frame-sized batches and flushes the last text before exit	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	pauses a flooding shell and routes input and geometry only to a live tab	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	limits concurrent opens even while their folders are still being resolved	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an organization terminal restriction refuses even a direct host request	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an unrestricted terminal cannot bypass other organization restrictions	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	uses the current project before a first message and a conversation’s own worktree afterwards	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	refuses unknown conversations, teammates and worktrees instead of guessing a folder	no
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an organization terminal restriction refuses even a direct host request	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an unrestricted terminal cannot bypass other organization restrictions	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	uses the current project before a first message and a conversation’s own worktree afterwards	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	refuses unknown conversations, teammates and worktrees instead of guessing a folder	yes
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is Dark when nothing was saved, or what was saved cannot be read	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is what the person chose	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is the computer's on a Linux profile that has never run	no
@@ -1324,20 +1324,20 @@ apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	hands PowerSh
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a search names its words, and says nothing changes	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a page names its site, and shows the whole address to be read	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	an address that does not parse still asks, without a site	yes
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	has its sheets, by name, in order	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads text, numbers in their formats, a percent and a date	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a formula with no stored result AS the formula, never a number it did not hold	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	does not count a styled empty cell as content	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a boolean, on the second sheet	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a stored result where the file holds one	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	refuses a part that claims more than it may inflate to, before inflating it	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	says in words what it cannot read	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	draws at most the bound, and counts the rest	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads quoted fields, doubled quotes and line breaks inside them	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	becomes a one-sheet workbook with its numbers set right	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a TSV the same way	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the way a spreadsheet does	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	no
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	has its sheets, by name, in order	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads text, numbers in their formats, a percent and a date	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a formula with no stored result AS the formula, never a number it did not hold	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	does not count a styled empty cell as content	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a boolean, on the second sheet	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a stored result where the file holds one	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	refuses a part that claims more than it may inflate to, before inflating it	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	says in words what it cannot read	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	draws at most the bound, and counts the rest	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads quoted fields, doubled quotes and line breaks inside them	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	becomes a one-sheet workbook with its numbers set right	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a TSV the same way	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the way a spreadsheet does	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is the grey title with one white band passing through it, from the theme’s own tokens	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	passes slowly, left to right, and stands still for a person who asked for less motion	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is worn by a running conversation and a running room only, and keeps the dot’s footprint empty	yes
@@ -1475,20 +1475,20 @@ apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads once when many
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	asks for issues only when the folder is one gh can read	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	lists the open issues through gh in the folder	yes
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has its title, headings, paragraphs, list items and table, in order	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	keeps the characters a model might write exactly as written: nothing is markup	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has each slide, numbered, under its title, with its text and table	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	leaves out deleted text, field codes and empty paragraphs; a tab stays a tab	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	reads an empty run as nothing, not as the XML after it (2026-10-10 sweep)	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	reads a table inside a table cell without losing the paragraphs after it	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a long table keeps its first rows and says how many it has	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a file that is not a zip, or a zip with no document in it, is refused in words	no
-apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a slide's number, date and footer are left out	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	names nothing in a folder with no Word or PowerPoint file	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each document's words as text and names the copy in the brief	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	no
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has its title, headings, paragraphs, list items and table, in order	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	keeps the characters a model might write exactly as written: nothing is markup	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has each slide, numbered, under its title, with its text and table	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	leaves out deleted text, field codes and empty paragraphs; a tab stays a tab	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	reads an empty run as nothing, not as the XML after it (2026-10-10 sweep)	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	reads a table inside a table cell without losing the paragraphs after it	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a long table keeps its first rows and says how many it has	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a file that is not a zip, or a zip with no document in it, is refused in words	yes
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a slide's number, date and footer are left out	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	names nothing in a folder with no Word or PowerPoint file	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each document's words as text and names the copy in the brief	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes

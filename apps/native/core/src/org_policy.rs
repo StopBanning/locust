@@ -425,6 +425,33 @@ pub fn unmetered_refusal(
     None
 }
 
+/// An interactive shell can enforce none of the organization's limits on agents, models, spend or modes, so any of them
+/// keeps the terminal closed, as does the terminal turned off or a policy Locust cannot use
+/// (`shared/organization-policy.ts` `policyTerminalRefusal`).
+pub fn terminal_refusal(state: Option<&PolicyState>) -> Option<String> {
+    if let Some(refused) = feature_refusal(state, "terminal") {
+        return Some(refused);
+    }
+    let state = state?;
+    for key in ["allowedAgents", "allowedModels", "monthlyLimitUsd"] {
+        if state.policy.get(key).is_some() {
+            return Some(policy_refusal(
+                state,
+                key,
+                "An interactive shell cannot enforce this organization restriction. Use a conversation in Locust.",
+            ));
+        }
+    }
+    if state.policy.get("highestMode").is_some_and(|mode| mode != "auto") {
+        return Some(policy_refusal(
+            state,
+            "highestMode",
+            "An interactive shell cannot enforce the highest permission mode. Use a conversation in Locust.",
+        ));
+    }
+    None
+}
+
 /// A plain cloud shell cannot constrain which installed agent a person starts there
 /// (`shared/organization-policy.ts` `policyCloudTerminalRefusal`).
 pub fn cloud_terminal_refusal(state: Option<&PolicyState>) -> Option<String> {

@@ -1,14 +1,9 @@
 //! Runtime escape hatch on macOS, and read-only transcript parsing.
 use serde_json::Value;
 use std::path::Path;
+/// The words that resume `id` in `runtime`'s own interface, or `None` where there are none (Electron `resumeArgsFor`).
 pub fn resume_args(runtime: &str, id: &str) -> Option<Vec<String>> {
-    if id.is_empty()
-        || id.len() > 200
-        || !id.as_bytes()[0].is_ascii_alphanumeric()
-        || !id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"._:-".contains(&b))
-    {
+    if !is_resumable_session_id(id) {
         return None;
     }
     Some(match runtime {
@@ -19,6 +14,208 @@ pub fn resume_args(runtime: &str, id: &str) -> Option<Vec<String>> {
         "antigravity" => vec!["--conversation".into(), id.into()],
         _ => return None,
     })
+}
+/// A session id as the runtimes write them: UUIDs, `ses_...`, names. Never an option, never a shell word (Electron
+/// `isResumableSessionId`).
+pub fn is_resumable_session_id(id: &str) -> bool {
+    let bytes = id.as_bytes();
+    !bytes.is_empty()
+        && bytes.len() <= 200
+        && bytes[0].is_ascii_alphanumeric()
+        && bytes.iter().all(|b| b.is_ascii_alphanumeric() || b"._:-".contains(b))
+}
+
+/// The program discovery found for a runtime, as Electron's locator hands it over (`ExecutableLaunch`): the file it
+/// starts, the words before the runtime's own (a Node script, or `cmd.exe`'s `/d /s /c <launcher>`), and the
+/// environment a CLI run under Locust's own Node needs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TerminalLaunch {
+    pub command_name: String,
+    pub executable_path: String,
+    pub prefix_args: Vec<String>,
+    pub env: Option<Vec<(String, String)>>,
+}
+
+/// The program a terminal starts, and its words.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TerminalProgram {
+    pub file: String,
+    pub args: Vec<String>,
+}
+
+/// The program a terminal should start (Electron `terminalProgram`): a `.cmd` launcher the locator runs as
+/// `cmd.exe /d /s /c <launcher>` is started as the launcher itself, since a terminal runs a batch file through cmd on
+/// its own, and wrapping it again only adds a layer of quoting to get wrong.
+pub fn terminal_program(launch: &TerminalLaunch, args: &[String]) -> TerminalProgram {
+    let lower = launch.executable_path.to_ascii_lowercase();
+    let is_cmd = lower == "cmd.exe" || lower.ends_with("\\cmd.exe") || lower.ends_with("/cmd.exe");
+    let prefix = &launch.prefix_args;
+    match prefix.get(3) {
+        Some(launcher) if is_cmd && prefix[0] == "/d" && prefix[1] == "/s" && prefix[2] == "/c" => TerminalProgram {
+            file: launcher.clone(),
+            args: prefix[4..].iter().chain(args).cloned().collect(),
+        },
+        _ => TerminalProgram { file: launch.executable_path.clone(), args: prefix.iter().chain(args).cloned().collect() },
+    }
+}
+
+/// Windows Terminal's command line, or `None` when it cannot carry this one (Electron `windowsTerminalArgs`): the one
+/// thing wt reads for itself is `;`, which separates its own commands, so a line with one goes to the console window.
+pub fn windows_terminal_args(program: &TerminalProgram, cwd: &str, title: &str) -> Option<Vec<String>> {
+    if std::iter::once(&program.file).chain(&program.args).any(|part| part.contains(';')) || cwd.contains(';') || title.contains(';') {
+        return None;
+    }
+    let mut args: Vec<String> = ["-w", "new", "new-tab", "--title", title, "-d", cwd].map(str::to_owned).to_vec();
+    args.push(program.file.clone());
+    args.extend(program.args.iter().cloned());
+    Some(args)
+}
+
+/// The sign-in window's cmd.exe line (Electron `consoleCommandLine`): `/d /k ""<path>" <args>"`.
+pub fn console_command_line(path: &str, args: &[String]) -> String {
+    let tail = if args.is_empty() { String::new() } else { format!(" {}", args.join(" ")) };
+    format!("/d /k \"\"{path}\"{tail}\"")
+}
+
+/// The console window's cmd.exe line (Electron `consoleLine`): every word quoted but the checked session words.
+pub fn console_line(program: &TerminalProgram, resume_args: &[String]) -> String {
+    let leading = program.args.len().saturating_sub(resume_args.len());
+    let words: Vec<String> =
+        program.args[..leading].iter().map(|part| format!("\"{part}\"")).chain(resume_args.iter().cloned()).collect();
+    console_command_line(&program.file, &words)
+}
+
+/// One conversation, ready for a terminal (Electron `TerminalRequest`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TerminalRequest {
+    pub runtime: String,
+    pub session_id: String,
+    pub cwd: String,
+    pub launch: TerminalLaunch,
+    /// The window's title: whose conversation, on what.
+    pub title: String,
+}
+
+/// What a terminal is asked to start with (the options Electron hands `spawn`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TerminalSpawn {
+    pub file: String,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
+    pub detached: bool,
+    pub windows_hide: bool,
+    pub windows_verbatim_arguments: bool,
+    /// The launch's own environment, over Locust's, when it carries one.
+    pub env: Option<Vec<(String, String)>>,
+}
+
+/// Opens `request` in a terminal on Windows (Electron `openInTerminal`): Windows Terminal when it starts, else a console
+/// window of its own; a launch carrying Locust's own environment goes straight to the console window, since a running
+/// wt would start the tab in its environment, not this one. `spawn` starts a program and says whether it started.
+/// Answers where it opened, or why it did not. macOS opens through [`open_with_env`].
+pub fn open_in_terminal_with(
+    request: &TerminalRequest,
+    platform: &str,
+    local_app_data: Option<&str>,
+    spawn: &mut dyn FnMut(&TerminalSpawn) -> Result<(), String>,
+) -> Result<&'static str, String> {
+    if platform != "win32" {
+        return Err("Opening a conversation in a terminal works on Windows, macOS and Linux.".into());
+    }
+    let Some(resume) = resume_args(&request.runtime, &request.session_id) else {
+        return Err("This conversation has no session its runtime can resume in a terminal.".into());
+    };
+    let program = terminal_program(&request.launch, &resume);
+    if let (None, Some(args)) = (&request.launch.env, windows_terminal_args(&program, &request.cwd, &request.title)) {
+        let wt = match local_app_data {
+            Some(local) => format!("{}\\Microsoft\\WindowsApps\\wt.exe", local.trim_end_matches(['\\', '/'])),
+            None => "wt.exe".to_owned(),
+        };
+        let ask = TerminalSpawn { file: wt, args, detached: true, windows_hide: false, ..TerminalSpawn::default() };
+        if spawn(&ask).is_ok() {
+            return Ok("Windows Terminal");
+        }
+    }
+    let ask = TerminalSpawn {
+        file: "cmd.exe".into(),
+        args: vec![console_line(&program, &resume)],
+        cwd: Some(request.cwd.clone()),
+        detached: true,
+        windows_hide: false,
+        windows_verbatim_arguments: true,
+        env: request.launch.env.clone(),
+    };
+    spawn(&ask)
+        .map(|()| "a console window")
+        .map_err(|e| format!("The terminal could not be opened ({e}). The conversation is here, as it was."))
+}
+
+/// A conversation's run, as the ledger holds it (Electron `TerminalFacts.getMission`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TerminalMission {
+    pub runtime: String,
+    pub model: String,
+    pub session: Option<String>,
+}
+
+/// What the host knows, handed in so the decision can be tested without a ledger (Electron `TerminalFacts`).
+pub struct TerminalFacts<'a> {
+    pub live: &'a dyn Fn(&str) -> bool,
+    pub mission: &'a dyn Fn(&str) -> Option<TerminalMission>,
+    /// The teammate whose conversation this is, if anyone's: its id and name.
+    pub owner_of: &'a dyn Fn(&str) -> Option<(String, String)>,
+    /// Where that teammate's runs happen, or `None` for the folder.
+    pub cwd_for: &'a dyn Fn(&str) -> Option<String>,
+    pub workspace_path: String,
+    pub launch_for: &'a dyn Fn(&str) -> Option<TerminalLaunch>,
+}
+
+/// The request for one conversation, or why there is none (Electron `terminalRequestFor`). Never while its run is
+/// going: Locust's run and a terminal would both write to one session, each unaware of the other.
+/// The command a runtime's own interface is started with, as discovery names it (agents.rs: Cursor's `cursor-agent`,
+/// Antigravity's `agy`); every other runtime's command is its id.
+pub fn terminal_command(runtime: &str) -> &str {
+    match runtime {
+        "cursor" => "cursor-agent",
+        "antigravity" => "agy",
+        other => other,
+    }
+}
+
+/// The folder a conversation opens in: none chosen is said, and nothing is run.
+pub fn folder_to_open(place: Option<String>) -> Result<String, String> {
+    place.ok_or_else(|| "Choose a folder first. Nothing was run.".to_owned())
+}
+
+pub fn terminal_request_for(mission_id: &str, facts: &TerminalFacts) -> Result<TerminalRequest, String> {
+    if (facts.live)(mission_id) {
+        return Err("This conversation is still running. Open it in a terminal once the run finishes: two programs on one session at once would talk over each other.".into());
+    }
+    let mission = (facts.mission)(mission_id).ok_or("That conversation is not in the ledger.")?;
+    let name = crate::inspector::runtime_display_name(&mission.runtime).to_owned();
+    // A model of the person's own runs on settings Locust hands OpenCode per run.
+    let own = mission.model.strip_prefix("own-").and_then(|rest| rest.split_once('/')).is_some_and(|(id, _)| {
+        id.len() == 8 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    });
+    if own {
+        return Err("A model of your own runs on settings only Locust gives OpenCode, so a terminal could not run it. Keep this conversation here.".into());
+    }
+    let Some(session) = mission.session else {
+        return Err(format!("This conversation left no {name} session to open. Send a message here first."));
+    };
+    if resume_args(&mission.runtime, &session).is_none() {
+        return Err(format!("{name} cannot resume this conversation in a terminal."));
+    }
+    let owner = (facts.owner_of)(mission_id);
+    let cwd = owner.as_ref().and_then(|(id, _)| (facts.cwd_for)(id)).unwrap_or_else(|| facts.workspace_path.clone());
+    let launch = (facts.launch_for)(&mission.runtime);
+    // Antigravity resumes only through its CLI; its app's conversations live in its own window.
+    if mission.runtime == "antigravity" && launch.as_ref().map(|l| l.command_name.as_str()) != Some("agy") {
+        return Err("An Antigravity conversation lives in Antigravity's own window. Open it there, or install Antigravity CLI to open it in a terminal.".into());
+    }
+    let launch = launch.ok_or_else(|| format!("Locust could not find {name} on this machine."))?;
+    let title = format!("{} · {name}", owner.map_or_else(|| "Locust".to_owned(), |(_, n)| n));
+    Ok(TerminalRequest { runtime: mission.runtime, session_id: session, cwd, launch, title })
 }
 fn quote(v: &str) -> String {
     format!("'{}'", v.replace('\'', "'\"'\"'"))
@@ -293,6 +490,10 @@ pub fn exchanges(runtime: &str, text: &str, after: &str) -> Vec<Exchange> {
     close(&mut open, &mut out);
     out
 }
+#[cfg(test)]
+#[path = "a_conversation_opens_in_its_own_terminal_tests.rs"]
+mod a_conversation_opens_in_its_own_terminal_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -738,3 +939,7 @@ mod mac_terminal_script_case_tests;
 #[cfg(test)]
 #[path = "what_happens_in_the_terminal_tests.rs"]
 mod what_happens_in_the_terminal_tests;
+
+#[cfg(test)]
+#[path = "terminal_command_tests.rs"]
+mod terminal_command_tests;
