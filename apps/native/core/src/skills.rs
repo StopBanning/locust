@@ -83,11 +83,61 @@ pub fn skill_name_in(text: &str) -> Option<String> {
     let front = crate::invariants::regex(r"(?s)^---\r?\n(.*?)\r?\n---(?:\r?\n|$)").captures(text)?;
     for line in front[1].lines() {
         if let Some(rest) = line.strip_prefix("name:") {
-            let value = rest.trim().trim_matches(['"', '\'']).trim();
+            let value = yaml_scalar(rest)?;
+            let value = value.trim();
             return (!value.is_empty()).then(|| value.to_owned());
         }
     }
     None
+}
+
+/// One YAML scalar as skill-discovery.ts's `parseDocument` reads it: a double-quoted one with its escapes, a
+/// single-quoted one with `''` for a quote, or a plain one up to a ` #` comment. None for a quote never closed.
+fn yaml_scalar(rest: &str) -> Option<String> {
+    let value = rest.trim_start();
+    let mut chars = value.chars();
+    match chars.next() {
+        Some('"') => {
+            let mut out = String::new();
+            while let Some(c) = chars.next() {
+                match c {
+                    '"' => return Some(out),
+                    '\\' => out.push(match chars.next()? {
+                        'n' => '\n',
+                        't' => '\t',
+                        other => other,
+                    }),
+                    other => out.push(other),
+                }
+            }
+            None
+        }
+        Some('\'') => {
+            let mut out = String::new();
+            let mut rest = chars.as_str();
+            loop {
+                let at = rest.find('\'')?;
+                out.push_str(&rest[..at]);
+                rest = &rest[at + 1..];
+                match rest.strip_prefix('\'') {
+                    Some(more) => {
+                        out.push('\'');
+                        rest = more;
+                    }
+                    None => return Some(out),
+                }
+            }
+        }
+        _ => {
+            let end = value.char_indices().find(|&(i, c)| c == '#' && value[..i].ends_with([' ', '\t'])).map_or(value.len(), |(i, _)| i);
+            Some(value[..end].trim_end().to_owned())
+        }
+    }
+}
+
+/// skill-discovery.ts `skillNameKey`: the name a skill is known by where names fold case (Windows), else as written.
+pub fn skill_name_key(name: &str, folds: bool) -> String {
+    if folds { name.to_lowercase() } else { name.to_owned() }
 }
 
 /// Copies a folder, skipping symlinks anywhere inside it.
@@ -235,12 +285,23 @@ pub struct RunSkills {
 /// taken (by folder or by the name its front matter gives) dropped; with the manifests Copilot and Cursor read and the
 /// copy Antigravity reads. None when there are none.
 pub fn prepare_run(scratch: &Path, sources: &Sources) -> Option<RunSkills> {
+    prepare_run_with(scratch, sources, cfg!(windows), &|from, to| copy_dir(from, to))
+}
+
+/// `prepare_run` with run-skills.ts's two seams: whether this is Windows (`platform`), and how a skill folder is
+/// copied (`copyFolder`). A copy that fails, even after SKILL.md arrived, publishes no part of that skill.
+pub(crate) fn prepare_run_with(
+    scratch: &Path,
+    sources: &Sources,
+    windows: bool,
+    copy_folder: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+) -> Option<RunSkills> {
     let dir = fresh(scratch);
     let skills_dir = dir.join("skills");
     std::fs::create_dir_all(&skills_dir).ok()?;
-    // A disk that folds case folds skill names too.
-    let folds = std::fs::metadata(dir.join("SKILLS")).is_ok();
-    let key = |n: &str| if folds { n.to_lowercase() } else { n.to_owned() };
+    // Windows folds case, and so does a disk that folds it (a Mac's, as it ships): the disk is asked, not the name.
+    let folds = windows || std::fs::metadata(dir.join("SKILLS")).is_ok();
+    let key = |n: &str| skill_name_key(n, folds);
     let mut taken: Vec<String> = Vec::new();
     let mut names: HashSet<String> = HashSet::new();
     let mut destinations: HashSet<String> = HashSet::new();
@@ -261,7 +322,7 @@ pub fn prepare_run(scratch: &Path, sources: &Sources) -> Option<RunSkills> {
                 continue;
             }
             let staging = dir.join(format!(".copy-{}", crate::invariants::unique_nanos()));
-            if copy_dir(&from.join(&name), &staging).is_ok() {
+            if copy_folder(&from.join(&name), &staging).is_ok() {
                 let identity = std::fs::read_to_string(staging.join(SKILL_FILE)).ok().and_then(|t| skill_name_in(&t)).unwrap_or_else(|| name.clone());
                 if !names.contains(&key(&identity)) && std::fs::rename(&staging, skills_dir.join(&name)).is_ok() {
                     taken.push(name.clone());
@@ -358,6 +419,10 @@ pub fn forget_roots(mission: &str) {
 #[cfg(test)]
 #[path = "skills_claude_tests.rs"]
 mod claude_tests;
+
+#[cfg(test)]
+#[path = "run_skills_case_tests.rs"]
+mod run_case_tests;
 
 #[cfg(test)]
 mod tests {

@@ -1759,18 +1759,18 @@ apps/desktop/src/main/cloud-tasks.test.ts	reads a finished task as Codex prints 
 apps/desktop/src/main/cloud-tasks.test.ts	reads the same on one line	yes
 apps/desktop/src/main/cloud-tasks.test.ts	reads one still going, with nothing to count yet	yes
 apps/desktop/src/main/cloud-tasks.test.ts	reads anything it does not know as unknown	yes
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the candidate on Windows when a library folder differs only in case	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the first frontmatter name even when the directory names and YAML spellings differ	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps case-distinct skills on a case-sensitive machine	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	asks the disk, not the platform, whether two names that differ only in case are one	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	publishes no part of a skill whose copy fails after SKILL.md arrived	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tune names the teammate’s own agent when it drafts "What it knows" as a skill	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	no
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the candidate on Windows when a library folder differs only in case	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the first frontmatter name even when the directory names and YAML spellings differ	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps case-distinct skills on a case-sensitive machine	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	asks the disk, not the platform, whether two names that differ only in case are one	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	publishes no part of a skill whose copy fails after SKILL.md arrived	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tune names the teammate’s own agent when it drafts "What it knows" as a skill	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	no
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	a log the call made is gone afterwards, and the answer is unchanged	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.log keeps its lines; only Codex's are taken off	yes
