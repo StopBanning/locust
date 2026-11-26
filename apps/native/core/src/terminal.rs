@@ -28,7 +28,14 @@ pub struct Terminal {
 }
 impl Terminal {
     pub fn open(folder: &Path, file: &Path, args: &[&str]) -> Result<Self, String> {
-        check_policy()?;
+        Self::open_unless(check_policy().err(), folder, file, args)
+    }
+    /// Opens a shell unless `refused` says why not: the refusal, or a folder that is not one, comes before anything is
+    /// spawned (Electron's terminal host refuses a direct request the same way).
+    pub(crate) fn open_unless(refused: Option<String>, folder: &Path, file: &Path, args: &[&str]) -> Result<Self, String> {
+        if let Some(refused) = refused {
+            return Err(refused);
+        }
         if !folder.is_absolute() || !folder.is_dir() {
             return Err("Choose a project folder first. Your terminals are unchanged.".into());
         }
@@ -116,6 +123,10 @@ impl Drop for Terminal {
         }
     }
 }
+#[cfg(test)]
+#[path = "a_terminal_belongs_to_the_person_tests.rs"]
+mod a_terminal_belongs_to_the_person_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,52 +227,69 @@ pub fn parser(rows: u16, cols: u16) -> vt100::Parser {
     vt100::Parser::new(nz(rows), nz(cols), 10_000)
 }
 
-pub fn policy_refusal(policy: &serde_json::Value, path: &Path) -> Option<String> {
-    let refusal = |key: &str, why: &str| {
-        Some(format!(
-            "{why} Set by your organization ({key} in {}). Nothing was started.",
-            path.display()
-        ))
-    };
-    if policy["terminal"] == false {
-        return refusal("terminal", "The terminal panel is off.");
-    }
-    for key in ["allowedAgents", "allowedModels", "monthlyLimitUsd"] {
-        if !policy[key].is_null() {
-            return refusal(
-                key,
-                "An interactive shell cannot enforce this organization restriction. Use a conversation in Locust.",
-            );
-        }
-    }
-    if policy["highestMode"].as_str().is_some_and(|s| s != "auto") {
-        return refusal(
-            "highestMode",
-            "An interactive shell cannot enforce the highest permission mode. Use a conversation in Locust.",
-        );
-    }
-    None
-}
+/// Whether the organization lets a terminal open, read from the machine's policy file each time it is asked
+/// (`policyTerminalRefusal` over Electron's policy reader): refused, in words, when the terminal is off, when the policy
+/// limits agents, models, spend or modes a shell cannot enforce, or when the policy cannot be used.
 pub fn check_policy() -> Result<(), String> {
-    let path = Path::new(if cfg!(target_os = "macos") {
-        "/Library/Application Support/Locust/policy.json"
-    } else {
-        "/etc/locust/policy.json"
-    });
-    let body = match std::fs::read(path) {
-        Ok(b) => b,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(e) => {
-            return Err(format!(
-                "Organization policy could not be read ({}): {e}. Nothing was started.",
-                path.display()
-            ));
-        }
-    };
-    let value: serde_json::Value = serde_json::from_slice(&body)
-        .map_err(|e| format!("Organization policy could not be read: {e}. Nothing was started."))?;
-    if let Some(e) = policy_refusal(&value, path) {
-        return Err(e);
+    check_policy_at(&crate::org_policy::policy_path(if cfg!(target_os = "macos") { "darwin" } else { "linux" }, None))
+}
+
+/// [`check_policy`] over the policy file at `path`.
+pub(crate) fn check_policy_at(path: &str) -> Result<(), String> {
+    let state = crate::org_policy::read_policy(path, &|p| std::fs::read(p), &mut |_| {});
+    match crate::org_policy::terminal_refusal(Some(&state)) {
+        Some(refused) => Err(refused),
+        None => Ok(()),
     }
-    Ok(())
+}
+
+/// Which conversation or teammate a terminal opens for (Electron `TerminalContext`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TerminalContext {
+    pub mission_id: Option<String>,
+    pub teammate_id: Option<String>,
+}
+
+/// A teammate as the terminal's folder needs it: its id, its own folder if it has one, and whether it works in a
+/// worktree of its own.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TerminalTeammate {
+    pub teammate_id: String,
+    pub folder: Option<String>,
+    pub worktree: bool,
+}
+
+/// What the host knows, handed in (Electron `terminalFolder`'s options).
+pub struct TerminalFolderFacts<'a> {
+    pub current: &'a dyn Fn() -> Option<String>,
+    /// A conversation's workspace id, or `None` for a conversation Locust does not know.
+    pub mission: &'a dyn Fn(&str) -> Option<String>,
+    pub folder_of: &'a dyn Fn(&str) -> Option<String>,
+    pub owner_of: &'a dyn Fn(&str) -> Option<String>,
+    pub teammates: &'a dyn Fn() -> Vec<TerminalTeammate>,
+    /// The worktrees under a folder: each one's teammate and path.
+    pub trees: &'a dyn Fn(&str) -> Vec<(String, String)>,
+}
+
+/// The folder a terminal opens in, resolved from Locust's own state, never guessed (Electron `terminalFolder`): the
+/// current project before a first message, a conversation's workspace afterwards, the teammate's own folder when it has
+/// one, and its worktree when it works in one; an unknown conversation, teammate or worktree is `None`. A worktree is
+/// never made just to open a shell.
+pub fn terminal_folder(context: &TerminalContext, facts: &TerminalFolderFacts) -> Option<String> {
+    let mut folder = (facts.current)();
+    let mut owner = context.teammate_id.clone();
+    if let Some(mission_id) = &context.mission_id {
+        let workspace = (facts.mission)(mission_id)?;
+        folder = (facts.folder_of)(&workspace);
+        owner = (facts.owner_of)(mission_id);
+    }
+    let teammate = match &owner {
+        Some(owner) => Some((facts.teammates)().into_iter().find(|one| &one.teammate_id == owner)?),
+        None => None,
+    };
+    let root = teammate.as_ref().and_then(|t| t.folder.clone()).or(folder)?;
+    let Some(teammate) = teammate.filter(|t| t.worktree) else {
+        return Some(root);
+    };
+    (facts.trees)(&root).into_iter().find(|(id, _)| *id == teammate.teammate_id).map(|(_, path)| path)
 }

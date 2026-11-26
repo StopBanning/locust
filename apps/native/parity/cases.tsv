@@ -1210,10 +1210,10 @@ apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.tes
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	keeps output in frame-sized batches and flushes the last text before exit	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	pauses a flooding shell and routes input and geometry only to a live tab	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	limits concurrent opens even while their folders are still being resolved	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an organization terminal restriction refuses even a direct host request	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an unrestricted terminal cannot bypass other organization restrictions	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	uses the current project before a first message and a conversation’s own worktree afterwards	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	refuses unknown conversations, teammates and worktrees instead of guessing a folder	no
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an organization terminal restriction refuses even a direct host request	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	an unrestricted terminal cannot bypass other organization restrictions	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	uses the current project before a first message and a conversation’s own worktree afterwards	yes
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	refuses unknown conversations, teammates and worktrees instead of guessing a folder	yes
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is Dark when nothing was saved, or what was saved cannot be read	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is what the person chose	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	is the computer's on a Linux profile that has never run	no
