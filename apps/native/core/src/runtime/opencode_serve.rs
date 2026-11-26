@@ -202,6 +202,9 @@ pub struct Serve {
     busy: bool,
     stopping: Option<Instant>,
     overflow: Arc<AtomicBool>,
+    /// Each record the run made, as its type and its part's id: Electron's `run.records`, which tests read.
+    #[cfg(test)]
+    pub(super) records: Vec<(String, String)>,
 }
 impl Serve {
     pub fn new(command: Command, cancel: Arc<AtomicBool>) -> Self {
@@ -239,6 +242,8 @@ impl Serve {
             busy: false,
             stopping: None,
             overflow: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            records: Vec::new(),
         }
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -511,6 +516,11 @@ impl Serve {
     }
     fn push(&mut self, mut record: Value) {
         record["sessionID"] = json!(self.session);
+        #[cfg(test)]
+        self.records.push((
+            record["type"].as_str().unwrap_or("").to_owned(),
+            record["part"]["id"].as_str().unwrap_or("").to_owned(),
+        ));
         self.queued.extend(self.normal.accept(&record));
     }
     fn partial(&mut self, id: &str, force: bool) {

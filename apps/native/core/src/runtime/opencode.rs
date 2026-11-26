@@ -413,3 +413,7 @@ mod opencode_acp_profile_tests;
 #[cfg(test)]
 #[path = "opencode_stream_closed_tests.rs"]
 mod opencode_stream_closed_tests;
+
+#[cfg(test)]
+#[path = "opencode_serve_run_case_tests.rs"]
+mod opencode_serve_run_case_tests;

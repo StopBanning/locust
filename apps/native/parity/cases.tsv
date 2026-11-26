@@ -8091,16 +8091,16 @@ packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	na
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	${sandbox}: the same permission config and environment as run	no
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	read-only is read-only, loads no plugins; workspace-write stays in the folder; Auto may leave it	no
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	what OpenCode asks: Auto approves it, as run --auto did; any other mode refuses it, as run did	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	starts the server IN the teammate's folder, never where the app itself stands (0.378)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person, sends their answer back, and reads as an ordinary OpenCode run	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person a subagent's request too, marked as the subagent's, and answers it	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses what nobody is there to answer	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses in the mode's own words when it is given them (0.822)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	still says the person declined when a person answered with no reason	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	passes on why the person declined, when they said (0.374)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	sends one of OpenCode's own commands as the command, its arguments beside it, and reads the turn the same way (0.427)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks for every action in its config, and never announces itself on the network	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	turns settled parts into records, and the reply's text while it is written into partial ones (0.677)	no
+packages/runtime-adapters/test/opencode-serve-run.test.ts	starts the server IN the teammate's folder, never where the app itself stands (0.378)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person, sends their answer back, and reads as an ordinary OpenCode run	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person a subagent's request too, marked as the subagent's, and answers it	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses what nobody is there to answer	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses in the mode's own words when it is given them (0.822)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	still says the person declined when a person answered with no reason	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	passes on why the person declined, when they said (0.374)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	sends one of OpenCode's own commands as the command, its arguments beside it, and reads the turn the same way (0.427)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks for every action in its config, and never announces itself on the network	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	turns settled parts into records, and the reply's text while it is written into partial ones (0.677)	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is named, config and tool both, in every mode that asks	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent in Auto, which asks nothing	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent when no bridge was registered, rather than naming a file that does not exist	yes
