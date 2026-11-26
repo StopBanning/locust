@@ -285,23 +285,20 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         .w_full()
                         .wrap_anywhere(),
                 );
-                for hunk in file.hunks {
-                    for row_line in hunk.rows.iter().take(40) {
-                        let prefix = row_line.kind;
-                        let color = match prefix {
-                            '+' => p.green,
-                            '-' => p.red,
-                            _ => p.muted,
-                        };
-                        patch_box = patch_box.child(
-                            text(format!("{prefix}{}", row_line.text))
-                                .font(type_::LABEL)
-                                .color(color)
-                                .w_full()
-                                .wrap_anywhere(),
-                        );
-                    }
-                }
+                // DiffView.tsx draws the change (diff_view.rs): the first two hunks, the unchanged lines folded, what
+                // changed within a line marked, and a closing statement of completeness.
+                let reported = if patch.truncated { (patch.added, patch.removed) } else { file.counts() };
+                let copy = file.after().map(|after| crate::reply_actions::copy_button(s.copy_feedback.as_ref(), after, p));
+                patch_box = patch_box.child(crate::diff_view::diff_view(
+                    s,
+                    crate::diff_view::Place::of("approval", &file),
+                    &file,
+                    patch.truncated,
+                    Some(reported),
+                    (None, false),
+                    copy,
+                    p,
+                ));
             }
         }
         body = body.child(patch_box);

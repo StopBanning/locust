@@ -19,33 +19,34 @@ pub(super) fn poll(s: &mut State) -> bool {
     }
     // A turn this process ran that has ended since the last look.
     let now: std::collections::HashSet<String> = locust_core::engine_api::api().running().into_iter().collect();
+    poll_ended(s, now, tell, &mut show, native::turn_records);
+    say_finishes(s, std::time::Instant::now(), tell, &mut show);
+    false
+}
+
+/// The turns that were running at the last look and are not now, read from their records: a limit or a question is
+/// said at once, and a finish is gathered for `say_finishes`. Only a turn this process ran is ever looked at (it was in
+/// `live_turns`), so a run restored from the records is not told as a finish.
+pub(super) fn poll_ended(
+    s: &mut State,
+    now: std::collections::HashSet<String>,
+    tell: bool,
+    show: &mut impl FnMut(&str, &str, Option<&str>),
+    records: impl Fn(&str) -> Option<native::TurnRecords>,
+) {
     let ended: Vec<String> = s.live_turns.difference(&now).cloned().collect();
     s.live_turns = now;
     for id in ended {
-        let Some(turn) = native::turn_records(&id) else { continue };
+        let Some(turn) = records(&id) else { continue };
         if turn.metadata["missionId"].as_str() != Some(id.as_str()) {
             continue;
         }
-        let who = owner_name(s, &id);
-        let end = turn.events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
-        let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
         // attention-reader.ts: a run that ended waiting for the person -- at its account limit, or with a card asking
         // them something -- says so. A limit is said instead of the finish.
-        if say_ended(s, &id, &turn, tell, &mut show) {
+        if say_ended(s, &id, &turn, tell, show) {
             continue;
         }
-        let started = turn.metadata["createdAt"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
-        let took = started.map(|t| (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_milliseconds().max(0) as u64).unwrap_or(0);
-        let toast = attention::finished_toast(
-            kind == "run.completed",
-            kind == "run.failed",
-            turn.metadata["startedBy"].is_null(),
-            took,
-            who.as_deref(),
-            locust_core::carry_on::latest_final(&turn.events).as_deref(),
-            end.and_then(|e| e["payload"]["message"].as_str()),
-        );
-        if let Some(finish) = toast {
+        if let Some(finish) = finish_of(s, &id, &turn) {
             if s.finishes.is_empty() {
                 s.finishes_due = Some(std::time::Instant::now() + std::time::Duration::from_millis(attention::FINISH_WINDOW_MS));
             }
@@ -53,8 +54,25 @@ pub(super) fn poll(s: &mut State) -> bool {
             s.finish_ids.push(id.clone());
         }
     }
-    say_finishes(s, std::time::Instant::now(), tell, &mut show);
-    false
+}
+
+/// finishedToast, read from a turn's record: who, the first line of the last thing said, how long it took, said for a
+/// turn that completed or failed and that the person started; nothing for a stop, a room's or a relay's turn, or one
+/// with no start time (it reads as 0 ms, under the minute worth telling).
+pub(super) fn finish_of(s: &State, id: &str, turn: &native::TurnRecords) -> Option<(String, String)> {
+    let end = turn.events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
+    let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
+    let started = turn.metadata["createdAt"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
+    let took = started.map(|t| (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_milliseconds().max(0) as u64).unwrap_or(0);
+    attention::finished_toast(
+        kind == "run.completed",
+        kind == "run.failed",
+        turn.metadata["startedBy"].is_null(),
+        took,
+        owner_name(s, id).as_deref(),
+        locust_core::carry_on::latest_final(&turn.events).as_deref(),
+        end.and_then(|e| e["payload"]["message"].as_str()),
+    )
 }
 
 /// approvalArrived: a card raised since the last look is said once, and only while the window is elsewhere; a click

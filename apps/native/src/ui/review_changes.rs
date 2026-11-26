@@ -402,16 +402,30 @@ fn land_card(s: &State, r: &Review, p: &Palette) -> Option<El> {
     Some(card)
 }
 
-/// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all),
-/// carrying review-note controls when `may_note` holds for the teammate on screen. It ends, as DiffView.tsx does, by
-/// saying all of it is shown, or, when the recorded text is shorter than the change (`truncated`), that the rest was
-/// not recorded: never in silence.
+/// The diff of one file, drawn as DiffView.tsx draws it (diff_view.rs): the first two hunks with the rest behind a
+/// button, unchanged lines folded, what changed within a line marked, review-note controls when `may_note` holds for
+/// the teammate on screen, and Copy and the closing statement at the foot: all of it shown, or, when the recorded text
+/// is shorter than the change (`truncated`), that the rest was not recorded: never in silence.
 pub(super) fn file_diff(
     s: &State,
     folder: Option<&str>,
     may_note: bool,
     f: &changes::File,
     truncated: bool,
+    p: &Palette,
+) -> El {
+    file_diff_reported(s, folder, may_note, f, truncated, None, p)
+}
+
+/// `file_diff` for a change whose runtime counted its lines before the record was bounded (`reported`): when the
+/// record was cut, the foot says what the runtime counted in all.
+pub(super) fn file_diff_reported(
+    s: &State,
+    folder: Option<&str>,
+    may_note: bool,
+    f: &changes::File,
+    truncated: bool,
+    reported: Option<(usize, usize)>,
     p: &Palette,
 ) -> El {
     let (a, d) = f.counts();
@@ -423,50 +437,22 @@ pub(super) fn file_diff(
     if f.status != "MODIFIED" {
         head = head.child(text(f.status.to_lowercase()).font(type_::LABEL).color(p.muted));
     }
-    let mut out = col().w_full().gap(2.0).child(head.child(crate::changes_panel::line_count_marks(a, d, p)));
-    let lang = crate::reply_actions::language_of_path(&f.path);
-    for h in &f.hunks {
-        out = out.child(text(format!("{} {}", h.range(), h.heading)).font(type_::LABEL).color(p.muted));
-        let (before, after) = h.sides();
-        let (bh, ah) = (rune_kit::syntax::highlight(lang.as_deref(), &before), rune_kit::syntax::highlight(lang.as_deref(), &after));
-        let mut offsets = (0, 0);
-        let marks = changes::paired_spans(&h.rows);
-        for (k, r) in h.rows.iter().enumerate() {
-            let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
-            if r.kind != '+' {
-                offsets.0 += r.text.len() + 1;
-            }
-            if r.kind != '-' {
-                offsets.1 += r.text.len() + 1;
-            }
-            let line = crate::changes_panel::code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
-            out = crate::diff_notes_ui::append_noted_row(
-                out,
-                s,
-                folder,
-                may_note,
-                &f.path,
-                r,
-                line,
-                p,
-            );
-        }
-    }
-    // DiffView.tsx's foot: Copy, as Claude Code offers it (0.649), the code as it reads after the change, then whether
-    // all of it is shown. A deleted file has no code after it, and no Copy.
-    let mut foot = row().w_full().gap(10.0).center_y();
-    if let Some(after) = f.after() {
-        foot = foot.child(
-            text("Copy")
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .role("button")
-                .label(format!("Copy the new code in {}", f.path))
-                .key(format!("diff-copy/{}", f.path))
-                .on_press_tx(move |_: &mut State, tx: &mut Tx| crate::reply_actions::request_copy(tx, after.clone())),
-        );
-    }
-    out.child(foot.child(text(changes::completeness(f, f.hunks.len(), truncated)).font(type_::LABEL).color(p.muted).wrap().grow(1.0).shrink()))
+    // DiffView.tsx's foot: Copy, as Claude Code offers it (0.649), the code as it reads after the change. A deleted
+    // file has no code after it, and no Copy.
+    let copy = f.after().map(|after| {
+        text("Copy")
+            .font(type_::LABEL)
+            .color(p.secondary)
+            .role("button")
+            .label(format!("Copy the new code in {}", f.path))
+            .key(format!("diff-copy/{}", f.path))
+            .on_press_tx(move |_: &mut State, tx: &mut Tx| crate::reply_actions::request_copy(tx, after.clone()))
+    });
+    col()
+        .w_full()
+        .gap(2.0)
+        .child(head.child(crate::changes_panel::line_count_marks(a, d, p)))
+        .child(crate::diff_view::diff_view(s, crate::diff_view::Place::of("drawer", f), f, truncated, reported, (folder, may_note), copy, p))
 }
 
 pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {

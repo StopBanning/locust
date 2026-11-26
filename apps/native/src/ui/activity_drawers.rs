@@ -544,7 +544,7 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
             card = card.child(match locust_core::changes::new_document(&entry.file) {
                 Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
                 Some(locust_core::changes::NewDocument::Page) => page_preview(s, &key, entry, p),
-                _ => super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p),
+                _ => super::review_changes::file_diff_reported(s, None, false, &entry.file, entry.truncated, entry.reported, p),
             });
         }
         rows = rows.child(card);
@@ -752,7 +752,7 @@ fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::File
         return col()
             .w_full()
             .gap(6.0)
-            .child(super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p))
+            .child(super::review_changes::file_diff_reported(s, None, false, &entry.file, entry.truncated, entry.reported, p))
             .child(row().child(switch("Show it as a document")));
     }
     let mut foot = row().w_full().gap(8.0).center_y();
@@ -791,7 +791,7 @@ fn page_preview(s: &State, key: &str, entry: &locust_core::activity_entries::Fil
         s.activity_open.insert(flip.clone(), !now);
     });
     if as_change {
-        return col().w_full().gap(6.0).child(super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p)).child(row().child(switch));
+        return col().w_full().gap(6.0).child(super::review_changes::file_diff_reported(s, None, false, &entry.file, entry.truncated, entry.reported, p)).child(row().child(switch));
     }
     col()
         .w_full()

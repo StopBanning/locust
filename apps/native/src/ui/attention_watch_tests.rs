@@ -18,7 +18,10 @@ fn mate(id: &str, name: &str) -> crate::Teammate {
 
 /// A window on the native engine whose team file names each turn's owner and its conversation's title.
 fn window(label: &str) -> (State, Gone) {
-    let root = std::env::temp_dir().join(format!("locust-attention-watch-{label}-{}", std::process::id()));
+    // One folder per window: the finish tests all ask for "finish", and tests of one binary run side by side.
+    static WINDOWS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = WINDOWS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let root = std::env::temp_dir().join(format!("locust-attention-watch-{label}-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("electron")).unwrap();
     let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
@@ -187,4 +190,112 @@ fn says_nothing_while_the_person_is_looking_at_the_window() {
     assert!(shown.is_empty(), "not before its four seconds");
     say_finishes(&mut s, now + std::time::Duration::from_millis(locust_core::attention::FINISH_WINDOW_MS), true, &mut recorder(&mut shown));
     assert_eq!(shown, vec![("2 teammates are done".to_owned(), "Wren finished: Moved the port. · took 4 min\nJuno stopped: Not signed in. · after 2 min".to_owned(), Some("m2".to_owned()))]);
+}
+
+// ---- "Wren finished" in the window: what poll_ended gathers from a turn's record (finishedToast.test.ts) ----
+
+fn ago(minutes: i64) -> String {
+    (chrono::Utc::now() - chrono::Duration::minutes(minutes)).to_rfc3339()
+}
+fn said(text: &str) -> serde_json::Value {
+    json!({"type": "message.delta", "payload": {"itemId": "m", "operation": "replace", "text": text, "final": true}})
+}
+/// One turn, `question` (Wren's), that was running at the last look and now has this record. The finishes the window
+/// gathered, and whether the record was read at all.
+fn gathered(metadata: serde_json::Value, events: Vec<serde_json::Value>, was_running: bool) -> (Vec<(String, String)>, bool) {
+    let (mut s, _gone) = window("finish");
+    if was_running {
+        s.live_turns.insert("question".into());
+    }
+    let read = std::cell::Cell::new(false);
+    let mut shown = Shown::new();
+    poll_ended(&mut s, Default::default(), true, &mut recorder(&mut shown), |id| {
+        read.set(true);
+        Some(native::TurnRecords { path: std::path::PathBuf::new(), metadata: metadata.clone(), events: events.clone(), checkpoints: 0, incomplete: false }).filter(|_| id == "question")
+    });
+    (s.finishes, read.get())
+}
+fn meta(created: Option<String>, started_by: serde_json::Value) -> serde_json::Value {
+    let mut m = json!({"missionId": "question", "runtime": "claude", "startedBy": started_by});
+    if let Some(created) = created {
+        m["createdAt"] = json!(created);
+    }
+    m
+}
+fn end(kind: &str, message: Option<&str>) -> serde_json::Value {
+    json!({"type": kind, "payload": message.map(|m| json!({"message": m})).unwrap_or(json!({}))})
+}
+
+// case: says who finished, the first line of what they said, and how long it took
+#[test]
+fn a_turn_the_person_started_that_ran_four_minutes_is_gathered_as_wren_finished_with_its_first_line() {
+    let (finishes, _) = gathered(
+        meta(Some(ago(4)), serde_json::Value::Null),
+        vec![said("Moved the port to 3001.\nAll 12 tests pass."), end("run.completed", None)],
+        true,
+    );
+    assert_eq!(finishes, vec![("Wren finished".to_owned(), "Moved the port to 3001. · took 4 min".to_owned())]);
+}
+
+// case: says a failed run stopped, and why, in its own first line
+#[test]
+fn a_failed_turn_is_gathered_as_wren_stopped_with_the_first_line_of_why() {
+    let (finishes, _) = gathered(
+        meta(Some(ago(4)), serde_json::Value::Null),
+        vec![end("run.failed", Some("Copilot CLI is not signed in.\nRun copilot login."))],
+        true,
+    );
+    assert_eq!(finishes, vec![("Wren stopped".to_owned(), "Copilot CLI is not signed in. · after 4 min".to_owned())]);
+}
+
+// case: stays quiet for a stop the person pressed, and for anything not theirs or not new
+#[test]
+fn a_stop_a_rooms_or_relays_turn_one_with_no_start_time_and_a_restored_run_are_not_gathered() {
+    let talked = vec![said("Moved the port."), end("run.completed", None)];
+    // The stop the person pressed.
+    assert!(gathered(meta(Some(ago(4)), serde_json::Value::Null), vec![said("Half."), end("run.cancelled", None)], true).0.is_empty());
+    // A room member's turn (the room gathers its own toasts) and another app's relayed one.
+    assert!(gathered(meta(Some(ago(4)), json!({"kind": "room", "roomId": "r", "postId": "p"})), talked.clone(), true).0.is_empty());
+    assert!(gathered(meta(Some(ago(4)), json!({"kind": "relay"})), talked.clone(), true).0.is_empty());
+    // No start time reads as 0 ms, and a reply the person was likely watching arrive is under the minute.
+    assert!(gathered(meta(None, serde_json::Value::Null), talked.clone(), true).0.is_empty());
+    assert!(gathered(meta(Some(ago(0)), serde_json::Value::Null), talked.clone(), true).0.is_empty());
+    // A run restored from the records was never one this process ran: its record is not even read.
+    let (finishes, read) = gathered(meta(Some(ago(4)), serde_json::Value::Null), talked.clone(), false);
+    assert!(finishes.is_empty() && !read, "a restored run is not told as a finish");
+    // And the clean control: the same turn, run here, is gathered.
+    assert_eq!(gathered(meta(Some(ago(4)), serde_json::Value::Null), talked, true).0.len(), 1);
+}
+
+// case: gathers finishes that land together into one toast, and a click opens the newest / one finish is said as itself
+// (attention.test.ts: the first finish starts the burst's one four-second timer; nothing is shown before it runs)
+#[test]
+fn a_turn_that_ends_is_gathered_once_and_said_as_itself_when_its_four_seconds_are_up() {
+    let (mut s, _gone) = window("burst");
+    let record = |id: &str| {
+        Some(native::TurnRecords {
+            path: std::path::PathBuf::new(),
+            metadata: meta(Some(ago(4)), serde_json::Value::Null),
+            events: vec![said("Moved the port to 3001.\nAll 12 tests pass."), end("run.completed", None)],
+            checkpoints: 0,
+            incomplete: false,
+        })
+        .filter(|_| id == "question")
+    };
+    let running: std::collections::HashSet<String> = ["question".to_owned()].into();
+    let mut shown = Shown::new();
+    // It is running at one look: nothing has ended.
+    poll_ended(&mut s, running, true, &mut recorder(&mut shown), &record);
+    assert!(s.finishes.is_empty());
+    // At the next it is gone: its finish is gathered, and not said yet.
+    poll_ended(&mut s, Default::default(), true, &mut recorder(&mut shown), &record);
+    assert_eq!(s.finishes, vec![("Wren finished".to_owned(), "Moved the port to 3001. · took 4 min".to_owned())]);
+    // A turn that ended is not read again at every look after.
+    poll_ended(&mut s, Default::default(), true, &mut recorder(&mut shown), &record);
+    assert_eq!(s.finishes.len(), 1, "told once");
+    let looked = std::time::Instant::now();
+    say_finishes(&mut s, looked, true, &mut recorder(&mut shown));
+    assert!(shown.is_empty(), "the toast waits for the burst's four seconds");
+    say_finishes(&mut s, looked + std::time::Duration::from_millis(locust_core::attention::FINISH_WINDOW_MS), true, &mut recorder(&mut shown));
+    assert_eq!(shown, vec![("Wren finished".to_owned(), "Moved the port to 3001. · took 4 min".to_owned(), Some("question".to_owned()))]);
 }
