@@ -119,3 +119,33 @@ Seen in the code, not run (other users of the records.rs bound, beside the four 
 notification queue overflow (2048 records); terminating run" (runtime/copilot.rs:229) and Antigravity "Antigravity
 notification queue overflow" (runtime/antigravity.rs:245), where Electron's copilot-events.ts and agy-events.ts say
 "... sent output faster than Locust could record it ...". Muse keeps Electron's words.
+
+## Row 3: killed mid-turn (`killed_mid_turn.rs`)
+
+The engine is this test binary in a child process, on one turn of the soak fake's `long` scenario (200 deltas and 20
+command rows over ~2 s; a whole turn's ledger is 245 lines). The parent waits for the ledger to reach its share of those
+lines, from line 1 (the header) to line 244, SIGKILLs the engine, then reads the folder as the next start would: the
+file through `history_check` (allowed: read whole, cut-off last line `truncated-tail`, or read with zero turns when killed
+before any reply), the turn in `list_recent` and in the conversation's reader (must not be running), the agent the engine
+had started (must be gone), and a follow-up sent in the conversation.
+
+Long form `killed_mid_turn_long`, 20 kills (lines reached when killed / lines in the file after):
+
+- 1/1: read with zero turns (killed right after the header, before the agent said anything);
+- 13/14, 26/26, 39/44, 52/56, 64/68, 77/80, 90/92, 103/104, 116/116, 128/128, 141/146, 154/158, 167/170, 180/182,
+  192/194, 205/206, 218/218, 231/236, 244/244: read whole.
+
+So 19 read whole, 1 read with zero turns, 0 cut off, 0 unreadable or damaged. The ledger is written a whole line at a
+time (often a few lines a write, hence "file has" above the target), so a kill never left half a line here. Every
+time, the list and the reader show the turn not running (the killed engine's pid is gone: `native::orphaned`). The
+agent was gone 5 to 26 ms after the engine died (it loses its pipes). Short form: 4 kills (1, 82, 163, 244), same.
+
+### Fault 3: after a crash, a follow-up is refused as "still running" for 15 minutes
+
+`killed_mid_turn_then_a_follow_up_is_taken` (ignored, failing). 19 of the 20 kills (all but the one after the turn's
+last record): the next start shows the turn ended, but a follow-up typed in that conversation is refused with "A turn is
+still running in that conversation. Wait for it or stop it first." `native::send_from` asks `native::prior_of`
+(native.rs:1261), which reads the turn as running from its lifecycle and its file's age (`ledger::ACTIVE_WINDOW`, 15
+minutes; native.rs:1332 `running: transcript.running && fresh`) and never asks `orphaned`, while `list_recent`
+(native.rs:977) and the reader (ledger.rs:2545) do. Only an app's carry-on (`allow_cut_off`) gets past it. So after the
+engine crashes, for 15 minutes the window says the turn has ended and refuses to continue it, in words that say it runs.
