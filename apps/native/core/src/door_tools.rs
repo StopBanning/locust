@@ -12,6 +12,9 @@
 //! them.
 
 use crate::approval::Mode;
+use crate::claude_cloud::ClaudeCloudAnswer;
+use crate::cloud_tasks::FolderOnGitHub;
+use crate::door_cloud::{CloudChat, CloudStart};
 use crate::engine::Teammate;
 use serde_json::{Value, json};
 use std::collections::HashSet;
@@ -252,6 +255,18 @@ pub trait Locust: Send + Sync {
     /// Save a teammate's route through the host's own policy check and route store (0.882).
     fn save_model(&self, _teammate_id: &str, _route: &Value) -> Result<(), String> {
         Err("This Locust does not change teammate models from other apps.".into())
+    }
+    /// Where a folder stands with GitHub: Claude's cloud works on a copy of a GitHub repository (door_cloud).
+    fn cloud_where(&self, _folder: &str) -> FolderOnGitHub {
+        FolderOnGitHub { repo: None, branch: None, unpushed: None, dirty: false }
+    }
+    /// Start the task in Claude's cloud as the window's cloud panel does.
+    fn cloud_start(&self, _start: &CloudStart) -> ClaudeCloudAnswer {
+        ClaudeCloudAnswer::Err { message: "This Locust does not start Claude cloud chats for other apps.".into() }
+    }
+    /// Every Claude cloud chat Locust knows, newest first, each with whether an app started it.
+    fn cloud_chats(&self) -> Vec<CloudChat> {
+        Vec::new()
     }
 }
 
@@ -790,7 +805,7 @@ impl<L: Locust> Tools<L> {
                 return crate::voice_call_folder::call(Some(&voice.folder), name, args);
             }
             if matches!(name, "send_message" | "start_conversation")
-                && ["mode", "folder", "model", "effort", "runtime", "read_only"].iter().any(|key| args.get(key).is_some())
+                && ["mode", "folder", "model", "effort", "runtime", "read_only", "cloud"].iter().any(|key| args.get(key).is_some())
             {
                 return ToolResult::refused("The call uses the teammate’s own agent, model, mode and folder. Nothing was started.");
             }
@@ -826,6 +841,11 @@ impl<L: Locust> Tools<L> {
             }
             "list_background_runs" => ToolResult::ok("[]"),
             "start_conversation" => {
+                match &args["cloud"] {
+                    Value::Null | Value::Bool(false) => {}
+                    Value::Bool(true) => return self.start_cloud(args),
+                    _ => return ToolResult::refused("cloud is true or false. Nothing was started."),
+                }
                 // A conversation with no teammate (Electron 0.879): the app names an agent as list_models with no
                 // teammate lists them. Same Ask, same switch for mode and folder; nothing saved on any teammate.
                 if args["teammate"].is_null() {
@@ -918,6 +938,10 @@ impl<L: Locust> Tools<L> {
                         row
                     })
                     .collect();
+                let mut rows = rows;
+                rows.extend(self.cloud_rows(&names));
+                // Newest first across both kinds: a cloud chat's time is when it was sent.
+                rows.sort_by(|a, b| b["updated"].as_str().unwrap_or_default().cmp(a["updated"].as_str().unwrap_or_default()));
                 ToolResult::ok(Value::Array(rows).to_string())
             }
             "stop_turn" => {
@@ -948,6 +972,147 @@ impl<L: Locust> Tools<L> {
             "answer_question" => self.answer_question(args),
             _ => ToolResult::refused("That tool is not offered by Locust."),
         }
+    }
+
+    /// Claude's cloud chats as list_conversations rows: the chat's own page, and what is known of it from here.
+    fn cloud_rows(&self, names: &[(Teammate, Option<String>)]) -> Vec<Value> {
+        self.locust
+            .cloud_chats()
+            .into_iter()
+            .map(|chat| {
+                let s = &chat.session;
+                let teammate = s.teammate_id.as_deref().and_then(|id| names.iter().find(|(t, _)| t.id == id).map(|(t, _)| t.name.clone()));
+                let state = if s.session_id.is_some() {
+                    "in Claude's cloud"
+                } else {
+                    "sent to Claude's cloud; Locust has no session id for it, so follow it on claude.ai"
+                };
+                json!({
+                    "conversation_id": s.id,
+                    "teammate": teammate,
+                    "title": s.title.clone().unwrap_or_else(|| s.prompt.chars().take(80).collect::<String>()),
+                    "started_by": if chat.from_app { "an app" } else { "the person" },
+                    "runtime": "claude", "model": null, "state": state,
+                    "folder": s.folder,
+                    "updated": s.started_at,
+                    "cloud": true,
+                    "url": crate::door_cloud::link_of(s)
+                })
+            })
+            .collect()
+    }
+
+    /// start_conversation with cloud true: the task goes to Claude's cloud as the window's cloud panel sends it, from
+    /// the folder a turn would work in. Claude Code starts from the newest pushed commit of the folder's branch.
+    fn start_cloud(&self, args: &Value) -> ToolResult {
+        let nothing = |why: String| ToolResult::refused(format!("{why} Nothing was started."));
+        if args["teammate"].is_null() {
+            return nothing("A Claude cloud chat belongs to a Claude teammate: name one from list_teammates.".into());
+        }
+        let (Some(who), Some(message)) = (text_arg(&args["teammate"], 200), text_arg(&args["message"], 8000)) else {
+            return ToolResult::refused("Choose a teammate and give it a message of up to 8,000 characters. Nothing was started.");
+        };
+        if message.chars().count() > crate::door_cloud::MESSAGE_LIMIT {
+            return nothing(format!(
+                "Claude's cloud takes a task of up to {} characters, and Locust will not send it cut short.",
+                crate::door_cloud::MESSAGE_LIMIT
+            ));
+        }
+        let teammate = match self.find_teammate(who) {
+            Ok(t) => t,
+            Err(refused) => return refused,
+        };
+        if teammate.runtime.as_deref() != Some("claude") {
+            return nothing(format!(
+                "Claude's cloud is Claude Code's: {} runs on {}, so it cannot start a cloud chat. Name a Claude teammate.",
+                teammate.name,
+                teammate.runtime.as_deref().unwrap_or("no AI agent yet")
+            ));
+        }
+        if !args["mode"].is_null() || !args["read_only"].is_null() {
+            return nothing("A Claude cloud chat runs on Anthropic's machines and has no Locust mode: leave mode and read_only out.".into());
+        }
+        let saved_effort = self.locust.teammates().ok().and_then(|l| l.into_iter().find(|(t, _)| t.id == teammate.id).and_then(|(_, e)| e));
+        let choice = match self.choice_of(&teammate, saved_effort.as_deref(), args, None) {
+            Ok(c) => c,
+            Err(why) => return nothing(why),
+        };
+        let folder = if !args["folder"].is_null() {
+            if !self.locust.own_mode() {
+                return ToolResult::refused(
+                    "Choosing the mode or folder is off: the person can turn on \"Use each teammate's own mode\" in Locust's Settings. Leave mode and folder out to use the teammate's own folder. Nothing was started.",
+                );
+            }
+            let Some(asked) = text_arg(&args["folder"], 1000) else {
+                return nothing("folder is a full path to a folder on this computer.".into());
+            };
+            match self.locust.check_folder(asked) {
+                Ok(path) => path.to_string_lossy().into_owned(),
+                Err(why) => return nothing(why),
+            }
+        } else {
+            match teammate.folder.clone().or_else(|| self.locust.folder()) {
+                Some(f) => f,
+                None => return nothing("No folder is open in Locust and the teammate has none: name a folder.".into()),
+            }
+        };
+        let place = self.locust.cloud_where(&folder);
+        let Some(repo) = place.repo.clone() else {
+            return nothing(format!(
+                "{folder} is not a git checkout with a GitHub remote. Claude's cloud works on a copy of a GitHub repository, so a task sent from there would start with no project."
+            ));
+        };
+        let model = choice.as_ref().map(|c| c.model.clone()).or_else(|| teammate.model.clone());
+        let effort = choice.as_ref().and_then(|c| c.effort.clone());
+        let started = self.locust.cloud_start(&CloudStart {
+            folder: folder.clone(),
+            prompt: message.to_owned(),
+            teammate_id: teammate.id.clone(),
+            model: model.clone(),
+            effort: effort.clone(),
+        });
+        let session = match started {
+            ClaudeCloudAnswer::Ok { session } => session,
+            ClaudeCloudAnswer::Err { message } => {
+                return ToolResult::refused(if message.contains("Nothing was") { message } else { format!("{message} Nothing was started.") });
+            }
+        };
+        let mut reply = json!({
+            "conversation_id": session.id, "runtime": "claude", "cloud": true,
+            "folder": folder, "repo": repo, "url": crate::door_cloud::link_of(&session),
+            "session_known": session.session_id.is_some()
+        });
+        if let Some(branch) = &place.branch {
+            reply["branch"] = json!(branch);
+        }
+        if let Some(m) = model.filter(|m| m != "account-default") {
+            reply["model"] = json!(m);
+        }
+        if let Some(e) = effort {
+            reply["effort"] = json!(e);
+        }
+        // What Claude's cloud will not see: it starts from the newest pushed commit of the branch.
+        let mut warnings: Vec<String> = Vec::new();
+        match place.unpushed {
+            Some(n) if n > 0 => warnings.push(format!(
+                "{n} commit{} on this branch {} not pushed, and Claude's cloud starts from the newest pushed commit, so it will not see {}.",
+                if n == 1 { "" } else { "s" },
+                if n == 1 { "is" } else { "are" },
+                if n == 1 { "it" } else { "them" }
+            )),
+            None => warnings.push("Locust could not tell whether this branch is pushed; Claude's cloud starts from its newest pushed commit.".into()),
+            _ => {}
+        }
+        if place.dirty {
+            warnings.push("The folder has uncommitted changes; Claude's cloud will not see them.".into());
+        }
+        if !warnings.is_empty() {
+            reply["warnings"] = json!(warnings);
+        }
+        if let Some(note) = &session.note {
+            reply["note"] = json!(note);
+        }
+        ToolResult::ok(reply.to_string())
     }
 
     /// carry_on: a conversation whose turn stopped on its plan, provider or process, on to another agent.
@@ -1442,3 +1607,7 @@ mod tests;
 #[cfg(test)]
 #[path = "door_routines_tests.rs"]
 mod door_routines_tests;
+
+#[cfg(test)]
+#[path = "door_cloud_tools_tests.rs"]
+mod door_cloud_tools_tests;

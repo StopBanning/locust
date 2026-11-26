@@ -733,6 +733,13 @@ pub(crate) fn tools_over(store: Store, own_mode: bool) -> Tools<Engine> {
     Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings { own_mode, ..Settings::default() })), voice: false })
 }
 
+/// The live engine over `store`, the person having let apps see their conversations: for a test of the door's list.
+#[cfg(test)]
+pub(crate) fn tools_over_seeing(store: Store) -> Tools<Engine> {
+    let settings = Settings { own_mode: true, conversations: true, ..Settings::default() };
+    Tools::new(Engine { store, settings: Arc::new(Mutex::new(settings)), voice: false })
+}
+
 // ---- the live engine ------------------------------------------------------------------------------------------------
 
 /// The door's view of this machine's native engine.
@@ -974,6 +981,18 @@ impl Locust for Engine {
         crate::people::remember_route(&self.store, teammate_id, route)
             .map_err(|_| "Locust could not save that model for the teammate.".to_owned())
     }
+
+    fn cloud_where(&self, folder: &str) -> crate::cloud_tasks::FolderOnGitHub {
+        crate::door_cloud::where_with(&crate::door_cloud::seams(), folder)
+    }
+
+    fn cloud_start(&self, start: &crate::door_cloud::CloudStart) -> crate::claude_cloud::ClaudeCloudAnswer {
+        crate::door_cloud::start_with(&(crate::door_cloud::seams().claude)(&self.store), &crate::door_cloud::marks_path(&self.store), start)
+    }
+
+    fn cloud_chats(&self) -> Vec<crate::door_cloud::CloudChat> {
+        crate::door_cloud::chats_with(&(crate::door_cloud::seams().claude)(&self.store), &crate::door_cloud::marks_path(&self.store))
+    }
 }
 
 // ---- the editors' sessions over the live engine ---------------------------------------------------------------------
@@ -1144,7 +1163,7 @@ pub fn tool_list() -> Value {
     let turn = json!({"conversation_id": string, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder});
     let tools = [
         ("list_teammates", "List Locust teammates: id, name, role, the folder Locust has open (every turn works there; the person changes it in Locust), runtime, model, whether busy, and runs_in: the mode a turn started from here would use. Read only.", schema(json!({}), &[]), true),
-        ("start_conversation", "Ask a Locust teammate by name or id, or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate, as the person can in Locust's window. Ask mode (read only), unless the person has turned on \"Use each teammate's own mode\" in Locust; then the mode the teammate is set to there, or the mode you name: ask, plan, accept-edits, approve-each or auto (Auto only if Locust's Settings allow it). With that switch on you may also name a folder, a full path: one Locust knows, a folder inside one, or a worktree of one of their repositories; the turn works there instead of the open folder, and the conversation stays there. Any approval is answered by the person in Locust's window, never from here. read_only true runs it in Ask whatever else is named. The reply says the mode and folder used. No automatic teammate handoffs. Shares remain visible in Locust. API/account usage and Locust monthly limits apply. Returns a conversation id; use read_reply to poll.", schema(json!({"teammate": string, "runtime": effort, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder}), &["message"]), false),
+        ("start_conversation", "Ask a Locust teammate by name or id, or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate, as the person can in Locust's window. Ask mode (read only), unless the person has turned on \"Use each teammate's own mode\" in Locust; then the mode the teammate is set to there, or the mode you name: ask, plan, accept-edits, approve-each or auto (Auto only if Locust's Settings allow it). With that switch on you may also name a folder, a full path: one Locust knows, a folder inside one, or a worktree of one of their repositories; the turn works there instead of the open folder, and the conversation stays there. Any approval is answered by the person in Locust's window, never from here. read_only true runs it in Ask whatever else is named. The reply says the mode and folder used. No automatic teammate handoffs. Shares remain visible in Locust. API/account usage and Locust monthly limits apply. cloud true sends the task to Claude's cloud instead, as the Cloud chat type in Locust's window does: it works on Anthropic's machines on a copy of the folder's GitHub repository, starting from the newest pushed commit of the folder's branch (commits not pushed and uncommitted changes are not seen), so the folder must be a git checkout pushed to GitHub. It needs a Claude teammate (any other agent is refused, nothing started), takes model and effort and, with the switch above on, a folder, takes no mode or read_only, and takes a task of up to 4,000 characters. The reply gives the conversation id, the folder, the repository and its claude.ai link; send_message, read_reply and stop_turn then act on that cloud chat. Returns a conversation id; use read_reply to poll.", schema(json!({"teammate": string, "runtime": effort, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder, "cloud": flag}), &["message"]), false),
         ("send_message", "Continue a conversation started by this server: in the conversation's own mode and folder, unless you name others as start_conversation takes them. No automatic teammate handoffs. No message is queued while it is working; poll read_reply before sending.", schema(turn, &["conversation_id", "message"]), false),
         ("read_reply", "Read the newest finished answer, current activity while still working (including a wait for the person to approve an action in Locust), or Locust's own failure words. An answer that asks the person to choose also gives the question and its numbered options, for answer_question. Optionally wait_seconds, up to 20, to wait for the turn to finish first. Read only.", schema(json!({"conversation_id": string, "wait_seconds": {"type": "integer", "minimum": 0, "maximum": 20}}), &["conversation_id"]), true),
         ("answer_question", "Answer the question a finished turn asked with choices (its card in Locust), by the option's number or label from read_reply: the next turn is sent exactly what pressing that option in Locust sends, in the conversation's own mode and folder. Approvals of an action are never answered from here.", schema(json!({"conversation_id": string, "choice": {"oneOf": [{"type": "integer", "minimum": 1, "maximum": 4}, {"type": "string", "minLength": 1, "maxLength": 90}]}}), &["conversation_id", "choice"]), false),
