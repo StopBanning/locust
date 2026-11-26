@@ -331,6 +331,23 @@ fn a_pet_that_is_a_link_in_electrons_folder_is_not_followed() {
     assert!(!f.root.join("pets/outside").exists());
 }
 
+/// Lane check (fix-b): a pet folder that is real but whose pet.json is a link to a file elsewhere is not carried: the
+/// copy reads only plain files of a pet's size from Electron's folder, never what a link points at.
+#[test]
+fn a_pet_whose_pet_json_is_a_link_is_not_carried() {
+    let f = Folders::new("petsjsonlink");
+    let electron = f.temp.join("electron");
+    put_pet(&electron, "linked", "Linked", 8);
+    let elsewhere = f.temp.join("elsewhere-pet.json");
+    fs::rename(electron.join("pets/linked/pet.json"), &elsewhere).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, electron.join("pets/linked/pet.json")).unwrap();
+
+    let done = f.store().reseed_from_electron("20261126-100004").unwrap();
+
+    assert!(!done.copied.iter().any(|c| c == "pets/linked"), "{done:?}");
+    assert!(!f.root.join("pets/linked").exists(), "nothing behind a link is copied");
+}
+
 #[test]
 fn the_door_and_from_anywhere_switches_come_across_and_each_reader_sees_them_on() {
     let f = Folders::new("mcp");
