@@ -1536,3 +1536,154 @@ fn a_tidy_pass_that_put_nothing_to_the_person_says_so_quietly_in_the_thread() {
     assert_eq!(said.len(), 1, "{said:?}");
     assert_eq!((said[0].message.as_str(), said[0].level.as_str()), ("Nothing from this tidy pass waits on the Memory screen.", "info"));
 }
+
+// ---- round 18: cases that hold, named ----
+
+#[test]
+fn shares_nothing_from_a_mission_that_belongs_to_nobody() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    the_turn_says(&t, "<locust-share to=\"Atlas\">\nfinding\n</locust-share>", "completed");
+    let started = send_from(
+        Send { teammate: nobody(Some("codex".into()), None), conversation: None, prompt: "Task.".into(), model: None, effort: None },
+        Origin { mode: Some(Mode::Ask), folder: Some(t.0.join("work")), runtime: Some("codex".into()), ..Default::default() },
+    )
+    .unwrap();
+    finished(&started.conversation_id);
+    assert!(kinds(&path_of(&t, &started.conversation_id)).contains(&"run.completed".to_owned()));
+    assert!(crate::workroom::Workroom::for_store(&t.store()).read().messages.is_empty(), "nothing was posted");
+    // It is briefed, and not as anybody: the person's words come last, and no roster or share block is in it.
+    // (Native adds the reference-folders line after them; `told` reads up to it.)
+    let told = told(&t);
+    assert!(told.ends_with("Task."), "{told}");
+    assert!(told.contains("<locust-ask>"), "{told}");
+    assert!(!told.contains("Atlas") && !told.contains("<locust-share"), "{told}");
+}
+
+/// Wren's writing turn that shares with Atlas: the fake stops to ask, the test changes `src/app.ts` while it waits.
+fn wren_writes_and_shares(t: &Temp, mode: &str) -> Vec<crate::workroom::Message> {
+    let reply = json!({"text": "Done.\n<locust-share to=\"Atlas\">I fixed app.ts.</locust-share>", "status": "completed",
+        "ask": {"method": "item/commandExecution/requestApproval", "params": {"command": "python3 fix.py", "cwd": "C:\\work"}}});
+    let plain = json!({"text": "Done.\n<locust-share to=\"Atlas\">I fixed app.ts.</locust-share>", "status": "completed"});
+    fs::create_dir_all(t.0.join("work/src")).unwrap();
+    fs::write(t.0.join("work/src/app.ts"), "one\n").unwrap();
+    let writing = mode != "ask";
+    fs::write(t.0.join("work/commands-reply.json"), if writing { reply } else { plain }.to_string()).unwrap();
+    let started = send(wren(t, mode, "Fix app.ts and tell Atlas.")).unwrap();
+    if writing {
+        let card = card_for(&started.conversation_id);
+        fs::write(t.0.join("work/src/app.ts"), "two\n").unwrap();
+        fs::write(t.0.join("work/src/new.ts"), "new\n").unwrap();
+        decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    }
+    finished(&started.conversation_id);
+    crate::workroom::Workroom::for_store(&t.store()).unread("tm_atlas", 5, &[]).unwrap().messages
+}
+
+#[test]
+fn attaches_the_paths_the_host_saw_a_writing_run_change() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let posts = wren_writes_and_shares(&t, "approve-each");
+    assert_eq!(posts.len(), 1);
+    let mut observed = posts[0].observed.clone().unwrap_or_default();
+    observed.sort();
+    assert_eq!(observed, ["src/app.ts", "src/new.ts"]);
+}
+
+#[test]
+fn attaches_nothing_from_a_read_only_run_which_the_host_never_looked_at() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let posts = wren_writes_and_shares(&t, "ask");
+    assert_eq!(posts.len(), 1);
+    assert_eq!(posts[0].observed, None);
+}
+
+// case: A2.9: tells a teammate, in their next brief, that another changed a file they changed too
+#[test]
+fn a_teammate_is_told_in_their_next_brief_that_another_changed_a_file_they_changed_too() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    fs::create_dir_all(t.0.join("work/src")).unwrap();
+    fs::write(t.0.join("work/src/app.ts"), "zero\n").unwrap();
+    // Every run finds src/app.ts changed by the time it ends.
+    let run_as = |id: &str, name: &str, words: &str| {
+        fs::write(
+            t.0.join("work/commands-reply.json"),
+            json!({"text": "Done.", "status": "completed", "ask": {"method": "item/commandExecution/requestApproval", "params": {"command": "tidy", "cwd": "C:\\work"}}}).to_string(),
+        )
+        .unwrap();
+        let mut mine = wren(&t, "approve-each", "Tidy app.ts.");
+        mine.teammate.id = id.into();
+        mine.teammate.name = name.into();
+        let started = send(mine).unwrap();
+        let card = card_for(&started.conversation_id);
+        fs::write(t.0.join("work/src/app.ts"), format!("{words}\n")).unwrap();
+        decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+        finished(&started.conversation_id);
+    };
+    run_as("tm_wren", "Wren", "one");
+    run_as("tm_atlas", "Atlas", "two");
+    run_as("tm_wren", "Wren", "three");
+    let briefs: Vec<String> = codex_requests(&t)
+        .iter()
+        .filter(|r| r["method"] == "turn/start")
+        .map(|r| r["params"]["input"][0]["text"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert_eq!(briefs.len(), 3);
+    assert!(!briefs[0].contains("also changed by another teammate"), "{}", briefs[0]);
+    assert!(briefs[2].contains("- Atlas changed src/app.ts"), "{}", briefs[2]);
+}
+
+#[test]
+fn claims_nothing_from_the_tree_when_another_writing_run_shared_the_folder() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    fs::create_dir_all(t.0.join("work/src")).unwrap();
+    fs::write(t.0.join("work/src/notes.ts"), "one\n").unwrap();
+    asks(&t, "item/commandExecution/requestApproval", json!({"command": "cat README.md", "cwd": "C:\\work"}));
+    let observed_rows = |id: &str| -> usize {
+        records(&path_of(&t, id)).iter().filter_map(|r| r.get("event")).filter(|e| e["payload"]["status"] == "observed on disk").count()
+    };
+    let shared_notices = |id: &str| -> Vec<String> {
+        records(&path_of(&t, id))
+            .iter()
+            .filter_map(|r| r.get("event"))
+            .filter(|e| e["type"] == "adapter.diagnostic" && e["payload"]["code"] == "host.shared_workspace")
+            .map(|e| e["payload"]["message"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    };
+    // Two teammates writing in one folder at once; both end looking at the same changed file.
+    let first = send(wren(&t, "approve-each", "write one poem")).unwrap();
+    let mut atlas_job = wren(&t, "approve-each", "write another poem");
+    atlas_job.teammate.id = "tm_atlas".into();
+    atlas_job.teammate.name = "Atlas".into();
+    let second = send(atlas_job).unwrap();
+    let (one, two) = (card_for(&first.conversation_id), card_for(&second.conversation_id));
+    fs::write(t.0.join("work/src/notes.ts"), "two\n").unwrap();
+    decide_approval(&one.approval_id, Decision::ApproveOnce, None).unwrap();
+    decide_approval(&two.approval_id, Decision::ApproveOnce, None).unwrap();
+    finished(&first.conversation_id);
+    finished(&second.conversation_id);
+    for id in [&first.conversation_id, &second.conversation_id] {
+        assert_eq!(observed_rows(id), 0, "{:?}", kinds(&path_of(&t, id)));
+        let said = shared_notices(id);
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(said[0].contains("Another teammate was working in this folder"), "{}", said[0]);
+        assert!(said[0].contains("1 file in the folder is different"), "{}", said[0]);
+        assert!(said[0].contains("it is not counted as this run's work"), "{}", said[0]);
+    }
+    // The negative control: one run alone, the same change, still gets its row.
+    let solo = send(wren(&t, "approve-each", "write one poem")).unwrap();
+    let card = card_for(&solo.conversation_id);
+    fs::write(t.0.join("work/src/notes.ts"), "three\n").unwrap();
+    decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    finished(&solo.conversation_id);
+    assert!(observed_rows(&solo.conversation_id) > 0, "{:?}", kinds(&path_of(&t, &solo.conversation_id)));
+}

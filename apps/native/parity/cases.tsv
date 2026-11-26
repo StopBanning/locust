@@ -1836,7 +1836,7 @@ apps/desktop/src/main/codex-mission.test.ts	lets a Cursor mission edit when aske
 apps/desktop/src/main/codex-mission.test.ts	records nothing when the chosen options cannot be turned into a command	yes
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission on Windows in its ask mode, without the sandbox Windows cannot run	no
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission where the sandbox is real, and asks for it	yes
-apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	no
+apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	yes
 apps/desktop/src/main/codex-mission.test.ts	collapses a burst of records into one durable append	yes
 apps/desktop/src/main/codex-mission.test.ts	still persists every event before any of them is emitted	yes
 apps/desktop/src/main/codex-mission.test.ts	sends a chosen model to the runtime and records it	yes
@@ -1862,7 +1862,7 @@ apps/desktop/src/main/codex-mission.test.ts	runs without the channel when it can
 apps/desktop/src/main/codex-mission.test.ts	posts a share block to the named teammate, attributed to this mission, and links it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a share addressed to someone who is not on the roster, out loud	yes
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a run that did not complete	yes
-apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	no
+apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	yes
 apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a second conversation with the same teammate, and holds a reply to a turn still running (0.551)	no
 apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	yes
@@ -1884,12 +1884,12 @@ apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply
 apps/desktop/src/main/codex-mission.test.ts	refuses the cross-runtime continuation when the record cannot be trusted	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a fresh conversation when nothing is being continued	yes
 apps/desktop/src/main/codex-mission.test.ts	calls onShared with the origin and exactly the messages it posted, after they are recorded (%j)	no
-apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	no
-apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	no
-apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	no
+apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	yes
+apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	yes
+apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	yes
 apps/desktop/src/main/codex-mission.test.ts	a relayed run carries its hop through to what it shares	no
 apps/desktop/src/main/codex-mission.test.ts	adds an observed edit row, after the terminal event, for a file no tool named	yes
-apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	no
+apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	yes
 apps/desktop/src/main/codex-mission.test.ts	does not repeat a file the runtime already named, and never looks on a read-only run	no
 apps/desktop/src/main/codex-mission.test.ts	switches Codex's plan tool on from 0.153, so its plan reaches the panel rather than the reply	yes
 apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	yes
@@ -1912,7 +1912,7 @@ apps/desktop/src/main/codex-mission.test.ts	is still said to have changed on dis
 apps/desktop/src/main/codex-mission.test.ts	says looking, briefing, reading the folder and starting, in that order, and the end writes the note	yes
 apps/desktop/src/main/codex-mission.test.ts	says the runtime is setting itself up when its start will, and times it as the start	no
 apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only start, and says so by leaving the phase out	yes
-apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
+apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	yes
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
 apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	comes back as a reading beside the models, in the words a turn’s reading uses	yes

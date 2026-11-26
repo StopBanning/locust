@@ -302,6 +302,18 @@ fn a_real_start_on_a_runtime_discovery_does_not_find_is_refused_as_not_installed
 }
 
 #[test]
+fn names_the_runtime_the_user_actually_chose_when_it_is_unavailable() {
+    let t = Temp::new("chosen");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    // Only Codex was found; the person chose Claude Code.
+    h.set_held(vec![runtime("codex", Probe::Ready)]);
+    let refused = crate::native::start_readiness_refusal("claude", None).expect("refused");
+    assert!(refused.contains("Claude Code"), "{refused}");
+    assert!(!refused.contains("Codex"), "{refused}");
+}
+
+#[test]
 fn your_own_agent_and_an_added_account_are_not_asked_the_default_sign_in() {
     let t = Temp::new("skip");
     let _g = hooks::install(t.store(), fake_codex());
