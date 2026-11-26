@@ -739,9 +739,11 @@ pub fn tune_draft_prompt(
         lines.push(format!(
             "- \"know\" (label \"What it knows\"): write a focused {rt} skill (lowercase-hyphen name, concise description telling the teammate when to use it, and instructions body up to {MAX_SKILL_BODY} chars) kept beside Current's instructions."
         ));
-        // tune-drafts.ts: the teammate's own agent is named, Claude Code when none is given.
+        // tune-drafts.ts: the teammate's own agent is named, Claude Code when none is given, and the whole of what
+        // Electron says about the skill follows. Electron's reply key is "knows"; this prompt's reply format names
+        // that alternative "know", so the key is said as this prompt's reply asks for it.
         lines.push(format!(
-            "This teammate runs on {}, which loads a skill only when the work matches the skill's description, so a skill costs nothing on turns it does not fit.",
+            "This teammate runs on {}, which loads a skill only when the work matches the skill's description, so a skill costs nothing on turns it does not fit. Write \"know\" as one skill instead of an edit of the standing instructions, which stay as they are in that setup. Its name is at most {MAX_SKILL_NAME} characters of lower-case words or digits joined by single hyphens; its description is one sentence saying when to use it, in the words of the work it fits; its body holds the checks, at most {MAX_SKILL_BODY} characters. To keep things as they are instead, write \"know\" as {{\"instructions\": a copy of the current instructions, \"why\": why no edit is warranted}}.",
             runtime_name.unwrap_or("Claude Code")
         ));
     } else {
