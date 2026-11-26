@@ -372,3 +372,63 @@ fn keeps_every_handler_ipc_main_is_given_as_it_is_given_them() {
     ipc.remove_handler("a:b");
     assert!(!kept.lock().unwrap().contains_key("a:b"));
 }
+
+// ---- on the phone link: a browser's ask, read as shared/desk.ts `isDeskAsk` reads it ---------------------------------
+
+#[test]
+fn reads_a_browsers_ask_as_isdeskask_does_by_its_id_its_kind_and_a_calls_channel() {
+    use crate::desk_host::desk_ask_of;
+    let id64 = "a".repeat(64);
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello", "id": id64 })), Some(DeskAsk::Hello { id: id64.clone() }));
+    assert_eq!(desk_ask_of(&json!({ "kind": "take", "id": "t1" })), Some(DeskAsk::Take { id: "t1".into() }));
+    // ask.id.length counts UTF-16 units: 32 emoji are 64, 33 are 66.
+    assert!(desk_ask_of(&json!({ "kind": "hello", "id": "\u{1F600}".repeat(32) })).is_some());
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello", "id": "\u{1F600}".repeat(33) })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello", "id": "a".repeat(65) })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello", "id": "" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello", "id": 7 })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "hello" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "nonsense", "id": "x1" })), None);
+    assert_eq!(desk_ask_of(&json!("hello")), None);
+
+    // replay: only what is 'approvals'
+    assert_eq!(
+        desk_ask_of(&json!({ "kind": "replay", "id": "r1", "what": "approvals" })),
+        Some(DeskAsk::Replay { id: "r1".into(), what: "approvals".into() })
+    );
+    assert_eq!(desk_ask_of(&json!({ "kind": "replay", "id": "r1", "what": "everything" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "replay", "id": "r1" })), None);
+
+    // call: channel 1 to 120 long, args a string
+    let channel120 = "c".repeat(120);
+    assert_eq!(
+        desk_ask_of(&json!({ "kind": "call", "id": "c1", "channel": channel120, "args": "[]" })),
+        Some(DeskAsk::Call { id: "c1".into(), channel: channel120.clone(), args: "[]".into() })
+    );
+    assert_eq!(desk_ask_of(&json!({ "kind": "call", "id": "c1", "channel": "c".repeat(121), "args": "[]" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "call", "id": "c1", "channel": "", "args": "[]" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "call", "id": "c1", "channel": "appearance:get" })), None);
+    assert_eq!(desk_ask_of(&json!({ "kind": "call", "id": "c1", "channel": "appearance:get", "args": [] })), None);
+}
+
+#[test]
+fn tells_a_browser_in_the_four_shapes_shared_desk_ts_names() {
+    use crate::desk_host::desk_tell_json;
+    assert_eq!(
+        desk_tell_json(&DeskTell::ResOk { id: "c1".into(), value: "true".into() }),
+        json!({ "kind": "res", "id": "c1", "ok": true, "value": "true" })
+    );
+    assert_eq!(
+        desk_tell_json(&DeskTell::ResErr { id: "c2".into(), message: "No such call.".into(), refused: false }),
+        json!({ "kind": "res", "id": "c2", "ok": false, "message": "No such call." })
+    );
+    assert_eq!(
+        desk_tell_json(&DeskTell::ResErr { id: "c3".into(), message: "This works in Locust on your computer.".into(), refused: true }),
+        json!({ "kind": "res", "id": "c3", "ok": false, "message": "This works in Locust on your computer.", "refused": true })
+    );
+    assert_eq!(
+        desk_tell_json(&DeskTell::Ev { channel: "codex-mission:update".into(), args: "[1]".into() }),
+        json!({ "kind": "ev", "channel": "codex-mission:update", "args": "[1]" })
+    );
+    assert_eq!(desk_tell_json(&DeskTell::Taken { by: "browser".into() }), json!({ "kind": "taken", "by": "browser" }));
+}

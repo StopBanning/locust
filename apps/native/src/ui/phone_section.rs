@@ -2022,6 +2022,112 @@ mod tests {
         assert!(made.url.as_deref().is_some_and(|url| url.starts_with(&prefix)), "the link is this room's");
     }
 
+    /// A browser given the window, over a window whose appearance is the system's: `theme` says so (shared/appearance.ts).
+    #[test]
+    fn a_window_that_follows_the_system_theme_says_system_to_a_browser_that_reads_its_appearance() {
+        let (_root, store) = temp_store("desk-system");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        rt.state.appearance = None;
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+        desk_frame(
+            &relay,
+            &browser,
+            1,
+            serde_json::json!([
+                { "kind": "take", "id": "t1" },
+                { "kind": "call", "id": "c1", "channel": "appearance:get", "args": "[]" }
+            ]),
+        );
+        pump_until(&mut rt, "the read answered", |_| !told_desk(&relay, &browser, 0).is_empty());
+        let told = told_desk(&relay, &browser, 0);
+        let appearance: serde_json::Value = serde_json::from_str(told[0]["items"][1]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["theme"], "system");
+        assert!(matches!(appearance["resolved"].as_str(), Some("light" | "dark")), "{appearance}");
+    }
+
+    /// This computer takes the window back from the browser that has it: the browser is told, the host lets go.
+    #[test]
+    fn taking_the_window_back_on_this_computer_tells_the_browser_that_had_it() {
+        let (_root, store) = temp_store("desk-take-back");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+        desk_frame(&relay, &browser, 1, serde_json::json!([{ "kind": "take", "id": "t1" }]));
+        pump_until(&mut rt, "the browser has the window", |s| s.elsewhere_cover.covered && !told_desk(&relay, &browser, 0).is_empty());
+        let host = rt.state.phone_anywhere_link.desk.clone().expect("the window's desk host");
+        assert_eq!(host.active().as_deref(), Some(browser.device.as_str()));
+
+        crate::elsewhere_cover::take_back(&mut rt.state);
+        pump_until(&mut rt, "the browser told", |_| told_desk(&relay, &browser, 1).len() == 1);
+        let gone = told_desk(&relay, &browser, 1);
+        assert_eq!(gone[0]["items"], serde_json::json!([{ "kind": "taken", "by": "computer" }]));
+        assert_eq!(host.active(), None);
+        assert!(!rt.state.elsewhere_cover.covered);
+    }
+
+    /// A browser just given the window is handed the approval cards already waiting on this computer
+    /// (desk-host.ts `replay: 'approvals'`, with what the window hears as `MissionApprovalRequest`).
+    #[test]
+    fn a_browser_given_the_window_is_handed_the_cards_already_waiting_on_this_computer() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        // The card is the whole process's, and the window counts a card's conversation as live: hold the engine, as every
+        // test that runs a turn does, so no other test's window sees it.
+        let (_engine_dir, engine_store) = crate::org::tests::temp_store();
+        let _engine = locust_core::native::hooks::install(engine_store, None);
+        let (_root, store) = temp_store("desk-waiting");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        let stop = Arc::new(AtomicBool::new(false));
+        let asking = {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let _ = locust_core::native::approvals_channel().ask_browser("m_desk_waiting", "Open a page", "https://example.test/", &|| stop.load(Ordering::SeqCst));
+            })
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while !locust_core::engine_api::api().waiting().iter().any(|r| r.mission_id == "m_desk_waiting") {
+                assert!(std::time::Instant::now() < deadline, "the card never waited");
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            click_key(&mut rt, "phone-switch");
+            pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+            let browser = pair_desk_browser(&mut rt, &relay);
+            desk_frame(
+                &relay,
+                &browser,
+                1,
+                serde_json::json!([{ "kind": "take", "id": "t1" }, { "kind": "replay", "id": "r1", "what": "approvals" }]),
+            );
+            let card = |relay: &FakeRelay, browser: &DeskBrowser| {
+                told_desk(relay, browser, 0)
+                    .iter()
+                    .flat_map(|said| said["items"].as_array().cloned().unwrap_or_default())
+                    .filter(|item| item["kind"] == "ev" && item["channel"] == "mission-approval:request")
+                    .filter_map(|item| serde_json::from_str::<serde_json::Value>(item["args"].as_str()?).ok())
+                    .map(|args| args[0].clone())
+                    .find(|card| card["missionId"] == "m_desk_waiting")
+            };
+            pump_until(&mut rt, "the waiting card told", |_| card(&relay, &browser).is_some());
+            let card = card(&relay, &browser).unwrap();
+            assert_eq!(card["runtime"], "browser");
+            assert_eq!(card["kind"], "connector");
+            assert_eq!(card["summary"], "Open a page");
+            assert_eq!(card["detail"], "https://example.test/");
+            assert!(card["approvalId"].as_str().is_some_and(|id| !id.is_empty()), "{card}");
+        }));
+        stop.store(true, Ordering::SeqCst);
+        asking.join().unwrap();
+        if let Err(panic) = result {
+            std::panic::resume_unwind(panic);
+        }
+    }
+
     /// What the PC answered the relay for one app's request.
     fn answered(relay: &FakeRelay, ask: &str) -> serde_json::Value {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
