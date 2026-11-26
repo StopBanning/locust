@@ -835,6 +835,39 @@ fn js_number(value: f64) -> String {
     }
 }
 
+/// `x` to `decimals` places the way `Intl.NumberFormat` writes it (Electron `formatNumber`): from the shortest decimal
+/// that reads back as `x`, half rounded up. Rust's own `{:.n}` rounds the exact binary value, so it writes 0.285 as
+/// 0.28 and 12.5 as 12 where Electron writes 0.29 and 13.
+fn fixed_half_up(x: f64, decimals: usize) -> String {
+    if !x.is_finite() {
+        return format!("{x:.decimals$}");
+    }
+    let shortest = x.to_string();
+    let (whole, fraction) = shortest.split_once('.').unwrap_or((shortest.as_str(), ""));
+    let fraction = format!("{fraction:0<width$}", width = decimals + 1);
+    let mut digits: Vec<u8> = whole.bytes().chain(fraction.bytes().take(decimals)).collect();
+    if fraction.as_bytes()[decimals] >= b'5' {
+        let mut at = digits.len();
+        loop {
+            if at == 0 {
+                digits.insert(0, b'1');
+                break;
+            }
+            at -= 1;
+            if digits[at] == b'9' {
+                digits[at] = b'0';
+            } else {
+                digits[at] += 1;
+                break;
+            }
+        }
+    }
+    let point = digits.len() - decimals;
+    let (whole, fraction) = digits.split_at(point);
+    let whole = String::from_utf8_lossy(whole);
+    if decimals == 0 { whole.into_owned() } else { format!("{whole}.{}", String::from_utf8_lossy(fraction)) }
+}
+
 /// A number the way its style asks, within reason (Electron `formatNumber`): decimals, thousands, percent, a currency
 /// sign.
 fn format_number(value: f64, format: Option<&str>) -> String {
@@ -851,7 +884,7 @@ fn format_number(value: f64, format: Option<&str>) -> String {
     let grouped = bare.contains(',');
     let sign = section.chars().find(|c| matches!(c, '$' | '€' | '£' | '¥'));
     let shown = if percent { value * 100.0 } else { value };
-    let fixed = format!("{:.*}", decimals, shown.abs());
+    let fixed = fixed_half_up(shown.abs(), decimals);
     let (whole, fraction) = fixed.split_once('.').map_or((fixed.as_str(), None), |(w, f)| (w, Some(f)));
     let mut digits = String::new();
     for (at, c) in whole.chars().enumerate() {

@@ -179,3 +179,31 @@ fn a_slides_number_date_and_footer_are_left_out() {
     .expect("reads");
     assert_eq!(read.blocks, [slide(1, "Only this")]);
 }
+
+// Lane check: the bounds sit where Electron's `shared/office-document.ts` puts them
+// (`MAX_DOCUMENT_TABLE_ROWS = 200`, `MAX_DOCUMENT_TEXT = 4_000`, `flat.length <= MAX_DOCUMENT_TEXT` keeps the text whole).
+
+#[test]
+fn a_table_of_exactly_the_bound_is_whole_and_says_nothing_about_a_cut() {
+    let rows: String = (0..200).map(|i| format!("<w:tr><w:tc><w:p><w:r><w:t>{i}</w:t></w:r></w:p></w:tc></w:tr>")).collect();
+    let blocks = docx(&format!("<w:document {W}><w:body><w:tbl>{rows}</w:tbl></w:body></w:document>"));
+    assert_eq!(blocks.len(), 1, "{blocks:?}");
+    let DocumentBlock::Table { rows } = &blocks[0] else { panic!("a table: {blocks:?}") };
+    assert_eq!(rows.len(), 200);
+}
+
+#[test]
+fn a_table_one_row_past_the_bound_keeps_the_bound_and_says_how_many_it_has() {
+    let rows: String = (0..201).map(|i| format!("<w:tr><w:tc><w:p><w:r><w:t>{i}</w:t></w:r></w:p></w:tc></w:tr>")).collect();
+    let blocks = docx(&format!("<w:document {W}><w:body><w:tbl>{rows}</w:tbl></w:body></w:document>"));
+    let DocumentBlock::Table { rows } = &blocks[0] else { panic!("a table first: {blocks:?}") };
+    assert_eq!(rows.len(), 200);
+    assert_eq!(blocks[1], paragraph("(This table has 201 rows and 1 columns; the first 200 rows and 1 columns are shown.)"));
+}
+
+#[test]
+fn a_block_of_exactly_the_text_bound_is_whole_and_one_more_is_cut() {
+    let body = |text: &str| docx(&format!("<w:document {W}><w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body></w:document>"));
+    assert_eq!(body(&"a".repeat(4_000)), [paragraph(&"a".repeat(4_000))]);
+    assert_eq!(body(&"a".repeat(4_001)), [paragraph(&format!("{}… (cut here)", "a".repeat(4_000)))]);
+}

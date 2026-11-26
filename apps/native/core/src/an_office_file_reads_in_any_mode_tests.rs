@@ -104,3 +104,30 @@ fn a_turns_brief_names_each_documents_copy() {
     assert!(brief.contains("Word and PowerPoint files here are not plain text"), "{brief}");
     assert!(brief.contains(&format!("- report.docx: {OFFICE_WORDS_DIR}/report.docx.md")), "{brief}");
 }
+
+// Lane check: Electron's `office-words.ts` source, not its test: `SKIPPED` names `target` among the folders it never
+// looks in, and `keepOutOfGit(folder)` keeps the copies out of a repository's commits.
+
+#[test]
+fn never_looks_in_a_build_folder_or_a_dot_folder_and_looks_one_level_down_in_any_other() {
+    let here = project();
+    for folder in ["target", "node_modules", "dist", ".hidden", "notes"] {
+        std::fs::create_dir_all(here.0.join(folder)).unwrap();
+        std::fs::write(here.0.join(folder).join("inside.docx"), REPORT).unwrap();
+    }
+    let section = office_words_section(&here.0).unwrap_or_default();
+    assert!(section.contains("- notes/inside.docx: "), "{section}");
+    for skipped in ["target/", "node_modules/", "dist/", ".hidden/"] {
+        assert!(!section.contains(skipped), "{skipped} is not looked in: {section}");
+    }
+}
+
+#[test]
+fn keeps_its_copies_out_of_a_repositorys_commits() {
+    let here = project();
+    std::fs::create_dir_all(here.0.join(".git").join("info")).unwrap();
+    std::fs::write(here.0.join("report.docx"), REPORT).unwrap();
+    assert!(office_words_section(&here.0).is_some());
+    let exclude = std::fs::read_to_string(here.0.join(".git").join("info").join("exclude")).unwrap_or_default();
+    assert!(exclude.lines().any(|line| line.trim_end_matches('/').trim_start_matches('/') == ".locust"), "{exclude}");
+}

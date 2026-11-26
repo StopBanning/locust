@@ -111,3 +111,12 @@ fn refuses_unknown_conversations_teammates_and_worktrees_instead_of_guessing_a_f
     assert_eq!(folder(TerminalContext { mission_id: None, teammate_id: Some("unknown".into()) }, &options()), None);
     assert_eq!(folder(TerminalContext { mission_id: None, teammate_id: Some("alice".into()) }, &Options { trees: Vec::new(), ..options() }), None);
 }
+
+// Lane check: Electron `policyTerminalRefusal` refuses when `highestMode !== undefined && highestMode !== 'auto'`.
+#[test]
+fn a_highest_mode_of_auto_leaves_the_terminal_to_the_person_and_any_lower_one_refuses_it() {
+    assert_eq!(terminal_refusal(Some(&state(json!({ "highestMode": "auto" })))), None);
+    for lower in ["plan", "ask", "accept-edits", "approve-each"] {
+        assert!(terminal_refusal(Some(&state(json!({ "highestMode": lower })))).is_some(), "{lower}");
+    }
+}

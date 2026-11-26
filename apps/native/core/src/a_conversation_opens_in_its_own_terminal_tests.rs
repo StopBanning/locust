@@ -252,3 +252,30 @@ fn is_refused_with_the_reason_for_antigravity_a_model_of_your_own_a_turn_with_no
     assert!(refused(Facts { launch: None, ..facts() }).contains("could not find Claude Code"));
     assert!(refused(Facts { mission: None, ..facts() }).contains("not in the ledger"));
 }
+
+// Lane check: Electron's `terminalProgram` unwraps only `cmd.exe /d /s /c <launcher>`; a cmd line with any other
+// switch (`/k` keeps the window open, `/q` turns echo off) is not one it may take the launcher out of.
+#[test]
+fn takes_the_launcher_out_of_cmd_only_for_exactly_d_s_c() {
+    let cursor = cursor();
+    assert_eq!(&cursor.prefix_args[..3], ["/d", "/s", "/c"]);
+    let resume = words(&["--resume=abc"]);
+    for (at, other) in [(0, "/q"), (1, "/x"), (2, "/k")] {
+        let mut launch = cursor.clone();
+        launch.prefix_args[at] = other.into();
+        let program = terminal_program(&launch, &resume);
+        assert_eq!(program.file, launch.executable_path, "{other} at {at} stays wrapped");
+        assert_eq!(program.args, launch.prefix_args.iter().chain(&resume).cloned().collect::<Vec<_>>());
+    }
+}
+
+#[test]
+fn takes_the_launcher_out_of_a_program_named_cmd_exe_and_never_one_that_only_ends_that_way() {
+    let mut launch = cursor();
+    for executable in ["C:\\Windows\\System32\\CMD.EXE", "cmd.exe", "/usr/bin/cmd.exe"] {
+        launch.executable_path = executable.into();
+        assert_eq!(terminal_program(&launch, &[]).file, launch.prefix_args[3], "{executable}");
+    }
+    launch.executable_path = "C:\\tools\\xcmd.exe".into();
+    assert_eq!(terminal_program(&launch, &[]).file, launch.executable_path);
+}
