@@ -10,6 +10,7 @@ fn codex(raw: &str) -> String {
     provider_error_sentence(raw, Some("codex"))
 }
 
+// case: reads the recorded error %s as a sentence
 #[test]
 fn reads_each_recorded_error_as_a_sentence() {
     assert_eq!(codex(MODEL_ERROR), "OpenAI refused the model gpt-6.1-sol: it is not enabled here right now. Pick another model and send again.");
@@ -133,4 +134,97 @@ fn an_unknown_model_is_named_and_unavailable_is_never_a_models_name() {
 #[test]
 fn an_invalid_api_key_is_an_access_refusal() {
     assert_eq!(codex(r#"{"message":"Invalid API key provided"}"#), ACCESS_SAID);
+}
+
+// ---- 'Codex preserves provider evidence and emits readable error messages', through each runtime's own reader -------
+// Rust drives Codex over its app server only, so the exec `error` record is carried as the app server's `error`
+// notification, and an exec item error that is not the end as an `error` that will be retried (as in
+// codex_events_case_tests.rs).
+
+use crate::runtime::{Event, events::Normalizer};
+use serde_json::json;
+
+const CASES: [(&str, &str); 5] = [
+    (MODEL_ERROR, "OpenAI refused the model gpt-6.1-sol: it is not enabled here right now. Pick another model and send again."),
+    (RATE, RATE_SAID),
+    (r#"{"message":"Service unavailable","status":503}"#, "OpenAI is overloaded or unavailable right now. Try again later, or pick another model."),
+    (r#"{"error":{"message":"Unauthorized"},"status":401}"#, ACCESS_SAID),
+    ("The connection closed before the answer finished.", "The connection closed before the answer finished."),
+];
+
+fn app_server_error(message: &str, will_retry: bool) -> Vec<Event> {
+    Normalizer::default().accept("error", &json!({ "error": { "message": message }, "willRetry": will_retry }))
+}
+
+fn of<'a>(events: &'a [Event], kind: &str) -> &'a Event {
+    events.iter().find(|e| e.kind == kind).unwrap_or_else(|| panic!("no {kind} in {:?}", events.iter().map(|e| &e.kind).collect::<Vec<_>>()))
+}
+
+// case: keeps the evidence for %s
+#[test]
+fn keeps_the_evidence_for_each_recorded_error() {
+    for (raw, expected) in CASES {
+        let events = app_server_error(raw, false);
+        let failed = of(&events, "run.failed");
+        assert_eq!(failed.payload["message"], expected, "{raw}");
+        assert_eq!(failed.payload["evidence"]["raw"]["message"], raw, "{raw}");
+    }
+}
+
+#[test]
+fn gives_a_direct_provider_rate_limit_warning_the_same_sentence_as_its_final_failure() {
+    let direct = RATE.replace(r#"{"error""#, r#"{"type":"error","error""#);
+    let events = app_server_error(&direct, false);
+    assert_eq!(of(&events, "route.limit_detected").payload["message"], RATE_SAID);
+    assert_eq!(of(&events, "run.failed").payload["message"], RATE_SAID);
+}
+
+#[test]
+fn formats_item_errors_without_ending_a_turn_that_can_still_recover() {
+    let events = app_server_error(MODEL_ERROR, true);
+    let said = of(&events, "adapter.diagnostic");
+    assert_eq!(said.payload["message"], CASES[0].1);
+    assert_eq!(said.payload["terminal"], false);
+    assert!(!events.iter().any(|e| e.kind == "run.failed"));
+}
+
+#[test]
+fn formats_the_app_server_error_without_losing_the_original_notification() {
+    let events = app_server_error(MODEL_ERROR, false);
+    assert_eq!(of(&events, "run.failed").payload["message"], CASES[0].1);
+    let all = serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
+    assert!(all.contains("rustponsesapi"), "{all}");
+}
+
+// ---- 'other failed-result strings use the same provider sentences' -------------------------------------------------
+
+#[test]
+fn formats_claude_and_cursor_result_errors() {
+    let record = json!({ "type": "result", "is_error": true, "subtype": "error", "result": RATE });
+    let mut claude = crate::runtime::claude_events::ClaudeNormalizer::default();
+    claude.accept(&record);
+    let failed = claude.finish(false, "");
+    assert_eq!(failed.kind, "run.failed");
+    assert_eq!(failed.payload["message"], "Anthropic rate limited this request. Wait a while, or pick another model and send again.");
+    assert_eq!(failed.payload["message"], provider_error_sentence(RATE, Some("claude")));
+    assert_eq!(failed.payload["evidence"]["raw"]["result"], RATE);
+
+    let mut cursor = crate::runtime::cursor_events::CursorNormalizer::default();
+    cursor.accept_line(&record.to_string());
+    let failed = cursor.finish(false, Some(1));
+    assert_eq!(failed.kind, "run.failed");
+    assert_eq!(failed.payload["message"], "Cursor's provider rate limited this request. Wait a while, or pick another model and send again.");
+    assert_eq!(failed.payload["message"], provider_error_sentence(RATE, Some("cursor")));
+    assert_eq!(failed.payload["evidence"]["raw"]["result"], RATE);
+}
+
+#[test]
+fn formats_antigravity_clis_result_error_before_adding_a_runtime_prefix() {
+    let mut agy = crate::runtime::agy_events::AgyNormalizer::default();
+    agy.accept_line(&json!({ "event": "result", "result": { "status": "FAILED", "error": RATE } }).to_string());
+    let ending = agy.finish(false, Some(1));
+    let failed = of(&ending, "run.failed");
+    assert_eq!(failed.payload["message"], "Antigravity's provider rate limited this request. Wait a while, or pick another model and send again.");
+    assert_eq!(failed.payload["message"], provider_error_sentence(RATE, Some("antigravity")));
+    assert_eq!(failed.payload["evidence"]["raw"]["result"]["error"], RATE);
 }

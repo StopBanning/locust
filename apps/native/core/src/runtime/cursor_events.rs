@@ -142,65 +142,6 @@ fn assistant_text(parsed: &Value) -> String {
         .join("")
 }
 
-/// Cursor's provider refusal wording (provider-error.ts, cursor branch).
-pub fn provider_error_sentence(message: &str) -> String {
-    let lower = message.to_ascii_lowercase();
-    let provider = "Cursor's provider";
-    if (lower.contains("model") || lower.contains("model_not_found"))
-        && (lower.contains("not enabled")
-            || lower.contains("not found")
-            || lower.contains("does not exist")
-            || lower.contains("unknown model")
-            || lower.contains("model_not_found"))
-    {
-        let reason = if lower.contains("not enabled") {
-            "it is not enabled here right now"
-        } else {
-            "it could not be found or is not available here"
-        };
-        return format!(
-            "{provider} refused the model: {reason}. Pick another model and send again."
-        );
-    }
-    if lower.contains("insufficient_quota")
-        || lower.contains("usage limit")
-        || (lower.contains("quota") && (lower.contains("exhausted") || lower.contains("exceeded")))
-    {
-        return format!(
-            "{provider} reported that its usage limit has been reached. Pick another model, or try again when usage is available."
-        );
-    }
-    if lower.contains("rate") && lower.contains("limit") || lower.contains("too many requests") {
-        return format!(
-            "{provider} rate limited this request. Wait a while, or pick another model and send again."
-        );
-    }
-    if lower.contains("overloaded")
-        || lower.contains("service unavailable")
-        || lower.contains("temporarily unavailable")
-    {
-        return format!(
-            "{provider} is overloaded or unavailable right now. Try again later, or pick another model."
-        );
-    }
-    if lower.contains("authentication")
-        || lower.contains("unauthorized")
-        || lower.contains("invalid api key")
-    {
-        return format!(
-            "{provider} refused this request because of sign-in or access permissions. Check the agent's sign-in and model access, then send again."
-        );
-    }
-    // Non-JSON / unrecognized: leave message unchanged (provider-error.ts).
-    if message.trim().starts_with('{') {
-        let cleaned = message.trim_end_matches(['.', '!', '?']);
-        return format!(
-            "{provider} refused this request: {cleaned}. Check the model and account settings before sending again."
-        );
-    }
-    message.to_owned()
-}
-
 /// toolPatchFrom (codex-events.ts): counts from a unified diff, text bounded.
 pub fn tool_patch_from(unified: &str) -> Option<Value> {
     if unified.is_empty() {
@@ -313,6 +254,8 @@ pub struct CursorNormalizer {
     todos: HashMap<String, Value>,
     pub saw_result: bool,
     terminal_failure: Option<String>,
+    /// The failed result's record, kept on the run's failure (cursor-events.ts terminalFailureEvidence).
+    terminal_failure_evidence: Option<Value>,
     usage: Option<Value>,
     message_index: usize,
     thinking: bool,
@@ -394,6 +337,9 @@ impl CursorNormalizer {
                 "runtimeTerminal": "failed",
                 "process": self.process(false, false, exit_code)
             });
+            if let Some(evidence) = self.terminal_failure_evidence.take() {
+                p["evidence"] = evidence;
+            }
             if let Some(t) = thread {
                 p["runtimeThreadId"] = json!(t);
             }
@@ -613,6 +559,7 @@ impl CursorNormalizer {
             let is_error = parsed["is_error"] == true;
             let subtype = s(parsed, "subtype");
             if is_error || (!subtype.is_empty() && subtype != "success") {
+                self.terminal_failure_evidence = Some(self.evidence("result"));
                 let raw = s(parsed, "result");
                 let message = if raw.is_empty() {
                     format!(
@@ -626,7 +573,7 @@ impl CursorNormalizer {
                 } else {
                     raw.to_owned()
                 };
-                self.terminal_failure = Some(text(&provider_error_sentence(&message), 16384));
+                self.terminal_failure = Some(text(&crate::provider_error::provider_error_sentence(&message, Some("cursor")), 16384));
             }
             return vec![];
         }

@@ -739,6 +739,11 @@ pub fn tune_draft_prompt(
         lines.push(format!(
             "- \"know\" (label \"What it knows\"): write a focused {rt} skill (lowercase-hyphen name, concise description telling the teammate when to use it, and instructions body up to {MAX_SKILL_BODY} chars) kept beside Current's instructions."
         ));
+        // tune-drafts.ts: the teammate's own agent is named, Claude Code when none is given.
+        lines.push(format!(
+            "This teammate runs on {}, which loads a skill only when the work matches the skill's description, so a skill costs nothing on turns it does not fit.",
+            runtime_name.unwrap_or("Claude Code")
+        ));
     } else {
         lines.push(
             "- \"know\" (label \"What it knows\"): change the teammate's domain context, criteria, edge-case knowledge, or constraints."

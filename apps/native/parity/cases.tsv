@@ -1759,18 +1759,18 @@ apps/desktop/src/main/cloud-tasks.test.ts	reads a finished task as Codex prints 
 apps/desktop/src/main/cloud-tasks.test.ts	reads the same on one line	yes
 apps/desktop/src/main/cloud-tasks.test.ts	reads one still going, with nothing to count yet	yes
 apps/desktop/src/main/cloud-tasks.test.ts	reads anything it does not know as unknown	yes
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the candidate on Windows when a library folder differs only in case	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the first frontmatter name even when the directory names and YAML spellings differ	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps case-distinct skills on a case-sensitive machine	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	asks the disk, not the platform, whether two names that differ only in case are one	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	publishes no part of a skill whose copy fails after SKILL.md arrived	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tune names the teammate’s own agent when it drafts "What it knows" as a skill	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	no
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	no
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the candidate on Windows when a library folder differs only in case	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps the first frontmatter name even when the directory names and YAML spellings differ	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	keeps case-distinct skills on a case-sensitive machine	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	asks the disk, not the platform, whether two names that differ only in case are one	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	publishes no part of a skill whose copy fails after SKILL.md arrived	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tune names the teammate’s own agent when it drafts "What it knows" as a skill	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	yes
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	no
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	a log the call made is gone afterwards, and the answer is unchanged	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.log keeps its lines; only Codex's are taken off	yes
@@ -8137,20 +8137,20 @@ packages/runtime-adapters/test/process-runner.test.ts	keeps a result line past t
 packages/runtime-adapters/test/process-runner.test.ts	still ends the turn on a result line too large even for its own cap	yes
 packages/runtime-adapters/test/process-runner.test.ts	gives an ordinary line no larger cap, whatever it says	yes
 packages/runtime-adapters/test/process-runner.test.ts	offers no send on any other transport	yes
-packages/runtime-adapters/test/provider-error.test.ts	reads the recorded error %s as a sentence	no
+packages/runtime-adapters/test/provider-error.test.ts	reads the recorded error %s as a sentence	yes
 packages/runtime-adapters/test/provider-error.test.ts	separates missing models, quota exhaustion and access refusal	yes
 packages/runtime-adapters/test/provider-error.test.ts	quotes unknown JSON messages without dumping their fields	yes
 packages/runtime-adapters/test/provider-error.test.ts	leaves malformed JSON and JSON without an error message alone	yes
 packages/runtime-adapters/test/provider-error.test.ts	unwraps an encoded provider body without losing its status	yes
-packages/runtime-adapters/test/provider-error.test.ts	keeps the evidence for %s	no
+packages/runtime-adapters/test/provider-error.test.ts	keeps the evidence for %s	yes
 packages/runtime-adapters/test/provider-error.test.ts	reads the provider's direct JSON event and keeps its original object	no
-packages/runtime-adapters/test/provider-error.test.ts	gives a direct provider rate-limit warning the same sentence as its final failure	no
+packages/runtime-adapters/test/provider-error.test.ts	gives a direct provider rate-limit warning the same sentence as its final failure	yes
 packages/runtime-adapters/test/provider-error.test.ts	reads a direct provider object without an HTTP status and accepts statusCode	no
-packages/runtime-adapters/test/provider-error.test.ts	formats item errors without ending a turn that can still recover	no
+packages/runtime-adapters/test/provider-error.test.ts	formats item errors without ending a turn that can still recover	yes
 packages/runtime-adapters/test/provider-error.test.ts	formats a failed turn's own message	no
-packages/runtime-adapters/test/provider-error.test.ts	formats the app-server error without losing the original notification	no
-packages/runtime-adapters/test/provider-error.test.ts	formats Claude and Cursor result errors	no
-packages/runtime-adapters/test/provider-error.test.ts	formats Antigravity CLI's result error before adding a runtime prefix	no
+packages/runtime-adapters/test/provider-error.test.ts	formats the app-server error without losing the original notification	yes
+packages/runtime-adapters/test/provider-error.test.ts	formats Claude and Cursor result errors	yes
+packages/runtime-adapters/test/provider-error.test.ts	formats Antigravity CLI's result error before adding a runtime prefix	yes
 packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	the failure names the directory boundary, not a missing stop	yes
 packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	still reports an ordinary early exit as one	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Codex never receives add-dir, including in full access	yes
@@ -8179,7 +8179,7 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	still refuses everything
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads an unstated sandbox as the strictest one	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	carries the sandbox on the spec, so the runner can judge what it spawns	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	parses prerelease versions returned by installed CLIs	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	prefers native Windows executables and safely wraps PowerShell shims	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	prefers native Windows executables and safely wraps PowerShell shims	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	probes a CLI launched through the app binary with the launch's environment	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads a logged-out Cursor Agent from its text, because its status command exits 0 either way	yes
@@ -8204,18 +8204,18 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	refuses an effort for a 
 packages/runtime-adapters/test/runtime-adapters.test.ts	runs Gemini headless with the prompt on stdin, trusting only this workspace	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses OpenCode's session sharing and Copilot's ways out of the workspace	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses Gemini's yolo mode and Cursor's force flag in any spelling	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	finds OpenCode's and Copilot's launchers in the npm bin directory without PATH	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	prefers a shim on PATH over an executable in a guessed install directory	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	runs a .cmd shim through cmd.exe, and prefers it to the .ps1 npm writes beside it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	resolves an npm .cmd shim past cmd.exe to the node script it wraps	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	resolves the shim of an install that is not global, which points one folder up	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	prefers the node.exe npm keeps beside its shim, the way the shim itself does	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	resolves an npm .cmd shim around a native binary to the binary itself	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe when the binary an npm shim names is not there	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for a .cmd that is not an npm shim	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for an npm shim when no node.exe can be found	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	finds Copilot CLI where it unpacks itself, when npm's bin directory is not there either	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	finds Cursor's launcher in its own install directory without PATH	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	finds OpenCode's and Copilot's launchers in the npm bin directory without PATH	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	prefers a shim on PATH over an executable in a guessed install directory	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	runs a .cmd shim through cmd.exe, and prefers it to the .ps1 npm writes beside it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	resolves an npm .cmd shim past cmd.exe to the node script it wraps	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	resolves the shim of an install that is not global, which points one folder up	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	prefers the node.exe npm keeps beside its shim, the way the shim itself does	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	resolves an npm .cmd shim around a native binary to the binary itself	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe when the binary an npm shim names is not there	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for a .cmd that is not an npm shim	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for an npm shim when no node.exe can be found	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	finds Copilot CLI where it unpacks itself, when npm's bin directory is not there either	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	finds Cursor's launcher in its own install directory without PATH	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only OpenCode mission with the permission config that actually enforces it	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	gives a run with no shell Locust's git tool, and only such a run	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	yes
@@ -8256,9 +8256,9 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	resumes a Codex session 
 packages/runtime-adapters/test/runtime-adapters.test.ts	carries a write-capable resume as the same override, not as a flag	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	starts a fresh conversation when no session is given	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses a session id that is not plain text	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	finds Codex in its versioned install root when PATH knows nothing	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	finds Codex in its versioned install root when PATH knows nothing	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	yes
 packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	yes
