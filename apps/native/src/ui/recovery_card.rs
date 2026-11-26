@@ -179,9 +179,9 @@ mod tests {
         let cut_short = rt.state.ledger.as_ref().map(|p| p.snapshot.tip.clone()).unwrap();
         assert!(rt.find("resume-from-checkpoint").is_none(), "nothing to resume while it runs");
 
-        // Locust quits under the turn; the next launch reads the checkpoint the quit kept.
-        native::shutdown_in_background_for(Duration::from_secs(8));
-        native::wait_for_shutdown();
+        // Locust quits under the turn, as the window closes it (through the engine); the card reads the checkpoint the quit kept.
+        locust_core::engine_api::api().shut_down();
+        locust_core::engine_api::api().wait_for_shutdown();
         drop(hook);
         let _hook = native::hooks::install(store.clone(), fake("cards-share"));
         pump(&mut rt, "the card", |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running && p.snapshot.recovery.is_some()));
