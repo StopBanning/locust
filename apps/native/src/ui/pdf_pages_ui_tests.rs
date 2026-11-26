@@ -186,3 +186,40 @@ fn a_pdf_drawn_whole_says_nothing_more() {
         assert!(!texts(&rt).iter().any(|t| t.contains("Page 1")), "{:?}", texts(&rt));
     }
 }
+
+/// Electron's `readAttachedPdfs` (main/index.ts, 0.713): a PDF is opened for the agent the moment it is attached, in the
+/// folder the turn will run in -- the teammate's own, not the one Locust has open -- so Send finds it read rather than
+/// reading it a second time (`pdf_arrives_readable_tests`: "Send waits for the reading the attach button started").
+#[cfg(target_os = "macos")]
+#[test]
+fn a_pdf_attached_in_the_composer_starts_being_opened_in_the_folder_the_turn_runs_in() {
+    let own = temp("attach-own");
+    let open = temp("attach-open");
+    let pdf = own.0.join("Homework 5.pdf");
+    std::fs::write(&pdf, pdf_of(2)).unwrap();
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm".into(),
+        name: "Wren".into(),
+        role: String::new(),
+        runtime: None,
+        model: None,
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(own.0.to_string_lossy().into_owned()),
+    });
+    s.home.folder_path = Some(open.0.to_string_lossy().into_owned());
+    crate::composer_wiring::attach_dropped_paths(&mut s, &[pdf.clone()]);
+    assert_eq!(s.attached, [pdf.to_string_lossy().into_owned()]);
+    // Electron's layout: `<folder>/.locust/attachments/<name>.txt`, and the pictures with what was read kept beside them.
+    let kept = own.0.join(".locust/attachments/Homework 5.pdf-pages/locust-reading.json");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !kept.is_file() {
+        assert!(std::time::Instant::now() < deadline, "the attached PDF was never opened");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(own.0.join(".locust/attachments/Homework 5.pdf.txt").is_file());
+    assert!(own.0.join(".locust/attachments/Homework 5.pdf-pages/page-02.png").is_file());
+    assert!(!open.0.join(".locust").exists(), "nothing is written in a folder the turn does not run in");
+}

@@ -479,8 +479,8 @@ apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	is fi
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	leaves a finished tree exactly as it is	no
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	does nothing to a .git file that points outside the repository	yes
 apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	travels as itself when Locust knows it	yes
-apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read-only Ask when it is missing or malformed	no
-apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read the same way by start, handoff and resume	no
+apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read-only Ask when it is missing or malformed	yes
+apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read the same way by start, handoff and resume	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	with no message to its new owner says so on their row	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	with a message to them in the same reply says only who handed it over	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	a message to somebody else is not a note to them	yes
@@ -689,7 +689,7 @@ apps/desktop/src/main/a-pdf-arrives-readable.test.ts	sits between the file list 
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	writes the text with each page under its number, and one picture a page	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	reads the same PDF once, and again when it changes	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a scan has pictures and no text file	yes
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading the attach button started, rather than starting a second	no
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading the attach button started, rather than starting a second	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	yes
@@ -1794,8 +1794,8 @@ apps/desktop/src/main/codex-mission.test.ts	leaves a registered run its skills u
 apps/desktop/src/main/codex-mission.test.ts	gives a Cursor run its copied skills plugin and removes it when the process finishes	no
 apps/desktop/src/main/codex-mission.test.ts	records that a plan was a plan, while still holding it read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when the workspace has Auto switched off, and records nothing	yes
-apps/desktop/src/main/codex-mission.test.ts	refuses a paid route in a window held to free routes, before anything is asked or recorded	no
-apps/desktop/src/main/codex-mission.test.ts	lets a free route through a window held to free routes	no
+apps/desktop/src/main/codex-mission.test.ts	refuses a paid route in a window held to free routes, before anything is asked or recorded	yes
+apps/desktop/src/main/codex-mission.test.ts	lets a free route through a window held to free routes	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when nobody wired the switch at all	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses the NEXT Auto run once the switch is taken back, on the same service	yes
 apps/desktop/src/main/codex-mission.test.ts	runs an Auto mission on the widest sandbox once the workspace allows it	yes

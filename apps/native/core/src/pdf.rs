@@ -184,6 +184,10 @@ pub fn readable_pdf_with(
     max_pictures: usize,
     read: impl FnOnce(&[u8]) -> Result<PdfReading, String>,
 ) -> Result<ReadablePdf, String> {
+    // One reading of a PDF at a time (Electron's `createPdfReadings`): the attach button starts one
+    // (`read_attached_pdfs`), and a Send that comes before it is done -- in this process, or in the engine's, where
+    // turns run -- waits here for it, then is answered from what it wrote below rather than reading the PDF again.
+    let _reading = held_while_read(&folder.join(pdf));
     let could_not = || pages_refusal("could-not").to_string();
     let meta = fs::metadata(folder.join(pdf)).map_err(|_| could_not())?;
     if !meta.is_file() || meta.len() == 0 || meta.len() > MAX_PDF_BYTES {
@@ -220,6 +224,43 @@ pub fn readable_pdf_with(
     let record = serde_json::json!({ "digest": digest, "readable": { "pages": reading.pages, "pictures": pictures, "text": text } });
     fs::write(&kept_path, serde_json::to_string_pretty(&record).unwrap_or_default()).map_err(|e| e.to_string())?;
     Ok(ReadablePdf { pdf: pdf.to_owned(), text, pictures, pages: reading.pages })
+}
+
+/// The PDF held (an advisory lock on the file, which every process sees) until what this returns is dropped. A file
+/// that cannot be held is read without it, as before.
+fn held_while_read(source: &Path) -> Option<fs::File> {
+    let file = fs::File::open(source).ok()?;
+    file.lock().ok()?;
+    Some(file)
+}
+
+/// Start opening each PDF among `paths` (relative to `folder`, or absolute) the moment it is attached, each on a thread
+/// of its own (Electron's `readAttachedPdfs`, 0.713), so it is usually done by Send; a Send that comes first waits for
+/// it (`readable_pdf_with`). Named as Send names a message's first PDF of that name (`attachments_for_run`), so Send
+/// finds what this wrote.
+pub fn read_attached_pdfs(folder: &Path, paths: &[String]) -> Vec<std::thread::JoinHandle<Option<ReadablePdf>>> {
+    read_attached_pdfs_with(folder, paths, read_pdf_bytes)
+}
+
+/// `read_attached_pdfs` with the reader given: PDFKit in the app, a fake in tests.
+pub fn read_attached_pdfs_with<R>(folder: &Path, paths: &[String], read: R) -> Vec<std::thread::JoinHandle<Option<ReadablePdf>>>
+where
+    R: Fn(&[u8]) -> Result<PdfReading, String> + Clone + Send + 'static,
+{
+    paths
+        .iter()
+        .filter(|path| is_pdf_path(path))
+        .map(|path| {
+            let (folder, path, read) = (folder.to_path_buf(), path.clone(), read.clone());
+            std::thread::spawn(move || {
+                let name = crate::attachments::basename(&path).to_owned();
+                let readable = readable_pdf_with(&folder, &path, &name, MAX_PICTURES, read).ok()?;
+                // Written into `.locust/`: out of git, as Send keeps it.
+                crate::attachments_for_run::keep_out_of_git(&folder);
+                Some(readable)
+            })
+        })
+        .collect()
 }
 
 /// What `locust-reading.json` says was written, when it was written for these bytes.

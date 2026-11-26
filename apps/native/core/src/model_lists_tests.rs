@@ -1,11 +1,12 @@
 //! Three of Electron's main-process files about which models a run may use and what one costs, a case to a test with
 //! Electron's values:
 //! - `main/a-model-list-missing-one-is-asked-again.test.ts` (0.552): a list missing a ready runtime's models is not kept;
-//! - `main/free-routes.test.ts`: which routes are free (`isFreeRoute`; `freeRoutesOnly` is not built, see the ledger);
+//! - `main/free-routes.test.ts`: which routes are free (`isFreeRoute`), whether a launch is held to them (`freeRoutesOnly`),
+//!   and the start gate that holds it (`native::send_from`, as codex-mission.ts and antigravity-mission.ts);
 //! - `main/a-model-of-your-own-is-unpriced-not-free.test.ts` (0.689): what a model of your own is, and that unpriced
 //!   runs never move the limit.
 
-use crate::model_lists::free_routes_only;
+use crate::model_lists::{FREE_ONLY_REFUSAL, free_routes_only, hold_free_routes_for_test};
 use crate::models::{kept_catalog, lists_its_models_but_listed_none, Listed};
 use crate::scout::host::is_free_route;
 use crate::spend::{is_own_model, limit_reached, Spend};
@@ -116,6 +117,96 @@ fn lifts_only_for_the_person_who_said_to_spend() {
     assert!(!free_routes_only(&port, &environment(&[("LOCUST_SPEND", "1")])));
     assert!(free_routes_only(&port, &environment(&[("LOCUST_SPEND", "yes")])));
     assert!(free_routes_only(&argv(&["Locust.exe"]), &environment(&[("LOCUST_FREE_ONLY", "1")])));
+}
+
+// ---- the start gate: a launch held to free routes starts nothing else ----
+
+/// A temporary data folder, removed after the engine has let go of it.
+struct Root(std::path::PathBuf);
+impl Drop for Root {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// The engine on a temporary store, running `command` for its agent. The guard is dropped first: every turn is stopped
+/// and has ended before the folder goes.
+struct Host {
+    _engine: crate::native::hooks::Guard,
+    store: crate::store::Store,
+    root: Root,
+}
+
+fn host(command: Option<(std::path::PathBuf, Vec<String>)>) -> Host {
+    let root = Root(std::env::temp_dir().join(format!("locust-free-gate-{}", crate::invariants::unique_nanos())));
+    std::fs::create_dir_all(root.0.join("electron/mission-ledger")).unwrap();
+    std::fs::create_dir_all(root.0.join("work")).unwrap();
+    let store = crate::store::Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+    Host { _engine: crate::native::hooks::install(store.clone(), command), store, root }
+}
+
+fn job(host: &Host, runtime: &str, model: Option<&str>) -> crate::native::Send {
+    crate::native::Send {
+        teammate: crate::engine::Teammate {
+            id: "tm_drive".into(),
+            name: "Drive".into(),
+            role: String::new(),
+            runtime: Some(runtime.into()),
+            model: model.map(str::to_owned),
+            account: None,
+            busy: false,
+            runs_in: "ask".into(),
+            folder: Some(host.root.0.join("work").to_string_lossy().into_owned()),
+        },
+        conversation: None,
+        prompt: "Say hello.".into(),
+        model: None,
+        effort: None,
+    }
+}
+
+fn ledgers(host: &Host) -> usize {
+    std::fs::read_dir(host.store.ledger_dir().unwrap()).map_or(0, |dir| dir.flatten().count())
+}
+
+// case: refuses a paid route in a window held to free routes, before anything is asked or recorded
+#[test]
+fn a_launch_held_to_free_routes_refuses_a_route_that_is_not_free_before_anything_is_recorded() {
+    // No agent to run: a start that got past the gate would fail some other way, not with these words.
+    let host = host(None);
+    let _held = hold_free_routes_for_test(true);
+    // Electron's routes that are not free, and Antigravity, which has none.
+    for (runtime, model) in [
+        ("opencode", Some("anthropic/claude-sonnet-5")),
+        ("opencode", Some("opencode/x-free-pro")),
+        ("opencode", None),
+        ("kilo", Some("kilo/google/gemini-3-pro-image")),
+        ("cursor", Some("cursor-grok-4.6-medium")),
+        ("codex", None),
+        ("codex", Some("gpt-5.1-codex")),
+        ("claude", Some("sonnet")),
+        ("claude", None),
+        ("antigravity", None),
+    ] {
+        let refused = crate::native::send_from(job(&host, runtime, model), Default::default()).err();
+        assert_eq!(refused.as_deref(), Some(FREE_ONLY_REFUSAL), "{runtime} {model:?}");
+    }
+    assert_eq!(ledgers(&host), 0, "a refused start leaves no record");
+}
+
+// case: lets a free route through a window held to free routes
+#[test]
+fn a_launch_held_to_free_routes_starts_a_free_route() {
+    let fake_opencode = (
+        std::path::PathBuf::from("python3"),
+        vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m4-opencode-serve.py").into(), "serve".into(), "success".into()],
+    );
+    let host = host(Some(fake_opencode));
+    let _held = hold_free_routes_for_test(true);
+    // A free route the drives use (Electron's free-routes.test.ts).
+    let started = crate::native::send_from(job(&host, "opencode", Some("opencode/muse-spark-1.3-contributor-free")), Default::default())
+        .expect("a free route starts in a held launch");
+    assert!(host.store.write_path(&started.conversation_id).unwrap().is_file(), "its turn is recorded");
 }
 
 // ---- a model of your own is unpriced, not free ----
