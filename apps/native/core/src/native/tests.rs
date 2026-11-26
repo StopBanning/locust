@@ -2493,6 +2493,21 @@ fn relay_reads_an_unreadable_setting_as_off_and_an_unreadable_roster_as_a_reason
     assert!(super::NativeRelayHost.peer_context_read("tm_booty").is_err());
 }
 
+/// Lane check (25 Nov): the person's own switch, stored off (relay.ts `enabled()` reads `settings.relay`), reads as off
+/// through the native host, and on again when they turn it back on.
+#[test]
+fn relay_reads_the_persons_switch_from_the_teammates_file() {
+    use crate::relay::RelayHost;
+    let t = Temp::new();
+    let store = t.store();
+    let file = |relay: bool| json!({"schemaVersion": 1, "teammates": [], "missionOwners": {}, "settings": {"relay": relay}});
+    store.save_json("teammates.json", &file(false)).unwrap();
+    let _g = hooks::install(store.clone(), None);
+    assert!(!super::NativeRelayHost.enabled());
+    store.save_json("teammates.json", &file(true)).unwrap();
+    assert!(super::NativeRelayHost.enabled());
+}
+
 // apps/desktop/src/main/relay-note-is-writable.test.ts: the relay's ending notice, written by the host's own `note`
 // (NativeRelayHost::note, the call Relay::on_shared makes when it stops) into a real ledger that already holds a run's
 // start and its completion, then read back the way mission-store's reader reads it.

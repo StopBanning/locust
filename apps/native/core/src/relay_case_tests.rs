@@ -568,6 +568,33 @@ fn turns_a_failure_between_the_decision_and_the_start_into_a_notice_never_silenc
         if message.contains("Booty could not reply on their own: the roster could not be read")));
 }
 
+/// Lane check (25 Nov): the whole sentence, as relay.ts onShared's catch says it, tail included.
+#[test]
+fn says_the_whole_sentence_when_the_roster_cannot_be_read_and_that_the_message_waits() {
+    let relay = harness(|s| s.roster_error = Some("the roster could not be read.".into()));
+    relay.on_shared(&sharing(), &[ask(&booty())]);
+    let told: Vec<String> = notices(&relay).into_iter().map(|(_, _, m, _)| m).collect();
+    assert_eq!(
+        told,
+        vec!["Booty could not reply on their own: the roster could not be read. The message waits for their next run.".to_owned()]
+    );
+}
+
+/// Lane check (25 Nov): relay.ts onShared's `finally { if (!ran) release(root) }` gives the reply back when the
+/// roster read fails, so the exchange's budget is not spent on a reply that never started.
+#[test]
+fn gives_the_reply_back_when_the_roster_cannot_be_read_so_the_next_share_still_starts() {
+    let relay = harness(|s| {
+        s.cap = 1;
+        s.roster_error = Some("the roster could not be read.".into());
+    });
+    relay.on_shared(&sharing(), &[ask(&booty())]);
+    assert!(starts(&relay).is_empty());
+    st(&relay).roster_error = None;
+    relay.on_shared(&sharing(), &[ask(&booty())]);
+    assert_eq!(starts(&relay).len(), 1);
+}
+
 #[test]
 fn starts_no_reply_on_a_plan_that_is_used_up_and_says_so_where_the_share_was_made_0_862() {
     let relay = harness(|s| s.out_of_plan = Some("their Claude Code plan is used up until Mon, Nov 9, 6:52 PM.".into()));
