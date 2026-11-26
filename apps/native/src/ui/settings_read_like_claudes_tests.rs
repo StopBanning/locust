@@ -237,6 +237,7 @@ const FOLDED: &[(&str, SettingsPageId)] = &[
     ("connectors", SettingsPageId::Connectors),
     ("add-connector", SettingsPageId::Connectors),
     ("plan-runs-out", SettingsPageId::Runtimes),
+    ("acp-agents", SettingsPageId::Runtimes),
     ("auto-mode", SettingsPageId::Teammates),
     ("plans", SettingsPageId::Teammates),
     ("own-skills", SettingsPageId::Teammates),

@@ -251,6 +251,8 @@ pub(super) struct State {
     pub(super) stopped_by_you: Option<String>,
     pub(super) own_models: crate::own_models_card::Card,
     pub(super) own_models_job: Latest<crate::own_models_card::TestAnswer>,
+    /// Settings › AI agents › Your own agents: the saved ACP agents, the form, and a Test or Add under way.
+    pub(super) own_agents: crate::settings_panel::own_agents_section::Card,
     /// Why a sign-in window could not be opened.
     pub(super) agents_sign_in_said: Option<String>,
     /// Sign-ins a test pressed, kept instead of opened.
@@ -631,6 +633,7 @@ impl Default for State {
             stopped_by_you: None,
             own_models: Default::default(),
             own_models_job: Latest::default(),
+            own_agents: Default::default(),
             agents_sign_in_said: None,
             agents_signed_in: Vec::new(),
             agents_sign_in_rows: HashMap::new(),
