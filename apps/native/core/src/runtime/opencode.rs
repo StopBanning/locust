@@ -115,6 +115,8 @@ pub struct OpenCode {
     cancel_grace: Option<Duration>,
     #[cfg(test)]
     startup_budget: Option<Duration>,
+    #[cfg(test)]
+    recovery_budget: Option<Duration>,
 }
 /// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
 pub fn uses_acp(c: &Command) -> bool {
@@ -149,6 +151,8 @@ impl OpenCode {
             cancel_grace: None,
             #[cfg(test)]
             startup_budget: None,
+            #[cfg(test)]
+            recovery_budget: None,
         })
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -177,6 +181,12 @@ impl OpenCode {
     #[cfg(test)]
     pub fn with_startup_budget(mut self, d: Duration) -> Self {
         self.startup_budget = Some(d);
+        self
+    }
+    /// OpenCode 1's budget for a closed stream's session, 300 s in the app (opencode-serve-run.ts `streamCloseTimeoutMs`).
+    #[cfg(test)]
+    pub fn with_recovery_budget(mut self, d: Duration) -> Self {
+        self.recovery_budget = Some(d);
         self
     }
     fn cancelled(&self) -> bool {
@@ -236,6 +246,10 @@ impl Runtime for OpenCode {
             #[cfg(test)]
             if let Some(d) = self.begin_check {
                 serve = serve.with_begin_check(d);
+            }
+            #[cfg(test)]
+            if let Some(d) = self.recovery_budget {
+                serve = serve.with_recovery_budget(d);
             }
             serve.start(t)?;
             self.driver = Some(Driver::Serve(Box::new(serve)));
@@ -395,3 +409,7 @@ mod opencode_busy_storage_tests;
 #[cfg(test)]
 #[path = "opencode_acp_profile_tests.rs"]
 mod opencode_acp_profile_tests;
+
+#[cfg(test)]
+#[path = "opencode_stream_closed_tests.rs"]
+mod opencode_stream_closed_tests;

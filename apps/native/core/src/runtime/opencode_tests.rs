@@ -749,6 +749,7 @@ fn a_busy_model_through_opencode_serve_is_said_once_in_the_providers_words() {
 
 #[test]
 fn a_message_opencode_took_and_never_began_ends_the_run_saying_so() {
+    // case: ends the run saying so, when the server lists it as neither busy nor answered
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
@@ -800,6 +801,7 @@ fn a_message_opencode_took_and_never_began_ends_the_run_saying_so() {
 
 #[test]
 fn a_message_opencode_took_waits_on_while_the_server_says_it_is_busy() {
+    // case: waits on while the server says it is busy, and ends as usual when it finishes
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
@@ -859,6 +861,7 @@ fn a_message_opencode_took_waits_on_while_the_server_says_it_is_busy() {
 
 #[test]
 fn a_message_opencode_took_asks_nothing_once_the_model_has_begun() {
+    // case: asks nothing once the model has begun
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
