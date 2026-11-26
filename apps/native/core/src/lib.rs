@@ -204,6 +204,7 @@ pub mod native;
 pub mod org_policy;
 pub mod office;
 pub mod own_command;
+pub mod own_commands;
 pub mod page_preview;
 pub mod pdf;
 pub mod pdf_text;

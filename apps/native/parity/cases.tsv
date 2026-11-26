@@ -6625,6 +6625,12 @@ apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	keeps no memory	ye
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	moves no task, asks nothing, hands no file	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	still acts, with the code it quotes left whole	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	acts after an example in the same reply	yes
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	reads a command file, including a nested name, and ignores a mode it does not have	yes
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	gives $1 and $2 the words, quotes grouping, and the last the rest	no
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	finds a bang block and the arguments typed after a command name	no
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	treats a leading bang as command mode, and Escape takes the mark off	no
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	chooses a command by filling the box	no
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	runs one command in the terminal panel shell	no
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 200 lines and says how many were left out	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 32 KB when one line is longer than that	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	leaves a short command untouched	yes

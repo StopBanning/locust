@@ -317,6 +317,8 @@ mod own_models_card;
 mod key_card;
 #[path = "ui/runtime_commands_ui.rs"]
 mod runtime_commands_ui;
+#[path = "ui/own_commands_ui.rs"]
+mod own_commands_ui;
 mod os_hosts;
 // Not called yet: nothing keeps Locust running with its window closed, which is when the icon shows.
 #[allow(dead_code)]
@@ -918,6 +920,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.model_job.set_waker(waker.clone());
     s.settings_panel.agents_job.set_waker(waker.clone());
     s.runtime_commands_job.set_waker(waker.clone());
+    s.own_commands_job.set_waker(waker.clone());
     s.runtime_commands.breakdown_job.set_waker(waker.clone());
     s.settings_panel.agents_recheck.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
@@ -2303,6 +2306,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= own_models_card::poll(s);
     changed |= key_card::poll(s);
     changed |= runtime_commands_ui::poll(s);
+    changed |= own_commands_ui::poll(s);
     // The Mac stays awake while a turn runs, or always when the person asked it to (powerSaveBlocker).
     os_hosts::keep_awake(locust_core::engine_api::api().running().len(), s.settings_panel.stay_awake);
     changed |= connectors_section::poll(s);
