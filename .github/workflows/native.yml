@@ -91,6 +91,10 @@ jobs:
       - name: Rust
         shell: bash
         run: rustup toolchain install stable --profile minimal && rustup default stable
+      # The microphone crate (cpal) builds alsa-sys on Linux, which needs ALSA's headers (red since 24 Nov without them).
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Compile check
         shell: bash
         run: |
