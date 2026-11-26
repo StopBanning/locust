@@ -144,3 +144,15 @@ fn before_the_catalogue_answers_a_conversation_with_no_teammate_claims_no_level(
     let words = chip_reads("claude", "opus", &[("opus", "Opus 5.5")], Some("claude-opus-5-5"), &[]);
     assert_eq!(words, ["Opus 5.5"]);
 }
+
+// Lane check of chip-1 row 1: the level shown is the runtime's own default where the catalogue names one. Composer.tsx:1663
+// `defaultEffort(supportedEfforts, shownFamily?.defaultEffort)`, and status.ts:1422 takes `runtimeDefault` whenever the
+// model lists it, before medium: a family whose catalogue default is High reads High, not the Medium a list with no
+// default would give.
+#[test]
+fn the_level_shown_is_the_catalogues_own_default_where_it_names_one() {
+    let row = json!({"id": "gpt-6.2-sol", "runtime": "codex", "displayName": "gpt-6.2-sol", "description": "",
+        "supportedEfforts": ["low", "medium", "high", "xhigh"], "defaultEffort": "high"});
+    let words = chip_reads("codex", "gpt-6.2-sol", &[("gpt-6.2-sol", "gpt-6.2-sol")], None, &[row]);
+    assert_eq!(words, ["GPT-6.2 Sol · High"]);
+}

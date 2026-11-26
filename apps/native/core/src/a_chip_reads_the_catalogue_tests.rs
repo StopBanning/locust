@@ -103,3 +103,17 @@ fn the_level_a_name_ends_in_is_not_said_twice() {
     assert_eq!(chip_model_name("cursor", "cursor-grok-4.6-high", None, None, None, Some("high-fast")), "Grok 4.6");
     assert_eq!(chip_model_name("codex", "high", None, None, None, Some("high")), "High");
 }
+
+// Lane check of chip-1 row 1: the chip reads the catalogue `local` read last (Composer.tsx:1639 `modelFamily(models, ...)`
+// over the catalogue the window holds), so every read of `local` is handed to the chip (`keep_for_the_chip`). A sweep
+// that runs no agent's CLI stands in for this computer's: Muse answers, so its row is listed.
+#[test]
+fn the_catalogue_local_reads_is_the_one_the_chip_reads() {
+    keep_for_the_chip(&[]);
+    let cache = std::sync::Mutex::new(None);
+    let models = local_over(&cache, || (Listed { muse: true, ..Listed::default() }, false));
+    let row = models.iter().find(|m| m["runtime"] == "muse").expect("Muse's row is listed");
+    let id = row["id"].as_str().unwrap();
+    let read = chip_family_as_read("muse", id).expect("the chip reads the catalogue local read");
+    assert_eq!(Some(read), chip_family(&models, "muse", id));
+}

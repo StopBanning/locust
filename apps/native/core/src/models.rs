@@ -1085,7 +1085,12 @@ static LOCAL_CATALOG: std::sync::Mutex<Option<(Instant, Vec<Value>)>> = std::syn
 
 /// The catalog for this computer, read once and kept ten minutes (CACHE_MS): models change on release, not hourly.
 pub fn local() -> Vec<Value> {
-    let mut models = kept_catalog(&LOCAL_CATALOG, read_listed_checked);
+    local_over(&LOCAL_CATALOG, read_listed_checked)
+}
+
+/// `local` over its cache and its sweep (apart so a test can hand it a sweep that runs no agent's CLI).
+fn local_over(cache: &std::sync::Mutex<Option<(Instant, Vec<Value>)>>, read: impl FnOnce() -> (Listed, bool)) -> Vec<Value> {
+    let mut models = kept_catalog(cache, read);
     // Your own models under OpenCode and your own ACP agents, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
