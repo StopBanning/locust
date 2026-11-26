@@ -2292,6 +2292,7 @@ fn the_desk_host_answers_a_browser_through_the_phone_link_and_lets_the_window_go
     pc.set_enabled(true);
     until(3_000, || pc.settings().connected);
     let phone = pair_phone(&relay, &pc.desk_code().expect("a code for the full window"), None).unwrap();
+    until(3_000, || pc.settings().devices.len() == 1);
     assert_eq!(pc.settings().devices[0].desk, Some(true));
     let mut device = PhoneSession::open(&relay, &phone, 0);
     let session = random_text(9);
