@@ -2028,5 +2028,9 @@ mod tests;
 mod case_tests;
 
 #[cfg(test)]
+#[path = "relay_budget_case_tests.rs"]
+mod budget_case_tests;
+
+#[cfg(test)]
 #[path = "run_cost_tests.rs"]
 mod run_cost_tests;

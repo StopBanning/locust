@@ -3175,22 +3175,22 @@ apps/desktop/src/main/the-rail-can-be-used.test.ts	leaves its own button alone, 
 apps/desktop/src/main/the-rail-can-be-used.test.ts	may still hang out of the rail, as the railu2019s flyouts do	no
 apps/desktop/src/main/the-rail-can-be-used.test.ts	is the mark, and it is a button	yes
 apps/desktop/src/main/the-rail-can-be-used.test.ts	keeps a real size in the rail, where the wordmark collapses to nothing	yes
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts every member of the post against one budget	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells a held reply the number it is when it starts, not when it was held	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts a held reply when it starts, so the budget still binds after it	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells each reply its number in the exchange, not the depth of its chain	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is read the way it was meant	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is delivered without starting a run, and says why	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts the run of the teammate whose conversation the person is reading	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts one that wants an answer	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn of the asker that closes a meeting	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn an answer brought back starts	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is the full brief on a first reply, and a line on the next	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	closes a meeting by writing to the person, not by saying nobody is there	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still says nobody is there to a teammate the person is not reading	no
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts every member of the post against one budget	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells a held reply the number it is when it starts, not when it was held	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts a held reply when it starts, so the budget still binds after it	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells each reply its number in the exchange, not the depth of its chain	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is read the way it was meant	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is delivered without starting a run, and says why	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts the run of the teammate whose conversation the person is reading	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts one that wants an answer	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn of the asker that closes a meeting	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn an answer brought back starts	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is the full brief on a first reply, and a line on the next	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	closes a meeting by writing to the person, not by saying nobody is there	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still says nobody is there to a teammate the person is not reading	yes
 apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts	${route}: the phase is said before the process starts	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	is there: sixteen -- the ten of R16, the challenge of its section 7, three chains, the overnight polish and Council review -- each in the order offered	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads as a routine file, names no route, no path and no connector, and asks only for what its steps use	no
