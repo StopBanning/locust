@@ -672,23 +672,27 @@ pub(super) fn issue_link_chip(link: &LinkedIssue, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let hover = issue_link_hover(link);
     let word = issue_link_word(link.state);
-    let tone = match link.state {
-        IssueLinkState::Open => "green",
-        IssueLinkState::ClosedCompleted => "blue",
-        IssueLinkState::ClosedNotPlanned => "text-muted",
+    // shell.css `.lc-prlink[data-issue-state=...]`: open green, completed violet, not planned grey; never a pull
+    // request's red, which would say a finished issue failed.
+    let (tone, ink, tint) = match link.state {
+        IssueLinkState::Open => ("green", "green-text", "green-tint"),
+        IssueLinkState::ClosedCompleted => ("violet", "violet-text", "violet-tint"),
+        IssueLinkState::ClosedNotPlanned => ("text-muted", "text-muted", "chip-bg"),
     };
     row()
+        .key("issue-link-chip")
         .py(2.0)
         .px(7.0)
         .gap(5.0)
         .center_y()
         .radius(999.0)
-        .fill(l.c("bg-control"))
+        .fill(l.c(tint))
         .border(1.0, l.c("border-card"))
         .role("status")
-        .label(hover)
-        .child(el().size(6.0, 6.0).radius(3.0).fill(l.c(tone)))
-        .child(text(word).font(type_::LABEL).color(l.c("text-secondary")))
+        .label(hover.clone())
+        .help(hover)
+        .child(el().key("issue-link-dot").size(6.0, 6.0).radius(3.0).fill(l.c(tone)))
+        .child(text(word).key("issue-link-state").font(type_::LABEL).color(l.c(ink)))
 }
 
 /// Renders link state chips for any GitHub pull request or issue links in a message that have loaded.
@@ -972,5 +976,164 @@ mod tests {
         assert!(collect_text(&rt3).contains("Watch"));
         let rt4 = render_tree(|_| watch_toggle(true, &Palette::new(true)));
         assert!(collect_text(&rt4).contains("Watching"));
+    }
+    // --- an-issue-link-wears-its-state.test.tsx ---
+
+    const ISSUE_URL: &str = "https://github.com/acme/app/issues/3";
+
+    fn issue(state: IssueLinkState) -> LinkedIssue {
+        LinkedIssue { state, title: "The cart forgets".into() }
+    }
+
+    fn address() -> PullLinkAddress {
+        PullLinkAddress { owner: "acme".into(), repo: "app".into(), number: 3 }
+    }
+
+    // case: wears open, closed and not planned, its standing and title on hover
+    #[test]
+    fn the_chip_beside_an_issue_link_wears_open_closed_and_not_planned_its_standing_and_title_on_hover() {
+        let l = crate::look::controls::Look::new(true);
+        // Electron's words and colors: open green, completed violet, not planned grey; never the red of an abandoned
+        // pull request.
+        for (state, word, hover, tone) in [
+            (IssueLinkState::Open, "Open", "Open · The cart forgets", "green"),
+            (IssueLinkState::ClosedCompleted, "Closed", "Closed as completed · The cart forgets", "violet"),
+            (IssueLinkState::ClosedNotPlanned, "Not planned", "Closed as not planned · The cart forgets", "text-muted"),
+        ] {
+            let link = issue(state);
+            let rt = render_tree(move |_| issue_link_chip(&link, &Palette::new(true)));
+            let all = rt.elements();
+            let chip = all.iter().find(|e| e.key.as_deref() == Some("issue-link-chip")).expect("the chip");
+            assert_eq!(chip.help.as_deref(), Some(hover), "the hover says its standing, then the title");
+            assert_eq!(chip.label.as_deref(), Some(hover), "and a screen reader hears the same");
+            let said = all.iter().find(|e| e.key.as_deref() == Some("issue-link-state")).expect("the state word");
+            assert_eq!(said.text.as_deref(), Some(word));
+            let dot = all.iter().find(|e| e.key.as_deref() == Some("issue-link-dot")).expect("the state's dot");
+            assert_eq!(dot.fill, l.c(tone), "{word}");
+            assert_ne!(dot.fill, l.c("red"), "{word}: a finished issue never wears a failure's red");
+            // No mark for checks it has not got: the pull request chip's mark is not drawn.
+            assert!(all.iter().all(|e| e.key.as_deref() != Some("pr-link-mark")), "{word}");
+        }
+    }
+
+    // case: makes a bare issue in the person's message a link, as a pull request is
+    #[test]
+    fn a_bare_issue_in_the_persons_message_is_a_link_as_a_pull_request_is() {
+        let words = |body: &'static str| {
+            let rt = render_tree(move |_| linked_words(body, type_::BODY, &Palette::new(true)));
+            let all = rt.elements();
+            let links: Vec<(Option<String>, Option<String>)> =
+                all.iter().filter(|e| e.role == "link").map(|e| (e.text.clone(), e.label.clone())).collect();
+            let plain: Vec<String> = all.iter().filter(|e| e.role != "link").filter_map(|e| e.text.clone()).collect();
+            (links, plain)
+        };
+        let (links, plain) = words("See https://github.com/acme/app/issues/3 today");
+        assert_eq!(links, [(Some(ISSUE_URL.to_owned()), Some(ISSUE_URL.to_owned()))]);
+        assert_eq!(plain, ["See ", " today"]);
+        let (links, _) = words("See [the issue](https://github.com/acme/app/issues/3).");
+        assert_eq!(links, [(Some("the issue".to_owned()), Some(ISSUE_URL.to_owned()))]);
+        // No answer has arrived yet, so no chip is worn.
+        assert!(link_chips_for_text(&State::default(), "See https://github.com/acme/app/issues/3 today", &Palette::new(true)).is_none());
+    }
+
+    /// A `gh` that answers `issue view` with `answer` (None: no gh on the machine), counting the asks; no other call
+    /// is answered.
+    struct IssueGh {
+        asked: std::sync::atomic::AtomicUsize,
+        answer: Option<&'static str>,
+    }
+    impl locust_core::folder_commit::Network for IssueGh {
+        fn run(&self, program: &str, args: &[String], _cwd: &std::path::Path) -> Result<String, String> {
+            if program == "gh" && args.first().map(String::as_str) == Some("issue") && args.get(1).map(String::as_str) == Some("view") {
+                self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                return self.answer.map(str::to_owned).ok_or_else(|| "spawn gh ENOENT".to_owned());
+            }
+            Err("unexpected call".into())
+        }
+    }
+    struct NoGh;
+    impl locust_core::folder_commit::Network for NoGh {
+        fn run(&self, _: &str, _: &[String], _: &std::path::Path) -> Result<String, String> {
+            Err("no gh".into())
+        }
+    }
+
+    /// A conversation whose person wrote the issue link, with `gh` standing in.
+    fn conversation_with_the_link(gh: &Arc<IssueGh>) -> State {
+        let mut s = State::default();
+        crate::scenes::reply_code_scene(&mut s);
+        s.pr.commits = Arc::new(locust_core::folder_commit::FolderCommits::new(Box::new(NoGh)));
+        // The reader keeps no answer of its own, so every ask the window makes reaches `gh` and is counted.
+        s.pr.link_reader = Arc::new(PullLinkReader::with_options(gh.clone(), Arc::new(|| 0), 0, 2));
+        if let Some(pane) = s.ledger.as_mut() {
+            pane.items.push(ledger::Item::User(format!("See {ISSUE_URL} today")));
+        }
+        s
+    }
+
+    fn pump_until(s: &mut State, done: impl Fn(&State) -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            poll(s, &mut Tx::default());
+            if done(s) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        false
+    }
+
+    // case: reads on show, again on focus after a minute, and never on a timer
+    #[test]
+    fn an_issue_link_is_read_on_show_again_on_focus_after_a_minute_and_never_on_a_timer() {
+        use std::sync::atomic::Ordering;
+        let gh = Arc::new(IssueGh { asked: Default::default(), answer: Some(r#"{"state":"OPEN","stateReason":"","title":"The cart forgets"}"#) });
+        let mut s = conversation_with_the_link(&gh);
+        // Not on screen yet: nothing is read, and nothing is worn.
+        assert_eq!(s.pr.issue_watch.current(&address()), None);
+        assert_eq!(gh.asked.load(Ordering::SeqCst), 0);
+        // Shown: read, once, and the answer is worn.
+        assert!(pump_until(&mut s, |s| s.pr.issue_watch.current(&address()).is_some()), "the issue was read");
+        assert_eq!(s.pr.issue_watch.current(&address()), Some(&issue(IssueLinkState::Open)));
+        assert_eq!(gh.asked.load(Ordering::SeqCst), 1);
+        // The window leaves and comes back inside the minute: no new read.
+        s.window_focused = false;
+        poll(&mut s, &mut Tx::default());
+        s.window_focused = true;
+        for _ in 0..30 {
+            poll(&mut s, &mut Tx::default());
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(gh.asked.load(Ordering::SeqCst), 1, "inside the minute it is not read again");
+        // Never on a timer, however long it sits: nothing is armed for an issue, and a tick reads nothing.
+        assert!(!s.pr.issue_watch.timer_armed());
+        assert!(s.pr.issue_watch.on_tick(|_| true).is_empty());
+        // In the conversation: the person's link is a link, and the answer is worn beside it.
+        let mut rt = Runtime::new(s, crate::view, (1200.0, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        let all = rt.elements();
+        let link = all.iter().find(|e| e.key.as_deref() == Some("user-link")).expect("the link");
+        assert_eq!(link.label.as_deref(), Some(ISSUE_URL));
+        let chip = all.iter().find(|e| e.key.as_deref() == Some("issue-link-chip")).expect("the chip is worn once read");
+        assert_eq!(chip.label.as_deref(), Some("Open · The cart forgets"));
+        // The minute itself, on the watch's own clock (Electron's test moves its clock the same way).
+        let mut watch = LinkWatch::<LinkedIssue>::default();
+        assert_eq!(watch.show(&[address()], 10_000, |_| false), [address()]);
+        watch.finish_read(&address(), Some(issue(IssueLinkState::Open)), 10_000, |_| false);
+        assert!(watch.on_focus(40_000).is_empty(), "back after 30 s: no new read");
+        assert_eq!(watch.on_focus(71_000), [address()], "back after a minute: read again");
+        assert!(!watch.timer_armed());
+    }
+
+    // case: says nothing and wears nothing when gh cannot answer
+    #[test]
+    fn an_issue_link_says_nothing_and_wears_nothing_when_gh_cannot_answer() {
+        use std::sync::atomic::Ordering;
+        let gh = Arc::new(IssueGh { asked: Default::default(), answer: None });
+        let mut s = conversation_with_the_link(&gh);
+        assert!(pump_until(&mut s, |s| gh.asked.load(Ordering::SeqCst) == 1 && s.pr.issue_pending.is_empty()), "gh was asked");
+        assert_eq!(s.pr.issue_watch.current(&address()), None);
+        assert!(link_chips_for_text(&s, &format!("See {ISSUE_URL} today"), &Palette::new(true)).is_none(), "no chip is worn");
     }
 }

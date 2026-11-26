@@ -4842,10 +4842,10 @@ apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms ar
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stops at the fitted size going down and at eight times its pixels going up	yes
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stays centred where it is smaller than the pane, and keeps its edges at the pane where it is larger	yes
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	is what the file viewer draws for a picture, with the zoom controls beside it	yes
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	yes
 apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts	is not taken for one that never started	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
