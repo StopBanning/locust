@@ -256,7 +256,10 @@ fn show_what_it_did_reads_the_session_and_apply_brings_its_change_into_the_folde
     let cart = std::fs::read_to_string(w.folder().join("cart.js")).unwrap();
     assert!(cart.contains("item.price"), "{cart}");
     click(&mut rt, &key("hide", ID));
-    assert!(!words(&rt).contains("Fixed: the total now sums prices."));
+    // Hidden, the reading goes; the closed row keeps only its glance, the reply's first line (Cloud view 1).
+    assert!(rt.find(&key("read", ID)).is_none());
+    assert!(!words(&rt).contains("cart.js  +1"));
+    assert!(rt.find(&key("glance", ID)).is_some_and(|_| words(&rt).contains(": Fixed: the total now sums prices.")));
 }
 
 #[test]
@@ -374,4 +377,87 @@ fn a_watch_on_a_row_already_read_waits_ninety_seconds_for_its_first_read() {
     assert_eq!(w.seen.teleports.load(Ordering::SeqCst), 1, "read again before 90 s");
     pump_by(&mut rt, "the watch's first read", 15.0, |_| w.seen.teleports.load(Ordering::SeqCst) == 2);
     assert!(rt.state.cloud.now_ms - started >= 90_000);
+}
+
+/// Cloud view 1: the known session's record as a read left it: a reply kept, learned at `news_at`, opened at `opened`.
+fn kept_reading(w: &World, s: &State, news_at: &str, opened: Option<&str>) {
+    let path = locust_core::claude_cloud::store_path_of(s.data.as_ref().unwrap());
+    let mut saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let known = &mut saved["sessions"][0];
+    known["lastReply"] = "Looking at cart.js now.".into();
+    known["lastReplyAt"] = "2026-11-26T10:42:00.000Z".into();
+    known["newsAt"] = news_at.into();
+    if let Some(opened) = opened {
+        known["openedAt"] = opened.into();
+    }
+    std::fs::write(&path, saved.to_string()).unwrap();
+    assert!(w.stored(s).contains("lastReply"));
+}
+
+#[test]
+fn a_glance_is_the_newest_replys_first_line_and_its_time() {
+    let now = chrono::DateTime::parse_from_rfc3339("2026-11-26T12:00:00Z").unwrap().with_timezone(&chrono::Utc);
+    let at = chrono::DateTime::parse_from_rfc3339("2026-11-26T10:42:00Z").unwrap().with_timezone(&chrono::Utc);
+    let mut one = ClaudeCloudSession::default();
+    assert_eq!(super::glance(&one, now), None, "nothing read yet: nothing said");
+    one.last_reply = Some("Fixed: the total now sums prices.".into());
+    assert_eq!(super::glance(&one, now).as_deref(), Some("Fixed: the total now sums prices."), "no time: the line alone");
+    one.last_reply_at = Some("2026-11-26T10:42:00.000Z".into());
+    let clock = locust_core::usage_words::clock_time(at);
+    let local = |t: chrono::DateTime<chrono::Utc>| t.with_timezone(&chrono::Local).date_naive();
+    let expected = if local(at) == local(now) {
+        format!("As of {clock}: Fixed: the total now sums prices.")
+    } else {
+        format!("As of {} {clock}: Fixed: the total now sums prices.", at.with_timezone(&chrono::Local).format("%a"))
+    };
+    assert_eq!(super::glance(&one, now), Some(expected));
+    let days_later = now + chrono::Duration::days(3);
+    let later = super::glance(&one, days_later).unwrap();
+    assert!(later.starts_with(&format!("As of {} {clock}: ", at.with_timezone(&chrono::Local).format("%a"))), "{later}");
+}
+
+#[test]
+fn a_closed_row_says_the_last_reply_and_new_until_the_person_opens_it() {
+    let (w, mut rt) = window(true);
+    kept_reading(&w, &rt.state, "2026-11-26T10:45:00.000Z", Some("2026-11-26T10:00:00.000Z"));
+    open_cloud(&mut rt);
+    let said = words(&rt);
+    assert!(said.contains(": Looking at cart.js now.") && said.contains("As of "), "{said}");
+    assert!(rt.find(&key("glance", ID)).is_some());
+    assert!(rt.find(&key("new", ID)).is_some(), "learned after it was last opened: new");
+    assert!(rt.find(&key("glance", UNKNOWN)).is_none() && rt.find(&key("new", UNKNOWN)).is_none(), "nothing read: nothing said");
+    assert_eq!(w.seen.teleports.load(Ordering::SeqCst), 0, "the glance is what Locust holds: no read");
+    // Opening the row: no longer new, here and in the record.
+    click(&mut rt, &key("check", ID));
+    assert!(rt.find(&key("new", ID)).is_none());
+    assert!(rt.find(&key("glance", ID)).is_none(), "open, the reading says it all");
+    // Marked opened by the press itself, before any read lands (the window's poll has not run since).
+    let kept = |s: &State| s.cloud.panel.claude.as_ref().unwrap().sessions.iter().find(|one| one.id == ID).unwrap().clone();
+    assert!(kept(&rt.state).opened_at.as_deref().is_some_and(|at| at > "2026-11-26T10:00:00.000Z"), "{:?}", kept(&rt.state));
+    assert!(!kept(&rt.state).has_news());
+    pump(&mut rt, "the reading", |s| row(s, ID).is_some_and(|r| r.reading.is_some() && !r.checking));
+    click(&mut rt, &key("hide", ID));
+    // Closed again: the newest reply the read brought, and nothing new, since it came in while the row was open.
+    let said = words(&rt);
+    assert!(said.contains(": Fixed: the total now sums prices."), "{said}");
+    assert!(!said.contains("Looking at cart.js now."), "{said}");
+    assert!(rt.find(&key("new", ID)).is_none(), "{said}");
+    pump(&mut rt, "the record kept", |s| {
+        let saved = w.stored(s);
+        saved.contains("\"lastReply\": \"Fixed: the total now sums prices.\"") && saved.contains("openedAt")
+            && !saved.contains("2026-11-26T10:00:00.000Z")
+    });
+    let kept = ClaudeCloud::new(locust_core::claude_cloud::store_path_of(rt.state.data.as_ref().unwrap()), CloudPlatform::Linux, || None).all();
+    let one = kept.iter().find(|one| one.id == ID).unwrap();
+    assert!(!one.has_news(), "{one:?}");
+    assert_eq!(one.last_reply_at.as_deref(), Some("2026-10-02T20:00:09.000Z"));
+}
+
+#[test]
+fn a_reply_learned_before_the_row_was_last_opened_is_not_new() {
+    let (w, mut rt) = window(true);
+    kept_reading(&w, &rt.state, "2026-11-26T10:45:00.000Z", Some("2026-11-26T11:00:00.000Z"));
+    open_cloud(&mut rt);
+    assert!(rt.find(&key("glance", ID)).is_some());
+    assert!(rt.find(&key("new", ID)).is_none(), "{}", words(&rt));
 }

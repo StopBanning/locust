@@ -363,6 +363,8 @@ const MAX_EXCHANGES: usize = 40;
 #[derive(Default)]
 pub struct CloudReads {
     under_way: Mutex<HashMap<String, Arc<ReadUnderWay>>>,
+    /// One change to the kept sessions at a time, across every `ClaudeCloud` the app makes.
+    records: Mutex<()>,
 }
 
 #[derive(Default)]
@@ -444,7 +446,7 @@ pub enum PseudoTerminalResult {
     Err,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ClaudeCloudSession {
     pub id: String,
     pub started_at: String,
@@ -455,6 +457,61 @@ pub struct ClaudeCloudSession {
     pub url: Option<String>,
     pub title: Option<String>,
     pub note: Option<String>,
+    /// AT A GLANCE (Cloud view 1): the newest reply's first line, as the last read brought it.
+    pub last_reply: Option<String>,
+    /// When that reply was given (the read's time when the transcript had none).
+    pub last_reply_at: Option<String>,
+    /// When Locust last learned something new about the session: a different newest reply.
+    pub news_at: Option<String>,
+    /// When the person last opened the session's row.
+    pub opened_at: Option<String>,
+}
+
+/// The longest first line kept of a reply.
+const GLANCE_CHARS: usize = 160;
+
+/// A reply's first line with words in it, cut to `GLANCE_CHARS`.
+pub fn first_line(text: &str) -> Option<String> {
+    let line = text.lines().map(str::trim).find(|line| !line.is_empty())?;
+    if line.chars().count() <= GLANCE_CHARS {
+        return Some(line.to_string());
+    }
+    let cut: String = line.chars().take(GLANCE_CHARS - 1).collect();
+    Some(format!("{}\u{2026}", cut.trim_end()))
+}
+
+fn instant(at: Option<&str>) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+    chrono::DateTime::parse_from_rfc3339(at?).ok()
+}
+
+impl ClaudeCloudSession {
+    /// What a successful read brought, kept: the newest reply's first line and its time. A reply that differs from
+    /// the one kept is news, as of the read. A failed read, or one with no reply in words, changes nothing.
+    pub fn take_reading(&mut self, reading: &ClaudeCloudReading) {
+        let ClaudeCloudReading::Ok { exchanges, checked_at, .. } = reading else { return };
+        let Some((line, at)) = exchanges
+            .iter()
+            .rev()
+            .find_map(|exchange| Some((first_line(exchange.answer.as_deref()?)?, exchange.at.as_str())))
+        else {
+            return;
+        };
+        let at = if instant(Some(at)).is_some() { at.to_string() } else { checked_at.clone() };
+        if self.last_reply.as_deref() != Some(line.as_str()) {
+            self.news_at = Some(checked_at.clone());
+        }
+        self.last_reply = Some(line);
+        self.last_reply_at = Some(at);
+    }
+
+    /// Something was learned since the person last opened the row (never opened: anything learned at all).
+    pub fn has_news(&self) -> bool {
+        match (instant(self.news_at.as_deref()), instant(self.opened_at.as_deref())) {
+            (Some(news), Some(opened)) => news > opened,
+            (Some(_), None) => true,
+            _ => false,
+        }
+    }
 }
 
 /// How Claude Code's own window is opened (Electron's `open`).
@@ -888,6 +945,7 @@ impl<'a> ClaudeCloud<'a> {
         drop(under_way);
         let ends = ReadEnds { reads: &self.reads, id, read };
         let reading = self.check_once(id);
+        self.update_session(id, |session| session.take_reading(&reading));
         *ends.read.answer.lock().unwrap_or_else(|e| e.into_inner()) = Some(reading.clone());
         drop(ends);
         reading
@@ -1035,6 +1093,26 @@ impl<'a> ClaudeCloud<'a> {
         }
     }
 
+    /// One kept session changed in place, the others as they are.
+    fn update_session(&self, id: &str, change: impl FnOnce(&mut ClaudeCloudSession)) {
+        let _one = self.reads.records.lock().unwrap_or_else(|e| e.into_inner());
+        let mut sessions = self.read_sessions();
+        let Some(session) = sessions.iter_mut().find(|s| s.id == id) else { return };
+        let before = session.clone();
+        change(session);
+        if *session != before {
+            let _ = self.write_sessions(&sessions);
+        }
+    }
+
+    /// The person opened the session's row at `at`: what was learned before then is no longer new.
+    pub fn mark_opened(&self, id: &str, at: &str) {
+        if instant(Some(at)).is_none() {
+            return;
+        }
+        self.update_session(id, |session| session.opened_at = Some(at.to_string()));
+    }
+
     /// The change last read comes into the folder, not committed; the reading's worktree goes.
     pub fn apply(&self, id: &str) -> CloudSendResult {
         let fail = |message: String| CloudSendResult::Err { message };
@@ -1071,6 +1149,7 @@ impl<'a> ClaudeCloud<'a> {
 
     /// The session leaves the list, and its reading's worktree goes with it.
     pub fn forget(&self, id: &str) {
+        let _one = self.reads.records.lock().unwrap_or_else(|e| e.into_inner());
         let sessions = self.read_sessions();
         if let Some(session) = sessions.iter().find(|s| s.id == id)
             && session.session_id.is_some()
@@ -1189,7 +1268,9 @@ impl<'a> ClaudeCloud<'a> {
             url,
             title,
             note,
+            ..Default::default()
         };
+        let _one = self.reads.records.lock().unwrap_or_else(|e| e.into_inner());
         let mut sessions = self.read_sessions();
         sessions.insert(0, session.clone());
         sessions.truncate(MAX_KEPT);
@@ -1489,6 +1570,16 @@ fn session_to_json(session: &ClaudeCloudSession) -> Value {
     if let Some(note) = &session.note {
         obj.insert("note".into(), json!(note));
     }
+    for (key, value) in [
+        ("lastReply", &session.last_reply),
+        ("lastReplyAt", &session.last_reply_at),
+        ("newsAt", &session.news_at),
+        ("openedAt", &session.opened_at),
+    ] {
+        if let Some(value) = value {
+            obj.insert(key.into(), json!(value));
+        }
+    }
     Value::Object(obj)
 }
 
@@ -1537,6 +1628,11 @@ fn session_from_json(value: &Value) -> Option<ClaudeCloudSession> {
         Some(Value::String(s)) => Some(s.clone()),
         _ => return None,
     };
+    // What Cloud view 1 keeps: optional, and one that does not read is dropped alone, never the session with it.
+    let words = |key: &str, most: usize| {
+        obj.get(key).and_then(Value::as_str).filter(|s| s.chars().count() <= most).map(str::to_string)
+    };
+    let time = |key: &str| words(key, 64).filter(|s| instant(Some(s)).is_some());
     Some(ClaudeCloudSession {
         id: id.into(),
         started_at: started_at.into(),
@@ -1547,6 +1643,10 @@ fn session_from_json(value: &Value) -> Option<ClaudeCloudSession> {
         url,
         title,
         note,
+        last_reply: words("lastReply", GLANCE_CHARS),
+        last_reply_at: time("lastReplyAt"),
+        news_at: time("newsAt"),
+        opened_at: time("openedAt"),
     })
 }
 
@@ -1585,3 +1685,7 @@ mod task_tests;
 #[cfg(test)]
 #[path = "claude_cloud_exec_tests.rs"]
 mod exec_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_glance_tests.rs"]
+mod glance_tests;

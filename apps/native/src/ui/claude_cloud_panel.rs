@@ -295,6 +295,12 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
                 }
             }
             Answer::Read { id, reading } => {
+                if let Some(one) = s.cloud.panel.claude.iter_mut().flat_map(|side| side.sessions.iter_mut()).find(|one| one.id == id) {
+                    one.take_reading(&reading);
+                }
+                if s.cloud.rows.get(&id).is_some_and(|row| row.expanded) {
+                    opened(s, &id);
+                }
                 let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
                 row.checking = false;
                 row.applied = false;
@@ -453,6 +459,8 @@ const HOME_KNOWN: &str = "Claude Code opened in this folder and is bringing this
 const HOME_UNKNOWN: &str =
     "Claude Code opened in this folder with its list of cloud sessions. Pick this one, and its work comes into this folder.";
 const CLAUDE_CODE_SESSIONS: &str = "https://claude.ai/code";
+/// A closed row that learned something since the person last opened it.
+const NEW: &str = "New";
 
 fn watch_stopped(stop: WatchStop) -> &'static str {
     match stop {
@@ -492,7 +500,43 @@ fn read_once(s: &mut State, id: &str) {
 /// Show what it did / Check again.
 pub(super) fn check(s: &mut State, id: &str) {
     s.cloud.rows.entry(id.to_owned()).or_default().expanded = true;
+    opened(s, id);
     read_once(s, id);
+}
+
+/// The person has the session's row open: what Locust learned of it so far is no longer new, here and in its record.
+fn opened(s: &mut State, id: &str) {
+    let at = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    if let Some(one) = s.cloud.panel.claude.iter_mut().flat_map(|side| side.sessions.iter_mut()).find(|one| one.id == id) {
+        one.opened_at = Some(at.clone());
+    }
+    let id = id.to_owned();
+    off_thread(s, move |claude| {
+        claude.mark_opened(&id, &at);
+        None
+    });
+}
+
+/// The time of the newest reply, as a clock reads it: today's alone, another day's with its weekday.
+fn reply_clock(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
+    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Utc);
+    let clock = locust_core::usage_words::clock_time(at);
+    let local = at.with_timezone(&chrono::Local);
+    Some(if local.date_naive() == now.with_timezone(&chrono::Local).date_naive() {
+        clock
+    } else {
+        format!("{} {clock}", local.format("%a"))
+    })
+}
+
+/// A closed row's glance (Cloud view 1): the newest reply's first line and its time, from what the last read
+/// brought; None before any read brought a reply.
+pub(super) fn glance(session: &ClaudeCloudSession, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
+    let line = session.last_reply.as_deref()?;
+    Some(match session.last_reply_at.as_deref().and_then(|at| reply_clock(at, now)) {
+        Some(when) => format!("As of {when}: {line}"),
+        None => line.to_owned(),
+    })
 }
 
 /// Watch / Stop watching: a watch from the window's clock, its first read at once unless a reading is shown.
@@ -651,14 +695,24 @@ fn session_row(s: &State, session: &ClaudeCloudSession, l: &crate::look::control
         .px(10.0).py(10.0)
         .radius(l.t.px("radius-control"))
         .border(1.0, p.hairline);
+    let news = !state.expanded && session.has_news();
+    let mark = news.then(|| text(NEW).key(key("new")).role("status").font(l.ty.control).color(l.c("blue-text")));
     if let Some(title) = &session.title {
-        el = el.child(text(title.clone()).font(l.ty.control).color(l.c("text-primary")).wrap());
+        el = el.child(row().w_full().gap(6.0).center_y().child(text(title.clone()).font(l.ty.control).color(l.c("text-primary")).grow(1.0).wrap()).children(mark));
+        el = el.child(text(session.prompt.clone()).font(l.ty.body).color(l.c("text-primary")).w_full().wrap());
+    } else {
+        el = el.child(row().w_full().gap(6.0).center_y().child(text(session.prompt.clone()).font(l.ty.body).color(l.c("text-primary")).grow(1.0).wrap()).children(mark));
     }
-    el = el.child(text(session.prompt.clone()).font(l.ty.body).color(l.c("text-primary")).w_full().wrap()).child(note(if known {
+    el = el.child(note(if known {
         format!("In Claude\u{2019}s cloud since {ago}.")
     } else {
         format!("Sent to Claude\u{2019}s cloud {ago}. Follow it on claude.ai or in the Claude app.")
     }));
+    if !state.expanded
+        && let Some(line) = glance(session, chrono::Utc::now())
+    {
+        el = el.child(note(line).key(key("glance")));
+    }
     if let Some(said) = &session.note {
         el = el.child(note(said.clone()));
     }

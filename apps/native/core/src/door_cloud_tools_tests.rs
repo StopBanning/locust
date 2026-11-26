@@ -52,6 +52,7 @@ fn session(id: &str, folder: &str) -> ClaudeCloudSession {
         url: Some("https://claude.ai/code/session_0123456789abcdef".into()),
         title: Some("Fix the cart".into()),
         note: None,
+        ..Default::default()
     }
 }
 
