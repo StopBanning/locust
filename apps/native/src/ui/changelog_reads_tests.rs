@@ -126,3 +126,63 @@ fn a_version_inside_an_entry_is_not_a_heading() {
     assert_eq!(versions, ["1.0.0"]);
     assert!(changelog::entry_for(inside, "1.0.0").expect("1.0.0").body.contains("See ## 2.0.0"));
 }
+
+/// `refresh_changelog` on a fresh window, as opening Home runs it, then Settings > What's new drawn: every word.
+fn after_refresh(seen: Option<&str>) -> (Panel, Vec<String>) {
+    let mut s = State::default();
+    s.home.seen_version = seen.map(str::to_owned);
+    refresh_changelog(&mut s);
+    let home = Panel {
+        current_version: s.home.current_version.clone(),
+        changelog: s.home.changelog.clone(),
+        splash_entries: s.home.splash_entries.clone(),
+        splash_open: s.home.splash_open,
+        ..Panel::default()
+    };
+    s.settings_panel.open = true;
+    s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::WhatsNew);
+    let mut rt = Runtime::new(s, crate::view, (1200.0, 3000.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    let words = rt.elements().into_iter().filter(|e| !e.exiting).filter_map(|e| e.text).collect();
+    (home, words)
+}
+
+// case: main/index.ts readChangelogOnce: `const version = app.getVersion()`, never the changelog's newest heading
+#[test]
+fn the_version_the_window_says_is_the_apps_own_not_the_changelogs_newest_heading() {
+    // Electron's app.getVersion() is the package's own version; the crate's is CARGO_PKG_VERSION.
+    let own = env!("CARGO_PKG_VERSION");
+    let (home, words) = after_refresh(None);
+    assert_eq!(home.current_version, own);
+    let newest = home.changelog.first().map(|e| e.version.clone());
+    assert_ne!(Some(home.current_version.clone()), newest.filter(|v| v != own), "the newest heading is not the running build");
+    // Screens.tsx, Settings > What's new: "Every version of Locust, newest first. This is {changelog?.version}."
+    let lede = format!("Every version of Locust, newest first. This is {own}.");
+    assert!(words.iter().any(|w| *w == lede), "{words:?}");
+    assert!(!words.iter().any(|w| w == "Every version of Locust, newest first. This is 0.1.0."), "{words:?}");
+}
+
+// case: main/index.ts readChangelogOnce with no entry for the running version: `entries: all` is every entry still,
+// `splashEntries` finds no `from` and returns [] (no nearest entry put in its place), and the version stays the app's.
+#[test]
+fn a_running_build_the_changelog_does_not_carry_still_lists_every_entry_and_shows_no_splash() {
+    let own = env!("CARGO_PKG_VERSION");
+    let (home, words) = after_refresh(Some("0.0.1"));
+    assert!(home.changelog.iter().all(|e| e.version != own), "this test is about a build the notes do not carry");
+    assert!(!home.changelog.is_empty(), "the notes were read");
+    assert!(home.changelog.iter().any(|e| e.big), "a big entry exists, so a splash would have something to show");
+    assert_eq!(home.current_version, own);
+    assert!(home.splash_entries.is_empty(), "{:?}", home.splash_entries);
+    assert!(!home.splash_open);
+    // What's new lists every entry the file carries, by its version badge.
+    for entry in &home.changelog {
+        assert!(words.iter().any(|w| *w == entry.version), "{} missing from {words:?}", entry.version);
+    }
+    assert!(!words.iter().any(|w| w == "This build shipped without its changelog."), "{words:?}");
+    // main/changelog.ts splashEntries: `if (from < 0 || to <= from) return []`. A newer big entry and a seen one both
+    // in the file still show nothing when the running build is not in it: no nearest entry stands in for it.
+    let notes = "## 0.2.0 - 2026-11-20\n<!-- big -->\n\n- **Big.**\n\n## 0.1.0 - 2026-11-10\n\n- Small.\n";
+    let all = changelog::entries(notes);
+    assert_eq!(changelog::splash_entries(&all, Some("0.1.0"), "0.2.0").len(), 1, "the file does mark 0.2.0 big");
+    assert!(changelog::splash_entries(&all, Some("0.1.0"), own).is_empty());
+}

@@ -182,12 +182,9 @@ fn refresh_changelog(s: &mut State) {
         s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
     }
     if s.home.current_version.is_empty() {
-        s.home.current_version = s
-            .home
-            .changelog
-            .first()
-            .map(|e| e.version.clone())
-            .unwrap_or_else(|| "0.1.0".into());
+        // The app's own version (Electron's `app.getVersion()`), never the notes' newest heading: a build the notes
+        // do not carry lists every entry still and shows no splash (`splash_entries` finds no running entry).
+        s.home.current_version = env!("CARGO_PKG_VERSION").to_owned();
     }
     let _ = changelog::entry_for(&text, &s.home.current_version);
     let splash = changelog::splash_entries(
