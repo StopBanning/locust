@@ -185,3 +185,32 @@ fn an_argument_it_does_not_know_stops_it_before_anything_is_built() {
     assert!(!root.join("target").exists());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn a_disk_image_that_cannot_be_made_stops_it_saying_why_and_leaves_no_image() {
+    let root = temp_root("noimage");
+    let bin = root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    // A stand-in `hdiutil` that fails the way the real one did on the big drive.
+    let hdiutil = bin.join("hdiutil");
+    std::fs::write(&hdiutil, "#!/bin/sh\necho 'hdiutil: create failed - No space left on device'\nexit 1\n").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&hdiutil, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let cargo = bin.join("cargo");
+    std::fs::write(&cargo, "#!/bin/sh\nmkdir -p \"$CARGO_TARGET_DIR/release\" && cp /usr/bin/true \"$CARGO_TARGET_DIR/release/locust-native\"\n").unwrap();
+    std::fs::set_permissions(&cargo, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let out = root.join("out");
+    let done = Command::new("/bin/sh")
+        .arg(script())
+        .args(["--release", "--out", out.to_str().unwrap()])
+        .env("PATH", format!("{}:/usr/bin:/bin:/usr/sbin:/sbin", bin.display()))
+        .env("CARGO_TARGET_DIR", root.join("target"))
+        .env_remove("LOCUST_BUILD_COMMIT")
+        .output()
+        .unwrap();
+    let said = String::from_utf8_lossy(&done.stderr).into_owned();
+    assert!(!done.status.success(), "{said}");
+    assert!(said.contains("the disk image could not be made") && said.contains("No space left on device"), "{said}");
+    assert!(!out.join(format!("Locust-{}-mac-{}.dmg", crate_version(), arch())).exists());
+    let _ = std::fs::remove_dir_all(&root);
+}

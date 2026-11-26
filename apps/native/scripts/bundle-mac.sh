@@ -97,8 +97,16 @@ if [ "$MODE" = release ]; then
   STAGE="$(mktemp -d)"
   ditto "$APP" "$STAGE/Locust.app"
   ln -s /Applications "$STAGE/Applications"
-  rm -f "$DMG"
-  hdiutil create -quiet -volname Locust -srcfolder "$STAGE" -format UDZO -ov "$DMG"
+  # Made in the system's temp folder and moved, not made where it ends up: on 26 Nov a destination on the big drive made
+  # hdiutil answer "No space left on device" (with 89 GB free), and -quiet hid it, so the script just stopped.
+  IMAGE="$STAGE.dmg"
+  if ! SAID="$(hdiutil create -volname Locust -srcfolder "$STAGE" -format UDZO -ov "$IMAGE" 2>&1)"; then
+    echo "bundle-mac.sh: the disk image could not be made: $SAID" >&2
+    rm -rf "$STAGE" "$IMAGE"
+    exit 1
+  fi
   rm -rf "$STAGE"
+  rm -f "$DMG"
+  mv "$IMAGE" "$DMG"
   echo "$DMG ($(du -sh "$DMG" | cut -f1))"
 fi
