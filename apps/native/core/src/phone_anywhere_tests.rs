@@ -1388,6 +1388,82 @@ fn make_pc(
 
 // ---- Tests (15 cases from apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts) -------------------
 
+/// A box that keeps a key by turning it round: never the keychain.
+struct TurnedRound;
+impl crate::own_models::SecretBox for TurnedRound {
+    fn available(&self) -> bool {
+        true
+    }
+    fn seal(&self, text: &str) -> Result<String, String> {
+        Ok(text.chars().rev().collect())
+    }
+    fn open(&self, sealed: &str) -> Result<String, String> {
+        Ok(sealed.chars().rev().collect())
+    }
+}
+
+/// index.ts's `hooks: { refresh: syncHooks }`: a refresh syncs the routine links, never on the line's own thread.
+#[derive(Default)]
+struct SyncHooks {
+    hooks: std::sync::OnceLock<Arc<crate::routine_hooks::RoutineHooks>>,
+    refreshed: AtomicUsize,
+}
+impl HooksCallbacks for SyncHooks {
+    fn refresh(&self) {
+        self.refreshed.fetch_add(1, Ordering::SeqCst);
+        if let Some(hooks) = self.hooks.get().cloned() {
+            std::thread::spawn(move || {
+                let _ = hooks.sync();
+            });
+        }
+    }
+}
+
+#[test]
+fn a_routines_link_is_made_called_and_collected_through_the_phones_own_line_and_a_reconnect_refreshes_the_links() {
+    use crate::routine_hooks::{HookRelay, Options as HookOptions, RoutineHooks};
+    let relay = MemoryRelay::new(None);
+    let dir = TempDir::new("locust-hook-line");
+    let refresh = Arc::new(SyncHooks::default());
+    let pc = make_pc(&relay, dir.path().clone(), FakeCalls::new(), None, Some(refresh.clone()), None, None);
+    pc.set_enabled(true);
+    until(3_000, || pc.connected());
+    // index.ts: `hookRelay = phoneAnywhere`.
+    let line: Arc<dyn HookRelay> = Arc::new(pc.clone());
+    let hooks = Arc::new(RoutineHooks::new(HookOptions {
+        file: dir.path().join(crate::routine_hooks::ROUTINE_HOOKS_FILE),
+        secrets: Arc::new(TurnedRound),
+        relay: Box::new(move || Some(line.clone())),
+        routines: Box::new(|| Ok(vec![json!({ "routineId": "rt_a", "schedule": { "kind": "hook" } })])),
+        lost: Box::new(|_, _, _| Ok(())),
+        tick: Box::new(|| {}),
+        protect_file: None,
+        now: Box::new(now_ms),
+        random_token: None,
+    }));
+    assert!(refresh.hooks.set(hooks.clone()).is_ok());
+    let made = hooks.state("rt_a", true).unwrap();
+    let (relay_url, room) = pc.room().unwrap();
+    // routine-hooks.ts: `${room.relay}/v1/room/${room.room}/hook/${secret}`.
+    let secret = made
+        .url
+        .as_deref()
+        .and_then(|url| url.strip_prefix(&format!("{relay_url}/v1/room/{room}/hook/")))
+        .map(str::to_owned);
+    assert!(secret.is_some(), "the link is this room's on the relay");
+    let secret = secret.unwrap();
+    // The relay's hook-letter notice refreshes the links, which collects the call for the routine.
+    assert_eq!(relay.hook_post(&secret, "{\"event\":\"push\"}", "application/json"), 202);
+    until(3_000, || hooks.ready("rt_a").ok().flatten().is_some());
+    let batch = hooks.ready("rt_a").unwrap().unwrap();
+    assert_eq!((batch.count, batch.body.as_str(), batch.content_type.as_str()), (1, "{\"event\":\"push\"}", "application/json"));
+    // Each time this computer connects again, the links are refreshed (the line's `ok`).
+    let before = refresh.refreshed.load(Ordering::SeqCst);
+    relay.drop_all();
+    until(3_000, || refresh.refreshed.load(Ordering::SeqCst) > before && pc.connected());
+    pc.dispose();
+}
+
 #[test]
 // case: registers a hook by hash, hears its live notice, collects offline calls and retires the old password
 fn registers_a_hook_by_hash_hears_its_live_notice_collects_offline_calls_and_retires_the_old_password()

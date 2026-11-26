@@ -1505,7 +1505,7 @@ fn engine(s: &mut State) -> Option<&mut Engine> {
     let store = s.data.clone()?;
     let opened_at = s.routines.opened_at.with_timezone(&chrono::Utc);
     Some(s.routines.engine.get_or_insert_with(|| {
-        let host = std::sync::Arc::new(locust_core::routine_host::LiveHost::new(store.clone(), opened_at));
+        let host = super::phone_section::routine_host(&s.phone_anywhere_link, store.clone(), opened_at);
         let routines = std::sync::Arc::new(locust_core::routines::progress::StoreRoutines(store));
         let runner = std::sync::Arc::new(locust_core::routine_runner::RoutineRunner::new(routines, host.clone()));
         // Other apps run routines through this same runner, the routine card's own path (locust-mcp-tools.ts, 0.704).

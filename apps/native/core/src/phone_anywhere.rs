@@ -2622,6 +2622,44 @@ impl PhoneAnywhereInner {
     }
 }
 
+// ---- The routine links' relay (index.ts: `hookRelay = phoneAnywhere`) ---------------------------------------------
+
+/// The phone link is the routine links' relay: one line to Locust's relay carries both. Nothing here fails outright; a
+/// link the relay did not confirm is `false`, as Electron's promises resolve.
+impl crate::routine_hooks::HookRelay for PhoneAnywhere {
+    fn room(&self) -> Option<crate::routine_hooks::HookRoom> {
+        PhoneAnywhere::room(self).map(|(relay, room)| crate::routine_hooks::HookRoom { relay, room })
+    }
+    fn connected(&self) -> bool {
+        PhoneAnywhere::connected(self)
+    }
+    fn hook_open(&self, hook: &str, hash: &str) -> Result<bool, String> {
+        Ok(PhoneAnywhere::hook_open(self, hook, hash))
+    }
+    fn hook_close(&self, hook: &str) -> Result<bool, String> {
+        Ok(PhoneAnywhere::hook_close(self, hook))
+    }
+    fn hook_letters(&self, hook: &str) -> Result<Option<crate::routine_hooks::HookLettersPage>, String> {
+        Ok(PhoneAnywhere::hook_letters(self, hook).map(|page| crate::routine_hooks::HookLettersPage {
+            items: page
+                .items
+                .into_iter()
+                .map(|letter| crate::routine_hooks::HookLetter {
+                    id: letter.id,
+                    at: letter.at,
+                    hook: letter.hook,
+                    body: letter.body,
+                    content_type: letter.content_type,
+                })
+                .collect(),
+            lost: page.lost,
+        }))
+    }
+    fn hook_collected(&self, hook: &str, ids: &[String]) -> Result<bool, String> {
+        Ok(PhoneAnywhere::hook_collected(self, hook, ids))
+    }
+}
+
 fn computer_name_of(value: Option<&str>) -> String {
     let raw = value.unwrap_or("");
     let filtered: String = raw

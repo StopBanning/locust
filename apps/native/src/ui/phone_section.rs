@@ -14,7 +14,10 @@ use locust_core::phone_anywhere::{
 use locust_core::chat_http::WsClient;
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use std::sync::{Arc, OnceLock};
+use locust_core::phone_anywhere::HooksCallbacks;
+use locust_core::routine_hooks::{HookLettersPage, HookRelay, HookRoom, RoutineHooks};
+use locust_core::routine_host::LiveHost;
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 pub(crate) const HEADING: &str = "Your phone";
 const SWITCH_LABEL: &str = "Use Locust from your phone";
@@ -68,11 +71,82 @@ pub(crate) struct PhoneAnywhereLink {
     /// A test's WebSocket client under the real line to the relay, in place of NSURLSession's.
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     ws_client: Option<Arc<dyn WsClient>>,
+    /// The link as the routine links (and other apps) see it.
+    shared: SharedLink,
+}
+
+/// This window's one phone link, as the routine links and other apps reach it (index.ts makes one `phoneAnywhere` and
+/// sets `hookRelay = phoneAnywhere`): whichever link is live now, and the routine links a reconnect refreshes.
+#[derive(Clone, Default)]
+pub(crate) struct SharedLink {
+    live: Arc<Mutex<Option<PhoneAnywhere>>>,
+    hooks: Arc<Mutex<Option<Weak<RoutineHooks>>>>,
+}
+
+impl SharedLink {
+    fn live(&self) -> Option<PhoneAnywhere> {
+        self.live.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+
+/// With From anywhere off there is no room, and nothing is confirmed.
+impl HookRelay for SharedLink {
+    fn room(&self) -> Option<HookRoom> {
+        self.live().and_then(|link| HookRelay::room(&link))
+    }
+    fn connected(&self) -> bool {
+        self.live().is_some_and(|link| HookRelay::connected(&link))
+    }
+    fn hook_open(&self, hook: &str, hash: &str) -> Result<bool, String> {
+        self.live().map_or(Ok(false), |link| HookRelay::hook_open(&link, hook, hash))
+    }
+    fn hook_close(&self, hook: &str) -> Result<bool, String> {
+        self.live().map_or(Ok(false), |link| HookRelay::hook_close(&link, hook))
+    }
+    fn hook_letters(&self, hook: &str) -> Result<Option<HookLettersPage>, String> {
+        self.live().map_or(Ok(None), |link| HookRelay::hook_letters(&link, hook))
+    }
+    fn hook_collected(&self, hook: &str, ids: &[String]) -> Result<bool, String> {
+        self.live().map_or(Ok(false), |link| HookRelay::hook_collected(&link, hook, ids))
+    }
+}
+
+/// index.ts's `hooks: { refresh: syncHooks }`: the line is back, or a link was called, so the links are synced.
+struct SyncHooks(Arc<Mutex<Option<Weak<RoutineHooks>>>>);
+
+impl HooksCallbacks for SyncHooks {
+    fn refresh(&self) {
+        let Some(hooks) = self.0.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(Weak::upgrade) else {
+            return;
+        };
+        // Never on the line's own thread: a sync asks the relay and waits for its answers on this same line.
+        std::thread::spawn(move || {
+            let _ = hooks.sync();
+        });
+    }
+}
+
+/// The routines' host on this window's one phone link: its links reach the relay through it, and the link's every
+/// reconnect refreshes them.
+pub(crate) fn routine_host(
+    link: &PhoneAnywhereLink,
+    store: locust_core::store::Store,
+    opened_at: chrono::DateTime<chrono::Utc>,
+) -> Arc<LiveHost> {
+    let host = Arc::new(LiveHost::with_hook_relay(store, opened_at, Arc::new(link.shared.clone())));
+    *link.shared.hooks.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::downgrade(host.hooks()));
+    host
 }
 
 impl PhoneAnywhereLink {
     pub(crate) fn is_live(&self) -> bool {
         self.live.is_some()
+    }
+
+    /// The live link, here and where the routine links reach it; the one it replaces is handed back.
+    fn set_live(&mut self, next: Option<PhoneAnywhere>) -> Option<PhoneAnywhere> {
+        *self.shared.live.lock().unwrap_or_else(|e| e.into_inner()) = next.clone();
+        std::mem::replace(&mut self.live, next)
     }
 
     #[cfg(test)]
@@ -101,7 +175,7 @@ impl PhoneAnywhereLink {
 
 impl Drop for PhoneAnywhereLink {
     fn drop(&mut self) {
-        if let Some(pa) = self.live.take() {
+        if let Some(pa) = self.set_live(None) {
             pa.dispose();
         }
         self.rx = None;
@@ -208,7 +282,7 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         protect_file: None,
         retry_ms: None,
         away: None,
-        hooks: None,
+        hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
         desk: None,
         notes: None,
         github_user,
@@ -232,15 +306,15 @@ fn start_saved(s: &mut State) {
     s.phone_anywhere_link.started = true;
     if has_saved_anywhere(&dir) {
         if let Some(pa) = make_anywhere(s) {
+            // Live before it connects, so the routine links its first `ok` refreshes reach it.
+            s.phone_anywhere_link.set_live(Some(pa.clone()));
             let next = pa.load();
-            if next.enabled {
-                s.phone_anywhere = Some(next);
-                s.phone_anywhere_link.live = Some(pa);
-            } else {
+            if !next.enabled {
+                s.phone_anywhere_link.set_live(None);
                 pa.dispose();
                 s.phone_anywhere_link.rx = None;
-                s.phone_anywhere = Some(next);
             }
+            s.phone_anywhere = Some(next);
         }
     } else if s.phone_anywhere.is_none() {
         s.phone_anywhere = Some(disabled_anywhere());
@@ -273,7 +347,7 @@ pub(crate) fn poll(s: &mut State) -> bool {
 
 /// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
 pub(crate) fn dispose(s: &mut State) {
-    if let Some(pa) = s.phone_anywhere_link.live.take() {
+    if let Some(pa) = s.phone_anywhere_link.set_live(None) {
         pa.dispose();
     }
     s.phone_anywhere_link.rx = None;
@@ -284,14 +358,14 @@ fn enable_anywhere(s: &mut State) {
         let Some(pa) = make_anywhere(s) else {
             return;
         };
-        s.phone_anywhere_link.live = Some(pa);
+        s.phone_anywhere_link.set_live(Some(pa));
     }
     if let Some(pa) = s.phone_anywhere_link.live.as_ref() {
         let next = pa.set_enabled(true);
         if next.enabled {
             s.phone_anywhere = Some(next);
         } else {
-            if let Some(pa) = s.phone_anywhere_link.live.take() {
+            if let Some(pa) = s.phone_anywhere_link.set_live(None) {
                 pa.dispose();
             }
             s.phone_anywhere_link.rx = None;
@@ -301,7 +375,7 @@ fn enable_anywhere(s: &mut State) {
 }
 
 fn disable_anywhere(s: &mut State) {
-    if let Some(pa) = s.phone_anywhere_link.live.take() {
+    if let Some(pa) = s.phone_anywhere_link.set_live(None) {
         let mut next = pa.set_enabled(false);
         pa.dispose();
         s.phone_anywhere_link.rx = None;
@@ -1317,9 +1391,10 @@ mod tests {
             let id = val.get("id").and_then(serde_json::Value::as_str).map(str::to_owned);
             let reply = match kind {
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
-                "pair-open" | "reset" | "github-close" | "remove" => {
+                "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected" => {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
                 }
+                "hook-letters" => id.map(|id| serde_json::json!({ "t": "hook-letters", "id": id, "items": [], "lost": 0 })),
                 "github-open" => id.map(|id| {
                     if self.github_off {
                         serde_json::json!({ "t": "err", "id": id, "code": "github-off" })
@@ -1521,6 +1596,66 @@ mod tests {
         assert_eq!(ws.auths.load(std::sync::atomic::Ordering::SeqCst), 1);
         let text = all_text(&rt.elements());
         assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
+    }
+
+    /// A box that keeps a key by turning it round: never the keychain.
+    struct TurnedRound;
+    impl locust_core::own_models::SecretBox for TurnedRound {
+        fn available(&self) -> bool {
+            true
+        }
+        fn seal(&self, text: &str) -> Result<String, String> {
+            Ok(text.chars().rev().collect())
+        }
+        fn open(&self, sealed: &str) -> Result<String, String> {
+            Ok(sealed.chars().rev().collect())
+        }
+    }
+
+    fn sent(relay: &FakeRelay, kind: &str) -> usize {
+        relay.frames.lock().unwrap().iter().filter(|f| f["t"] == kind).count()
+    }
+
+    #[test]
+    fn the_routines_links_reach_the_relay_through_the_phones_own_link_and_its_notice_refreshes_them() {
+        let (_root, store) = temp_store("routine-links");
+        locust_core::own_models::use_secrets(Arc::new(TurnedRound));
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        crate::routines_panel::open(&mut rt.state);
+        let hooks = rt.state.routines.engine.as_ref().expect("the routines' engine").host.hooks().clone();
+        let room = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::room).unwrap().1;
+        // The room is the phone link's: a routine not called by a link is told so, never that the relay is missing.
+        let state = hooks.state("rt_a", true).unwrap();
+        assert_eq!(state.message.as_deref(), Some("Save this routine with When a link is called first."));
+        assert_ne!(state.message.as_deref(), Some(locust_core::routine_hooks::MISSING_RELAY));
+        // The relay's notice that a link was called (index.ts `hooks: { refresh: syncHooks }`) syncs the links.
+        let root = rt.state.data.as_ref().unwrap().root().parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(root.join("work")).unwrap();
+        std::fs::write(
+            root.join("electron").join("teammates.json"),
+            serde_json::json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_a", "name": "Reader", "hue": "blue", "role": "Custom", "createdAt": "2026-11-01T00:00:00Z", "folder": root.join("work").to_string_lossy(), "route": {"runtime": "codex", "model": "account-default", "mode": "ask"}}]}).to_string(),
+        )
+        .unwrap();
+        locust_core::routines::save(
+            rt.state.data.as_ref().unwrap(),
+            serde_json::json!({"name": "Event summary", "teammateId": "tm_a", "steps": ["Summarize the event."], "schedule": {"kind": "hook"}}),
+        )
+        .unwrap();
+        let id = locust_core::routines::list(rt.state.data.as_ref().unwrap()).unwrap()["routines"][0]["routineId"].as_str().unwrap().to_owned();
+        relay.push_frame(serde_json::json!({ "t": "hook-letter" }));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while sent(&relay, "hook-letters") == 0 {
+            assert!(std::time::Instant::now() < deadline, "the links were never collected");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let opened = relay.frames.lock().unwrap().iter().any(|f| f["t"] == "hook-open" && f["hook"] == id.as_str());
+        assert!(opened, "the routine's link was opened at the relay");
+        let made = hooks.state(&id, false).unwrap();
+        let prefix = format!("https://relay.test/v1/room/{room}/hook/");
+        assert!(made.url.as_deref().is_some_and(|url| url.starts_with(&prefix)), "the link is this room's");
     }
 
     #[test]
