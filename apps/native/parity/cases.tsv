@@ -1484,11 +1484,11 @@ apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	reads a table
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a long table keeps its first rows and says how many it has	yes
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a file that is not a zip, or a zip with no document in it, is refused in words	yes
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	a slide's number, date and footer are left out	yes
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	names nothing in a folder with no Word or PowerPoint file	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each document's words as text and names the copy in the brief	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	no
-apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	no
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	names nothing in a folder with no Word or PowerPoint file	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each document's words as text and names the copy in the brief	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	yes
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes

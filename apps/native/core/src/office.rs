@@ -260,9 +260,10 @@ pub fn document_words(name: &str, document: &OfficeDocument) -> String {
     let mut out = String::new();
     let mut blank = 0usize;
     for line in joined.lines() {
+        // Electron's `replace(/\n{3,}/g, '\n\n')`: at most one blank line between blocks.
         if line.is_empty() {
             blank += 1;
-            if blank <= 2 {
+            if blank <= 1 {
                 out.push('\n');
             }
         } else {
@@ -975,7 +976,13 @@ pub fn read_csv(name: &str, text: &str, tsv: bool) -> Workbook {
     Workbook { sheets: vec![bounded_table(name, grid, known, None)], more_sheets: 0 }
 }
 
-/// Write/refresh office-words copies under `folder` (native data only) and return the brief section.
+/// Folders `officeFiles` never looks in (Electron `office-words.ts` `SKIPPED`); a folder whose name starts with a dot is
+/// skipped too.
+const SKIPPED: [&str; 10] = [".git", ".locust", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target"];
+
+/// Writes or refreshes the text copy of each Word and PowerPoint file in `folder` and one level down, and returns the
+/// brief's section naming them, or `None` when the folder holds none (Electron `officeWordsSection`). Never fails: a
+/// file that will not read, or a copy that will not write, is left out, and the run goes ahead without it.
 pub fn office_words_section(folder: &Path) -> Option<String> {
     let files = office_files(folder);
     if files.is_empty() {
@@ -993,58 +1000,71 @@ pub fn office_words_section(folder: &Path) -> Option<String> {
         let copy = format!("{OFFICE_WORDS_DIR}/{path}.md");
         let copy_path = folder.join(&copy);
         let refresh = match std::fs::metadata(&copy_path) {
-            Ok(held) => {
-                let src_m = meta.modified().ok();
-                let held_m = held.modified().ok();
-                match (src_m, held_m) {
-                    (Some(s), Some(h)) => s > h,
-                    _ => true,
-                }
-            }
+            Ok(held) => match (meta.modified(), held.modified()) {
+                (Ok(source), Ok(held)) => held < source,
+                _ => true,
+            },
             Err(_) => true,
         };
         if refresh {
-            let Ok(bytes) = std::fs::read(&source) else {
+            let written = (|| {
+                let bytes = std::fs::read(&source).ok()?;
+                let document = read_office(&bytes, office_kind(&path)?).ok()?;
+                std::fs::create_dir_all(copy_path.parent()?).ok()?;
+                std::fs::write(&copy_path, document_words(&path, &document)).ok()
+            })();
+            if written.is_none() {
+                // Not readable as a document (damaged, or not really one), or the copy would not write: left out.
                 continue;
-            };
-            let Some(kind) = office_kind(&path) else {
-                continue;
-            };
-            let Ok(doc) = read_office(&bytes, kind) else {
-                continue;
-            };
-            if let Some(parent) = copy_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
             }
-            let _ = std::fs::write(&copy_path, document_words(&path, &doc));
         }
         kept.push(format!("- {path}: {copy}"));
     }
     if kept.is_empty() {
         return None;
     }
+    crate::attachments_for_run::keep_out_of_git(folder);
     Some(format!(
-        "Word and PowerPoint files in this folder, as text Locust already read (a copy under {OFFICE_WORDS_DIR}/; editing a copy changes nothing in the document):\n{}",
+        "Word and PowerPoint files here are not plain text, so Locust keeps a text copy of the words in each. Read the copy to know what a document says; it is refreshed when the document changes, and editing a copy changes nothing in the document:\n{}",
         kept.join("\n")
     ))
 }
 
+/// The order JavaScript's `localeCompare` gives names, near enough: symbols before digits before letters, case set
+/// aside until the names are otherwise equal, and then lower case first.
+fn locale_key(name: &str) -> (Vec<(u8, char)>, Vec<bool>) {
+    let class = |c: char| if c.is_numeric() { 1 } else if c.is_alphabetic() { 2 } else { 0 };
+    (
+        name.chars().map(|c| (class(c), c.to_lowercase().next().unwrap_or(c))).collect(),
+        name.chars().map(char::is_uppercase).collect(),
+    )
+}
+
+/// The Word and PowerPoint files in a folder and one level down, project-relative with `/` (Electron `officeFiles`),
+/// at most `MAX_FILES`, in name order at each level. Word's own lock files (`~$name.docx`) are not documents.
 fn office_files(folder: &Path) -> Vec<String> {
-    let mut found = Vec::new();
-    let Ok(entries) = std::fs::read_dir(folder) else {
-        return found;
-    };
-    let mut names: Vec<_> = entries.filter_map(|e| e.ok()).collect();
-    names.sort_by_key(|e| e.file_name());
-    for entry in names {
-        if found.len() >= MAX_FILES {
-            break;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if entry.path().is_file() && office_kind(&name).is_some() {
-            found.push(name);
+    fn look(folder: &Path, relative: &str, depth: usize, found: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(folder.join(relative)) else {
+            return;
+        };
+        let mut entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+        entries.sort_by_cached_key(|e| locale_key(&e.file_name().to_string_lossy()));
+        for entry in entries {
+            if found.len() >= MAX_FILES {
+                return;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let path = if relative.is_empty() { name.clone() } else { format!("{relative}/{name}") };
+            let Ok(kind) = entry.file_type() else { continue };
+            if kind.is_file() && office_kind(&name).is_some() {
+                found.push(path);
+            } else if kind.is_dir() && depth == 0 && !SKIPPED.contains(&name.as_str()) && !name.starts_with('.') {
+                look(folder, &path, 1, found);
+            }
         }
     }
+    let mut found = Vec::new();
+    look(folder, "", 0, &mut found);
     found
 }
 
@@ -1055,6 +1075,10 @@ mod a_workbook_is_read_for_its_cells_tests;
 #[cfg(test)]
 #[path = "an_office_file_is_read_for_its_words_tests.rs"]
 mod an_office_file_is_read_for_its_words_tests;
+
+#[cfg(test)]
+#[path = "an_office_file_reads_in_any_mode_tests.rs"]
+mod an_office_file_reads_in_any_mode_tests;
 
 #[cfg(test)]
 mod tests {
