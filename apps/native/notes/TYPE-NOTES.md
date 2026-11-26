@@ -122,3 +122,21 @@ nothing else, over the same words, "N suggested tasks" / "1 suggested task".
   with one; adding a scene is outside this lane's files), so the tests read the drawn elements instead.
 - Call sites: `BRIEF` and `BRIEF_LINES` are used in `view` in the same file (next_steps.rs, the brief's `text(..)`), which
   `messages.rs:517` calls for every reply that carries suggested tasks.
+
+## Row 6: the list of screens that still write a size of their own
+
+Today 110 `TextStyle::new(` in 24 files under `src/ui` set a size and weight with numbers of their own (design review 1b).
+`look/type_tests.rs` holds them: `WRITES_ITS_OWN_SIZE` lists each file with its count, and the test fails when a listed
+file's count rises or a file not on the list writes one. The list may only shrink: take a file off, or lower its count,
+when a screen moves onto `type_::BODY / LABEL / TITLE` or a `Look` style. It does not fail when a count falls, so a
+lane that cleans up a file does not break the merge; lowering the list after is the ratchet.
+
+- Tests: `no_screen_writes_a_size_of_its_own_beyond_the_list_and_the_list_only_shrinks` (the rise, the new file),
+  `the_list_holds_what_the_screens_hold_today_or_less` (the list's total is at most 110 and the screens' at most the list's),
+  `the_list_is_sorted_has_no_empty_rows_and_names_files_that_exist`.
+- Breaks (`row6.entries`): 5 of 5 KILLED. A new `TextStyle::new(` in next_steps.rs (a file not on the list); `rail.rs` 13 to 12
+  (its real count now exceeds the list); `scout_cards.rs` taken off; `people_panel.rs` 11 to 12 (the list grows past 110);
+  `working_spark.rs` at 0.
+  The first one also failed five unrelated tests in a whole-package `cargo test` (agents_section fold tests, two
+  window_drive_tests): they passed in the lane's `type_tests`/`next_steps` run and are not touched by this lane, so I read them
+  as load-flaky under `cargo test`; the final `nextest` run is in the report.

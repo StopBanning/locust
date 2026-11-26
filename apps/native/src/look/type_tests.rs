@@ -92,3 +92,88 @@ fn the_screens_reach_those_line_heights() {
     assert_eq!(crate::type_::BODY.line_px(), BODY.line_px());
     assert_eq!(crate::type_::LABEL.line_px(), LABEL.line_px());
 }
+
+// ---- Row 6: the list of screens that still write a size of their own ---------------------------------------------
+
+/// The files under src/ui that write `TextStyle::new(` with numbers of their own, and how many times each does today
+/// (110 in 24 files, 26 Nov 2026). THE LIST MAY ONLY SHRINK: take a file out, or lower its count, when a screen moves
+/// onto `type_::BODY / LABEL / TITLE` or a `Look` style; never add a file or raise a count (that is what this test is for).
+const WRITES_ITS_OWN_SIZE: &[(&str, usize)] = &[
+    ("activity_drawers.rs", 3),
+    ("benchmarks_panel.rs", 3),
+    ("changes_panel.rs", 5),
+    ("compare_chart.rs", 3),
+    ("compare_view.rs", 2),
+    ("decision_card.rs", 2),
+    ("github_section.rs", 1),
+    ("home_panel.rs", 10),
+    ("look_picker.rs", 1),
+    ("messages.rs", 1),
+    ("people_panel.rs", 11),
+    ("rail.rs", 13),
+    ("review_changes.rs", 1),
+    ("room_screen.rs", 3),
+    ("scout_cards.rs", 28),
+    ("scout_setting.rs", 3),
+    ("setup_card.rs", 1),
+    ("sidebar.rs", 8),
+    ("sidebar_rooms.rs", 1),
+    ("terminal_panel.rs", 1),
+    ("thread_view.rs", 3),
+    ("tune_teammate.rs", 4),
+    ("working_shimmer.rs", 1),
+    ("working_spark.rs", 1),
+];
+
+/// Every `.rs` file directly under src/ui and the number of `TextStyle::new(` in it.
+fn own_sizes_by_file() -> Vec<(String, usize)> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ui");
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(&dir).expect("src/ui is readable") {
+        let path = entry.expect("a directory entry").path();
+        if path.extension().is_some_and(|e| e == "rs") {
+            let n = std::fs::read_to_string(&path).expect("a source file").matches("TextStyle::new(").count();
+            if n > 0 {
+                found.push((path.file_name().expect("a name").to_string_lossy().into_owned(), n));
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+#[test]
+fn no_screen_writes_a_size_of_its_own_beyond_the_list_and_the_list_only_shrinks() {
+    let found = own_sizes_by_file();
+    let mut broken = Vec::new();
+    for (file, n) in &found {
+        match WRITES_ITS_OWN_SIZE.iter().find(|(f, _)| f == file) {
+            None => broken.push(format!("{file} is new on the list: {n} `TextStyle::new(` of its own; use type_::BODY / LABEL / TITLE or a Look style")),
+            Some((_, allowed)) if n > allowed => broken.push(format!("{file} went from {allowed} to {n} `TextStyle::new(`")),
+            Some(_) => {}
+        }
+    }
+    assert!(broken.is_empty(), "the type list may only shrink:\n{}", broken.join("\n"));
+}
+
+#[test]
+fn the_list_is_sorted_has_no_empty_rows_and_names_files_that_exist() {
+    let names: Vec<&str> = WRITES_ITS_OWN_SIZE.iter().map(|(f, _)| *f).collect();
+    let mut sorted = names.clone();
+    sorted.sort_unstable();
+    assert_eq!(names, sorted, "keep the list sorted");
+    assert!(WRITES_ITS_OWN_SIZE.iter().all(|(_, n)| *n > 0), "a file at 0 comes off the list");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ui");
+    for (file, _) in WRITES_ITS_OWN_SIZE {
+        assert!(dir.join(file).exists(), "{file} is not under src/ui any more: take it off the list");
+    }
+}
+
+#[test]
+fn the_list_holds_what_the_screens_hold_today_or_less() {
+    // The sum of today's list; it only goes down. (110 on 26 Nov 2026, from `grep -rc 'TextStyle::new(' src/ui`.)
+    let listed: usize = WRITES_ITS_OWN_SIZE.iter().map(|(_, n)| n).sum();
+    assert!(listed <= 110, "the list is {listed} and may only shrink from 110");
+    let drawn: usize = own_sizes_by_file().iter().map(|(_, n)| n).sum();
+    assert!(drawn <= listed, "{drawn} `TextStyle::new(` in src/ui against {listed} allowed");
+}
