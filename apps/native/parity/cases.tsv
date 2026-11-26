@@ -3070,7 +3070,7 @@ apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lets only the tit
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	is one line, never two	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the unowned row aligned with every other one	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives every row's mark the owner's face footprint, whatever size the face is (0.561)	yes
-apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	no
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	does not cap the title in JavaScript	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still takes the first line and drops the attachment preamble	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	draws the faces only in the wide sidebar	yes
