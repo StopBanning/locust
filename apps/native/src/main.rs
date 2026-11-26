@@ -138,6 +138,8 @@ mod scenes;
 #[path = "ui/keychain_note_tests.rs"]
 mod keychain_note_tests;
 #[cfg(test)]
+mod engine_default_tests;
+#[cfg(test)]
 #[path = "ui/mac_frame_tests.rs"]
 mod mac_frame_tests;
 #[path = "ui/scout_cards.rs"]
