@@ -1508,3 +1508,17 @@ fn runs_a_shim_through_the_cmd_and_powershell_windows_ships_before_any_a_path_di
     let both = |c: &str| matches!(c, "C:\\shims\\tool.ps1" | "C:\\shims\\pwsh.exe") || c == WIN_POWERSHELL;
     assert_eq!(win_locate("tool", &env, &both, &no_dirs, &no_shim).unwrap().executable, "C:\\shims\\pwsh.exe");
 }
+
+/// Lane check (26 Nov): npm's bin directory is taken only when it is a whole path, as PATH's own entries are (a
+/// relative one means wherever Locust happens to run). A Rust choice beside path-locator.ts, kept and held here.
+#[test]
+fn a_relative_npm_bin_directory_is_never_searched_and_a_whole_one_is() {
+    let env_of = |key: &str| (key == "PATH").then(String::new);
+    let files = |p: &str| p == "rel/bin/claude" || p == "/abs/bin/claude";
+    let relative = || Some("rel/bin".to_owned());
+    let look = discovery::Look { windows: false, env: &env_of, is_executable: &files, read_dir: &no_dirs, read_file: &no_shim, npm_bin: &relative };
+    assert!(discovery::locate("claude", &look).is_none());
+    let whole = || Some("/abs/bin".to_owned());
+    let look = discovery::Look { windows: false, env: &env_of, is_executable: &files, read_dir: &no_dirs, read_file: &no_shim, npm_bin: &whole };
+    assert!(discovery::locate("claude", &look).is_some());
+}
