@@ -48,13 +48,20 @@ impl Kind {
 /// `runs_in` of a teammate native cannot run yet; the window words it "runs in Locust for now".
 pub const IN_LOCUST: &str = "in-locust";
 
-/// `LOCUST_NATIVE_ENGINE=1` picks native whether or not Electron is up.
+/// Native is the engine by default, whether or not Electron is up: a double-clicked app has no environment, and this
+/// is the Locust the person runs. Only `LOCUST_NATIVE_ENGINE=0` hands the window to Electron's engine (through `choose`).
 pub fn forced() -> bool {
-    std::env::var_os("LOCUST_NATIVE_ENGINE").is_some_and(|v| v == "1")
+    native_by_default(std::env::var_os("LOCUST_NATIVE_ENGINE").as_deref())
 }
 
-/// Item 1, as a pure decision: forced native; else the door while it answers; native only when the door is unreachable
-/// (a door that answered and refused is not down). When native has nothing either, the door's own words are shown.
+/// `forced`'s reading of `LOCUST_NATIVE_ENGINE`: anything but exactly "0" (unset, empty, "1", a typo) means native.
+fn native_by_default(value: Option<&std::ffi::OsStr>) -> bool {
+    value.is_none_or(|v| v != "0")
+}
+
+/// Item 1, as a pure decision: native unless `LOCUST_NATIVE_ENGINE=0` (`forced` is false only then); with it, the
+/// door while it answers, and native only when the door is unreachable (a door that answered and refused is not down).
+/// When native has nothing either, the door's own words are shown.
 pub fn choose(
     forced: bool,
     door: impl FnOnce() -> Result<Vec<Teammate>, String>,

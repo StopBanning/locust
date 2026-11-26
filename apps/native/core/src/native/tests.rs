@@ -295,11 +295,22 @@ fn team() -> Vec<Teammate> {
     }]
 }
 #[test]
+fn native_is_the_engine_unless_locust_native_engine_is_zero() {
+    use std::ffi::OsStr;
+    // Unset (a double-clicked app), "1", empty, or anything else: native.
+    for value in [None, Some("1"), Some(""), Some("yes"), Some("00")] {
+        assert!(native_by_default(value.map(OsStr::new)), "{value:?}");
+    }
+    // Only exactly "0" hands the window to Electron's engine.
+    assert!(!native_by_default(Some(OsStr::new("0"))));
+}
+
+#[test]
 fn engine_choice_forced_door_down_door_up_and_door_refusal() {
     let dies = || -> Result<Vec<Teammate>, String> { panic!("must not be asked") };
-    // LOCUST_NATIVE_ENGINE=1: native, and the door is never asked.
+    // The default (forced): native, and the door is never asked.
     assert_eq!(choose(true, dies, || Ok(team())).unwrap().0, Kind::Native);
-    // The door answers: door, and native is never asked.
+    // LOCUST_NATIVE_ENGINE=0, the door answers: door, and native is never asked.
     assert_eq!(choose(false, || Ok(team()), dies).unwrap().0, Kind::Door);
     // Unreachable: native, for each of the three "cannot reach it" wordings.
     for words in [

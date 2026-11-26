@@ -1041,6 +1041,35 @@ mod tests {
         let _ = fs::remove_dir_all(&parent);
     }
 
+    /// Cutover 1, row 2: this app keeps Electron's numbering, so a backup Electron 0.882.0 made is read, and one from a
+    /// newer Locust than this is refused with Electron's words (profile-backup.ts `readBackup`).
+    #[test]
+    fn a_backup_from_electron_0_882_0_is_read_and_one_from_0_884_0_is_refused_with_electrons_words() {
+        let this = env!("CARGO_PKG_VERSION");
+        let root = make_profile(&["Wren", "Atlas"]);
+        let electrons = write_backup(&root, &temp_dir("locust-backup-0882"), "0.882.0", at()).unwrap().folder;
+        let reading = read_backup(&electrons, this).unwrap();
+        assert_eq!(reading.manifest.counts.teammates, 2);
+
+        let newer = write_backup(&root, &temp_dir("locust-backup-0884"), "0.884.0", at()).unwrap().folder;
+        assert_eq!(
+            read_backup(&newer, this).unwrap_err(),
+            format!("This backup was made by Locust 0.884.0, newer than this one ({this}). Update Locust, then restore it.")
+        );
+        for dir in [root, electrons.parent().unwrap().to_owned(), newer.parent().unwrap().to_owned()] {
+            let _ = fs::remove_dir_all(dir);
+        }
+    }
+
+    /// Cutover 1, row 2: the Rust app numbers its versions after Electron's (0.882.0 was Electron's last), so a backup
+    /// Electron made is never "newer than this one". Later releases only go up.
+    #[test]
+    fn this_app_is_numbered_after_electrons_0_882_0() {
+        let parts: Vec<u64> = env!("CARGO_PKG_VERSION").split('.').map(|p| p.parse().unwrap()).collect();
+        assert_eq!(parts.len(), 3);
+        assert!(parts >= vec![0, 883, 0], "{}", env!("CARGO_PKG_VERSION"));
+    }
+
     #[test]
     fn reader_validates_manifest_hashes_versions_and_paths() {
         let root = make_profile(&["Wren", "Atlas"]);
