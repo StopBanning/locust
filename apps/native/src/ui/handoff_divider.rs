@@ -379,4 +379,86 @@ mod tests {
         carried.carried_on_for = Some("provider".into());
         assert!(view(Some(&from), &carried, &p).is_some());
     }
+
+    // --- a-carried-on-turn-is-said-as-locusts.test.tsx ---
+
+    /// Every word the runtime shows, one per line, labels too.
+    fn said<S>(rt: &rune::Runtime<S>) -> String {
+        rt.elements().into_iter().filter(|e| !e.exiting).flat_map(|e| [e.text, e.label]).flatten().collect::<Vec<_>>().join("\n")
+    }
+
+    fn divider_said(to: ledger::Metadata) -> String {
+        let from = meta("m1", "codex", "account-default");
+        let mut rt = rune::Runtime::new((from, to), |(from, to), _| view(Some(from), to, &Palette::new(true)).expect("a divider"), (700.0, 300.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        said(&rt)
+    }
+
+    #[test]
+    fn the_divider_says_the_plan_ran_out_and_where_the_work_went() {
+        // case: the divider says the plan ran out and where the work went
+        let mut carried = meta("m2", "claude", "account-default");
+        carried.started_by_kind = Some("carry-on".into());
+        let plan = divider_said(carried.clone());
+        assert!(plan.contains("Codex ran out of its plan, so Locust carried the work on with Claude Code."), "{plan}");
+        // A plain switch of agent is the person's own and says nothing about a plan.
+        let mut plain = meta("m2", "claude", "account-default");
+        plain.continues_reason = Some("route-switch".into());
+        assert!(!divider_said(plain).contains("ran out of its plan"));
+        // 0.839: a provider that failed before the turn did anything is said as that, not as a plan.
+        carried.carried_on_for = Some("provider".into());
+        let provider = divider_said(carried);
+        assert!(provider.contains("Codex’s provider failed before it did anything, so Locust carried the work on with Claude Code."), "{provider}");
+        assert!(!provider.contains("ran out of its plan"));
+    }
+
+    /// The stopped run's card, drawn in the window: Codex's turn stopped, Claude Code offered.
+    fn stopped_run(why: &str) -> rune::Runtime<State> {
+        let mut s = State::default();
+        crate::scenes::carry_on_scene(&mut s);
+        for item in s.ledger.iter_mut().flat_map(|pane| pane.items.iter_mut()) {
+            if let ledger::Item::CarryOn { why: w, .. } = item {
+                *w = why.into();
+            }
+        }
+        let mut rt = rune::Runtime::new(s, crate::view, (1200.0, 900.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        rt
+    }
+
+    #[test]
+    fn the_stopped_run_says_its_provider_failed_first_and_that_another_agent_can_start_it_clean() {
+        // case: the stopped run says its provider failed first, and that another agent can start it clean (0.839)
+        let words = said(&stopped_run("provider"));
+        assert!(words.contains("stopped on an error before it did anything, so another agent can do the task from the start."), "{words}");
+        assert!(!words.contains("ran out of its plan"), "{words}");
+    }
+
+    #[test]
+    fn the_stopped_run_offers_one_press_that_names_the_agent_and_says_why_a_press_was_refused() {
+        // case: the stopped run offers one press that names the agent, and says why a press was refused
+        let rt = stopped_run("plan");
+        let words = said(&rt);
+        assert!(words.contains("Codex CLI ran out of its plan. What it did is kept, and the next agent is told what was done and what is left."), "{words}");
+        let presses = rt.elements().into_iter().filter(|e| !e.exiting && e.text.as_deref() == Some("Carry on with Claude Code")).count();
+        assert_eq!(presses, 1, "one press, naming the agent: {words}");
+        // A press starts the turn: the card steps aside for the send, as Electron's goes to "Starting…".
+        let mut s = rt.state;
+        let id = s.ledger.as_ref().map(|pane| pane.header.id.clone()).expect("a conversation");
+        let conversation = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
+        s.flight = Some(Flight { teammate_id: id, conversation_id: conversation, header: None, after_tip: None, message: None });
+        s.demo = false;
+        s.sending.request((), |()| Err("This turn was already carried on.".into()));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while s.sending.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(poll(&mut s, 0.0, &mut Tx::default()));
+        let mut rt = rune::Runtime::new(s, crate::view, (1200.0, 900.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        let refused = said(&rt);
+        assert!(refused.contains("This turn was already carried on."), "the refusal is said: {refused}");
+    }
 }

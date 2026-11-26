@@ -453,3 +453,41 @@ fn a_faces_card_filters_the_list_to_that_teammate_and_clear_puts_everyone_back()
     rt.frame(0.05);
     assert_eq!(keys_starting(&rt, "recent-m_"), ["recent-m_w1", "recent-m_s1"]);
 }
+
+// --- the ages line up ----------------------------------------------------------------------------------------------
+
+/// A routine of `steps` steps whose run is on step `at`, drawn in the sidebar; the width its step words take.
+fn step_words_width(steps: usize, at: usize) -> (String, f32) {
+    let mut s = state(vec![mate("tm_wren", "Wren")], vec![conv("m_run", "Morning check", "Wren", 0)]);
+    s.recent[0].state = "running".into();
+    s.mission_owners.insert("m_run".into(), "tm_wren".into());
+    s.org.routines.push(crate::org::RoutineName { id: "rt_x".into(), name: "Morning".into(), steps, ..Default::default() });
+    s.ledger_summaries.insert("m_run".into(), locust_core::ledger::Summary {
+        mission_id: "m_run".into(),
+        running: true,
+        started_by_kind: Some("routine".into()),
+        started_by_routine: Some("rt_x".into()),
+        started_by_step: Some(at),
+        ..Default::default()
+    });
+    // The window's own fonts: without them every face measures as the fallback, which has no equal-width digits.
+    let fonts = rune::text::TextSystem::new(crate::look::FONTS, crate::look::FAMILIES);
+    let mut rt = Runtime::with_text(s, |s, _| sidebar(s, &Palette::new(true)), (SIDEBAR_W, 1400.0), Env::new(true, 1.0), fonts);
+    rt.frame(0.0);
+    let age = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("conversation-age-m_run")).expect("the step words sit where the age does");
+    (age.text.clone().unwrap(), age.rect[2])
+}
+
+#[test]
+fn lines_the_ages_up() {
+    // Electron's `.lc-conv__age` takes tabular-nums so the digits of one row's age sit under the next row's. Rust's age
+    // words are drawn in the mono face, where every digit is one width: the same number of digits takes the same room
+    // whichever digits they are, while one digit more takes more.
+    let (one_ones, narrow) = step_words_width(11, 11);
+    let (eights, wide) = step_words_width(88, 88);
+    assert_eq!((one_ones.as_str(), eights.as_str()), ("step 11 of 11", "step 88 of 88"));
+    assert_eq!(narrow, wide, "11s and 88s take the same width");
+    let (short, shorter) = step_words_width(8, 1);
+    assert_eq!(short, "step 1 of 8");
+    assert!(shorter < narrow, "two fewer digits take less room");
+}

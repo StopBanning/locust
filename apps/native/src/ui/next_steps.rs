@@ -132,3 +132,94 @@ pub(super) fn view(
 
     Some(box_col)
 }
+
+#[cfg(test)]
+mod tests {
+    //! Electron's `a-reply-suggests-tasks-as-cards.test.tsx`, the cards and the window's side of "the teammates", drawn
+    //! in the window from a reply that ends in a `<locust-next>` block.
+    use super::*;
+    use rune::{Env, Runtime};
+
+    const REPLY: &str = "Done: the update images are cleaned up after an install.\n\n<locust-next>\n\
+        Clean the Linux cache too :: Do the same for the AppImage cache, keeping the one waiting to install.\n\
+        - Tell people in What's new :: Add a line to the next changelog saying old updates no longer pile up.\n\
+        </locust-next>";
+
+    /// The thread with that reply as its last message: a turn `running` or not, the reply `whole` (final) or not.
+    fn thread(running: bool, whole: bool) -> String {
+        thread_with(running, whole, |_| {})
+    }
+
+    /// `thread`, with the window's state changed by `tweak` after the conversation is set up.
+    fn thread_with(running: bool, whole: bool, tweak: impl FnOnce(&mut State)) -> String {
+        let mut s = State::default();
+        crate::scenes::ledger_scene(&mut s, false, false);
+        let pane = s.ledger.as_mut().expect("a conversation");
+        pane.items = vec![
+            ledger::Item::User("Clean up the update images.".into()),
+            ledger::Item::Assistant { item_id: "reply-next".into(), r#final: whole, text: REPLY.into() },
+        ];
+        pane.snapshot.running = running;
+        pane.after_tip = None;
+        s.flight = None;
+        tweak(&mut s);
+        let mut rt = Runtime::new(s, crate::view, (1200.0, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        rt.elements().into_iter().filter(|e| !e.exiting).flat_map(|e| [e.text, e.label]).flatten().collect::<Vec<_>>().join("\n")
+    }
+
+    #[test]
+    fn offer_no_do_it_here_where_the_conversation_cannot_take_a_turn_now() {
+        // case: offer no Do it here where the conversation cannot take a turn now
+        let idle = thread(false, true);
+        assert!(idle.contains("2 suggested tasks") && idle.contains("Do it here"), "{idle}");
+        // Another turn is running: the cards stay, each with its Start, and none offers Do it here.
+        let busy = thread(true, true);
+        assert!(busy.contains("2 suggested tasks") && busy.contains("Clean the Linux cache too"), "{busy}");
+        assert!(busy.contains("Start") && !busy.contains("Do it here"), "{busy}");
+    }
+
+    #[test]
+    fn the_window_draws_the_cards_only_once_the_reply_is_whole() {
+        // Electron: `const suggested = message.final || !options.running ? parseNextSteps(message.text) : []`. A reply still
+        // arriving in a running turn shows no cards and never its half-written tags; a whole one, or a turn that is over,
+        // shows them.
+        let arriving = thread(true, false);
+        assert!(!arriving.contains("suggested task") && !arriving.contains("locust-next"), "{arriving}");
+        assert!(thread(true, true).contains("2 suggested tasks"));
+        assert!(thread(false, false).contains("2 suggested tasks"), "a turn that is over shows them whatever final says");
+    }
+
+    #[test]
+    fn offer_no_do_it_here_while_a_send_is_in_flight_or_a_card_waits_for_the_person() {
+        // NextSteps.tsx: Do it here is this conversation's next turn, so it is not offered where the conversation cannot
+        // take one now: a message already on its way, or an approval waiting for the person's answer.
+        let sending = thread_with(false, true, |s| {
+            s.flight = Some(Flight { teammate_id: "tm_wren".into(), conversation_id: None, header: None, after_tip: None, message: Some("Go on.".into()) });
+        });
+        assert!(sending.contains("2 suggested tasks") && sending.contains("Start") && !sending.contains("Do it here"), "{sending}");
+        let waiting = thread_with(false, true, |s| {
+            s.pending_approval = Some(locust_core::approval::Request {
+                approval_id: "ap_1".into(),
+                mission_id: "m1".into(),
+                runtime: "codex".into(),
+                kind: locust_core::approval::Kind::Command,
+                summary: "Run a command".into(),
+                detail: String::new(),
+                cwd: None,
+                requested_at: String::new(),
+                always_covers: None,
+                always_key: None,
+                data_sent_says: None,
+                reversible_says: None,
+                patch: None,
+                claude_input: None,
+                skippable: false,
+                answer_in: None,
+                questions: Vec::new(),
+            });
+        });
+        assert!(waiting.contains("2 suggested tasks") && waiting.contains("Start") && !waiting.contains("Do it here"), "{waiting}");
+    }
+}

@@ -3070,7 +3070,7 @@ apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lets only the tit
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	is one line, never two	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the unowned row aligned with every other one	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives every row's mark the owner's face footprint, whatever size the face is (0.561)	yes
-apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	no
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	does not cap the title in JavaScript	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still takes the first line and drops the attachment preamble	yes
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	draws the faces only in the wide sidebar	yes
@@ -3636,9 +3636,9 @@ apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS r
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	still offers the conversation total, on the conversation-scoped surface	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	marks a live run as still going	yes
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	no
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	no
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	no
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	yes
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	yes
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	shows who takes each step, the checker marked on the last, and the run set to change files in a copy	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	says beside each step the role it was proposed for, and nothing when the routine has no roles	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	keeps the checker for a teammate on their own: every step is theirs and the last still has to approve	yes
@@ -4281,8 +4281,8 @@ apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	leaves th
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	is defanged when another teammate is shown the reply, so a quote cannot plant cards	yes
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	tells a started task its own title	yes
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	say how many, each title and brief, a cross, Do it here, Start, and Start all	no
-apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	offer no Do it here where the conversation cannot take a turn now	no
-apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taught the block on every turn, and the window draws it only once the reply is whole	no
+apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	offer no Do it here where the conversation cannot take a turn now	yes
+apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taught the block on every turn, and the window draws it only once the reply is whole	yes
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	yes
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	yes
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	yes
@@ -4842,10 +4842,10 @@ apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms ar
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stops at the fitted size going down and at eight times its pixels going up	yes
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stays centred where it is smaller than the pane, and keeps its edges at the pane where it is larger	yes
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	is what the file viewer draws for a picture, with the zoom controls beside it	yes
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
-apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	yes
 apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts	is not taken for one that never started	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
