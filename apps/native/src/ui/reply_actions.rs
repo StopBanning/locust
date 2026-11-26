@@ -938,6 +938,25 @@ fn render_inline_math_para(
     row().w_full().flex_wrap().items_center().children(items)
 }
 
+/// A live reply without the table header still arriving at its end (settledText.ts: "holds a header row back until the
+/// rule under it has arrived"). rune-kit draws a `|` line of two cells as a table's head at once, so a line that turns
+/// out to be prose would redraw from a table into a paragraph; held, it is drawn once its rule begins, as the table it
+/// is. Only a header with nothing under it yet is held: not a row under another `|` line, nor a line inside a fence.
+fn without_bare_header(body: &str) -> &str {
+    let lines = body.strip_suffix('\n').unwrap_or(body);
+    let at = lines.rfind('\n').map_or(0, |i| i + 1);
+    let last = &lines[at..];
+    let piped = |line: &str| line.trim_start().starts_with('|');
+    let rule = |line: &str| line.trim().chars().all(|c| "|:- ".contains(c));
+    if !piped(last) || rule(last) {
+        return body;
+    }
+    let above = &lines[..at.saturating_sub(1)];
+    let above_line = above.rsplit('\n').next().unwrap_or("");
+    let in_fence = above.lines().filter(|l| l.trim_start().starts_with("```")).count() % 2 == 1;
+    if (at > 0 && piped(above_line)) || in_fence { body } else { &body[..at] }
+}
+
 fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
     let chip_reply = body_key(body);
     let feedback = s.copy_feedback.clone();
@@ -946,7 +965,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
         undrawn,
         math: math_pngs,
         inline_math,
-    } = crate::markdown_prep::prepare_reply(body, p.dark);
+    } = crate::markdown_prep::prepare_reply(if live { without_bare_header(body) } else { body }, p.dark);
     let diagram_tabs = s.diagram_code_tab.clone();
     let image_cache = s.image_cache.clone();
     let pictures = crate::step_pictures::reply_pictures(s, &prepared);
@@ -1444,3 +1463,7 @@ mod live2_math_scene_tests;
 #[cfg(test)]
 #[path = "inline_math_tests.rs"]
 mod inline_math_tests;
+
+#[cfg(test)]
+#[path = "settled_text_tests.rs"]
+mod settled_text_tests;

@@ -5958,19 +5958,19 @@ apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty s
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	yes
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	no
-apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	no
-apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a fence the moment it closes, blank line or not	no
-apps/desktop/src/renderer/src/settled-text.test.ts	loses nothing: settled plus tail is the text	no
-apps/desktop/src/renderer/src/settled-text.test.ts	only ever moves forward as text arrives	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a table from its rule on, row by finished row	no
-apps/desktop/src/renderer/src/settled-text.test.ts	holds a header row back until the rule under it has arrived	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a reply that opens with a table	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles each finished list item and heading, never the line still being written	no
-apps/desktop/src/renderer/src/settled-text.test.ts	stops at prose: a paragraph line still waits for its blank line	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles the rows after a closed fence too	no
-apps/desktop/src/renderer/src/settled-text.test.ts	only moves forward as a table arrives a character at a time	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a fence the moment it closes, blank line or not	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	loses nothing: settled plus tail is the text	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	only ever moves forward as text arrives	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a table from its rule on, row by finished row	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	holds a header row back until the rule under it has arrived	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a reply that opens with a table	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles each finished list item and heading, never the line still being written	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	stops at prose: a paragraph line still waits for its blank line	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles the rows after a closed fence too	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	only moves forward as a table arrives a character at a time	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	skips Auto while the Auto switch is off	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	includes it once the switch is on	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	moves off Auto to the first mode when Auto is no longer allowed	yes
