@@ -201,6 +201,8 @@ pub(super) struct State {
     pub(super) page_points: crate::page_points_ui::PagePoints,
     pub(super) terminal: crate::terminal_panel::Panel,
     pub(super) changes: crate::changes_panel::Panel,
+    /// What is open in the diffs outside the Changes panel (diff_view.rs).
+    pub(super) diff_folds: crate::diff_view::Folds,
     pub(super) changes_job: Latest<crate::changes_panel::ReadResult>,
     /// Undo of a turn, run off the window's thread.
     pub(super) undo_job: Latest<crate::changes_panel::UndoAnswer>,
@@ -594,6 +596,7 @@ impl Default for State {
             home: crate::home_panel::Panel::default(),
             keychain_asking: false,
             changes: crate::changes_panel::Panel::default(),
+            diff_folds: crate::diff_view::Folds::default(),
             changes_job: Latest::default(),
             undo_job: Latest::default(),
             turn_undo: crate::turn_undo::Panel::default(),

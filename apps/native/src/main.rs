@@ -271,6 +271,8 @@ mod commit_panel;
 mod issue_list;
 #[path = "ui/diff_notes_ui.rs"]
 mod diff_notes_ui;
+#[path = "ui/diff_view.rs"]
+mod diff_view;
 #[path = "ui/connectors_section.rs"]
 mod connectors_section;
 #[path = "ui/add_connector.rs"]

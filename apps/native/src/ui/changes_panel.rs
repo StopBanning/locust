@@ -1050,95 +1050,17 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                         }),
                                 );
                             }
-                            let shown = if panel.expanded.contains(&i) {
-                                f.hunks.len()
-                            } else {
-                                2.min(f.hunks.len())
-                            };
-                            for (j, h) in f.hunks.iter().take(shown).enumerate() {
-                                file =
-                                    file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
-                                let (before, after) = h.sides();
-                                let lang = crate::reply_actions::language_of_path(&f.path);
-                                let bh = rune_kit::syntax::highlight(lang.as_deref(), &before);
-                                let ah = rune_kit::syntax::highlight(lang.as_deref(), &after);
-                                let mut offsets = (0, 0);
-                                let mut hidden = 0;
-                                let keep_mask = changes::kept_context(&h.rows);
-                                let marks = changes::paired_spans(&h.rows);
-                                for (k, r) in h.rows.iter().enumerate() {
-                                    let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
-                                    if r.kind != '+' {
-                                        offsets.0 += r.text.len() + 1
-                                    }
-                                    if r.kind != '-' {
-                                        offsets.1 += r.text.len() + 1
-                                    }
-                                    let run_start = {
-                                        let mut start = k;
-                                        while start > 0 && !keep_mask[start - 1] {
-                                            start -= 1;
-                                        }
-                                        start
-                                    };
-                                    let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
-                                    if !keep {
-                                        hidden += 1;
-                                        continue;
-                                    }
-                                    if hidden > 0 {
-                                        let start = k - hidden;
-                                        let label = if hidden == 1 {
-                                            "1 unchanged line".into()
-                                        } else {
-                                            format!("{hidden} unchanged lines")
-                                        };
-                                        file =
-                                            file.child(button(label, p).on_press(move |s: &mut State| {
-                                                s.changes.contexts.insert((i, j, start));
-                                            }));
-                                        hidden = 0;
-                                    }
-                                    let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
-                                    file = crate::diff_notes_ui::append_noted_row(
-                                        file,
-                                        s,
-                                        s.changes.folder.to_str(),
-                                        crate::diff_notes_ui::may_note(s),
-                                        &f.path,
-                                        r,
-                                        line,
-                                        p,
-                                    );
-                                }
-                                if hidden > 0 {
-                                    let start = h.rows.len() - hidden;
-                                    let label = if hidden == 1 {
-                                        "1 unchanged line".into()
-                                    } else {
-                                        format!("{hidden} unchanged lines")
-                                    };
-                                    file = file.child(button(label, p).on_press(move |s: &mut State| {
-                                        s.changes.contexts.insert((i, j, start));
-                                    }));
-                                }
-                            }
-                            if let Some(after) = f.after() {
-                                file = file.child(reply_actions::copy_button(
-                                    s.copy_feedback.as_ref(),
-                                    after,
-                                    p,
-                                ));
-                            }
-                            let statement =
-                                changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
-                            if shown < f.hunks.len() {
-                                file = file.child(button(statement, p).on_press(move |s: &mut State| {
-                                    s.changes.expanded.insert(i);
-                                }));
-                            } else {
-                                file = file.child(text(statement).font(type_::LABEL).color(p.muted).wrap());
-                            }
+                            let copy = f.after().map(|after| reply_actions::copy_button(s.copy_feedback.as_ref(), after, p));
+                            file = file.child(crate::diff_view::diff_view(
+                                s,
+                                crate::diff_view::Place::Panel(i),
+                                f,
+                                diff.truncated,
+                                None,
+                                (s.changes.folder.to_str(), crate::diff_notes_ui::may_note(s)),
+                                copy,
+                                p,
+                            ));
                         }
                     }
                 }
