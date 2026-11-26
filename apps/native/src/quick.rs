@@ -1262,6 +1262,7 @@ pub fn run() {
                 max_size: Some((WIDTH, MAX_HEIGHT)),
                 ..WindowOptions::default()
             })
+            .font_smoothing(crate::look::type_::SMOOTHING)
             .chrome(Chrome {
                 full_size_content: false,
                 traffic_lights: None,

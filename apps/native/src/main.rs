@@ -3752,6 +3752,7 @@ fn main() {
     })
     .maximized(placement.maximized)
     .window_options(window_glass::window_options(std::env::consts::OS))
+    .font_smoothing(crate::look::type_::SMOOTHING)
     .chrome(WINDOW_CHROME)
     .on_close(on_close)
     .on_open_url(link_open::opened)
