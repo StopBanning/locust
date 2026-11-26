@@ -455,7 +455,13 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
             orb(format!("{id}/plan-orb/{PLAN_ORB}"), PLAN_ORB, Surface::PlanStep, s, p.dark)
         }).flatten();
         let marker = row().size(20.0, 20.0).center().child(orb.unwrap_or_else(|| {
-            let mut dot = el().size(6.0, 6.0).radius(3.0).fill(ink);
+            // A done step wears the check in its filled green ring (ThreadItems.tsx `<Icon name="check" size={11} />`),
+            // never a dot, which read as one more pending step.
+            let mut dot = if is_done {
+                crate::look::controls::glyph(&l, &crate::look::icons::CHECK, 11.0, Some(ink)).key(format!("{id}/plan-check/{index}"))
+            } else {
+                el().size(6.0, 6.0).radius(3.0).fill(ink)
+            };
             if running {
                 dot = dot.cycle(Cycle { period: 1.6, phase: 0.0, stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)], still: 1.0, fps: 30.0 }).key(format!("{id}/plan-dot/{index}/is-pulsing"));
             }

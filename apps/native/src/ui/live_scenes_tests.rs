@@ -163,3 +163,32 @@ fn just_after_send_the_older_thread_shows_the_live_line() {
     let (orb, words, _) = live_line(&rt);
     assert_eq!((orb, words.as_str()), ("breathing", "Starting…"));
 }
+
+
+/// Every live scene, the parts a person looks for in a running turn by name: the orb, the step's words, its clock.
+#[test]
+fn every_live_scene_draws_the_orb_the_words_and_the_clock() {
+    let scenes: [(&str, fn(&mut State)); 8] = [
+        ("native-live", native_scene_live),
+        ("ledger-live", ledger_live_scene),
+        ("reviews-live", reviews_live_scene),
+        ("live-thinking", live_thinking_scene),
+        ("live-shell", live_shell_scene),
+        ("live-read", live_read_scene),
+        ("live-subagent", live_subagent_scene),
+        ("live-stopping", live_stopping_scene),
+    ];
+    for (name, build) in scenes {
+        let rt = window(build);
+        let (orb, words, time) = live_line(&rt);
+        assert!(!orb.is_empty() && !words.is_empty() && time, "{name}: orb {orb:?}, words {words:?}, clock {time}");
+    }
+}
+
+/// A plan's done step wears the check, its running step the orb, while the turn runs (ThreadItems.tsx PlanSteps).
+#[test]
+fn the_plan_marks_its_done_step_with_the_check() {
+    let rt = window(native_scene_live);
+    assert!(keyed(&rt, "preview-plan/plan-check/0").is_some(), "the done step's check");
+    assert!(keyed(&rt, "preview-plan/plan-check/1").is_none(), "the running step has the orb instead");
+}
