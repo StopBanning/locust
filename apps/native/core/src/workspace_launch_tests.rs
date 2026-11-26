@@ -3,10 +3,11 @@
 
 use crate::workspace_launch::{
     ResolveOptions, WorkspaceResolution, WorkspaceSource, is_inside_directory,
-    not_a_teammate_folder, read_remembered_workspace, resolve_workspace_path, workspace_id_for,
+    not_a_teammate_folder, read_remembered_workspace, resolve_workspace_path, startup_install_directory, workspace_id_for,
     write_remembered_workspace,
 };
 use serde_json::Value;
+use std::path::Path;
 
 const INSTALL: &str = "C:\\Users\\colin\\AppData\\Local\\Programs\\Locust";
 
@@ -421,3 +422,25 @@ fn a_chosen_folder_that_is_no_place_for_teammates_is_named_and_a_project_folder_
 // case: is not asked in a Windows dialog by the picker: the first conversation there asks, in the window
 // Rust has no picker dialog at all: src/ui/folder_confirmation.rs holds the first send in such a folder and asks in
 // the window (names_the_folder_and_why_with_choose_another_folder_first_and_start_here and the tests beside it).
+
+/// Live hour (26 Nov): opened from Finder, the app starts in "/". The remembered folder (Electron's workspace.json) is
+/// still the one it opens, because the install folder is the program's own folder, never "/".
+#[test]
+fn opened_from_finder_the_remembered_folder_is_kept_and_slash_is_never_the_install_folder() {
+    let exe = Path::new("/Applications/Locust Native.app/Contents/MacOS/locust-native");
+    let install = startup_install_directory(Some(exe));
+    assert_eq!(install.as_deref(), Some("/Applications/Locust Native.app/Contents/MacOS"));
+    assert_eq!(startup_install_directory(Some(Path::new("/locust-native"))), None);
+    let resolved = resolve_workspace_path(&ResolveOptions {
+        argv: &["locust-native".to_owned()],
+        cwd: "/",
+        install_directory: install.as_deref(),
+        remembered: Some("/Users/person/work/locust"),
+        default_workspace: Some("/Users/person/Documents/Locust"),
+        win32: false,
+        home_directory: Some("/Users/person"),
+        system_directory: None,
+    });
+    assert_eq!(resolved.path.as_deref(), Some("/Users/person/work/locust"));
+    assert_eq!(resolved.source, WorkspaceSource::Remembered);
+}
