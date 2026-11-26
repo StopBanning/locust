@@ -2424,10 +2424,10 @@ apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stops calling 
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stays ready when the check finds the version that is on disk	yes
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	refuses to install once the downloaded one is superseded	yes
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	falls back to the version it was looking for when the event carries none	yes
-apps/desktop/src/main/relay-note-is-writable.test.ts	is accepted by the ledger, not silently dropped	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	reads back with the sentence a person needs	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	LEAVES A COMPLETED MISSION COMPLETED	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	records no integrity issue	no
+apps/desktop/src/main/relay-note-is-writable.test.ts	is accepted by the ledger, not silently dropped	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	reads back with the sentence a person needs	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	LEAVES A COMPLETED MISSION COMPLETED	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	records no integrity issue	yes
 apps/desktop/src/main/relay.test.ts	when switched off, says the message waits	yes
 apps/desktop/src/main/relay.test.ts	starts the first hop when switched on	yes
 apps/desktop/src/main/relay.test.ts	stops at the cap, naming who will see the message next	yes

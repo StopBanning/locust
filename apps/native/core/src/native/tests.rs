@@ -2493,6 +2493,94 @@ fn relay_reads_an_unreadable_setting_as_off_and_an_unreadable_roster_as_a_reason
     assert!(super::NativeRelayHost.peer_context_read("tm_booty").is_err());
 }
 
+// apps/desktop/src/main/relay-note-is-writable.test.ts: the relay's ending notice, written by the host's own `note`
+// (NativeRelayHost::note, the call Relay::on_shared makes when it stops) into a real ledger that already holds a run's
+// start and its completion, then read back the way mission-store's reader reads it.
+mod relay_note_is_writable {
+    use super::*;
+    use crate::relay::RelayHost;
+
+    const NOTE: &str = "Stopped after 12 automatic replies.";
+
+    /// Electron's METADATA, `run.started` and `run.completed`, written as mission-store's createMission and
+    /// appendEvents write them, at the version a Claude run is written at.
+    fn ledger(t: &Temp) -> (hooks::Guard, PathBuf) {
+        let store = t.store();
+        let path = store.write_path("mission_note").unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let schema = crate::ledger_write::schema_written("claude");
+        let metadata = json!({"missionId": "mission_note", "runId": "run_note", "prompt": "Ask Booty for the word.", "runtime": "claude",
+            "model": "sonnet", "requestedRouteId": "claude:sonnet", "resolvedRouteId": "claude:sonnet", "cliVersion": "2.1.0",
+            "workspaceId": "ws_test", "createdAt": "2026-09-11T06:00:00.000Z", "sandbox": "workspace-write", "executionPolicyVersion": 1});
+        let event = |sequence: u64, kind: &str, payload: Value| json!({"id": format!("run_note:{sequence}"), "runId": "run_note",
+            "missionId": "mission_note", "sequence": sequence, "type": kind, "occurredAt": "2026-09-11T06:00:01.000Z",
+            "sourceAdapter": "claude", "payload": payload});
+        let process = json!({"exitCode": 0, "signal": null, "stderr": "", "stderrTruncated": false, "recordCount": 2,
+            "inputDeliveryFailed": false, "outputLimitExceeded": false, "forcedTerminationAttempted": false,
+            "terminationUnconfirmed": false, "startedAt": "2026-09-11T06:00:00.000Z", "finishedAt": "2026-09-11T06:00:05.000Z"});
+        let records = [
+            json!({"schemaVersion": schema, "recordType": "mission.created", "ledgerSequence": 1, "occurredAt": "2026-09-11T06:00:00.000Z", "metadata": metadata}),
+            json!({"schemaVersion": schema, "recordType": "mission.event", "ledgerSequence": 2, "occurredAt": "2026-09-11T06:00:01.000Z",
+                "event": event(1, "run.started", json!({"runtimeThreadId": "t", "evidence": {"redacted": true}}))}),
+            json!({"schemaVersion": schema, "recordType": "mission.event", "ledgerSequence": 3, "occurredAt": "2026-09-11T06:00:01.000Z",
+                "event": event(2, "run.completed", json!({"runtimeThreadId": "t", "process": process}))}),
+        ];
+        fs::write(&path, records.iter().map(|r| format!("{r}\n")).collect::<String>()).unwrap();
+        (hooks::install(store, None), path)
+    }
+
+    fn diagnostics(path: &Path) -> Vec<Value> {
+        let mission = crate::mission_export::recover_mission_from_path(path).expect("the mission reads back");
+        mission["events"].as_array().unwrap().iter().filter(|e| e["type"] == "adapter.diagnostic").cloned().collect()
+    }
+
+    // case: is accepted by the ledger, not silently dropped
+    #[test]
+    fn a_relay_note_is_accepted_by_the_ledger_not_silently_dropped() {
+        let t = Temp::new();
+        let (_g, path) = ledger(&t);
+        super::super::NativeRelayHost.note("mission_note", NOTE);
+        assert_eq!(diagnostics(&path).len(), 1);
+        // The window's own reader keeps it too: every record, none refused.
+        let read = crate::ledger::read_ledger(&path).unwrap();
+        assert_eq!(read.records.len(), 4);
+    }
+
+    // case: reads back with the sentence a person needs
+    #[test]
+    fn a_relay_note_reads_back_with_the_sentence_a_person_needs() {
+        let t = Temp::new();
+        let (_g, path) = ledger(&t);
+        super::super::NativeRelayHost.note("mission_note", NOTE);
+        let note = diagnostics(&path).into_iter().next().unwrap();
+        assert!(note["payload"]["message"].as_str().unwrap().contains("Stopped after 12"));
+        assert_eq!(note["payload"]["code"], "host.relay_ended");
+    }
+
+    // case: LEAVES A COMPLETED MISSION COMPLETED
+    #[test]
+    fn a_relay_note_leaves_a_completed_mission_completed() {
+        let t = Temp::new();
+        let (_g, path) = ledger(&t);
+        let before = crate::mission_export::recover_mission_from_path(&path).unwrap();
+        assert_eq!(before["phase"], "completed");
+        super::super::NativeRelayHost.note("mission_note", NOTE);
+        let after = crate::mission_export::recover_mission_from_path(&path).unwrap();
+        assert_eq!(after["phase"], "completed");
+    }
+
+    // case: records no integrity issue
+    #[test]
+    fn a_relay_note_records_no_integrity_issue() {
+        let t = Temp::new();
+        let (_g, path) = ledger(&t);
+        super::super::NativeRelayHost.note("mission_note", NOTE);
+        let mission = crate::mission_export::recover_mission_from_path(&path).unwrap();
+        assert_eq!(mission["issues"], json!([]));
+        assert!(crate::ledger::read_ledger(&path).unwrap().issues.is_empty());
+    }
+}
+
 #[test]
 fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread() {
     let t = Temp::new();
