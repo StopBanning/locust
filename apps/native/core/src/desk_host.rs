@@ -525,3 +525,60 @@ impl DeskHost {
         }
     }
 }
+
+// ---- On the phone link (index.ts `desk: { frame, forget }`) -----------------------------------------------------------
+
+/// A browser's ask, as the phone link hands it on (`isDeskAsk`); anything else is `None`.
+pub fn desk_ask_of(value: &Value) -> Option<DeskAsk> {
+    let obj = value.as_object()?;
+    let id = obj.get("id")?.as_str()?;
+    if id.is_empty() || id.encode_utf16().count() > 64 {
+        return None;
+    }
+    let id = id.to_owned();
+    match obj.get("kind")?.as_str()? {
+        "hello" => Some(DeskAsk::Hello { id }),
+        "take" => Some(DeskAsk::Take { id }),
+        "replay" => (obj.get("what")?.as_str()? == "approvals").then(|| DeskAsk::Replay { id, what: "approvals".into() }),
+        "call" => {
+            let channel = obj.get("channel")?.as_str()?;
+            let args = obj.get("args")?.as_str()?;
+            let length = channel.encode_utf16().count();
+            (length > 0 && length <= 120)
+                .then(|| DeskAsk::Call { id, channel: channel.to_owned(), args: args.to_owned() })
+        }
+        _ => None,
+    }
+}
+
+/// What the computer tells a browser, as the phone link seals it (`DeskTell`).
+pub fn desk_tell_json(tell: &DeskTell) -> Value {
+    match tell {
+        DeskTell::ResOk { id, value } => json!({ "kind": "res", "id": id, "ok": true, "value": value }),
+        DeskTell::ResErr { id, message, refused } => {
+            let mut said = json!({ "kind": "res", "id": id, "ok": false, "message": message });
+            if *refused {
+                said["refused"] = json!(true);
+            }
+            said
+        }
+        DeskTell::Ev { channel, args } => json!({ "kind": "ev", "channel": channel, "args": args }),
+        DeskTell::Taken { by } => json!({ "kind": "taken", "by": by }),
+    }
+}
+
+/// The phone link's `desk` (index.ts: `frame: (device, asks) => deskLink.handle(device, asks)`, `forget: (device) =>
+/// deskLink.forget(device)`): a paired browser's frame is answered, and a device that may no longer have the window lets
+/// it go. What each queues is told at once.
+impl crate::phone_anywhere::DeskCallbacks for DeskHost {
+    fn frame(&self, device: &str, asks: Vec<Value>) {
+        let asks: Vec<DeskAsk> = asks.iter().filter_map(desk_ask_of).collect();
+        self.handle(device, &asks);
+        self.flush();
+    }
+
+    fn forget(&self, device: &str) {
+        DeskHost::forget(self, device);
+        self.flush();
+    }
+}

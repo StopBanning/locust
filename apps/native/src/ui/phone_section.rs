@@ -12,9 +12,13 @@ use locust_core::phone_anywhere::{
     PhoneAnywhereSettings, RelayConnector,
 };
 use locust_core::chat_http::WsClient;
+use locust_core::desk_host::{
+    DeskHandler, DeskHelloInfo, DeskHost, DeskHostDeps, DeskSender, DeskValue, DeskWindow, desk_tell_json,
+};
+use locust_core::desk_snapshot::{DeskSnapshot, snapshot_key, snapshot_with};
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use locust_core::phone_anywhere::{HooksCallbacks, McpCallbacks};
+use locust_core::phone_anywhere::{DeskCallbacks, HooksCallbacks, McpCallbacks};
 use locust_core::remote_mcp::{McpRelay, RemoteMcp, RemoteMcpAsk, RemoteMcpReply};
 use locust_core::routine_hooks::{HookLettersPage, HookRelay, HookRoom, RoutineHooks};
 use locust_core::routine_host::LiveHost;
@@ -74,6 +78,13 @@ pub(crate) struct PhoneAnywhereLink {
     ws_client: Option<Arc<dyn WsClient>>,
     /// The link as the routine links (and other apps) see it.
     shared: SharedLink,
+    /// Locust in a browser (index.ts `createDeskHost`): one per window, made with its first link.
+    desk: Option<Arc<DeskHost>>,
+    /// What this window draws, kept as a browser reads it (desk_snapshot.rs): written on the window's thread each poll,
+    /// read on the line's when a browser asks.
+    desk_view: Arc<Mutex<Option<DeskSnapshot>>>,
+    /// The cover's turns (`cover: coverWindow`), told on the line's thread and drawn on the window's.
+    desk_cover: Arc<Mutex<Vec<bool>>>,
 }
 
 /// This window's one phone link, as the routine links and other apps reach it (index.ts makes one `phoneAnywhere` and
@@ -315,6 +326,134 @@ fn mac_ws_client(link: &PhoneAnywhereLink) -> Option<Arc<dyn WsClient>> {
     Some(Arc::new(locust_core::chat_http::mac::MacUrlSessionClient::new()))
 }
 
+/// shared/appearance.ts `APPEARANCE_GET_CHANNEL`.
+const APPEARANCE_GET: &str = "appearance:get";
+
+/// What a browser that has the window reads of it, answered from what this window draws (the reads index.ts's handlers
+/// give the window: `appearanceNow()` for `appearance:get`).
+const DESK_DRAWN: &[&str] = &[APPEARANCE_GET];
+
+/// The window's appearance as `appearance:get` answers it (`AppearanceState`): no Liquid glass here.
+fn appearance_now(s: &State) -> serde_json::Value {
+    let theme = match s.appearance {
+        Some(true) => "dark",
+        Some(false) => "light",
+        None => "system",
+    };
+    let resolved = if s.appearance.unwrap_or(true) { "dark" } else { "light" };
+    serde_json::json!({ "theme": theme, "resolved": resolved, "look": "standard", "liquidOffered": false, "glassGround": "desktop" })
+}
+
+/// Keeps what this window draws where a browser's read finds it; only a change is written.
+fn publish_desk_view(s: &State) {
+    let key = snapshot_key(APPEARANCE_GET, &[]);
+    let value = appearance_now(s);
+    let mut view = s.phone_anywhere_link.desk_view.lock().unwrap_or_else(|e| e.into_inner());
+    if view.as_ref().and_then(|v| v.answers.get(&key)).is_some_and(|kept| kept.value == value) {
+        return;
+    }
+    *view = Some(snapshot_with(view.as_ref(), &key, value, now_ms().max(0) as u64));
+}
+
+/// One read a browser may make, answered from the kept view by its call and arguments.
+fn drawn_read(view: Arc<Mutex<Option<DeskSnapshot>>>, channel: &'static str) -> DeskHandler {
+    Arc::new(move |_, args| {
+        let view = view.lock().unwrap_or_else(|e| e.into_inner());
+        view.as_ref()
+            .and_then(|v| v.answers.get(&snapshot_key(channel, args)))
+            .map(|kept| DeskValue::Json(kept.value.clone()))
+            .ok_or_else(String::new)
+    })
+}
+
+/// A waiting card as the window hears it (`MissionApprovalRequest`), for a browser just given the window.
+fn waiting_card(request: &locust_core::approval::Request) -> serde_json::Value {
+    let mut card = serde_json::json!({
+        "approvalId": request.approval_id,
+        "missionId": request.mission_id,
+        "runtime": request.runtime,
+        "kind": request.kind.as_str(),
+        "summary": request.summary,
+        "detail": request.detail,
+        "requestedAt": request.requested_at,
+    });
+    if let Some(cwd) = &request.cwd {
+        card["cwd"] = serde_json::json!(cwd);
+    }
+    card
+}
+
+/// The window's desk host (index.ts `createDeskHost`): told through whichever link is live, its cover drawn by this
+/// window, its reads answered from what this window draws.
+fn desk_host(s: &mut State, computer: Arc<dyn Fn() -> Option<String> + Send + Sync>) -> Arc<DeskHost> {
+    if let Some(host) = &s.phone_anywhere_link.desk {
+        return host.clone();
+    }
+    publish_desk_view(s);
+    let link = &s.phone_anywhere_link;
+    let view = link.desk_view.clone();
+    let handlers: std::collections::HashMap<String, DeskHandler> =
+        DESK_DRAWN.iter().map(|&channel| (channel.to_owned(), drawn_read(view.clone(), channel))).collect();
+    let shared = link.shared.clone();
+    let covers = link.desk_cover.clone();
+    let waker = link.waker.clone();
+    let host = Arc::new(DeskHost::new(DeskHostDeps {
+        handlers: Arc::new(Mutex::new(handlers)),
+        window: Arc::new(|| {
+            let sender = DeskSender { id: 1, main_frame_id: 1, process_id: std::process::id(), destroyed: false };
+            Some(DeskWindow { destroyed: false, web_contents: sender })
+        }),
+        tell: Arc::new(move |device, items| {
+            let items: Vec<serde_json::Value> = items.iter().map(desk_tell_json).collect();
+            shared.live().is_some_and(|live| live.tell_desk(device, &items))
+        }),
+        cover: Arc::new(move |on| {
+            covers.lock().unwrap_or_else(|e| e.into_inner()).push(on);
+            if let Some(w) = &waker {
+                w();
+            }
+        }),
+        hello: Arc::new(move || {
+            let resolved = view
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .and_then(|v| v.answers.get(&snapshot_key(APPEARANCE_GET, &[])))
+                .and_then(|kept| kept.value["resolved"].as_str().map(str::to_owned))
+                .unwrap_or_else(|| "dark".to_owned());
+            Ok(DeskHelloInfo {
+                version: env!("CARGO_PKG_VERSION").to_owned(),
+                computer: computer().unwrap_or_default(),
+                theme: resolved,
+            })
+        }),
+        waiting: Arc::new(|| locust_core::engine_api::api().waiting().iter().map(waiting_card).collect()),
+        changed: None,
+    }));
+    let back = host.clone();
+    s.elsewhere_cover.on_take_back = Some(Arc::new(move || {
+        back.take_back();
+        back.flush();
+    }));
+    s.phone_anywhere_link.desk = Some(host.clone());
+    host
+}
+
+/// The desk's news for this window: what it draws is kept for a browser, and the cover goes up or down.
+fn poll_desk(s: &mut State) -> bool {
+    publish_desk_view(s);
+    let turns: Vec<bool> = std::mem::take(&mut *s.phone_anywhere_link.desk_cover.lock().unwrap_or_else(|e| e.into_inner()));
+    let Some(&covered) = turns.last() else {
+        return false;
+    };
+    let active = s.phone_anywhere_link.desk.as_ref().and_then(|host| host.active());
+    let device = active.and_then(|id| {
+        s.phone_anywhere.as_ref().and_then(|a| a.devices.iter().find(|d| d.id == id).map(|d| d.name.clone()))
+    });
+    crate::elsewhere_cover::apply_cover(s, covered, device);
+    true
+}
+
 fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let store = s.data.clone().or_else(locust_core::native::store)?;
     let dir = store.root().to_path_buf();
@@ -328,6 +467,14 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let connect = s.phone_anywhere_link.connector.clone().unwrap_or_else(|| default_connector(&s.phone_anywhere_link));
     let github_user = s.phone_anywhere_link.github_user.clone();
     let computer_override = s.phone_anywhere_link.computer_name.clone();
+    let computer: Arc<dyn Fn() -> Option<String> + Send + Sync> = Arc::new(move || {
+        computer_override.clone().or_else(|| {
+            std::env::var("COMPUTERNAME")
+                .or_else(|_| std::env::var("HOSTNAME"))
+                .ok()
+        })
+    });
+    let desk: Arc<dyn DeskCallbacks> = desk_host(s, computer.clone());
     Some(PhoneAnywhere::new(PhoneAnywhereOptions {
         directory: dir,
         calls,
@@ -347,16 +494,10 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         retry_ms: None,
         away: None,
         hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
-        desk: None,
+        desk: Some(desk),
         notes: None,
         github_user,
-        computer_name: Some(Arc::new(move || {
-            computer_override.clone().or_else(|| {
-                std::env::var("COMPUTERNAME")
-                    .or_else(|_| std::env::var("HOSTNAME"))
-                    .ok()
-            })
-        })),
+        computer_name: Some(computer),
         mcp: Some(Arc::new(ServeMcp(s.phone_anywhere_link.shared.mcp.clone()))),
     }))
 }
@@ -407,7 +548,8 @@ pub(crate) fn poll(s: &mut State) -> bool {
     if let Some(next) = latest {
         s.phone_anywhere = Some(next);
     }
-    s.phone_anywhere != before
+    let covered = poll_desk(s);
+    s.phone_anywhere != before || covered
 }
 
 /// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
@@ -1458,7 +1600,7 @@ mod tests {
             let reply = match kind {
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
                 "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected"
-                | "mcp-open" | "mcp-close" => {
+                | "mcp-open" | "mcp-close" | "allow" | "pair-close" => {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
                 }
                 "hook-letters" => id.map(|id| serde_json::json!({ "t": "hook-letters", "id": id, "items": [], "lost": 0 })),
@@ -1663,6 +1805,120 @@ mod tests {
         assert_eq!(ws.auths.load(std::sync::atomic::Ordering::SeqCst), 1);
         let text = all_text(&rt.elements());
         assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
+    }
+
+    /// A browser paired by Open in your browser's code, over the window's own fake relay: its device and keys.
+    struct DeskBrowser {
+        room: String,
+        device: String,
+        keys: locust_core::relay_crypto::LinkKeys,
+    }
+
+    fn pair_desk_browser(rt: &mut rune::Runtime<State>, relay: &FakeRelay) -> DeskBrowser {
+        use locust_core::relay_crypto::{Direction, LinkSide, aad_of, device_id_of, link_keys, new_pc_keys, pairing_proof, seal_json};
+        let url = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::desk_code).expect("a code for the full window");
+        let parts: Vec<String> = url.split("#p=").nth(1).unwrap().split('.').map(str::to_owned).collect();
+        let (room, pc_key, secret) = (parts[0].clone(), parts[1].clone(), parts[2].clone());
+        let mine = new_pc_keys();
+        let device = device_id_of(&mine.public_key);
+        let keys = link_keys(&mine.private_key, &pc_key, &room, LinkSide::Device).unwrap();
+        let hello = seal_json(
+            &keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "pair", "proof": pairing_proof(&secret), "name": "Chrome" }),
+            &aad_of(&room, &device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.push_frame(serde_json::json!({ "t": "msg", "from": "pairing:p1", "n": hello.n, "c": hello.c, "k": mine.public_key }));
+        pump_until(rt, "the browser paired with the full window", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.devices.iter().any(|d| d.desk == Some(true)))
+        });
+        DeskBrowser { room, device, keys }
+    }
+
+    fn desk_frame(relay: &FakeRelay, browser: &DeskBrowser, q: u64, items: serde_json::Value) {
+        use locust_core::relay_crypto::{Direction, aad_of, seal_json};
+        let boxed = seal_json(
+            &browser.keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "desk", "s": "browser-session", "q": q, "t": now_ms(), "items": items }),
+            &aad_of(&browser.room, &browser.device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.push_frame(serde_json::json!({ "t": "msg", "from": browser.device, "n": boxed.n, "c": boxed.c }));
+    }
+
+    /// The desk frames this computer sent the browser, opened, from the `from`th on.
+    fn told_desk(relay: &FakeRelay, browser: &DeskBrowser, from: usize) -> Vec<serde_json::Value> {
+        use locust_core::relay_crypto::{Direction, aad_of, open_json};
+        let frames = relay.frames.lock().unwrap().clone();
+        frames
+            .iter()
+            .filter(|f| f["t"] == "send" && f["to"] == browser.device.as_str())
+            .skip(from)
+            .filter_map(|f| {
+                open_json(
+                    &browser.keys.open,
+                    f["n"].as_str()?,
+                    f["c"].as_str()?,
+                    &aad_of(&browser.room, &browser.device, Direction::PcToDevice),
+                )
+                .ok()
+            })
+            .filter(|said| said["kind"] == "desk")
+            .collect()
+    }
+
+    #[test]
+    // case: says what the computer is, and who has the window
+    // case: lets the window go when the browser that has it may no longer have it
+    fn a_browser_with_the_full_window_is_answered_by_this_windows_desk_host_and_covers_it_until_let_go() {
+        let (_root, store) = temp_store("desk");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        rt.state.appearance = Some(false);
+        rt.state.phone_anywhere_link.computer_name = Some("DESK-PC".into());
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+
+        desk_frame(
+            &relay,
+            &browser,
+            1,
+            serde_json::json!([
+                { "kind": "hello", "id": "h1" },
+                { "kind": "take", "id": "t1" },
+                { "kind": "call", "id": "c1", "channel": "appearance:get", "args": "[]" }
+            ]),
+        );
+        pump_until(&mut rt, "the browser has the window", |s| s.elsewhere_cover.covered && !told_desk(&relay, &browser, 0).is_empty());
+        assert_eq!(rt.state.elsewhere_cover.device.as_deref(), Some("Chrome"));
+        let told = told_desk(&relay, &browser, 0);
+        assert_eq!(told.len(), 1, "{told:?}");
+        let items = told[0]["items"].as_array().unwrap();
+        let hello: serde_json::Value = serde_json::from_str(items[0]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            hello,
+            serde_json::json!({ "version": env!("CARGO_PKG_VERSION"), "computer": "DESK-PC", "theme": "light", "active": "computer" })
+        );
+        assert_eq!(items[1], serde_json::json!({ "kind": "res", "id": "t1", "ok": true, "value": "true" }));
+        let appearance: serde_json::Value = serde_json::from_str(items[2]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["theme"], "light");
+        assert_eq!(appearance["resolved"], "light");
+
+        // What the window draws is what the browser reads next.
+        rt.state.appearance = Some(true);
+        desk_frame(&relay, &browser, 2, serde_json::json!([{ "kind": "call", "id": "c2", "channel": "appearance:get", "args": "[]" }]));
+        pump_until(&mut rt, "the second read", |_| told_desk(&relay, &browser, 1).len() == 1);
+        let again = told_desk(&relay, &browser, 1);
+        let appearance: serde_json::Value = serde_json::from_str(again[0]["items"][0]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["resolved"], "dark");
+
+        // Full window taken away from it: the browser is told this computer has it, and the cover comes down.
+        let live = rt.state.phone_anywhere_link.live.clone().unwrap();
+        live.set_desk(&browser.device, false);
+        pump_until(&mut rt, "the cover down", |s| !s.elsewhere_cover.covered && told_desk(&relay, &browser, 2).len() == 1);
+        let gone = told_desk(&relay, &browser, 2);
+        assert_eq!(gone[0]["items"], serde_json::json!([{ "kind": "taken", "by": "computer" }]));
     }
 
     /// A box that keeps a key by turning it round: never the keychain.
