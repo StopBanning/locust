@@ -5206,15 +5206,15 @@ apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds on a first
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	with a team, folds while an agent is still being checked, and says which	no
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says nothing of checking once every answer is in	no
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says where each teammate stands, beside the name, and reads it aloud with the card (0.606)	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the version an alias runs, as the Team screen does	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names Antigravity's Flash tier by the model it runs, and guesses no version for the others	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	is what Home's cards are given -- not the alias, spelled	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the model alone on the line, every card alike, and the level in the whole route -- the one chosen, else the model's default	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names a Cursor family by the family, so its line carries no level where the others carry none	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	says no level for a model that has none, and guesses none before the catalog has answered	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows no maker's mark for a model of the person's own	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows the runtime as its mark and the model in words, the whole route on hover and for a screen reader	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	with no model of its own, draws no route line and no mark	no
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the version an alias runs, as the Team screen does	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names Antigravity's Flash tier by the model it runs, and guesses no version for the others	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	is what Home's cards are given -- not the alias, spelled	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the model alone on the line, every card alike, and the level in the whole route -- the one chosen, else the model's default	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names a Cursor family by the family, so its line carries no level where the others carry none	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	says no level for a model that has none, and guesses none before the catalog has answered	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows no maker's mark for a model of the person's own	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows the runtime as its mark and the model in words, the whole route on hover and for a screen reader	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	with no model of its own, draws no route line and no mark	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	names who is working and who waits on you, waiting first	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	counts past two, so it fits the glass	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	says nothing when nothing runs or waits: the glass keeps its claim	yes

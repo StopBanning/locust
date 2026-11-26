@@ -1503,22 +1503,33 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 mate.model.as_deref(),
                 oc_models,
             );
+            // HomeTeam.tsx (0.384): the mark says the runtime, the words say the model, as the chip names it -- the
+            // account's own default by its runtime -- and the whole route is the line's hover. A model of the person's
+            // own has no mark. No agent of its own: no line (0.723). A trailing Free is its own tag (0.848).
+            let route = home_route_for(s, mate);
             let mut agent = row().gap(5.0).center_y();
-            if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
-                agent = agent.child(mark);
+            if let Some(route) = &route {
+                agent = agent.key(format!("home-card-route-{}", mate.id)).help(if dropped {
+                    format!("OpenCode no longer offers {}. Open {} to switch.", mate.model.as_deref().unwrap_or(&route.route), mate.name)
+                } else {
+                    route.route.clone()
+                });
+                if let Some(mark) = route.runtime.as_deref().and_then(|r| crate::look::controls::agent_mark(&l, r, 11.0, l.c("text-muted"))) {
+                    agent = agent.child(mark.key(format!("home-card-mark-{}", mate.id)));
+                }
             }
-            // HomeTeam.tsx (0.848): the model as the chip names it -- the account's own default by its runtime -- and a
-            // trailing Free as its own tag, kept whole while the name gives way.
-            let (model_name, free) = locust_core::route_rows::free_tag_of(&home_model_name(runtime, mate.model.as_deref()));
-            agent = agent.child(
-                text(model_name)
-                    .font(rune::TextStyle::new(11.5, 400.0))
-                    .color(if dropped { p.amber } else { l.c("text-muted") })
-                    .truncate()
-                    .shrink()
-                    .key(format!("home-card-model-{}", mate.id)),
-            );
-            if free {
+            let (model_name, free) = locust_core::route_rows::free_tag_of(route.as_ref().map_or("", |r| r.model.as_str()));
+            if route.is_some() {
+                agent = agent.child(
+                    text(model_name)
+                        .font(rune::TextStyle::new(11.5, 400.0))
+                        .color(if dropped { p.amber } else { l.c("text-muted") })
+                        .truncate()
+                        .shrink()
+                        .key(format!("home-card-model-{}", mate.id)),
+                );
+            }
+            if free && route.is_some() {
                 agent = agent.child(
                     text("Free")
                         .font(rune::TextStyle::new(10.5, 500.0))
@@ -1567,7 +1578,9 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         }))
                         .child(agent),
                 )
-                .key(format!("home-card-{}", mate.id));
+                .key(format!("home-card-{}", mate.id))
+                .role("button")
+                .label(home_card_label(&mate.name, &mate.role, state.as_ref().map(|st| st.spoken.as_str()), mate.busy, route.as_ref().map(|r| r.route.as_str())));
             if state.is_none() { card = card.help(last_worked); }
             if let Some((_, looking)) = looked {
                 let mut eye = row()
@@ -2157,12 +2170,83 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
     body
 }
 
-/// routeName.ts `homeRouteOf`'s model: the name the chip says, and the runtime's own name for the account's default.
-fn home_model_name(runtime: &str, model: Option<&str>) -> String {
-    match model.filter(|m| !m.is_empty() && *m != locust_core::models::ACCOUNT_DEFAULT) {
-        Some(model) => locust_core::teammate_tooltip::route_model_name(runtime, model),
-        None => locust_core::teammate_tooltip::short_runtime_name(runtime).to_owned(),
+/// A teammate's route as Home's card says it (routeName.ts `homeRouteOf`, 0.384/0.386): the whole route, runtime and
+/// level and all, for the card's hover and accessible name; the model alone for the line; and the runtime whose mark
+/// the line wears, none for a model of the person's own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct HomeRoute {
+    pub route: String,
+    pub model: String,
+    pub runtime: Option<String>,
+}
+
+/// The catalogue's entry a route stands on (routeName.ts `modelFamily`): its own id, or for Cursor the family whose
+/// level the id carries ("grok-4.7-medium" is Grok 4.7 at Medium), with that level.
+fn route_family<'a>(runtime: &str, model: &str, catalog: &'a [engine::Model]) -> Option<(&'a engine::Model, Option<String>)> {
+    if let Some(found) = catalog.iter().find(|m| m.id == model) {
+        return Some((found, None));
     }
+    if runtime != "cursor" {
+        return None;
+    }
+    let (family, level) = locust_core::models::split_cursor_model_id(model);
+    catalog
+        .iter()
+        .find(|m| locust_core::models::split_cursor_model_id(&m.id).0 == family && !m.efforts.is_empty() && level.as_ref().is_none_or(|l| m.efforts.contains(l)))
+        .map(|m| (m, level))
+}
+
+/// routeName.ts `routeEffortOf`: the level chosen for the route; else the one a Cursor id carries; else the model's
+/// default. Only for a model the catalogue lists with levels: before it answers, no level is guessed.
+pub(super) fn route_effort_of(runtime: &str, model: &str, effort: Option<&str>, catalog: &[engine::Model]) -> Option<String> {
+    let (family, of_id) = route_family(runtime, model, catalog)?;
+    if family.efforts.is_empty() {
+        return None;
+    }
+    effort.map(str::to_owned).or(of_id).or_else(|| locust_core::effort_levels::default_effort(&family.efforts, None))
+}
+
+/// routeName.ts `homeRouteOf`: the model by the name it runs as (a Cursor family by the family), the level in the whole
+/// route only, and the account's own default by its runtime's name.
+pub(super) fn home_route_of(runtime: &str, model: &str, effort: Option<&str>, catalog: &[engine::Model]) -> HomeRoute {
+    let family = route_family(runtime, model, catalog).filter(|(m, of_id)| runtime == "cursor" && (of_id.is_some() || !m.efforts.is_empty()));
+    let name = locust_core::teammate_tooltip::route_model_name(runtime, family.map_or(model, |(m, _)| m.name.as_str()));
+    let with_level = match route_effort_of(runtime, model, effort, catalog) {
+        Some(level) => {
+            let (base, fast) = locust_core::effort_levels::split_effort(&level);
+            format!("{name} · {}{}", locust_core::effort_levels::effort_name(base), if fast { " · Fast" } else { "" })
+        }
+        None => name.clone(),
+    };
+    let shown = if model == locust_core::models::ACCOUNT_DEFAULT && name.to_lowercase() == "account default" {
+        locust_core::teammate_tooltip::short_runtime_name(runtime).to_owned()
+    } else {
+        name
+    };
+    HomeRoute {
+        route: locust_core::teammate_tooltip::route_chrome(runtime, model, &with_level, " · "),
+        model: shown,
+        runtime: (!locust_core::own_models::is_own_route_model(model)).then(|| runtime.to_owned()),
+    }
+}
+
+/// A teammate's route on Home (App.tsx: `homeRouteOf(mate.route, resolvedModels, models)`), from the catalogue and
+/// level Locust read for them; none for a teammate with no agent of its own.
+fn home_route_for(s: &State, mate: &Teammate) -> Option<HomeRoute> {
+    let runtime = mate.runtime.as_deref()?;
+    let model = mate.model.as_deref().filter(|m| !m.is_empty()).unwrap_or(locust_core::models::ACCOUNT_DEFAULT);
+    let agent = s.models.get(&mate.id).and_then(|agents| agents.iter().find(|a| a.runtime == runtime));
+    Some(home_route_of(runtime, model, agent.and_then(|a| a.effort.as_deref()), agent.map_or(&[][..], |a| a.models.as_slice())))
+}
+
+/// HomeTeam.tsx's card label: who, their role, where they stand (or working now), and the whole route.
+fn home_card_label(name: &str, role: &str, spoken: Option<&str>, working: bool, route: Option<&str>) -> String {
+    let stands = match spoken {
+        Some(spoken) => format!(", {spoken}"),
+        None if working => ", working now".into(),
+        None => String::new(),
+    };
+    format!("Message {name}, {role}{stands}{}", route.map_or(String::new(), |r| format!(", on {r}")))
 }
 
 /// FirstLaunch.tsx's roster notice, when the teammates file would not read.
@@ -2845,6 +2929,10 @@ mod away_on_home_tests;
 #[cfg(test)]
 #[path = "home_free_tag_tests.rs"]
 mod home_free_tag_tests;
+
+#[cfg(test)]
+#[path = "home_names_the_model_tests.rs"]
+mod home_names_the_model_tests;
 
 #[cfg(test)]
 #[path = "empty_home_team_tests.rs"]
