@@ -92,3 +92,14 @@ fn a_resting_window_s_poll_looks_at_the_browser_again_only_once_a_second() {
     poll(&mut s, &mut Tx::default());
     assert_eq!(s.browser.look_again, BUSY, "an open browser follows its pages");
 }
+
+#[test]
+fn a_closed_browser_with_a_sign_ins_list_still_looks_again_only_once_a_second() {
+    let d = dirs();
+    let mut s = window(&d, "one");
+    // A teammate's own sign-ins were listed while the browser was open; it is closed now, with no tabs.
+    crate::invariants::lock(&s.browser.host).profiles = vec![("scout".into(), "Scout".into())];
+    assert_eq!(keep_up(&mut s), RESTING, "the list is kept up to date, but nothing shows that needs 100 ms");
+    let h = crate::invariants::lock(&s.browser.host);
+    assert!(h.profiles.is_empty(), "the list was read again: no teammate in this data folder has its own sign-ins");
+}
