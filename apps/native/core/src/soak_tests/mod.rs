@@ -17,6 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod bursts;
 mod many_turns;
 
 static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

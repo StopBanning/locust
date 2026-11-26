@@ -55,3 +55,67 @@ Passes. Two things to watch, neither a fault by the rule above:
   169, 186 (turns 50-100 through 450-500): about +0.2 ms a turn for every ledger already in the folder, so something
   in a turn's start or end reads every ledger. At 10,000 ledgers that is ~2 s a turn of the engine's own work. Not
   chased here (tests and notes only); row 5 measures listing and reading directly.
+
+## Row 2: bursts (`bursts.rs`)
+
+A fake agent prints numbered records (`<17>`) as fast as it can while the engine's reader is held, once for each reader
+with a queue: records.rs's shared process-runner bound (2,048; driven through Claude Code, `soak-claude-burst.py`),
+Codex's app-server (4,096; `soak-app-server.py burst`), ACP (20,000; `soak-acp-burst.py`) and OpenCode 1's server
+(20,000; `soak-opencode-serve-burst.py`, a loopback HTTP server). Readers: **Held** reads nothing for 2 s after the start,
+then as fast as it can; **Slow** sleeps 1 ms after every 100 events from the start. What a run kept is the distinct
+numbers seen in its events. The rule: the run completes with all of 0..n, or it fails with a whole prefix 0..k (k at most
+the bound when held) and Electron's sentence (packages/runtime-adapters: claude-events.ts, codex-app-server-run.ts,
+acp-run.ts, opencode-serve-run.ts). Never hangs: an ending within 60 s of the reader starting to read.
+
+No run hung, no run dropped a record silently (every kept set was a whole prefix, every completed run had all of them),
+and every run past its bound stopped. Long form `bursts_long`: 48 runs (4 readers x held/slow x 50,000 and half the
+bound x 3 rounds), 39 pass, 9 find the faults below. Typical numbers (round 0):
+
+| reader | n | held | slow |
+|---|---:|---|---|
+| claude (records.rs, 2,048) | 50,000 | failed, 2,047 kept, Electron's words, 200 ms | failed, 2,167 kept, Electron's words, 285 ms |
+| claude | 1,024 | completed, all kept, 135 ms | completed, all kept, 138 ms |
+| codex (4,096) | 50,000 | failed, 0 kept, Electron's words, 8 ms | failed, 999 kept, Electron's words, 45 ms |
+| codex | 2,048 | completed, all kept, 39 ms | completed, all kept, 33 ms |
+| acp (20,000) | 50,000 | failed, 0 kept, **"ACP notification queue overflow; run stopped"** | failed, ~1,070 kept, **same words** |
+| acp | 10,000 | completed, all kept, **12.7 s** | completed, all kept, **12.9 s** |
+| opencode serve (20,000) | 50,000 | failed, 0 kept, **"OpenCode output overflow"** | failed, 0 kept, Electron's words, 158 ms |
+| opencode serve | 10,000 | completed, all kept, **11.6 s** | completed, all kept, **11.9 s** |
+
+(ms: time inside the engine's `next_event`. Codex and OpenCode drop what was queued when they stop, as Electron's
+`lose` does; that is said, not silent. A slow reader can keep more than the bound, since it empties the queue as it fills.)
+
+### Fault 2a: ACP stops at its bound without Electron's sentence
+
+`burst_acp_short` (ignored, failing). Rust says "ACP notification queue overflow; run stopped" (runtime/acp.rs:293);
+Electron's acp-run.ts says "The agent sent output faster than Locust could record it, so the run was stopped rather than
+leave a gap in its record. Sending it again usually works." Every run past 20,000, held or slow, 6 of 6.
+
+### Fault 2b: OpenCode 1 stops at its bound without Electron's sentence, when the engine was busy
+
+`burst_opencode_serve_short` (ignored, failing). Held (the engine busy while the burst arrives), Rust says "OpenCode
+output overflow" (runtime/opencode_serve.rs:975, `next_event` sees the overflow flag first); slow, the same burst ends
+with Electron's sentence. One overflow, two wordings, depending on who notices first. 3 of 3 held runs.
+
+### Fault 2c: ACP and OpenCode 1 read a long answer in time that grows with its square
+
+`bursts_scale_long` (ignored, failing). Held reader, a burst under the bound, milliseconds in the engine's `next_event`:
+
+| records | 1,250 | 2,500 | 5,000 | 10,000 | 19,000 |
+|---|---:|---:|---:|---:|---:|
+| acp | 182 | 723 | 3,118 | 12,174 | **45,895** |
+| opencode serve | 187 | 715 | 2,880 | 11,911 | **45,542** |
+
+Doubling the records quadruples the time: 0.15 ms a record at 1,250, 2.4 ms at 19,000 (16x). Claude Code (128 to 1,946:
+0.25 to 0.11 ms a record) and Codex (256 to 3,892: 0.012 to 0.016) stay flat. The likely cause, read in the code: each
+chunk appends to the message held so far and then passes the WHOLE held text through `events::text` (runtime/events.rs:154,
+which runs `redact_secrets` over all of it and counts it): runtime/acp_events.rs:236 `*held = text(held, 131072)` and
+runtime/opencode_serve.rs:685 `held.text = super::events::text(&held.text, 262144)`. A 19,000-chunk answer, a long but
+ordinary one when an agent streams a token or two a chunk, costs ~46 s of engine time in a debug build (release will be
+several times faster, still quadratic); the turn shows nothing new meanwhile. It stays under the 60 s hang line here, so
+it is reported as a fault of its own, not as a hang.
+
+Seen in the code, not run (other users of the records.rs bound, beside the four rows asked): Copilot says "Copilot
+notification queue overflow (2048 records); terminating run" (runtime/copilot.rs:229) and Antigravity "Antigravity
+notification queue overflow" (runtime/antigravity.rs:245), where Electron's copilot-events.ts and agy-events.ts say
+"... sent output faster than Locust could record it ...". Muse keeps Electron's words.
