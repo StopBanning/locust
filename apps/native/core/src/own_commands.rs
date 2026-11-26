@@ -370,6 +370,45 @@ pub fn allow(profile: &Path, folder: Option<&Path>) -> Result<(), String> {
     std::fs::write(allows_path(profile), serde_json::Value::from(kept).to_string()).map_err(|e| e.to_string())
 }
 
+/// The words when a folder's commands folder is asked for with no folder open (own-command-ipc.ts).
+pub const NOWHERE_TO_OPEN: &str = "Choose a folder first. There is nowhere to open.";
+/// The words when the commands folder could not be made (ChatCommands.tsx's `failureSaid` fallback).
+pub const COULD_NOT_OPEN: &str = "That folder could not be opened. Your commands are where they were.";
+
+/// Where a source's commands live (own-command-host.ts `directory`): the person's own folder on this computer, or the
+/// conversation folder's, when there is one. Locust names the folder; nothing the window sends does.
+pub fn directory(profile: &Path, which: Source, folder: Option<&Path>) -> Option<PathBuf> {
+    match which {
+        Source::Global => Some(global_dir(profile)),
+        Source::Project => folder.map(project_dir),
+    }
+}
+
+/// Open folder (own-command-ipc.ts `OWN_COMMAND_OPEN`): the commands folder is made if it is missing and handed to
+/// `open`, the file manager; with no folder open, a folder's own is refused in Electron's words and nothing opens.
+/// What `open` says when it fails is the answer, as Electron returns `shell.openPath`'s error.
+pub fn open_folder(profile: &Path, which: Source, folder: Option<&Path>, open: &mut dyn FnMut(&Path) -> Result<(), String>) -> Result<(), String> {
+    let dir = directory(profile, which, folder).ok_or_else(|| NOWHERE_TO_OPEN.to_owned())?;
+    std::fs::create_dir_all(&dir).map_err(|_| COULD_NOT_OPEN.to_owned())?;
+    open(&dir)
+}
+
+/// [`open_folder`] in the computer's file manager (Electron `shell.openPath`): Finder on a Mac, the desktop's opener on
+/// Linux.
+pub fn open_folder_here(profile: &Path, which: Source, folder: Option<&Path>) -> Result<(), String> {
+    open_folder(profile, which, folder, &mut |dir| {
+        let opener = if cfg!(target_os = "macos") { "/usr/bin/open" } else { "xdg-open" };
+        let mut cmd = std::process::Command::new(opener);
+        cmd.arg(dir);
+        crate::runtime::process::own_group(&mut cmd);
+        match cmd.status() {
+            Ok(status) if status.success() => Ok(()),
+            Ok(_) => Err(COULD_NOT_OPEN.to_owned()),
+            Err(e) => Err(e.to_string()),
+        }
+    })
+}
+
 #[cfg(test)]
 #[path = "own_commands_tests.rs"]
 mod own_commands_tests;

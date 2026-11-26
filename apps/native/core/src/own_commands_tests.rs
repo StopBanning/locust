@@ -319,3 +319,41 @@ fn each_bang_lines_output_says_how_it_ended() {
         "A output of `one` (exit 0):\n(no output) B output of `two` (stopped before it finished):\nhalf\nLeft out 3 lines from the start. C output of `three` (ended):\nx"
     );
 }
+
+// ---- Open folder (own-command-ipc.ts `OWN_COMMAND_OPEN`, own-command-host.ts `directory`)
+
+/// The host names the folder: yours is `<profile>/commands`, made when missing; a folder's is `<folder>/.locust/commands`.
+/// With no folder open a folder's own is refused in Electron's words and nothing opens. (Electron's window-sent path
+/// and other-window refusals have no channel here to refuse.)
+#[test]
+fn opens_a_commands_folder_the_host_names_never_one_the_window_names() {
+    // case: opens a commands folder the host names, never one the window names
+    let profile = temp("open");
+    let folder = temp("open-folder");
+    let mut opened = Vec::new();
+    let mut open = |dir: &Path| {
+        opened.push(dir.to_path_buf());
+        Ok(())
+    };
+    assert_eq!(open_folder(&profile.0, Source::Global, None, &mut open), Ok(()));
+    assert_eq!(
+        open_folder(&profile.0, Source::Project, None, &mut open),
+        Err("Choose a folder first. There is nowhere to open.".into())
+    );
+    assert_eq!(open_folder(&profile.0, Source::Project, Some(&folder.0), &mut open), Ok(()));
+    assert_eq!(opened, vec![profile.0.join("commands"), folder.0.join(".locust").join("commands")]);
+    assert!(profile.0.join("commands").is_dir() && folder.0.join(".locust/commands").is_dir(), "made when missing");
+    assert_eq!(directory(&profile.0, Source::Project, None), None);
+    // What the file manager says when it fails is the answer.
+    assert_eq!(
+        open_folder(&profile.0, Source::Global, None, &mut |_: &Path| Err("No application knows how to open it.".to_owned())),
+        Err("No application knows how to open it.".into())
+    );
+    // A commands folder that cannot be made: ChatCommands' words, and nothing opens.
+    std::fs::write(profile.0.join("blocked"), "a file, not a folder").unwrap();
+    let mut never = |_: &Path| -> Result<(), String> { panic!("nothing opens") };
+    assert_eq!(
+        open_folder(&profile.0.join("blocked"), Source::Global, None, &mut never),
+        Err("That folder could not be opened. Your commands are where they were.".into())
+    );
+}

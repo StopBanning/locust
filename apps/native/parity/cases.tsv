@@ -3,6 +3,9 @@ apps/desktop/src/main/a-background-turn-comes-back.test.ts	starts on the convers
 apps/desktop/src/main/a-background-turn-comes-back.test.ts	one that ended while Locust was closed is brought back the next time it opens	yes
 apps/desktop/src/main/a-background-turn-comes-back.test.ts	an untrusted folder is said as such, and nothing is kept	yes
 apps/desktop/src/main/a-background-turn-comes-back.test.ts	stops only an id of its own, and a finished run leaves the list while its turn stays	yes
+apps/desktop/src/main/a-bang-refuses-a-folder-from-the-window.test.ts	refuses a folder, a shell, or another window, and runs only command text	no
+apps/desktop/src/main/a-bang-refuses-a-folder-from-the-window.test.ts	is not a way for a routine, a link, or another app to run a command	no
+apps/desktop/src/main/a-bang-refuses-a-folder-from-the-window.test.ts	opens a commands folder the host names, never one the window names	yes
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	runs in the conversation folder, in the terminal panel's default shell, not a path the window sent	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	does not run when the organization turns the terminal off	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	stops a command that is still running	no
