@@ -637,3 +637,39 @@ fn the_window_gaining_focus_looks_once_and_never_two_looks_of_one_folder_at_once
     focus(&mut rt, true);
     assert_eq!(seen.ls_remote.load(Ordering::SeqCst), after + 1, "once per focus");
 }
+
+fn text_of(rt: &Runtime<State>, key: &str) -> Option<String> {
+    rt.elements().iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text.clone())
+}
+
+/// Cloud view 1, row 3: a Claude cloud chat did not appear anywhere outside its panel; now the sidebar's Cloud tasks
+/// entry counts the ones with something new, the panel never opened.
+#[test]
+fn the_sidebar_counts_the_cloud_sessions_with_something_new_without_the_panel_open() {
+    let (w, mut rt) = window(true);
+    kept_reading(&w, &rt.state, "2026-11-26T10:45:00.000Z", Some("2026-11-26T10:00:00.000Z"));
+    assert!(rt.find("sidebar-place-cloud-tasks").is_none(), "nothing listed yet");
+    pump(&mut rt, "the sessions listed", |s| s.cloud.panel.claude.as_ref().is_some_and(|side| side.sessions.len() == 2));
+    assert!(!rt.state.cloud.open);
+    assert!(rt.find("sidebar-place-cloud-tasks").is_some(), "{}", words(&rt));
+    assert_eq!(text_of(&rt, "sidebar-cloud-tasks-count").as_deref(), Some("1 new"));
+    assert_eq!(w.seen.teleports.load(Ordering::SeqCst), 0);
+    // The entry opens the panel; opening the row is seeing it, and the count goes.
+    click(&mut rt, "sidebar-place-cloud-tasks");
+    assert!(rt.state.cloud.open);
+    pump(&mut rt, "the rows", |_| true);
+    click(&mut rt, &key("check", ID));
+    assert!(rt.find("sidebar-place-cloud-tasks").is_none(), "nothing new and no Codex tasks: no entry");
+}
+
+#[test]
+fn the_sidebar_count_says_codex_tasks_and_claudes_new_sessions_apart() {
+    let mut s = State::default();
+    assert_eq!(super::sidebar_words(&s), "0");
+    let fresh = ClaudeCloudSession { news_at: Some("2026-11-26T10:45:00.000Z".into()), ..Default::default() };
+    let seen = ClaudeCloudSession { opened_at: Some("2026-11-26T11:00:00.000Z".into()), ..fresh.clone() };
+    s.cloud.panel.claude = Some(ClaudeSide { picked: false, sessions: vec![fresh.clone(), seen, fresh] });
+    assert_eq!(super::new_count(&s), 2);
+    assert_eq!(super::sidebar_words(&s), "2 new");
+    assert_eq!(crate::cloud_tasks::sidebar_count(&s), 2);
+}

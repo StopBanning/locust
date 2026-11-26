@@ -184,7 +184,8 @@ fn build_service(store: &Store, make: &Option<MakeCodex>) -> CloudTaskService<'s
 
 /// How many Codex Cloud tasks this folder has, for the sidebar's `Cloud tasks` badge (`App.tsx:9372`).
 pub(crate) fn sidebar_count(s: &State) -> usize {
-    s.cloud.codex.tasks.len()
+    // Claude's cloud sessions with news count too (Cloud view 1), so the entry shows for them alone.
+    s.cloud.codex.tasks.len() + crate::claude_cloud_panel::new_count(s)
 }
 
 /// Opens the cloud panel in the workroom from the sidebar's `Cloud tasks` badge (`App.tsx:9372`).

@@ -960,7 +960,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .key("sidebar-place-cloud-tasks")
                 .child(rune::spacer())
                 .child(
-                    text(cloud_count.to_string())
+                    text(crate::claude_cloud_panel::sidebar_words(s))
                         .key("sidebar-cloud-tasks-count")
                         .font(l.ty.mono)
                         .color(l.c("text-muted")),

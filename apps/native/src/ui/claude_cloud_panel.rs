@@ -120,6 +120,8 @@ enum Answer {
     Where { folder: String, place: CloudWhere, folders: Vec<CloudFolder>, sessions: Vec<ClaudeCloudSession>, environment: Option<String> },
     /// A session read in its own worktree (Show what it did, Check again, or the watch), and its record after.
     Read { id: String, reading: ClaudeCloudReading, kept: Option<ClaudeCloudSession> },
+    /// This folder's sessions, listed while the panel is closed, for the sidebar's count (Cloud view 1).
+    Listed { folder: String, sessions: Vec<ClaudeCloudSession> },
     /// One folder's light looks at its sessions' branches ended: the sessions with a newer push.
     Looked { folder: String, found: Vec<ClaudeCloudSession> },
     Applied { id: String, result: CloudSendResult },
@@ -181,6 +183,8 @@ pub(crate) struct Cloud {
     pub(crate) next_look_ms: Option<u64>,
     /// Whether the window had focus at the last poll; None before the first.
     pub(crate) was_focused: Option<bool>,
+    /// The folder whose Claude sessions were last listed, open or closed.
+    pub(crate) listed_for: Option<String>,
 }
 
 /// How often the sessions' branches are looked at while the panel is open.
@@ -285,6 +289,13 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
         changed = true;
     }
     changed |= tick_watches(s, now_ms);
+    let here = folder(s);
+    if s.cloud.listed_for != here && s.data.is_some() {
+        s.cloud.listed_for = here.clone();
+        if let Some(here) = here {
+            off_thread(s, move |claude| Some(Answer::Listed { sessions: claude.list(&here), folder: here }));
+        }
+    }
     let gained_focus = s.cloud.was_focused == Some(false) && s.window_focused;
     s.cloud.was_focused = Some(s.window_focused);
     if !s.cloud.open {
@@ -341,6 +352,13 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
                     }
                 }
                 row.reading = Some(reading);
+            }
+            Answer::Listed { folder: there, sessions } => {
+                let shown = s.cloud.panel.claude.as_ref().and_then(|side| side.sessions.first()).map(|one| one.folder.clone());
+                if folder(s).as_deref() != Some(there.as_str()) || shown.as_deref() == Some(there.as_str()) {
+                    continue;
+                }
+                s.cloud.panel.claude = Some(ClaudeSide { picked: claude_picked(s), sessions });
             }
             Answer::Looked { folder, found } => {
                 s.cloud.looking.remove(&folder);
@@ -602,6 +620,21 @@ pub(super) fn look_at_branches(s: &mut State, now_ms: u64) {
                 .collect();
             Some(Answer::Looked { folder, found })
         });
+    }
+}
+
+/// This folder's Claude cloud sessions with something new since their row was last opened.
+pub(crate) fn new_count(s: &State) -> usize {
+    s.cloud.panel.claude.iter().flat_map(|side| &side.sessions).filter(|one| one.has_news()).count()
+}
+
+/// THE REST OF THE WINDOW KNOWS (Cloud view 1): the sidebar's Cloud tasks count, Codex's tasks as before and Claude's
+/// sessions with news as "2 new".
+pub(crate) fn sidebar_words(s: &State) -> String {
+    match (s.cloud.codex.tasks.len(), new_count(s)) {
+        (codex, 0) => codex.to_string(),
+        (0, new) => format!("{new} new"),
+        (codex, new) => format!("{codex} \u{b7} {new} new"),
     }
 }
 
