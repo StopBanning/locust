@@ -2424,99 +2424,99 @@ apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stops calling 
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stays ready when the check finds the version that is on disk	yes
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	refuses to install once the downloaded one is superseded	yes
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	falls back to the version it was looking for when the event carries none	yes
-apps/desktop/src/main/relay-note-is-writable.test.ts	is accepted by the ledger, not silently dropped	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	reads back with the sentence a person needs	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	LEAVES A COMPLETED MISSION COMPLETED	no
-apps/desktop/src/main/relay-note-is-writable.test.ts	records no integrity issue	no
-apps/desktop/src/main/relay.test.ts	when switched off, says the message waits	no
-apps/desktop/src/main/relay.test.ts	starts the first hop when switched on	no
-apps/desktop/src/main/relay.test.ts	stops at the cap, naming who will see the message next	no
-apps/desktop/src/main/relay.test.ts	the cap is a backstop, not a conversation length	no
-apps/desktop/src/main/relay.test.ts	takes the personu2019s own budget over the constant, and says the number it stopped at	no
-apps/desktop/src/main/relay.test.ts	names the sender, shows how to write back, and forbids unrelated work	no
-apps/desktop/src/main/relay.test.ts	lets the shape the sender asked for win over complete sentences	no
-apps/desktop/src/main/relay.test.ts	every hop is told that silence is how an exchange finishes	no
-apps/desktop/src/main/relay.test.ts	tells a relayed run to ask the teammate, not a person	no
-apps/desktop/src/main/relay.test.ts	tells the reply that lands in the person's own conversation to say what it means for them	no
-apps/desktop/src/main/relay.test.ts	says the same after a meeting, where several teammates could be asked	no
-apps/desktop/src/main/relay.test.ts	keeps MCP shares visible without starts, steering, interruptions or deferred handoffs (%j)	no
-apps/desktop/src/main/relay.test.ts	starts nothing when off, and says so in the thread	no
-apps/desktop/src/main/relay.test.ts	turns a failure between the decision and the start into a notice, never silence	no
-apps/desktop/src/main/relay.test.ts	starts no reply on a plan that is used up, and says so where the share was made (0.862)	no
-apps/desktop/src/main/relay.test.ts	a plan that can take the run is started as before, and a check that fails never blocks it	no
-apps/desktop/src/main/relay.test.ts	starts the recipient's run on the recipient's OWN route, owned by the recipient	no
-apps/desktop/src/main/relay.test.ts	says so when a one-to-one reply never comes back, and where it went	no
-apps/desktop/src/main/relay.test.ts	stays quiet when the reply DID come back	no
-apps/desktop/src/main/relay.test.ts	a teammate who has never run borrows the sender's route, and the thread says so	no
-apps/desktop/src/main/relay.test.ts	says read-only when that is what the sender's route lends	no
-apps/desktop/src/main/relay.test.ts	tells a read-only reply that a command is refused and the message is quoted (0.592), and says nothing of it to one that may edit	no
-apps/desktop/src/main/relay.test.ts	lends Accept edits to a Cursor recipient where read-only cannot be held, and says so	no
-apps/desktop/src/main/relay.test.ts	a read-only sender gets a read-only reply when the recipient has no route	no
-apps/desktop/src/main/relay.test.ts	an account-default route is sent as no model, the way the composer sends it	no
-apps/desktop/src/main/relay.test.ts	a reply runs at the recipient's own saved effort	no
-apps/desktop/src/main/relay.test.ts	a borrowed route borrows no effort	no
-apps/desktop/src/main/relay.test.ts	the reply back follows up the mission that asked, so it lands in that thread	no
-apps/desktop/src/main/relay.test.ts	a third hop continues the recipient's OWN earlier turn, so their side reads as one thread too	no
-apps/desktop/src/main/relay.test.ts	stops after the cap and says so in the thread that shared	no
-apps/desktop/src/main/relay.test.ts	says why when the recipient's run could not start, and lets the message wait	no
-apps/desktop/src/main/relay.test.ts	says so, not that the recipient is mid-run	no
-apps/desktop/src/main/relay.test.ts	starts when ANY run ends, not only the recipient’s own	no
-apps/desktop/src/main/relay.test.ts	is held again, quietly, while every slot is still taken	no
-apps/desktop/src/main/relay.test.ts	is held rather than dropped, and the thread that shared is told	no
-apps/desktop/src/main/relay.test.ts	starts the moment that run ends	no
-apps/desktop/src/main/relay.test.ts	is held once however many messages pile up for one teammate	no
-apps/desktop/src/main/relay.test.ts	tells every thread that waited on the held reply how it ended (2026-10-10 sweep)	no
-apps/desktop/src/main/relay.test.ts	waits again when the teammate was taken by something else in between	no
-apps/desktop/src/main/relay.test.ts	does not start when a later run already carried the message	no
-apps/desktop/src/main/relay.test.ts	does not start once replies have been switched off	no
-apps/desktop/src/main/relay.test.ts	still tells the asker when the held reply finishes without writing back	no
-apps/desktop/src/main/relay.test.ts	names the teammate and what they are answering, before the start	no
-apps/desktop/src/main/relay.test.ts	clears it however the start ended	no
-apps/desktop/src/main/relay.test.ts	clears it when the start throws, so a row is never stuck working	no
-apps/desktop/src/main/relay.test.ts	stops the recipient when the person has allowed it	no
-apps/desktop/src/main/relay.test.ts	stops nobody when it is switched off, and says so rather than going quiet	no
-apps/desktop/src/main/relay.test.ts	stops nobody when the recipient was free anyway	no
-apps/desktop/src/main/relay.test.ts	leaves an ordinary message waiting, however busy the recipient is	no
-apps/desktop/src/main/relay.test.ts	still only holds the message once: stopping is not a second way to start	no
-apps/desktop/src/main/relay.test.ts	says nothing about stopping when there was nothing to stop	no
-apps/desktop/src/main/relay.test.ts	cannot outrun the budget: a capped exchange never reaches the stop	no
-apps/desktop/src/main/relay.test.ts	cannot outrun the relay switch either	no
-apps/desktop/src/main/relay.test.ts	is shown to a running turn that can take it, at its next step, and nobody is stopped	no
-apps/desktop/src/main/relay.test.ts	needs no switch to be shown: it loses nothing	no
-apps/desktop/src/main/relay.test.ts	is still their next turn once the run ends: a heads-up, not a second answer	no
-apps/desktop/src/main/relay.test.ts	falls back to the stop, under the switch, when the running turn cannot take it	no
-apps/desktop/src/main/relay.test.ts	shows the running turn no protocol blocks from the sender	no
-apps/desktop/src/main/relay.test.ts	never steers an ordinary message	no
-apps/desktop/src/main/relay.test.ts	starts one run per recipient however many messages went to them	no
-apps/desktop/src/main/relay.test.ts	does not start anything for a recipient no longer on the roster	no
-apps/desktop/src/main/relay.test.ts	treats an unreadable setting as off	no
-apps/desktop/src/main/relay.test.ts	starts a run for each, and says the next turn is waiting on them	no
-apps/desktop/src/main/relay.test.ts	holds the first reply, and starts the asker's turn once after the last, briefed with everyone	no
-apps/desktop/src/main/relay.test.ts	counts a teammate who finishes without replying, and still convenes the rest	no
-apps/desktop/src/main/relay.test.ts	says so when nobody replied, and starts nothing	no
-apps/desktop/src/main/relay.test.ts	one recipient is an ordinary exchange, not a meeting	no
-apps/desktop/src/main/relay.test.ts	names everyone in the minutes	no
-apps/desktop/src/main/relay.test.ts	keeps the reason an exchange stopped at its budget	no
-apps/desktop/src/main/relay.test.ts	keeps that a teammate finished without writing back	no
-apps/desktop/src/main/relay.test.ts	keeps nothing for a reply that is merely being waited on	no
-apps/desktop/src/main/relay.test.ts	says it as well as keeping it: the live update is unchanged	no
-apps/desktop/src/main/relay.test.ts	refuses once the exchange has spent its budget, whatever this chain says	no
-apps/desktop/src/main/relay.test.ts	allows a deep chain that has not spent the budget	no
-apps/desktop/src/main/relay.test.ts	falls back to the chain depth when nothing counted	no
-apps/desktop/src/main/relay.test.ts	counts every relayed run against one exchange, across separate chains	no
-apps/desktop/src/main/relay.test.ts	gives a person-started mission its own exchange	no
-apps/desktop/src/main/relay.test.ts	says nothing about it on the FIRST hop, where there is work to do	no
-apps/desktop/src/main/relay.test.ts	tells a reply that the other end is a model and a reply costs a run	no
-apps/desktop/src/main/relay.test.ts	names the acknowledgements by name, because those are the ones that happen	no
-apps/desktop/src/main/relay.test.ts	says what a reply IS, before what it is not	no
-apps/desktop/src/main/relay.test.ts	names the reply and the budget, plainly, in the middle of an exchange	no
-apps/desktop/src/main/relay.test.ts	warns on the one before the last, where the warning can still change something	no
-apps/desktop/src/main/relay.test.ts	says what is actually true on the last: a reply written here reaches nobody	no
-apps/desktop/src/main/relay.test.ts	treats anything past the cap as the last, never as a negative count	no
-apps/desktop/src/main/relay.test.ts	falls back to the default budget when none was given	no
-apps/desktop/src/main/relay.test.ts	handles a budget of one, where the first reply is also the last	no
-apps/desktop/src/main/relay.test.ts	is in the brief a relayed run is actually started with	no
-apps/desktop/src/main/relay.test.ts	is briefed as read by the person, and the hop after it is not	no
+apps/desktop/src/main/relay-note-is-writable.test.ts	is accepted by the ledger, not silently dropped	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	reads back with the sentence a person needs	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	LEAVES A COMPLETED MISSION COMPLETED	yes
+apps/desktop/src/main/relay-note-is-writable.test.ts	records no integrity issue	yes
+apps/desktop/src/main/relay.test.ts	when switched off, says the message waits	yes
+apps/desktop/src/main/relay.test.ts	starts the first hop when switched on	yes
+apps/desktop/src/main/relay.test.ts	stops at the cap, naming who will see the message next	yes
+apps/desktop/src/main/relay.test.ts	the cap is a backstop, not a conversation length	yes
+apps/desktop/src/main/relay.test.ts	takes the personu2019s own budget over the constant, and says the number it stopped at	yes
+apps/desktop/src/main/relay.test.ts	names the sender, shows how to write back, and forbids unrelated work	yes
+apps/desktop/src/main/relay.test.ts	lets the shape the sender asked for win over complete sentences	yes
+apps/desktop/src/main/relay.test.ts	every hop is told that silence is how an exchange finishes	yes
+apps/desktop/src/main/relay.test.ts	tells a relayed run to ask the teammate, not a person	yes
+apps/desktop/src/main/relay.test.ts	tells the reply that lands in the person's own conversation to say what it means for them	yes
+apps/desktop/src/main/relay.test.ts	says the same after a meeting, where several teammates could be asked	yes
+apps/desktop/src/main/relay.test.ts	keeps MCP shares visible without starts, steering, interruptions or deferred handoffs (%j)	yes
+apps/desktop/src/main/relay.test.ts	starts nothing when off, and says so in the thread	yes
+apps/desktop/src/main/relay.test.ts	turns a failure between the decision and the start into a notice, never silence	yes
+apps/desktop/src/main/relay.test.ts	starts no reply on a plan that is used up, and says so where the share was made (0.862)	yes
+apps/desktop/src/main/relay.test.ts	a plan that can take the run is started as before, and a check that fails never blocks it	yes
+apps/desktop/src/main/relay.test.ts	starts the recipient's run on the recipient's OWN route, owned by the recipient	yes
+apps/desktop/src/main/relay.test.ts	says so when a one-to-one reply never comes back, and where it went	yes
+apps/desktop/src/main/relay.test.ts	stays quiet when the reply DID come back	yes
+apps/desktop/src/main/relay.test.ts	a teammate who has never run borrows the sender's route, and the thread says so	yes
+apps/desktop/src/main/relay.test.ts	says read-only when that is what the sender's route lends	yes
+apps/desktop/src/main/relay.test.ts	tells a read-only reply that a command is refused and the message is quoted (0.592), and says nothing of it to one that may edit	yes
+apps/desktop/src/main/relay.test.ts	lends Accept edits to a Cursor recipient where read-only cannot be held, and says so	yes
+apps/desktop/src/main/relay.test.ts	a read-only sender gets a read-only reply when the recipient has no route	yes
+apps/desktop/src/main/relay.test.ts	an account-default route is sent as no model, the way the composer sends it	yes
+apps/desktop/src/main/relay.test.ts	a reply runs at the recipient's own saved effort	yes
+apps/desktop/src/main/relay.test.ts	a borrowed route borrows no effort	yes
+apps/desktop/src/main/relay.test.ts	the reply back follows up the mission that asked, so it lands in that thread	yes
+apps/desktop/src/main/relay.test.ts	a third hop continues the recipient's OWN earlier turn, so their side reads as one thread too	yes
+apps/desktop/src/main/relay.test.ts	stops after the cap and says so in the thread that shared	yes
+apps/desktop/src/main/relay.test.ts	says why when the recipient's run could not start, and lets the message wait	yes
+apps/desktop/src/main/relay.test.ts	says so, not that the recipient is mid-run	yes
+apps/desktop/src/main/relay.test.ts	starts when ANY run ends, not only the recipient’s own	yes
+apps/desktop/src/main/relay.test.ts	is held again, quietly, while every slot is still taken	yes
+apps/desktop/src/main/relay.test.ts	is held rather than dropped, and the thread that shared is told	yes
+apps/desktop/src/main/relay.test.ts	starts the moment that run ends	yes
+apps/desktop/src/main/relay.test.ts	is held once however many messages pile up for one teammate	yes
+apps/desktop/src/main/relay.test.ts	tells every thread that waited on the held reply how it ended (2026-10-10 sweep)	yes
+apps/desktop/src/main/relay.test.ts	waits again when the teammate was taken by something else in between	yes
+apps/desktop/src/main/relay.test.ts	does not start when a later run already carried the message	yes
+apps/desktop/src/main/relay.test.ts	does not start once replies have been switched off	yes
+apps/desktop/src/main/relay.test.ts	still tells the asker when the held reply finishes without writing back	yes
+apps/desktop/src/main/relay.test.ts	names the teammate and what they are answering, before the start	yes
+apps/desktop/src/main/relay.test.ts	clears it however the start ended	yes
+apps/desktop/src/main/relay.test.ts	clears it when the start throws, so a row is never stuck working	yes
+apps/desktop/src/main/relay.test.ts	stops the recipient when the person has allowed it	yes
+apps/desktop/src/main/relay.test.ts	stops nobody when it is switched off, and says so rather than going quiet	yes
+apps/desktop/src/main/relay.test.ts	stops nobody when the recipient was free anyway	yes
+apps/desktop/src/main/relay.test.ts	leaves an ordinary message waiting, however busy the recipient is	yes
+apps/desktop/src/main/relay.test.ts	still only holds the message once: stopping is not a second way to start	yes
+apps/desktop/src/main/relay.test.ts	says nothing about stopping when there was nothing to stop	yes
+apps/desktop/src/main/relay.test.ts	cannot outrun the budget: a capped exchange never reaches the stop	yes
+apps/desktop/src/main/relay.test.ts	cannot outrun the relay switch either	yes
+apps/desktop/src/main/relay.test.ts	is shown to a running turn that can take it, at its next step, and nobody is stopped	yes
+apps/desktop/src/main/relay.test.ts	needs no switch to be shown: it loses nothing	yes
+apps/desktop/src/main/relay.test.ts	is still their next turn once the run ends: a heads-up, not a second answer	yes
+apps/desktop/src/main/relay.test.ts	falls back to the stop, under the switch, when the running turn cannot take it	yes
+apps/desktop/src/main/relay.test.ts	shows the running turn no protocol blocks from the sender	yes
+apps/desktop/src/main/relay.test.ts	never steers an ordinary message	yes
+apps/desktop/src/main/relay.test.ts	starts one run per recipient however many messages went to them	yes
+apps/desktop/src/main/relay.test.ts	does not start anything for a recipient no longer on the roster	yes
+apps/desktop/src/main/relay.test.ts	treats an unreadable setting as off	yes
+apps/desktop/src/main/relay.test.ts	starts a run for each, and says the next turn is waiting on them	yes
+apps/desktop/src/main/relay.test.ts	holds the first reply, and starts the asker's turn once after the last, briefed with everyone	yes
+apps/desktop/src/main/relay.test.ts	counts a teammate who finishes without replying, and still convenes the rest	yes
+apps/desktop/src/main/relay.test.ts	says so when nobody replied, and starts nothing	yes
+apps/desktop/src/main/relay.test.ts	one recipient is an ordinary exchange, not a meeting	yes
+apps/desktop/src/main/relay.test.ts	names everyone in the minutes	yes
+apps/desktop/src/main/relay.test.ts	keeps the reason an exchange stopped at its budget	yes
+apps/desktop/src/main/relay.test.ts	keeps that a teammate finished without writing back	yes
+apps/desktop/src/main/relay.test.ts	keeps nothing for a reply that is merely being waited on	yes
+apps/desktop/src/main/relay.test.ts	says it as well as keeping it: the live update is unchanged	yes
+apps/desktop/src/main/relay.test.ts	refuses once the exchange has spent its budget, whatever this chain says	yes
+apps/desktop/src/main/relay.test.ts	allows a deep chain that has not spent the budget	yes
+apps/desktop/src/main/relay.test.ts	falls back to the chain depth when nothing counted	yes
+apps/desktop/src/main/relay.test.ts	counts every relayed run against one exchange, across separate chains	yes
+apps/desktop/src/main/relay.test.ts	gives a person-started mission its own exchange	yes
+apps/desktop/src/main/relay.test.ts	says nothing about it on the FIRST hop, where there is work to do	yes
+apps/desktop/src/main/relay.test.ts	tells a reply that the other end is a model and a reply costs a run	yes
+apps/desktop/src/main/relay.test.ts	names the acknowledgements by name, because those are the ones that happen	yes
+apps/desktop/src/main/relay.test.ts	says what a reply IS, before what it is not	yes
+apps/desktop/src/main/relay.test.ts	names the reply and the budget, plainly, in the middle of an exchange	yes
+apps/desktop/src/main/relay.test.ts	warns on the one before the last, where the warning can still change something	yes
+apps/desktop/src/main/relay.test.ts	says what is actually true on the last: a reply written here reaches nobody	yes
+apps/desktop/src/main/relay.test.ts	treats anything past the cap as the last, never as a negative count	yes
+apps/desktop/src/main/relay.test.ts	falls back to the default budget when none was given	yes
+apps/desktop/src/main/relay.test.ts	handles a budget of one, where the first reply is also the last	yes
+apps/desktop/src/main/relay.test.ts	is in the brief a relayed run is actually started with	yes
+apps/desktop/src/main/relay.test.ts	is briefed as read by the person, and the hop after it is not	yes
 apps/desktop/src/main/report-problem.test.ts	opens the one destination, as a new report	no
 apps/desktop/src/main/report-problem.test.ts	carries the words, which Locust and which Windows, and the conversation	no
 apps/desktop/src/main/report-problem.test.ts	carries nothing from the machine beyond that, and says how to add the log by hand	no
@@ -3175,22 +3175,22 @@ apps/desktop/src/main/the-rail-can-be-used.test.ts	leaves its own button alone, 
 apps/desktop/src/main/the-rail-can-be-used.test.ts	may still hang out of the rail, as the railu2019s flyouts do	no
 apps/desktop/src/main/the-rail-can-be-used.test.ts	is the mark, and it is a button	yes
 apps/desktop/src/main/the-rail-can-be-used.test.ts	keeps a real size in the rail, where the wordmark collapses to nothing	yes
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts every member of the post against one budget	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells a held reply the number it is when it starts, not when it was held	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts a held reply when it starts, so the budget still binds after it	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells each reply its number in the exchange, not the depth of its chain	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is read the way it was meant	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is delivered without starting a run, and says why	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts the run of the teammate whose conversation the person is reading	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts one that wants an answer	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn of the asker that closes a meeting	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn an answer brought back starts	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is the full brief on a first reply, and a line on the next	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	closes a meeting by writing to the person, not by saying nobody is there	no
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still says nobody is there to a teammate the person is not reading	no
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts every member of the post against one budget	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells a held reply the number it is when it starts, not when it was held	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts a held reply when it starts, so the budget still binds after it	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	tells each reply its number in the exchange, not the depth of its chain	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is read the way it was meant	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is delivered without starting a run, and says why	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts the run of the teammate whose conversation the person is reading	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still starts one that wants an answer	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn of the asker that closes a meeting	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn an answer brought back starts	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is the full brief on a first reply, and a line on the next	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	closes a meeting by writing to the person, not by saying nobody is there	yes
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still says nobody is there to a teammate the person is not reading	yes
 apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts	${route}: the phase is said before the process starts	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	is there: sixteen -- the ten of R16, the challenge of its section 7, three chains, the overnight polish and Council review -- each in the order offered	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads as a routine file, names no route, no path and no connector, and asks only for what its steps use	no
