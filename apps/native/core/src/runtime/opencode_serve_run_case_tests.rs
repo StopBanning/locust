@@ -71,6 +71,7 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.flush()
             prompted.wait(30)
+            time.sleep(S.get('delay', 0))
             for e in S['events']:
                 self.wfile.write(('data: ' + e + '\n\n').encode())
                 self.wfile.flush()
@@ -144,7 +145,9 @@ impl Server {
         let exe = t.0.join("bin/opencode");
         std::fs::write(&exe, SERVER).unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(t.0.join("bin/script.json"), json!({"events": events, "unanswered": unanswered}).to_string()).unwrap();
+        // As a server's turn takes a moment (Electron's every-mode stand-in waits 30 ms before its events).
+        let script = json!({"events": events, "unanswered": unanswered, "delay": 0.03});
+        std::fs::write(t.0.join("bin/script.json"), script.to_string()).unwrap();
         let store = Store::new(t.0.join("native"), t.0.join("electron")).unwrap();
         std::fs::create_dir_all(store.electron()).unwrap();
         Self { t, store }
@@ -517,3 +520,6 @@ fn turns_settled_parts_into_records_and_the_replys_text_while_it_is_written_into
     assert_eq!(made("prt_continue"), ["text"]);
     assert_eq!(made("prt_error"), ["tool_use"]);
 }
+
+#[path = "opencode_every_mode_case_tests.rs"]
+mod every_mode;

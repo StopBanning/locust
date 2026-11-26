@@ -8085,12 +8085,12 @@ packages/runtime-adapters/test/opencode-events.test.ts	still fails when the retr
 packages/runtime-adapters/test/opencode-events.test.ts	still fails when a different error follows the recovery	yes
 packages/runtime-adapters/test/opencode-events.test.ts	rides on the completion, in milliseconds	yes
 packages/runtime-adapters/test/opencode-events.test.ts	is left out when the part says nothing usable	yes
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	streams from the server's deltas, and ends as exactly the finished text	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	a step that ends before its text's finished form closes it with every word, none held back by the pace	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	names its session, so OpenCode does not spend a model call naming it	no
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	streams from the server's deltas, and ends as exactly the finished text	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	a step that ends before its text's finished form closes it with every word, none held back by the pace	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	names its session, so OpenCode does not spend a model call naming it	yes
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	${sandbox}: the same permission config and environment as run	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	read-only is read-only, loads no plugins; workspace-write stays in the folder; Auto may leave it	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	what OpenCode asks: Auto approves it, as run --auto did; any other mode refuses it, as run did	no
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	read-only is read-only, loads no plugins; workspace-write stays in the folder; Auto may leave it	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	what OpenCode asks: Auto approves it, as run --auto did; any other mode refuses it, as run did	yes
 packages/runtime-adapters/test/opencode-serve-run.test.ts	starts the server IN the teammate's folder, never where the app itself stands (0.378)	yes
 packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person, sends their answer back, and reads as an ordinary OpenCode run	yes
 packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person a subagent's request too, marked as the subagent's, and answers it	yes
