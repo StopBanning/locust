@@ -87,3 +87,25 @@ fn is_read_the_same_way_by_start_handoff_and_resume() {
     assert!(carry_with("mission_mode_bad", "codex", None, &CarryOnAlso { cut_off: true, message: None }).is_err(), "a resume");
     assert!(carried_from(&t, "mission_mode_bad").is_empty());
 }
+
+/// carry-on.ts `modeOf`: a turn recorded before modes existed is read by its sandbox, read-only as Ask and anything
+/// else as Accept edits, on a handoff as on a resume.
+#[test]
+fn a_turn_recorded_before_modes_is_read_by_its_sandbox() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    team(&t, Value::Null);
+    for (id, sandbox, want) in [("mission_old_read_only", "read-only", "ask"), ("mission_old_writes", "workspace-write", "accept-edits")] {
+        stopped_in(&t, id, "codex", "plan", &[quota_ev()]);
+        let path = path_of(&t, id);
+        let text = fs::read_to_string(&path).unwrap();
+        let (first, rest) = text.split_once('\n').unwrap();
+        let mut header: Value = serde_json::from_str(first).unwrap();
+        header["metadata"].as_object_mut().unwrap().remove("mode");
+        header["metadata"]["sandbox"] = json!(sandbox);
+        fs::write(&path, format!("{header}\n{rest}")).unwrap();
+        let (carried, _, mode) = carry(id, "claude", None).unwrap();
+        finished(&carried);
+        assert_eq!(mode, want, "{sandbox}");
+    }
+}
