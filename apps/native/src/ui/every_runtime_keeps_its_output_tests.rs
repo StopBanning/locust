@@ -711,7 +711,7 @@ fn thread_text() -> String {
             let kept: Vec<Drawn> = f
                 .drawn
                 .iter()
-                .filter(|d| d.key.as_deref() != Some("mission-started"))
+                .filter(|d| !d.key.as_deref().is_some_and(|k| k.starts_with("mission-started")))
                 .map(|d| Drawn { key: d.key.clone(), text: d.text.clone() })
                 .collect();
             let said = text_of(&kept)

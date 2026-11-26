@@ -293,7 +293,8 @@ fn the_chip_draws_free_as_its_own_tag_outside_the_truncated_name() {
     assert!(rt.find("model-chip-free").is_some(), "Free tag should be drawn as its own element");
     assert_eq!(text_in(&rt, "model-chip-free"), vec!["Free"]);
     let chip_words = text_in(&rt, "model-chip");
-    assert!(chip_words.iter().any(|w| w == "Muse Spark 1.3 Contributor"), "got: {chip_words:?}");
+    // Its name without the tag, then its effort: this route lists no levels, so "Fixed" (Composer.tsx effortPhrase).
+    assert!(chip_words.iter().any(|w| w == "Muse Spark 1.3 Contributor · Fixed"), "got: {chip_words:?}");
 }
 
 // routeChipReading.test.ts
@@ -601,4 +602,43 @@ fn draws_the_rows_it_was_given() {
     let words = texts(&rt);
     assert!(words.iter().any(|s| s=="Muse Spark 1.2 (contributor, free)"),"{words:?}");
     assert!(words.iter().any(|s| s=="Big Pickle"),"{words:?}");
+}
+
+/// The chip's tooltip, once the pointer has rested on it.
+fn chip_tip(rt: &mut Runtime<State>) -> String {
+    let (x, y) = rt.find("model-chip").expect("model-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip-tip-tooltip")).and_then(|e| e.label).unwrap_or_default()
+}
+
+// your-own-model-is-named-as-yours.test.tsx
+// case: reads as itself in the chat bar, with the exact route one hover away
+#[test]
+fn reads_as_itself_in_the_chat_bar_with_the_exact_route_one_hover_away() {
+    // ACME as Electron's test has it: an own model the person named "Acme Chat", listed with no effort levels.
+    let mut rt = chip_runtime("opencode", "own-a1b2c3d0/acme-70b", "Acme Chat", None);
+    // Effort sits on the same control. This model has none to choose, so the words are its name and Fixed.
+    let words = text_in(&rt, "model-chip").join(" ");
+    assert_eq!(words, "Acme Chat · Fixed");
+    assert!(!words.contains("OpenCode"));
+    assert_eq!(chip_tip(&mut rt), "OpenCode / own-a1b2c3d0/acme-70b");
+    // The agent's name stays in the tooltip of every route; the face is the model and its effort.
+    let mut ordinary = chip_runtime("opencode", "opencode/ling-3.0-flash-fin-free", "Ling 3.0 Flash Fin Free", None);
+    let words = text_in(&ordinary, "model-chip").join(" ");
+    assert!(!words.starts_with("OpenCode /"), "{words}");
+    assert_eq!(chip_tip(&mut ordinary), "OpenCode / opencode/ling-3.0-flash-fin-free");
+}
+
+// Composer.tsx: with nothing on the machine able to take work, the chip names no route, and neither does its tooltip.
+#[test]
+fn with_no_agent_able_to_start_the_chip_and_its_tooltip_say_so() {
+    let mut rt = chip_runtime("opencode", "opencode/ling-3.0-flash-fin-free", "Ling 3.0 Flash Fin Free", None);
+    rt.update(|s, _| s.settings_panel.agents.as_mut().unwrap()[0].ready = false);
+    // Past the free tag's exit, which stays listed while it fades.
+    rt.frame(0.016);
+    rt.frame(1.0);
+    assert_eq!(text_in(&rt, "model-chip").join(" "), "No AI agent");
+    assert_eq!(chip_tip(&mut rt), "No AI agent on this machine can start yet.");
 }

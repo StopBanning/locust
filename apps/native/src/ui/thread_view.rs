@@ -345,7 +345,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         } else {
             chip_model_name.to_owned()
         };
-        let effort_text = effort.map(locust_core::effort_levels::effort_phrase);
+        // Composer.tsx `effortIsGenuinelyFixed`: once the catalog has answered for this model and it lists no levels,
+        // the chip says "Fixed", whatever effort was stored; before it answers, nothing is claimed.
+        let effort_is_fixed = current.and_then(|a| a.models.iter().find(|m| m.id == model)).is_some_and(|m| m.efforts.is_empty());
+        let effort_text = if effort_is_fixed { Some("Fixed".to_owned()) } else { effort.map(locust_core::effort_levels::effort_phrase) };
         let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
         let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
@@ -399,6 +402,13 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .map(|n| format!(", {n} on its last run"))
                     .unwrap_or_default()
             );
+            chip = crate::hover::tip(s, &l, "model-chip-tip", &exact, el().child(chip));
+        } else if no_agent {
+            chip = crate::hover::tip(s, &l, "model-chip-tip", "No AI agent on this machine can start yet.", el().child(chip));
+        } else if model != "Choose model" {
+            // Composer.tsx `exactRoute`: the chip drops repetition, so the exact string to type elsewhere is one hover
+            // away, the agent first: "OpenCode / own-a1b2c3d0/acme-70b".
+            let exact = format!("{} / {model}", locust_core::failure_words::runtime_display_name(runtime));
             chip = crate::hover::tip(s, &l, "model-chip-tip", &exact, el().child(chip));
         }
         let mut picker = col().w_full().px(24.0);
