@@ -1705,6 +1705,10 @@ mod sidebar_search_words_tests;
 mod torn_ledger_line_tests;
 
 #[cfg(test)]
+#[path = "teammate_bot_in_window_tests.rs"]
+mod teammate_bot_in_window_tests;
+
+#[cfg(test)]
 mod review_tests {
     use super::*;
     // a-long-conversation-is-still-one-conversation.test.ts, exact chain values.
