@@ -434,7 +434,7 @@ pub(super) fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
 
 pub(super) fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if s.draft.text.starts_with('!') && event.key == Key::Escape {
-        s.draft.replace_text(s.draft.text[1..].to_owned());
+        s.draft.replace_text(own_command::leave_command_mode(&s.draft.text));
         return true;
     }
     let slash = slash_choices_now(s);

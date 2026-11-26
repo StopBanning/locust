@@ -157,3 +157,165 @@ fn a_folder_gives_at_most_two_hundred_commands() {
     assert_eq!(read.len(), MAX_COMMANDS);
     assert_eq!(read.last().map(|c| c.name.as_str()), Some("c199"));
 }
+
+// ---- a file becomes a prompt (shared/own-commands.ts, own-command-host.ts `expand` and `allow`)
+
+#[test]
+fn gives_1_and_2_the_words_quotes_grouping_and_the_last_the_rest() {
+    // case: gives $1 and $2 the words, quotes grouping, and the last the rest
+    assert_eq!(split_command_words("\"hello world\" Sam"), vec!["hello world", "Sam"]);
+    assert_eq!(expand_template("See $1 then $2", "one two three"), "See one then two three");
+    assert_eq!(expand_template("Say $1 to $2", "\"hello world\" Sam"), "Say hello world to Sam");
+    assert_eq!(expand_template("Task: $ARGUMENTS", "fix the bug"), "Task: fix the bug");
+    assert_eq!(expand_template("Review this.", "the api"), "Review this.\n\nthe api");
+    assert_eq!(expand_template("Review this.", ""), "Review this.");
+    assert_eq!(expand_template("Keep $1", ""), "Keep ");
+}
+
+#[test]
+fn finds_a_bang_block_and_the_arguments_typed_after_a_command_name() {
+    // case: finds a bang block and the arguments typed after a command name
+    assert_eq!(
+        bang_blocks("Status:\n\n!`echo hello`\n"),
+        vec![BangBlock { command: "echo hello".into(), token: "!`echo hello`".into() }]
+    );
+    assert_eq!(bang_blocks("No bang here"), vec![]);
+    assert_eq!(
+        arguments_of_own_command("/team/review the notes", &["team/review"]),
+        Some(("team/review".into(), "the notes".into()))
+    );
+    assert_eq!(arguments_of_own_command("/team/review", &["team/review"]), None);
+    assert_eq!(arguments_of_own_command("/plan the work", &["team/review"]), None);
+}
+
+#[test]
+fn treats_a_leading_bang_as_command_mode_and_escape_takes_the_mark_off() {
+    // case: treats a leading bang as command mode, and Escape takes the mark off
+    use crate::own_command::{bang, leave_command_mode};
+    assert_eq!(bang("!echo hello"), Some("echo hello"));
+    assert_eq!(bang("! echo hello"), Some("echo hello"));
+    assert_eq!(bang("echo hello"), None);
+    assert_eq!(bang(" !echo"), None);
+    assert_eq!(leave_command_mode("!echo hello"), "echo hello");
+    assert_eq!(leave_command_mode("!"), "");
+}
+
+/// oneShot on a Mac or Linux: the line runs as `<shell> -lc <line>` in the conversation's folder (the shell is the one
+/// the terminal panel opens). PowerShell's stdin, cmd's /d /s /c and WSL's `-- bash -lc` are Windows', not this port's.
+#[test]
+fn runs_one_command_in_the_terminal_panel_shell() {
+    // case: runs one command in the terminal panel shell
+    let folder = temp("shell");
+    let ran = run_line("pwd -P; echo hello", &folder.0);
+    let canonical = folder.0.canonicalize().unwrap();
+    assert_eq!(ran.output, format!("{}\nhello\n", canonical.display()));
+    assert_eq!((ran.exit, ran.stopped), (Some(0), false));
+    let failed = run_line("exit 3", &folder.0);
+    assert_eq!(failed.exit, Some(3));
+}
+
+/// A fake `!` line runner, as Electron's test spawns a scripted process: what it was asked to run, and its output.
+fn scripted(output: &'static str, asked: std::rc::Rc<std::cell::RefCell<Vec<(String, PathBuf)>>>) -> impl FnMut(&str, &Path) -> crate::own_command::ResultRow {
+    move |command, folder| {
+        asked.borrow_mut().push((command.to_owned(), folder.to_path_buf()));
+        crate::own_command::ResultRow { output: output.into(), omitted: None, exit: Some(0), stopped: false, elapsed: 1 }
+    }
+}
+
+#[test]
+fn lists_a_nested_command_and_runs_a_global_bang_at_once() {
+    // case: lists a nested command and runs a global bang at once
+    let profile = temp("global-bang");
+    let folder = temp("shop");
+    write(&profile.0.join("commands/team/review.md"), "---\ndescription: Looks at the diff\n---\nReview\n\n!`echo hello`\n");
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let listed = commands_in(&profile.0, Some(&folder.0));
+    assert_eq!(listed.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), vec!["team/review"]);
+    assert_eq!(listed[0].source, Source::Global);
+    let expanded = expand(&profile.0, Some(&folder.0), "team/review", Source::Global, "", None, &mut scripted("hello\n", asked.clone()));
+    let Expanded::Text { text, .. } = expanded else { panic!("a global command runs its bang at once: {expanded:?}") };
+    assert_eq!(asked.borrow().iter().map(|(c, f)| (c.as_str(), f.clone())).collect::<Vec<_>>(), vec![("echo hello", folder.0.clone())]);
+    assert!(text.contains("hello"), "{text}");
+    assert!(!text.contains("!`echo hello`"), "{text}");
+    // Where the output went, in Electron's words.
+    assert_eq!(text, "Review\n\noutput of `echo hello` (exit 0):\nhello\n\n");
+}
+
+#[test]
+fn waits_for_a_yes_before_a_project_command_runs_a_bang_then_remembers_the_folder() {
+    // case: waits for a yes before a project command runs a bang, then remembers the folder
+    let profile = temp("project-bang");
+    let folder = temp("project");
+    write(
+        &folder.0.join(".locust/commands/status.md"),
+        "---\ndescription: This folder\nmode: plan\nteammate: Wren\n---\nStatus $1\n\n!`echo $1`\n",
+    );
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let first = expand(&profile.0, Some(&folder.0), "status", Source::Project, "notes", None, &mut scripted("notes\n", asked.clone()));
+    assert_eq!(first, Expanded::Ask(vec!["echo notes".into()]));
+    assert!(asked.borrow().is_empty(), "nothing runs before the yes");
+    assert_eq!(allow(&profile.0, Some(&folder.0)), Ok(()));
+    let second = expand(&profile.0, Some(&folder.0), "status", Source::Project, "notes", None, &mut scripted("notes\n", asked.clone()));
+    assert_eq!(asked.borrow().iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(), vec!["echo notes"]);
+    let Expanded::Text { text, mode, teammate } = second else { panic!("allowed, it runs: {second:?}") };
+    assert!(text.contains("notes"), "{text}");
+    assert_eq!(mode, Some("plan"));
+    assert_eq!(teammate.as_deref(), Some("Wren"));
+    // Remembered in the profile, once, as Electron writes command-allows.json.
+    let kept: serde_json::Value = serde_json::from_slice(&std::fs::read(allows_path(&profile.0)).unwrap()).unwrap();
+    assert_eq!(kept, serde_json::json!([folder.0.to_string_lossy()]));
+    assert_eq!(allow(&profile.0, Some(&folder.0.join("."))), Ok(()));
+    let kept: serde_json::Value = serde_json::from_slice(&std::fs::read(allows_path(&profile.0)).unwrap()).unwrap();
+    assert_eq!(kept, serde_json::json!([folder.0.to_string_lossy()]), "the same folder is kept once");
+}
+
+/// expand's refusals, in Electron's words: a command gone from its folder, a `!` line with the terminal turned off or
+/// with no folder to run in, and Allow with no folder. A prompt with no `!` line needs neither the terminal nor a folder.
+#[test]
+fn a_prompt_without_a_bang_needs_no_terminal_and_each_refusal_is_electrons() {
+    let profile = temp("refusals");
+    write(&profile.0.join("commands/plain.md"), "---\nmode: edit\n---\nJust $ARGUMENTS\n");
+    write(&profile.0.join("commands/bang.md"), "Run !`echo hi`\n");
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let off = Some("Your organization has turned the terminal off.".to_owned());
+    assert_eq!(
+        expand(&profile.0, None, "PLAIN", Source::Global, "this", off.clone(), &mut scripted("", asked.clone())),
+        Expanded::Text { text: "Just this\n".into(), mode: Some("accept-edits"), teammate: None }
+    );
+    assert_eq!(
+        expand(&profile.0, None, "plain", Source::Project, "", None, &mut scripted("", asked.clone())),
+        Expanded::Refused("That command is not in this folder. Nothing was changed.".into())
+    );
+    assert_eq!(
+        expand(&profile.0, Some(&profile.0), "bang", Source::Global, "", off.clone(), &mut scripted("", asked.clone())),
+        Expanded::Refused(off.unwrap())
+    );
+    assert_eq!(
+        expand(&profile.0, None, "bang", Source::Global, "", None, &mut scripted("", asked.clone())),
+        Expanded::Refused("Choose a folder first. Nothing was run.".into())
+    );
+    assert!(asked.borrow().is_empty());
+    assert_eq!(allow(&profile.0, None), Err("Choose a folder first. Nothing was allowed.".into()));
+}
+
+/// Each line's ending in Electron's words: no output, stopped, ended without a code, and what was left out.
+#[test]
+fn each_bang_lines_output_says_how_it_ended() {
+    let profile = temp("endings");
+    let folder = temp("endings-folder");
+    write(&profile.0.join("commands/three.md"), "A !`one` B !`two` C !`three`");
+    let mut n = 0;
+    let mut run = |_: &str, _: &Path| {
+        n += 1;
+        match n {
+            1 => crate::own_command::ResultRow { output: String::new(), omitted: None, exit: Some(0), stopped: false, elapsed: 0 },
+            2 => crate::own_command::ResultRow { output: "half".into(), omitted: Some("Left out 3 lines from the start.".into()), exit: None, stopped: true, elapsed: 0 },
+            _ => crate::own_command::ResultRow { output: "x".into(), omitted: None, exit: None, stopped: false, elapsed: 0 },
+        }
+    };
+    let Expanded::Text { text, .. } = expand(&profile.0, Some(&folder.0), "three", Source::Global, "", None, &mut run) else { panic!() };
+    assert_eq!(
+        text,
+        "A output of `one` (exit 0):\n(no output) B output of `two` (stopped before it finished):\nhalf\nLeft out 3 lines from the start. C output of `three` (ended):\nx"
+    );
+}
