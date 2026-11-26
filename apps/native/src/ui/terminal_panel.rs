@@ -737,11 +737,7 @@ pub(super) fn open_in_terminal(s: &mut State) {
                 cwd_for: &|_| place.clone(),
                 workspace_path: place.clone().unwrap_or_default(),
                 launch_for: &|runtime| {
-                    let command = match runtime {
-                        "cursor" => "cursor-agent",
-                        "antigravity" => "agy",
-                        other => other,
-                    };
+                    let command = runtime_terminal::terminal_command(runtime);
                     let found = crate::runtime::find_executable(command).ok()?;
                     Some(runtime_terminal::TerminalLaunch {
                         command_name: command.to_owned(),
@@ -752,9 +748,7 @@ pub(super) fn open_in_terminal(s: &mut State) {
                 },
             },
         )?;
-        if place.is_none() {
-            return Err("Choose a folder first. Nothing was run.".to_owned());
-        }
+        runtime_terminal::folder_to_open(place.clone())?;
         let args = runtime_terminal::resume_args(&request.runtime, &request.session_id)
             .ok_or("This conversation has no session its runtime can resume in a terminal.")?;
         let store = native::store().ok_or("Native data folder is unavailable.")?;

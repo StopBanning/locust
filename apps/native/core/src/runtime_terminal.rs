@@ -172,6 +172,21 @@ pub struct TerminalFacts<'a> {
 
 /// The request for one conversation, or why there is none (Electron `terminalRequestFor`). Never while its run is
 /// going: Locust's run and a terminal would both write to one session, each unaware of the other.
+/// The command a runtime's own interface is started with, as discovery names it (agents.rs: Cursor's `cursor-agent`,
+/// Antigravity's `agy`); every other runtime's command is its id.
+pub fn terminal_command(runtime: &str) -> &str {
+    match runtime {
+        "cursor" => "cursor-agent",
+        "antigravity" => "agy",
+        other => other,
+    }
+}
+
+/// The folder a conversation opens in: none chosen is said, and nothing is run.
+pub fn folder_to_open(place: Option<String>) -> Result<String, String> {
+    place.ok_or_else(|| "Choose a folder first. Nothing was run.".to_owned())
+}
+
 pub fn terminal_request_for(mission_id: &str, facts: &TerminalFacts) -> Result<TerminalRequest, String> {
     if (facts.live)(mission_id) {
         return Err("This conversation is still running. Open it in a terminal once the run finishes: two programs on one session at once would talk over each other.".into());
@@ -924,3 +939,7 @@ mod mac_terminal_script_case_tests;
 #[cfg(test)]
 #[path = "what_happens_in_the_terminal_tests.rs"]
 mod what_happens_in_the_terminal_tests;
+
+#[cfg(test)]
+#[path = "terminal_command_tests.rs"]
+mod terminal_command_tests;
