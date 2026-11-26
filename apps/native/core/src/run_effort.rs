@@ -47,6 +47,39 @@ pub fn run_effort_at_start(runtime: &str, model: Option<&str>, chosen: Option<&s
     run_effort(runtime, model, &levels, runtime_default, None)
 }
 
+/// status.ts startRoute: what a run on `runtime` is actually handed for `model` at `effort`, as (model, effort).
+///
+/// The family is found by its own id or as one of its variants (a Cursor family takes its first variant seen as its
+/// id, so the id in hand is often a sibling). A level is never sent to a model the catalogue knows to list none;
+/// OpenCode, which takes any variant name and silently ignores one the model does not list, is sent only a level the
+/// model lists; a level a family's variants name becomes that variant, with no level beside it; one they do not name
+/// is dropped rather than refuse the run. A model the catalogue has never heard of is sent the level as it came.
+/// `model` is None for the account's default, which the command names no model for; it is judged on its own row.
+pub fn start_route(catalog: &[Value], runtime: &str, model: Option<&str>, effort: Option<&str>) -> (Option<String>, Option<String>) {
+    let as_came = model.map(str::to_owned);
+    let Some(effort) = effort else {
+        return (as_came, None);
+    };
+    let id = model.unwrap_or(crate::models::ACCOUNT_DEFAULT);
+    let family = catalog.iter().find(|m| {
+        m["runtime"] == runtime && (m["id"] == id || m["variants"].as_object().is_some_and(|v| v.values().any(|variant| variant == id)))
+    });
+    let listed: Option<Vec<&str>> = family.and_then(|f| f["supportedEfforts"].as_array()).map(|l| l.iter().filter_map(Value::as_str).collect());
+    if listed.as_ref().is_some_and(Vec::is_empty) {
+        return (as_came, None);
+    }
+    if runtime == "opencode" && listed.as_ref().is_some_and(|l| !l.contains(&effort)) {
+        return (as_came, None);
+    }
+    if let Some(variant) = family.and_then(|f| f["variants"][effort].as_str()) {
+        return (Some(variant.to_owned()), None);
+    }
+    if family.is_some_and(|f| f["variants"].is_object()) {
+        return (as_came, None);
+    }
+    (as_came, Some(effort.to_owned()))
+}
+
 thread_local! {
     #[cfg(test)]
     static CATALOG: std::cell::RefCell<Option<Vec<Value>>> = const { std::cell::RefCell::new(None) };
@@ -54,7 +87,7 @@ thread_local! {
 
 /// The catalogue as read: this computer's, or under test only the one a test set on its thread (so no test reads
 /// another's, or this machine's).
-fn catalog_as_read() -> Vec<Value> {
+pub(crate) fn catalog_as_read() -> Vec<Value> {
     #[cfg(test)]
     {
         CATALOG.with(|c| c.borrow().clone()).unwrap_or_default()

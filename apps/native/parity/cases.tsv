@@ -6080,13 +6080,13 @@ apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separa
 apps/desktop/src/renderer/src/status.test.ts	still returns a row when a hand-edited chain has no leaf	no
 apps/desktop/src/renderer/src/status.test.ts	folds the punctuation a CLI spells a model with	yes
 apps/desktop/src/renderer/src/status.test.ts	uses a Custom teammate's own title, and the role name for everyone else	yes
-apps/desktop/src/renderer/src/status.test.ts	turns an effort into the variant it names and sends no effort beside it	no
-apps/desktop/src/renderer/src/status.test.ts	drops an effort the variants do not name rather than refuse the run	no
-apps/desktop/src/renderer/src/status.test.ts	finds the family when the id in hand is one of its variants, not its own id	no
-apps/desktop/src/renderer/src/status.test.ts	never sends an effort to a model that advertises none	no
-apps/desktop/src/renderer/src/status.test.ts	sends an OpenCode model only an effort it lists	no
-apps/desktop/src/renderer/src/status.test.ts	still sends an effort for a model the catalogue has never heard of	no
-apps/desktop/src/renderer/src/status.test.ts	sends the effort as itself where the runtime takes it as a flag	no
+apps/desktop/src/renderer/src/status.test.ts	turns an effort into the variant it names and sends no effort beside it	yes
+apps/desktop/src/renderer/src/status.test.ts	drops an effort the variants do not name rather than refuse the run	yes
+apps/desktop/src/renderer/src/status.test.ts	finds the family when the id in hand is one of its variants, not its own id	yes
+apps/desktop/src/renderer/src/status.test.ts	never sends an effort to a model that advertises none	yes
+apps/desktop/src/renderer/src/status.test.ts	sends an OpenCode model only an effort it lists	yes
+apps/desktop/src/renderer/src/status.test.ts	still sends an effort for a model the catalogue has never heard of	yes
+apps/desktop/src/renderer/src/status.test.ts	sends the effort as itself where the runtime takes it as a flag	yes
 apps/desktop/src/renderer/src/status.test.ts	is always offered, whatever the workspace switch says	yes
 apps/desktop/src/renderer/src/status.test.ts	is offered on every runtime Locust has a handle on, Antigravity (0.540) and Muse (0.773) included	yes
 apps/desktop/src/renderer/src/status.test.ts	is never the mode a route falls back to	yes

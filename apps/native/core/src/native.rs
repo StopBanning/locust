@@ -2935,13 +2935,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     } else {
         model
     };
-    // Cursor takes its effort inside the model id (model-catalog.ts cursorChoiceFor): a level the family lists becomes
-    // that variant's id; one it does not list stays, and is refused in words below.
-    // With no model there is no family to look in, so the catalog is not read.
-    let model = if runtime_name == "cursor" && job.effort.is_some() && model.is_some() {
-        let (chosen, effort) = crate::models::cursor_choice_for(&cursor_catalog(), model.as_deref(), job.effort.as_deref());
+    // status.ts startRoute (run_effort::start_route): what the runtime is handed for the level. Cursor takes it inside the
+    // model id (a level the family's variants name becomes that variant; one they do not is dropped, never refused), a
+    // model listing no levels is sent none, OpenCode only a level its model lists. Cursor's family is read from this
+    // computer's catalog as before; every other runtime's from the catalogue as read, so a start never waits on a read.
+    let model = if job.effort.is_some() {
+        let catalog = if runtime_name == "cursor" && model.is_some() { cursor_catalog() } else { crate::run_effort::catalog_as_read() };
+        let (sent, effort) = crate::run_effort::start_route(&catalog, runtime_name, model.as_deref(), job.effort.as_deref());
         job.effort = effort;
-        chosen
+        sent
     } else {
         model
     };
