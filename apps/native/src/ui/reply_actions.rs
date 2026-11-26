@@ -276,7 +276,8 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
     }
     if ext == "csv" || ext == "tsv" {
         let text = read_sheet_text(root, target)?;
-        let book = crate::office::read_csv(&text, ext == "tsv");
+        // Named after the file, as Electron's host names it (`csvWorkbook(name, ...)`).
+        let book = crate::office::read_csv(crate::file_menu::file_base_name(&target.path).as_str(), &text, ext == "tsv");
         let words = format_workbook(&book);
         crate::sheet_view::keep(root, &target.path, book);
         return Ok(words);

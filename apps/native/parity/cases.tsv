@@ -1324,20 +1324,20 @@ apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	hands PowerSh
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a search names its words, and says nothing changes	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a page names its site, and shows the whole address to be read	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	an address that does not parse still asks, without a site	yes
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	has its sheets, by name, in order	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads text, numbers in their formats, a percent and a date	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a formula with no stored result AS the formula, never a number it did not hold	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	does not count a styled empty cell as content	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a boolean, on the second sheet	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a stored result where the file holds one	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	refuses a part that claims more than it may inflate to, before inflating it	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	says in words what it cannot read	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	draws at most the bound, and counts the rest	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads quoted fields, doubled quotes and line breaks inside them	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	becomes a one-sheet workbook with its numbers set right	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a TSV the same way	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the way a spreadsheet does	no
-apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	no
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	has its sheets, by name, in order	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads text, numbers in their formats, a percent and a date	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a formula with no stored result AS the formula, never a number it did not hold	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	does not count a styled empty cell as content	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a boolean, on the second sheet	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a stored result where the file holds one	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	refuses a part that claims more than it may inflate to, before inflating it	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	says in words what it cannot read	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	draws at most the bound, and counts the rest	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads quoted fields, doubled quotes and line breaks inside them	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	becomes a one-sheet workbook with its numbers set right	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a TSV the same way	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the way a spreadsheet does	yes
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is the grey title with one white band passing through it, from the theme’s own tokens	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	passes slowly, left to right, and stands still for a person who asked for less motion	yes
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is worn by a running conversation and a running room only, and keeps the dot’s footprint empty	yes

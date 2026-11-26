@@ -114,7 +114,7 @@ fn cell_text(value: &str) -> String {
 }
 
 /// Whether written text reads as a number -- `1,400`, `-3.5`, `$4,200.00`, `12%` -- so it sits right (`looksNumeric`).
-fn looks_numeric(text: &str) -> bool {
+pub(crate) fn looks_numeric(text: &str) -> bool {
     static NUMERIC: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(r"^[-+(]?[$€£¥]?\s?-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\)?%?$").unwrap()
     });
@@ -123,7 +123,7 @@ fn looks_numeric(text: &str) -> bool {
 
 /// RFC 4180 CSV (`parseCsv`): quoted fields, doubled quotes inside them, line breaks inside quotes, CRLF or LF. Stops
 /// once it has `limit_rows` rows, so a huge file costs what the viewer shows.
-fn parse_csv(text: &str, delimiter: char, limit_rows: usize) -> Vec<Vec<String>> {
+pub(crate) fn parse_csv(text: &str, delimiter: char, limit_rows: usize) -> Vec<Vec<String>> {
     let body = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut rows = Vec::new();
     let mut row = Vec::new();
@@ -403,23 +403,235 @@ fn first_text_run(xml: &str) -> Option<String> {
     text_runs(xml).into_iter().find(|t| !t.trim().is_empty())
 }
 
+/// A zip part may inflate to at most this (Electron `xlsx.ts` `MAX_PART_BYTES`): a zip bomb stops here, not in memory.
+const MAX_PART_BYTES: u64 = 24 * 1024 * 1024;
+/// Electron `xlsx.ts` `MAX_ENTRIES`.
+const MAX_ENTRIES: usize = 4_000;
+
+/// The zip's bounds, checked before calamine reads a byte of it (Electron `zipDirectory` and `partText`): too many
+/// entries, a part that claims more than it may inflate to, or one that inflates past the cap while claiming less, are
+/// refused in words. `noun` is what the person calls the file.
+fn checked_zip<'a>(bytes: &'a [u8], noun: &str) -> Result<zip::ZipArchive<Cursor<&'a [u8]>>, String> {
+    let mut zip = zip::ZipArchive::new(Cursor::new(bytes))
+        .map_err(|_| format!("That file is not a {noun} Locust can read."))?;
+    if zip.len() > MAX_ENTRIES {
+        return Err(format!("That {noun} is too large to show here."));
+    }
+    for index in 0..zip.len() {
+        let mut part = zip.by_index(index).map_err(|_| format!("That {noun} is damaged."))?;
+        if part.size() > MAX_PART_BYTES {
+            return Err(format!("That {noun} is too large to show here."));
+        }
+        let inflated = std::io::copy(&mut (&mut part).take(MAX_PART_BYTES + 1), &mut std::io::sink())
+            .map_err(|_| format!("That {noun} is too large or damaged to show here."))?;
+        if inflated > MAX_PART_BYTES {
+            return Err(format!("That {noun} is too large or damaged to show here."));
+        }
+    }
+    Ok(zip)
+}
+
+/// The relationships calamine needs and Electron never asks for, added where a file lacks them, so calamine reads what
+/// Electron reads: calamine finds the workbook through the package's own `_rels/.rels` (Electron reads
+/// `xl/workbook.xml` by name), and takes a sheet only from a relationship typed as one (Electron takes every sheet's
+/// target as its part). A file that already has both is read as it is; otherwise the other parts are copied as they
+/// are, never inflated again.
+fn with_package_relationships<'a>(
+    bytes: &'a [u8],
+    zip: &mut zip::ZipArchive<Cursor<&'a [u8]>>,
+) -> Result<std::borrow::Cow<'a, [u8]>, String> {
+    const WORKBOOK_RELS: &str = "xl/_rels/workbook.xml.rels";
+    const WORKSHEET: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet";
+    static UNTYPED: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"<((?:\w+:)?Relationship)\b([^>]*?)(/?)>").unwrap());
+    let damaged = |_| "That workbook is damaged.".to_string();
+    let package = zip.index_for_name("_rels/.rels").is_some();
+    let rels = match zip.by_name(WORKBOOK_RELS) {
+        Ok(mut part) => {
+            let mut text = String::new();
+            part.read_to_string(&mut text).map_err(|_| "That workbook is damaged.".to_string())?;
+            Some(text)
+        }
+        Err(_) => None,
+    };
+    let typed = rels.as_deref().map(|text| {
+        UNTYPED
+            .replace_all(text, |c: &regex::Captures| {
+                if attribute_present(&c[2], "Type") {
+                    c[0].to_owned()
+                } else {
+                    format!(r#"<{}{} Type="{WORKSHEET}"{}>"#, &c[1], &c[2], &c[3])
+                }
+            })
+            .into_owned()
+    });
+    if package && typed == rels {
+        return Ok(std::borrow::Cow::Borrowed(bytes));
+    }
+    let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    for index in 0..zip.len() {
+        let part = zip.by_index_raw(index).map_err(damaged)?;
+        if typed != rels && part.name() == WORKBOOK_RELS {
+            continue;
+        }
+        out.raw_copy_file(part).map_err(damaged)?;
+    }
+    let mut add = |name: &str, text: &[u8]| -> Result<(), String> {
+        out.start_file(name, zip::write::SimpleFileOptions::default()).map_err(damaged)?;
+        std::io::Write::write_all(&mut out, text).map_err(|_| "That workbook is damaged.".to_string())
+    };
+    if let (Some(text), true) = (&typed, typed != rels) {
+        add(WORKBOOK_RELS, text.as_bytes())?;
+    }
+    if !package {
+        add(
+            "_rels/.rels",
+            br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#,
+        )?;
+    }
+    Ok(std::borrow::Cow::Owned(out.finish().map_err(damaged)?.into_inner()))
+}
+
+/// Whether an element's attribute text names this attribute, with or without a namespace prefix.
+fn attribute_present(attributes: &str, name: &str) -> bool {
+    attributes.split_whitespace().any(|a| a.split('=').next().is_some_and(|key| key.rsplit(':').next() == Some(name)))
+}
+
+/// Electron `BUILTIN_DATE_FORMATS`: the built-in number formats that are dates.
+const BUILTIN_DATE_FORMATS: [u32; 12] = [14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47];
+
+/// Electron `BUILTIN_FORMATS`: the built-in number formats it draws by their code; any other built-in is `General`.
+fn builtin_format(id: u32) -> Option<&'static str> {
+    match id {
+        1 => Some("0"),
+        2 => Some("0.00"),
+        3 => Some("#,##0"),
+        4 => Some("#,##0.00"),
+        9 => Some("0%"),
+        10 => Some("0.00%"),
+        _ => None,
+    }
+}
+
+/// A format code with its quoted text, `[colour]` sections and escaped characters taken out.
+fn bare_format(code: &str) -> String {
+    static QUOTED: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r#""[^"]*"|\[[^\]]*\]|\\."#).unwrap());
+    QUOTED.replace_all(code, "").into_owned()
+}
+
+/// How a style shows a number (Electron `stylesOf`): as a date, or with the format code it names. calamine gives the
+/// code it knows for every built-in; Electron knows six, and draws any other built-in as `General`.
+fn number_style(format: Option<&calamine::NumberFormat>) -> (bool, Option<String>) {
+    let Some(format) = format else { return (false, None) };
+    let id = format.format_id.unwrap_or(0);
+    let code = if id >= 164 { Some(format.format_code.clone()) } else { builtin_format(id).map(str::to_owned) };
+    let bare = bare_format(code.as_deref().unwrap_or(""));
+    let lower = bare.to_ascii_lowercase();
+    let date = BUILTIN_DATE_FORMATS.contains(&id)
+        || lower.contains('y')
+        || lower.contains('d')
+        || (lower.contains('m') && !lower.contains('h') && !lower.contains('s'));
+    (date, code)
+}
+
+/// An Excel date serial as a date a person reads (Electron `excelDate`): 2026-09-26, with the time when it has one.
+fn excel_date(serial: f64, from_1904: bool) -> String {
+    let epoch = if from_1904 {
+        chrono::NaiveDate::from_ymd_opt(1904, 1, 1)
+    } else {
+        chrono::NaiveDate::from_ymd_opt(1899, 12, 30)
+    }
+    .and_then(|d| d.and_hms_opt(0, 0, 0));
+    let Some(at) = epoch.and_then(|e| e.checked_add_signed(chrono::TimeDelta::milliseconds((serial * 86_400_000.0).round() as i64)))
+    else {
+        return js_number(serial);
+    };
+    let day = at.format("%Y-%m-%d").to_string();
+    let time = at.format("%H:%M").to_string();
+    if serial.fract() == 0.0 || time == "00:00" { day } else { format!("{day} {time}") }
+}
+
+/// A number as JavaScript writes `String(Number(value.toPrecision(12)))`: twelve significant digits, no trailing zeros.
+fn js_number(value: f64) -> String {
+    if !value.is_finite() {
+        return value.to_string();
+    }
+    let rounded: f64 = format!("{value:.11e}").parse().unwrap_or(value);
+    if rounded == 0.0 {
+        return "0".into();
+    }
+    let magnitude = rounded.abs();
+    if (1e-7..1e21).contains(&magnitude) {
+        return rounded.to_string();
+    }
+    let text = format!("{rounded:e}");
+    match text.split_once('e') {
+        Some((mantissa, exponent)) if !exponent.starts_with('-') => format!("{mantissa}e+{exponent}"),
+        _ => text,
+    }
+}
+
+/// A number the way its style asks, within reason (Electron `formatNumber`): decimals, thousands, percent, a currency
+/// sign.
+fn format_number(value: f64, format: Option<&str>) -> String {
+    let Some(format) = format.filter(|f| *f != "General") else {
+        return js_number(value);
+    };
+    let section = format.split(';').next().unwrap_or("");
+    let bare = bare_format(section);
+    let percent = bare.contains('%');
+    let decimals = bare
+        .find('.')
+        .map(|at| bare[at + 1..].chars().take_while(|c| *c == '0').count())
+        .unwrap_or(0);
+    let grouped = bare.contains(',');
+    let sign = section.chars().find(|c| matches!(c, '$' | '€' | '£' | '¥'));
+    let shown = if percent { value * 100.0 } else { value };
+    let fixed = format!("{:.*}", decimals, shown.abs());
+    let (whole, fraction) = fixed.split_once('.').map_or((fixed.as_str(), None), |(w, f)| (w, Some(f)));
+    let mut digits = String::new();
+    for (at, c) in whole.chars().enumerate() {
+        if grouped && at > 0 && (whole.len() - at) % 3 == 0 {
+            digits.push(',');
+        }
+        digits.push(c);
+    }
+    if let Some(fraction) = fraction {
+        digits.push('.');
+        digits.push_str(fraction);
+    }
+    let body = format!("{}{digits}{}", sign.map(String::from).unwrap_or_default(), if percent { "%" } else { "" });
+    if shown < 0.0 { format!("-{body}") } else { body }
+}
+
 /// Read an `.xlsx` with calamine: the values the file holds, never a formula worked out. A formula the file holds no
-/// result for is its formula, as written (`a-workbook-is-read-for-its-cells`).
+/// result for is its formula, as written; a number is drawn in its style's format (`a-workbook-is-read-for-its-cells`).
+/// The zip's bounds are Electron's and are checked first; a file with no workbook in it is refused in words.
 pub fn read_xlsx(bytes: &[u8]) -> Result<Workbook, String> {
     if bytes.len() as u64 > MAX_OFFICE_FILE_BYTES {
         return Err("That workbook is too large to show here.".into());
     }
-    let mut workbook =
-        calamine::open_workbook_auto_from_rs(Cursor::new(bytes)).map_err(|e| e.to_string())?;
+    let mut zip = checked_zip(bytes, "workbook")?;
+    if zip.index_for_name("xl/workbook.xml").is_none() {
+        return Err("That file is not a workbook Locust can read.".into());
+    }
+    let bytes = with_package_relationships(bytes, &mut zip)?;
     use calamine::{Data, Reader};
+    let mut workbook: calamine::Xlsx<_> =
+        calamine::Xlsx::new(Cursor::new(bytes.as_ref())).map_err(|_| "That workbook is damaged.".to_string())?;
+    let from_1904 = workbook.has_1904_epoch();
     let names = workbook.sheet_names().to_vec();
     let more_sheets = names.len().saturating_sub(MAX_SHEETS);
     let mut sheets = Vec::new();
     for name in names.into_iter().take(MAX_SHEETS) {
         let Ok(range) = workbook.worksheet_range(&name) else {
+            sheets.push(bounded_table(&cell_text(&name), Vec::new(), None, None));
             continue;
         };
         let formulas = workbook.worksheet_formula(&name).unwrap_or_default();
+        let styles = workbook.worksheet_style(&name).ok();
+        let holds = |v: &Data| !matches!(v, Data::Empty) && !matches!(v, Data::String(s) if s.is_empty());
         // Where something is, in the sheet's own places (A1 is row 0, column 0), wherever the stored range starts.
         let mut known_rows = 0usize;
         let mut known_columns = 0usize;
@@ -429,7 +641,7 @@ pub fn read_xlsx(bytes: &[u8]) -> Result<Workbook, String> {
         };
         if let Some((r0, c0)) = range.start() {
             for (r, c, v) in range.used_cells() {
-                if !matches!(v, Data::Empty) {
+                if holds(v) {
                     mark((r0 + r as u32, c0 + c as u32));
                 }
             }
@@ -446,8 +658,14 @@ pub fn read_xlsx(bytes: &[u8]) -> Result<Workbook, String> {
                 (0..known_columns.min(MAX_SHEET_COLUMNS))
                     .map(|c| {
                         let at = (r as u32, c as u32);
-                        let (text, kind) = match range.get_value(at) {
-                            Some(Data::Empty) | None => match formulas.get_value(at).filter(|f| !f.is_empty()) {
+                        let number = |value: f64| {
+                            let (date, code) =
+                                number_style(styles.as_ref().and_then(|s| s.get(at)).and_then(|s| s.number_format.as_ref()));
+                            let text = if date { excel_date(value, from_1904) } else { format_number(value, code.as_deref()) };
+                            (text, SheetCellKind::Number)
+                        };
+                        let (text, kind) = match range.get_value(at).filter(|v| holds(v)) {
+                            None => match formulas.get_value(at).filter(|f| !f.is_empty()) {
                                 Some(f) if f.starts_with('=') => (f.clone(), SheetCellKind::Formula),
                                 Some(f) => (format!("={f}"), SheetCellKind::Formula),
                                 None => (String::new(), SheetCellKind::Text),
@@ -455,21 +673,25 @@ pub fn read_xlsx(bytes: &[u8]) -> Result<Workbook, String> {
                             Some(Data::String(t)) => (t.clone(), SheetCellKind::Text),
                             Some(Data::Bool(b)) => (if *b { "TRUE" } else { "FALSE" }.to_owned(), SheetCellKind::Boolean),
                             Some(Data::Error(e)) => (e.to_string(), SheetCellKind::Error),
-                            Some(other) => (other.to_string(), SheetCellKind::Number),
+                            Some(Data::Float(f)) => number(*f),
+                            Some(Data::Int(i)) => number(*i as f64),
+                            Some(Data::DateTime(d)) => number(d.as_f64()),
+                            Some(other) => (other.to_string(), SheetCellKind::Text),
                         };
                         SheetCell { text: cell_text(&text), kind }
                     })
                     .collect()
             })
             .collect();
-        sheets.push(bounded_table(&name, grid, Some(known_rows), Some(known_columns)));
+        sheets.push(bounded_table(&cell_text(&name), grid, Some(known_rows), Some(known_columns)));
     }
     Ok(Workbook { sheets, more_sheets })
 }
 
-/// A CSV or TSV file as a one-sheet workbook (`csvWorkbook`): read up to one row past the bound, and the rows past
-/// that counted from the line breaks left over (an estimate only when a quoted field holds a line break).
-pub fn read_csv(text: &str, tsv: bool) -> Workbook {
+/// A CSV or TSV file as a one-sheet workbook named after the file (`csvWorkbook`): read up to one row past the bound,
+/// and the rows past that counted from the line breaks left over (an estimate only when a quoted field holds a line
+/// break).
+pub fn read_csv(name: &str, text: &str, tsv: bool) -> Workbook {
     let parsed = parse_csv(text, if tsv { '\t' } else { ',' }, MAX_SHEET_ROWS + 1);
     let more_lines = if parsed.len() > MAX_SHEET_ROWS { text.split('\n').count().saturating_sub(parsed.len()) } else { 0 };
     let known = parsed.len() + more_lines;
@@ -488,7 +710,7 @@ pub fn read_csv(text: &str, tsv: bool) -> Workbook {
     // Only a file cut at the row bound needs the counted lines; otherwise the table counts its own rows, after it drops
     // blank lines at the end (Electron counted those as "more rows not shown").
     let known = (more_lines > 0).then_some(known);
-    Workbook { sheets: vec![bounded_table("Sheet1", grid, known, None)], more_sheets: 0 }
+    Workbook { sheets: vec![bounded_table(name, grid, known, None)], more_sheets: 0 }
 }
 
 /// Write/refresh office-words copies under `folder` (native data only) and return the brief section.
@@ -565,6 +787,10 @@ fn office_files(folder: &Path) -> Vec<String> {
 }
 
 #[cfg(test)]
+#[path = "a_workbook_is_read_for_its_cells_tests.rs"]
+mod a_workbook_is_read_for_its_cells_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -606,8 +832,8 @@ mod tests {
 
     #[test]
     fn csv_bounds_and_xlsx_empty_refuse() {
-        let book = read_csv("a,b\n1,2\n", false);
-        assert_eq!(book.sheets[0].name, "Sheet1");
+        let book = read_csv("a.csv", "a,b\n1,2\n", false);
+        assert_eq!(book.sheets[0].name, "a.csv");
         assert_eq!(book.sheets[0].rows[0][0].text, "a");
         assert!(read_xlsx(b"not a zip").is_err());
     }

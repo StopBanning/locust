@@ -304,3 +304,13 @@ fn is_what_the_file_viewer_draws_for_a_table() {
     // A table, not its words line by line.
     assert!(!texts(&rt).iter().any(|t| t.contains("| Category |")), "{:?}", texts(&rt));
 }
+
+// A CSV is a one-sheet workbook named after its file, as Electron's host names it (`csvWorkbook(name, ...)` in
+// `main/index.ts`), so `SheetView` says "<name> is empty." of an empty one.
+#[test]
+fn a_csv_sheet_is_named_for_its_file() {
+    let dir = temp("named");
+    std::fs::write(dir.0.join("empty.csv"), "").unwrap();
+    let rt = opened(&dir.0, "empty.csv");
+    assert!(texts(&rt).iter().any(|t| t == "empty.csv is empty."), "{:?}", texts(&rt));
+}
