@@ -1850,6 +1850,13 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
     carry_with(mission, runtime, model, &crate::carry_on::CarryOnAlso::default())
 }
 
+/// mission-mode.ts `parsedMissionMode`: the mode a start, a handoff or a resume asks for, read the one way every path
+/// reads it. A mode Locust knows travels as itself; anything else (missing, malformed) is read-only Ask, so a bad request
+/// never widens what a run may touch.
+pub fn requested_mode(value: Option<&str>) -> Mode {
+    value.and_then(Mode::parse).unwrap_or(Mode::Ask)
+}
+
 /// main/carry-on.ts `carry` with an app's extras (0.882): picking up a turn Locust closed under (on its own agent too),
 /// or moving a finished conversation to another agent with a message (or appending a message to a stopped carry-on).
 pub fn carry_with(
@@ -1864,10 +1871,15 @@ pub fn carry_with(
     let store = store().ok_or("Native data folder could not be determined.")?;
     let prior = turn_records(mission).ok_or("This conversation is not in the record any more, so it cannot be carried on.")?;
     let from = prior.metadata["runtime"].as_str().unwrap_or_default().to_owned();
-    let mode = prior.metadata["mode"]
-        .as_str()
-        .map(str::to_owned)
-        .unwrap_or_else(|| if prior.metadata["sandbox"] == "read-only" { "ask".into() } else { "accept-edits".into() });
+    // carry-on.ts modeOf: a turn recorded before modes were is read by its sandbox; a recorded mode is read the one way a
+    // start, a handoff and a resume read it, so one Locust does not know is Ask, never the teammate's own.
+    let mode = match &prior.metadata["mode"] {
+        Value::Null if prior.metadata["sandbox"] == "read-only" => Mode::Ask,
+        Value::Null => Mode::AcceptEdits,
+        recorded => requested_mode(recorded.as_str()),
+    }
+    .as_str()
+    .to_owned();
     let decision = crate::carry_on::carry_decision(
         crate::carry_on::phase_of(&prior.events),
         &prior.events,
@@ -1901,7 +1913,7 @@ pub fn carry_with(
         effort: None,
     };
     let origin = Origin {
-        mode: Mode::parse(&mode),
+        mode: Some(requested_mode(Some(&mode))),
         folder: folder.clone(),
         started_by: Some(started_by),
         runtime: Some(runtime.to_owned()),
@@ -2684,7 +2696,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     let policy = crate::org_policy::current();
     {
         let runtime = job.teammate.runtime.as_deref().unwrap_or("codex");
-        let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
+        let mode = origin.mode.unwrap_or_else(|| requested_mode(Some(&job.teammate.runs_in)));
         let model = job.model.as_deref().or(job.teammate.model.as_deref());
         if let Some(why) = crate::org_policy::turn_refusal(
             Some(&policy),
@@ -2751,7 +2763,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         return Err(format!("{} is already active in another run.", job.teammate.name));
     }
     let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
-    let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
+    let mode = origin.mode.unwrap_or_else(|| requested_mode(Some(&job.teammate.runs_in)));
     // codex-mission.ts AUTO_OFF_REFUSAL: Auto runs only where the person turned it on in Settings.
     if mode == Mode::Auto && !crate::workspace_settings::load(&store).map(|s| s.auto_mode).unwrap_or(false) {
         return Err(AUTO_OFF_REFUSAL.into());

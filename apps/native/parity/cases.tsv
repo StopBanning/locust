@@ -479,8 +479,8 @@ apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	is fi
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	leaves a finished tree exactly as it is	no
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	does nothing to a .git file that points outside the repository	yes
 apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	travels as itself when Locust knows it	yes
-apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read-only Ask when it is missing or malformed	no
-apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read the same way by start, handoff and resume	no
+apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read-only Ask when it is missing or malformed	yes
+apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts	is read the same way by start, handoff and resume	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	with no message to its new owner says so on their row	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	with a message to them in the same reply says only who handed it over	yes
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts	a message to somebody else is not a note to them	yes
