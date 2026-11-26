@@ -819,57 +819,118 @@ pub fn antigravity_model_list_is_pending(installed: bool, status: crate::agents:
     installed && status == crate::agents::Probe::ProbeFailed
 }
 
+/// OpenCode as the catalog reads it: (whether it answered as 1.x, whether it answered as 2.x, V1 hints, V2 ACP models).
+/// OpenCode 2 lists its models in an ACP session; 3 and later list none here.
+fn opencode_listing(limit: Duration) -> (bool, bool, Option<Value>, Vec<Value>) {
+    let Ok(path) = crate::runtime::discovery::find_named("opencode") else {
+        return (false, false, None, Vec::new());
+    };
+    let Some(version) = output_of("opencode", &["--version"], limit) else {
+        return (false, false, None, Vec::new());
+    };
+    if let Some(parsed) = crate::runtime::version::parse(&version) {
+        if parsed.major == 2 {
+            let rt = crate::opencode_acp_models::ProbeRuntime::for_path("opencode", path.to_string_lossy().into_owned(), Some(2));
+            let models = crate::opencode_acp_models::read_opencode_acp_models_default(&rt, limit);
+            return (false, true, None, models);
+        }
+        if parsed.major >= 3 {
+            return (false, false, None, Vec::new());
+        }
+    }
+    (true, false, output_of("opencode", &["models", "--verbose"], limit).as_deref().and_then(parse_opencode_model_list), Vec::new())
+}
+
+/// What the catalog read asks of this computer, as model-catalog.ts takes it in its options (`discover`, `spawn`,
+/// `readAntigravity`): each agent's own list, Antigravity as the sweep found it and how its `/usage` is run, where that
+/// reading is kept, and where the catalog's usage readings are kept for the window. The app's are this computer's
+/// (`machine`); a test's are its own, so the read can be driven without the machine's agents.
+pub(crate) struct CatalogSources {
+    pub limit: Duration,
+    pub codex: fn(Duration) -> Option<(Value, Option<String>)>,
+    pub claude: fn(Duration) -> Option<Value>,
+    pub cursor: fn(Duration) -> Option<Value>,
+    pub opencode: fn(Duration) -> (bool, bool, Option<Value>, Vec<Value>),
+    pub agy: fn(Duration) -> Option<Value>,
+    pub agy_found: fn() -> Option<crate::antigravity_usage::AgyFound>,
+    pub run_usage: fn(&str, &[String], &std::collections::HashMap<String, String>) -> Option<String>,
+    pub usage_cache: &'static crate::antigravity_usage::UsageCache,
+    pub usage_wait: Duration,
+    pub usage_kept: &'static std::sync::Mutex<std::collections::HashMap<String, String>>,
+    pub installed: fn(&str) -> bool,
+    pub apple: fn() -> bool,
+}
+
+/// The usage readings the last catalog read gave (model-catalog.ts `usageWindows`), for the window.
+static CATALOG_USAGE: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, String>>> =
+    std::sync::LazyLock::new(Default::default);
+
+impl CatalogSources {
+    /// This computer's own: its agents, each within 20 seconds, and the app's one Antigravity usage cache.
+    pub(crate) fn machine() -> Self {
+        Self {
+            limit: Duration::from_secs(20),
+            codex: codex_model_list,
+            claude: |limit| output_of("claude", &["--help"], limit).as_deref().and_then(parse_claude_model_hints),
+            cursor: |limit| output_of("cursor-agent", &["--list-models"], limit).as_deref().and_then(parse_cursor_model_list),
+            opencode: opencode_listing,
+            agy: |limit| output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list),
+            agy_found,
+            run_usage: crate::antigravity_usage::run_usage,
+            usage_cache: crate::antigravity_usage::usage_cache(),
+            usage_wait: crate::antigravity_usage::default_catalog_wait(),
+            usage_kept: &CATALOG_USAGE,
+            installed: |name| crate::runtime::discovery::find_named(name).is_ok(),
+            apple: crate::runtime::apple::available,
+        }
+    }
+}
+
+/// The usage readings the catalog gave, as the window's usage panel shows them beside the receipts' (App.tsx
+/// `adoptCatalogUsage`): what the last catalog read said, and Antigravity's reading as the catalog keeps it -- a
+/// reading that came after the list answered joins it here (model-catalog.ts `withAntigravity`).
+pub fn catalog_usage_windows() -> std::collections::HashMap<String, String> {
+    catalog_usage_windows_in(&CATALOG_USAGE, crate::antigravity_usage::usage_cache())
+}
+
+pub(crate) fn catalog_usage_windows_in(
+    kept: &std::sync::Mutex<std::collections::HashMap<String, String>>,
+    cache: &crate::antigravity_usage::UsageCache,
+) -> std::collections::HashMap<String, String> {
+    let mut windows = crate::invariants::lock(kept).clone();
+    if let Some((_, reading)) = crate::invariants::lock(cache).as_ref() {
+        windows.insert("antigravity".to_owned(), reading.clone());
+    }
+    windows
+}
+
 /// `read_listed`, and whether a ready runtime listed nothing, so the answer is not kept. OpenCode 2 lists its models in
 /// an ACP session started in parallel with the other probes; a failed V2 advertisement marks the catalog incomplete.
 pub fn read_listed_checked() -> (Listed, bool) {
-    let limit = Duration::from_secs(20);
-    let codex = std::thread::spawn(move || codex_model_list(limit));
-    let claude = std::thread::spawn(move || output_of("claude", &["--help"], limit).as_deref().and_then(parse_claude_model_hints));
-    let cursor = std::thread::spawn(move || output_of("cursor-agent", &["--list-models"], limit).as_deref().and_then(parse_cursor_model_list));
-    // (whether OpenCode answered as 1.x, whether OpenCode answered as 2.x, V1 hints, V2 ACP models)
-    let opencode = std::thread::spawn(move || {
-        let Ok(path) = crate::runtime::discovery::find_named("opencode") else {
-            return (false, false, None, Vec::new());
-        };
-        let Some(version) = output_of("opencode", &["--version"], limit) else {
-            return (false, false, None, Vec::new());
-        };
-        if let Some(parsed) = crate::runtime::version::parse(&version) {
-            if parsed.major == 2 {
-                let rt = crate::opencode_acp_models::ProbeRuntime::for_path(
-                    "opencode",
-                    path.to_string_lossy().into_owned(),
-                    Some(2),
-                );
-                let models = crate::opencode_acp_models::read_opencode_acp_models_default(&rt, limit);
-                return (false, true, None, models);
-            }
-            if parsed.major >= 3 {
-                return (false, false, None, Vec::new());
-            }
-        }
-        (
-            true,
-            false,
-            output_of("opencode", &["models", "--verbose"], limit)
-                .as_deref()
-                .and_then(parse_opencode_model_list),
-            Vec::new(),
-        )
-    });
-    let agy = std::thread::spawn(move || output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list));
+    read_listed_from(&CatalogSources::machine())
+}
+
+/// The catalog read over `sources`: every agent's list read in parallel, Antigravity's usage beside them without
+/// holding them, and the usage readings kept for the window.
+pub(crate) fn read_listed_from(sources: &CatalogSources) -> (Listed, bool) {
+    let limit = sources.limit;
+    let (codex_list, claude_list, cursor_list, opencode_list, agy_list) =
+        (sources.codex, sources.claude, sources.cursor, sources.opencode, sources.agy);
+    let codex = std::thread::spawn(move || codex_list(limit));
+    let claude = std::thread::spawn(move || claude_list(limit));
+    let cursor = std::thread::spawn(move || cursor_list(limit));
+    let opencode = std::thread::spawn(move || opencode_list(limit));
+    let agy = std::thread::spawn(move || agy_list(limit));
     // Antigravity's usage beside its models, without a turn, and without holding the list (0.709).
+    let (agy_found, run_usage, usage_cache, usage_wait) =
+        (sources.agy_found, sources.run_usage, sources.usage_cache, sources.usage_wait);
     let agy_usage = std::thread::spawn(move || {
         let found = agy_found();
-        crate::antigravity_usage::catalog_reading(
-            crate::antigravity_usage::usage_cache(),
-            found.as_ref(),
-            crate::antigravity_usage::default_catalog_wait(),
-            crate::antigravity_usage::run_usage,
-        )
+        crate::antigravity_usage::catalog_reading(usage_cache, found.as_ref(), usage_wait, run_usage)
     });
     let (opencode_one, opencode_two, opencode, opencode_acp) = opencode.join().unwrap_or((false, false, None, Vec::new()));
     let (codex, codex_usage) = codex.join().ok().flatten().map_or((None, None), |(models, usage)| (Some(models), usage));
+    let installed = sources.installed;
     let listed = Listed {
         codex,
         codex_usage,
@@ -878,12 +939,12 @@ pub fn read_listed_checked() -> (Listed, bool) {
         opencode,
         opencode_acp,
         antigravity: agy.join().ok().flatten(),
-        copilot: crate::runtime::discovery::find_named("copilot").is_ok(),
-        muse: crate::runtime::discovery::find_named("muse").is_ok(),
-        apple: crate::runtime::apple::available(),
+        copilot: installed("copilot"),
+        muse: installed("muse"),
+        apple: (sources.apple)(),
         antigravity_usage: agy_usage.join().ok().flatten(),
     };
-    let installed = |name: &str| crate::runtime::discovery::find_named(name).is_ok();
+    *crate::invariants::lock(sources.usage_kept) = usage_windows(&listed);
     let mut ready: Vec<(&str, Option<&Value>)> = Vec::new();
     if opencode_one {
         ready.push(("opencode", listed.opencode.as_ref()));

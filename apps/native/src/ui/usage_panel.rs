@@ -54,7 +54,11 @@ fn refresh(s: &mut State) {
             Ok(turns) => {
                 let summary = usage_summary(&turns, range, chrono::Local::now());
                 let mut windows = Vec::new();
-                for (account, reading) in usage_ledger::usage_windows(store) {
+                // The receipts' readings, then the model catalog's over them (App.tsx `adoptCatalogUsage`): Antigravity's
+                // `/usage`, read beside its models (a late one too), is shown here though no turn reported it.
+                let mut readings = usage_ledger::usage_windows(store);
+                readings.extend(locust_core::models::catalog_usage_windows());
+                for (account, reading) in readings {
                     let parsed = parse_plan_windows(&reading, chrono::Utc::now());
                     if !parsed.is_empty() {
                         windows.push((account, parsed));
@@ -482,3 +486,7 @@ mod tests {
 #[cfg(test)]
 #[path = "usage_drawn_tests.rs"]
 mod usage_drawn_tests;
+
+#[cfg(test)]
+#[path = "catalog_usage_shown_tests.rs"]
+mod catalog_usage_shown_tests;
