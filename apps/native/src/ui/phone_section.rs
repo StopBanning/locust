@@ -494,6 +494,9 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         now: Some(now),
         protect_file: None,
         retry_ms: None,
+        // index.ts `away: { forPhone, refresh, letter }` waits on Scout away (scout-away.ts) in Rust: ScoutAway
+        // (core/src/scout_away.rs) has no for-phone key, no catch-up of the letters left while this computer was off
+        // and no told letter, its relay has no `letters`, and this app makes no ScoutAway at all.
         away: None,
         hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
         desk: Some(desk),
