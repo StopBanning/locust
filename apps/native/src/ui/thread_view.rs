@@ -1199,8 +1199,9 @@ pub(super) fn model_picker(
         let (target, choice, levels) = (id.to_owned(),m.id.clone(),m.efforts.clone());
         let runtime = (teammate.runtime.as_deref()!=Some(agent.runtime.as_str())).then(||agent.runtime.clone());
         let keep = effort.map(str::to_owned);
+        let runtime_default = agent.effort.clone();
         list = list.child(row_of(label,detail,active).key(format!("recent-model-{}-{}",agent.runtime,m.id)).on_press(move |s:&mut State| {
-            let effort = keep.clone().filter(|e|levels.contains(e));
+            let effort = locust_core::effort_levels::effort_after_route_change(keep.as_deref(), &levels, runtime_default.as_deref());
             apply_model_pick(s, &target, TurnPick {model:choice.clone(),effort,runtime:runtime.clone(),account:Some(None)}, for_team);
             s.model_menu=None;
         }));
@@ -1324,6 +1325,7 @@ pub(super) fn model_picker(
             let title = locust_core::route_rows::row_title(&m.name, description.as_deref(), resolved, &m.efforts);
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
             let keep = effort.map(str::to_owned);
+            let runtime_default = agent.effort.clone();
             // A model of another agent than the teammate's own moves this reply there.
             let runtime = (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone());
             let account_pick = Some(acc.map(|a| a.id.clone()));
@@ -1333,8 +1335,9 @@ pub(super) fn model_picker(
             };
             let tip_key = format!("{row_key}-tip");
             let drawn = row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
-                // The level stays with the turn when the new model takes it.
-                let effort = keep.clone().filter(|e| levels.contains(e));
+                // The level stays with the turn when the new model takes it; otherwise that model's default
+                // (effortAfterRouteChange), never nothing while it lists levels.
+                let effort = locust_core::effort_levels::effort_after_route_change(keep.as_deref(), &levels, runtime_default.as_deref());
                 apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                 s.model_menu = None;
             });
@@ -1364,11 +1367,11 @@ pub(super) fn model_picker(
                 for m in older_folded {
                     let (key, choice, runtime) = (id.to_owned(), m.id.clone(), (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone()));
                     let account_pick = Some(acc.map(|a| a.id.clone()));
-                    let (levels, keep) = (m.efforts.clone(), effort.map(str::to_owned));
+                    let (levels, keep, runtime_default) = (m.efforts.clone(), effort.map(str::to_owned), agent.effort.clone());
                     let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
                     let detail = locust_core::route_rows::row_detail(description.as_deref(), None, &m.efforts);
                     list = list.child(row_of(label_of(m), detail, false).key(format!("model-{}-{}{suffix}", agent.runtime, m.id)).on_press(move |s: &mut State| {
-                        let effort = keep.clone().filter(|e| levels.contains(e));
+                        let effort = locust_core::effort_levels::effort_after_route_change(keep.as_deref(), &levels, runtime_default.as_deref());
                         apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                         s.model_menu = None;
                     }));
@@ -1490,6 +1493,10 @@ fn picker_card_with(l: &crate::look::controls::Look, head: Option<El>, list: El,
 #[cfg(test)]
 #[path = "picker_empty_tests.rs"]
 mod picker_empty_tests;
+
+#[cfg(test)]
+#[path = "status_case_tests.rs"]
+mod status_case_tests;
 
 #[cfg(test)]
 mod picker_tests {

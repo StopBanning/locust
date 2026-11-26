@@ -141,6 +141,15 @@ pub fn default_effort(supported: &[String], runtime_default: Option<&str>) -> Op
     supported.get(supported.len() / 2).cloned()
 }
 
+/// status.ts effortAfterRouteChange: a level the new model lists is carried over; otherwise that model's default, never
+/// nothing while it lists levels.
+pub fn effort_after_route_change(current: Option<&str>, supported: &[String], runtime_default: Option<&str>) -> Option<String> {
+    match current {
+        Some(level) if supported.iter().any(|s| s == level) => Some(level.to_owned()),
+        _ => default_effort(supported, runtime_default),
+    }
+}
+
 /// EffortSlider.tsx EFFORT_TRACK_WIDTH: the track's inner width.
 pub const EFFORT_TRACK_WIDTH: f32 = 216.0;
 /// EffortSlider.tsx THUMB_WIDTH: Claude Code's thumb, 16 wide (and 20 tall, the track's height).

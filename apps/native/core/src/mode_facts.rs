@@ -210,6 +210,11 @@ pub fn runs_on_platform(mode: &str, runtime: &str, platform: Option<&str>) -> bo
     true
 }
 
+/// modesFor: the modes a runtime offers, in the menu's order; Auto last, so a fallback to the first never widens.
+pub fn modes_for(runtime: &str, platform: Option<&str>) -> Vec<&'static str> {
+    ["ask", "plan", "accept-edits", "approve-each", "auto"].into_iter().filter(|mode| runs_on_platform(mode, runtime, platform)).collect()
+}
+
 /// modeRunsOn: Plan exactly where read-only containment is real (where Ask runs).
 pub fn runs_on(mode: &str, runtime: &str) -> bool {
     runs_on_platform(mode, runtime, None)
