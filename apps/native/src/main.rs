@@ -1142,8 +1142,13 @@ fn send(s: &mut State, _: &mut Tx) {
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
     let native_job = (s.engine == Some(Kind::Native)).then(|| flight_teammate(s, &teammate_id));
-    // The mode chosen on the message box, when one was; else the engine takes the teammate's own.
-    let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
+    // The mode the mode chip shows, read with thread_view.rs's inputs (composer_mode.rs `mode_shown`): chosen here, else
+    // the open conversation's newest turn's, else the teammate's own, else App.tsx's first. Electron's send carries it.
+    let recorded = s.ledger.as_ref().filter(|p| p.header.id == teammate_id).and_then(|p| p.snapshot.turn_metas.last()).and_then(|t| t.mode.as_deref());
+    let header = s.flight.as_ref().and_then(|f| f.header.as_ref());
+    let runtime = pick.as_ref().and_then(|p| p.runtime.as_deref()).or(header.and_then(|h| h.runtime.as_deref())).unwrap_or("codex");
+    let shown = locust_core::composer_mode::mode_shown(s.composer_mode.as_deref(), recorded, header.map_or("", |h| h.runs_in.as_str()), runtime);
+    let mode = locust_core::approval::Mode::parse(&shown);
     let references = reference_chips::ids(s);
     let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
     let left_out_by_you = if crosses_runtimes { left_out_by_you } else { Vec::new() };
@@ -1678,6 +1683,8 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
         s.own_turn = None;
         s.picks.remove(LEDGER_TARGET);
         s.model_menu = None;
+        // A mode picked in the conversation left behind is not this one's (App.tsx `followRouteOf` replaces it).
+        s.composer_mode = None;
         // The teammate the conversation belongs to, from the owners both apps record (missionOwners): its name, face,
         // mode and folder, on the agent and model the conversation is on now. Never guessed from a model; with no
         // owner on record it stays a conversation of that agent.
@@ -1726,6 +1733,7 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
     s.picks.remove(LEDGER_TARGET);
     s.picks.remove(&id);
     s.model_menu = None;
+    s.composer_mode = None;
     s.ledger = None;
     s.thread_away = false;
     s.prompt_rail.reset();

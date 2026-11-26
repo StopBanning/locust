@@ -327,6 +327,68 @@ fn a_mode_chosen_on_the_message_box_is_the_mode_the_turn_runs_in() {
     assert_eq!(rt.state.composer_mode, None);
 }
 
+/// A conversation nobody owns, on Codex, whose one turn recorded `mode`; listed in Recent and opened.
+fn open_unowned_conversation_recorded_in(store: &Store, rt: &mut Runtime<State>, mission: &str, mode: &str) {
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    write_synthetic_turn(&ledger_dir, mission, None, "First prompt from disk", "First reply from disk.", None, "2026-10-02T09:00:00.000Z");
+    let path = ledger_dir.join(format!("{mission}.jsonl"));
+    // "native" is the workspace a record written without its folder carries: the next turn runs in the open folder.
+    let text = std::fs::read_to_string(&path).unwrap().replace("\"mode\":\"approve-each\"", &format!("\"mode\":\"{mode}\"")).replace("\"ws_test\"", "\"native\"");
+    assert!(text.contains(&format!("\"mode\":\"{mode}\"")), "the turn records {mode}");
+    std::fs::write(&path, text).unwrap();
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(rt, "the conversation listed", |s| s.recent.iter().any(|r| r.id == mission));
+    click(rt, &format!("recent-{mission}"));
+    pump(rt, "the conversation opened", |s| s.ledger.as_ref().is_some_and(|p| p.snapshot.tip == mission && !p.loading));
+    settle(rt);
+}
+
+/// Lane check of chip-1 row 2: the send is handed the mode the chip shows. App.tsx `followRouteOf` sets the window's mode
+/// to the one the conversation's newest turn recorded ("that is what the next turn should start on"), and its send
+/// carries the window's mode; before, a conversation with no teammate ran in Ask (`requested_mode("")`) under a chip
+/// saying Auto.
+#[test]
+fn a_conversation_with_no_teammate_recorded_in_auto_is_sent_in_auto() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    // Auto runs only where Settings turned it on (codex-mission.ts AUTO_OFF_REFUSAL); nobody owns the conversation.
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec"}], "missionOwners": {}, "settings": {"autoMode": true}}))
+        .unwrap();
+    // With no teammate, the turn runs in the folder Locust has open.
+    native::set_open_folder(&store, &store.root().parent().unwrap().join("work")).unwrap();
+    open_unowned_conversation_recorded_in(&store, &mut rt, "m_auto", "auto");
+    assert_eq!(rt.state.ledger.as_ref().unwrap().header.id, LEDGER_TARGET, "a conversation with no teammate");
+    assert_eq!(rt.state.composer_mode, None, "nothing was picked on the box");
+    assert_eq!(text_in(&rt, "mode-chip").join(" "), "Auto");
+    type_and_send(&mut rt, "Synthetic prompt");
+    // The turn's first record is what the engine was handed (`mission.created`'s `mode`).
+    let sent = || -> Vec<Value> { first_records(&store).into_iter().filter(|r| r["metadata"]["missionId"] != "m_auto").collect() };
+    pump(&mut rt, "the turn recorded", |_| !sent().is_empty());
+    assert_eq!(sent()[0]["metadata"]["mode"], "auto", "the engine is handed the mode the chip says, not Ask");
+    pump(&mut rt, "the send settled", |s| s.flight.is_none());
+}
+
+/// Lane check of chip-1: opening a conversation from Recent drops the mode picked in the one before, as picking a
+/// teammate does (App.tsx `followRouteOf` replaces the window's mode with the opened conversation's recorded one).
+#[test]
+fn opening_a_recent_conversation_drops_the_mode_picked_in_the_one_before() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    let _ = seed_two_turn_ledger_conversation(&dirs, &store, &mut rt);
+    click(&mut rt, "mode-chip");
+    click(&mut rt, "mode-plan");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("plan"));
+    open_unowned_conversation_recorded_in(&store, &mut rt, "m_other", "accept-edits");
+    assert_eq!(rt.state.composer_mode, None, "Plan was the conversation left behind's");
+    // The chip reads the opened conversation's own record: Accept edits (status.ts `modeChipLabel`: "Edit").
+    assert_eq!(text_in(&rt, "mode-chip").join(" "), "Edit");
+}
+
 #[test]
 fn a_pressed_notification_opens_its_conversation() {
     let (_dirs, store, mut rt) = window();
