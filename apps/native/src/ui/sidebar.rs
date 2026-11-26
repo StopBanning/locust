@@ -960,9 +960,9 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .label(words.to_owned())
     };
     let mut places = col().key("sidebar-places").w_full().px(10.0).pb(6.0).gap(1.0)
-        .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::missions_screen::open))
-        .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::room_screen::open_list))
-        .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::routines_panel::open));
+        .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::pages::opening(crate::missions_screen::open)))
+        .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::pages::opening(crate::room_screen::open_list)))
+        .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::pages::opening(crate::routines_panel::open)));
     let cloud_count = crate::cloud_tasks::sidebar_count(s);
     if cloud_count > 0 {
         places = places.child(
@@ -979,7 +979,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
-        places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
+        places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").key("sidebar-place-benchmarks").on_press(crate::pages::opening(crate::benchmarks_panel::open)));
     }
     let missions = sidebar_missions_now(s);
     let all_rows: Vec<SidebarMission> = recent_as_missions(s).into_iter().filter(|m| comparison_row_visible(s, m)).collect();
@@ -1652,7 +1652,7 @@ fn faces_strip(s: &State, p: &Palette, l: &crate::look::controls::Look, owned: &
                 .role("button")
                 .label(format!("{rest} more on the team — open the roster"))
                 .help(format!("{rest} more on the team — open the roster"))
-                .on_press(crate::people_panel::open),
+                .on_press(crate::pages::opening(crate::people_panel::open)),
         );
     }
     // `.lc-faces__team`: pushed to the end, so however many faces there are the way to the roster does not move.
@@ -1662,7 +1662,7 @@ fn faces_strip(s: &State, p: &Palette, l: &crate::look::controls::Look, owned: &
             .child(text("Team").font(rune::TextStyle::new(11.5, 400.0)).color(l.c("text-muted")))
             .role("button")
             .label("Team")
-            .on_press(crate::people_panel::open),
+            .on_press(crate::pages::opening(crate::people_panel::open)),
     );
     Some(strip)
 }
@@ -1688,7 +1688,7 @@ fn footer(l: &crate::look::controls::Look) -> El {
             .role("button")
             .label(words)
             .key(format!("sidebar-footer-{}", words.to_lowercase()))
-            .on_press(press)
+            .on_press(crate::pages::opening(press))
     };
     row()
         .key("sidebar-footer")
