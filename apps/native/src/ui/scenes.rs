@@ -738,6 +738,7 @@ pub(super) fn native_scene(s: &mut State, live: bool) {
             tip: Some("synthetic-ledger".into()),
             before: None,
         });
+        live_streaming(s);
     }
 }
 
@@ -754,6 +755,7 @@ pub(super) fn ledger_transcript_scene(s: &mut State) {
 
 pub(super) fn ledger_live_scene(s: &mut State) {
     ledger_scene(s, true, false);
+    live_streaming(s);
 }
 
 pub(super) fn ledger_transcript_light_scene(s: &mut State) {
@@ -762,6 +764,35 @@ pub(super) fn ledger_transcript_light_scene(s: &mut State) {
 
 pub(super) fn ledger_live_light_scene(s: &mut State) {
     ledger_scene(s, true, true);
+    live_streaming(s);
+}
+
+/// One runtime event as the ledger records it, for a scene's live line.
+pub(super) fn live_event(kind: &str, payload: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({ "type": kind, "occurredAt": "2026-11-26T12:00:00.000Z", "payload": payload })
+}
+
+/// The live line a running turn shows, read from the runtime's own events by the same projection the real reader
+/// uses (`thread_view::live_line_in`, ledger.rs), the turn started `ago` seconds back so its clock reads as a turn's
+/// does. A scene that set `running` without this draws no live line, so no orb: the gap Big Brother's audit found in
+/// `ledger-live` and `native-live` (REVIEW-visual-live-rust-2026-11-26.md, finding 3).
+pub(super) fn live_from(s: &mut State, events: &[serde_json::Value], ago: i64) {
+    let started = (chrono::Utc::now() - chrono::Duration::seconds(ago)).to_rfc3339();
+    if let Some(pane) = s.ledger.as_mut() {
+        pane.snapshot.live = locust_core::thread_view::live_line_in(events, true, &started, false, None, false);
+    }
+}
+
+/// `ledger_scene`'s live turn as the runtime reported it: the plan on its second step and the answer still arriving.
+fn live_streaming(s: &mut State) {
+    live_from(s, &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("plan.updated", serde_json::json!({ "plan": { "plan": [
+            { "step": "Read the input", "status": "completed" },
+            { "step": "Summarize the result", "status": "in_progress" },
+        ] } })),
+        live_event("message.delta", serde_json::json!({ "itemId": "synthetic-answer", "final": false })),
+    ], 23);
 }
 
 // --- P4 conversation organization scenes ---
@@ -1223,5 +1254,10 @@ pub(super) fn reviews_save_scene(s: &mut State) {
 
 pub(super) fn reviews_live_scene(s: &mut State) {
     ledger_scene(s, true, false);
-    s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&[], true, &chrono::Utc::now().to_rfc3339(), false);
+    live_from(s, &[], 0);
 }
+
+
+#[cfg(test)]
+#[path = "live_scenes_tests.rs"]
+mod live_scenes_tests;
