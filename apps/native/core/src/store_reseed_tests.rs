@@ -1,6 +1,8 @@
 //! Cutover 1, row 3: seeding the Rust data folder again from Electron's. Made-up folders under the test's temp dir.
 use super::*;
 use std::fs;
+use std::path::Path;
+use std::sync::Arc;
 
 struct Folders {
     temp: PathBuf,
@@ -207,4 +209,174 @@ fn a_copy_that_is_really_a_link_into_electrons_folder_is_not_touched() {
     );
     assert!(fs::symlink_metadata(f.root.join("teammates.json")).unwrap().file_type().is_symlink(), "the link is left where it was");
     assert_eq!(f.electron_as_it_is(), before);
+}
+
+// ---- Live hour 1, faults 2 and 24: the looks the teammates chose, and the two settings that stayed Off. ----
+
+/// A lossless WebP header for a 9-row (version 1) pet sheet: what `webp_size` reads, 64 bytes long.
+fn pet_sheet(tag: u8) -> Vec<u8> {
+    let length = 64usize;
+    let mut b = vec![tag; length];
+    b[0..4].copy_from_slice(b"RIFF");
+    b[4..8].copy_from_slice(&((length - 8) as u32).to_le_bytes());
+    b[8..12].copy_from_slice(b"WEBP");
+    b[12..16].copy_from_slice(b"VP8L");
+    b[16..20].copy_from_slice(&((length - 20) as u32).to_le_bytes());
+    b[20] = 0x2f;
+    let bits = (1536 - 1) | ((1872 - 1) << 14) | (1 << 28);
+    b[21..25].copy_from_slice(&u32::to_le_bytes(bits));
+    b
+}
+
+fn put_pet(root: &Path, id: &str, name: &str, tag: u8) {
+    let folder = root.join("pets").join(id);
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(
+        folder.join("pet.json"),
+        serde_json::json!({"id": id, "displayName": name, "spritesheetPath": "spritesheet.webp"}).to_string(),
+    )
+    .unwrap();
+    fs::write(folder.join("spritesheet.webp"), pet_sheet(tag)).unwrap();
+}
+
+const MCP_ON: &str = r#"{"enabled":true,"ownMode":true,"conversations":true}"#;
+const MCP_OFF: &str = r#"{"enabled":true,"ownMode":false}"#;
+const FAR: i64 = 4_102_444_800_000;
+fn remote_on() -> String {
+    format!(
+        r#"{{"v":1,"enabled":true,"grants":[{{"id":"g1","name":"Claude","clientId":"c","host":"claude.ai","added":1,"used":2,"access":"aHash","accessUntil":{FAR},"refresh":"rHash","refreshUntil":{FAR}}}]}}"#
+    )
+}
+
+#[test]
+fn the_teammates_chosen_looks_come_across_with_the_pets_electron_added() {
+    // Electron's `pets/` holds what Argon (the Macintosh) and Scout (the cat) wear; the Rust app draws a face from its
+    // own `pets/`, so a pet that never came across is a face that falls back to a bot.
+    let f = Folders::new("pets");
+    put_pet(&f.temp.join("electron"), "macintosh", "Macintosh", 1);
+    put_pet(&f.temp.join("electron"), "rainbow-terminal-cat", "Rainbow Terminal Cat", 2);
+    let store = f.store();
+    let library = crate::pet_library::PetLibrary::new(f.root.join("pets"), f.root.join("pets-bundled"), None, None);
+    assert!(library.added("macintosh").is_none(), "before seeding the Rust app has no such pet");
+
+    let done = store.reseed_from_electron("20261126-100000").unwrap();
+
+    assert_eq!(library.added("macintosh").map(|p| p.display_name), Some("Macintosh".into()));
+    assert_eq!(library.added("rainbow-terminal-cat").map(|p| p.display_name), Some("Rainbow Terminal Cat".into()));
+    assert_eq!(library.sheet(crate::bot_spec::PetSource::Gallery, "macintosh").unwrap().0, pet_sheet(1));
+    let mut copied = done.copied.clone();
+    copied.sort();
+    assert_eq!(copied, ["pets/macintosh", "pets/rainbow-terminal-cat"], "{done:?}");
+    assert!(done.moved_aside.is_empty() && done.aside.is_none(), "{done:?}");
+    assert!(fs::read_dir(f.root.join("pets")).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().starts_with(".incoming")));
+}
+
+#[test]
+fn a_pet_that_changed_replaces_the_old_one_which_is_kept_aside_and_one_that_is_the_same_is_left() {
+    let f = Folders::new("petsaside");
+    let electron = f.temp.join("electron");
+    put_pet(&electron, "macintosh", "Macintosh", 9);
+    put_pet(&electron, "nori", "Nori", 4);
+    put_pet(&f.temp.join("native"), "macintosh", "Old Macintosh", 3);
+    put_pet(&f.temp.join("native"), "nori", "Nori", 4);
+    put_pet(&f.temp.join("native"), "only-here", "Only Here", 5);
+    let before = f.electron_as_it_is();
+
+    let done = f.store().reseed_from_electron("20261126-100001").unwrap();
+
+    let read = |p: PathBuf| fs::read_to_string(p).unwrap();
+    assert!(read(f.root.join("pets/macintosh/pet.json")).contains(r#""displayName":"Macintosh""#));
+    assert_eq!(fs::read(f.root.join("pets/macintosh/spritesheet.webp")).unwrap(), pet_sheet(9));
+    let aside = f.root.join("seeded-before-20261126-100001");
+    assert!(read(aside.join("pets/macintosh/pet.json")).contains("Old Macintosh"), "the old pet is kept, not deleted");
+    assert_eq!(done.copied, ["pets/macintosh"]);
+    assert_eq!(done.moved_aside, ["pets/macintosh"]);
+    assert_eq!(done.aside.as_deref(), Some(aside.as_path()));
+    assert_eq!(done.unchanged, ["pets/nori"], "a pet already the same is not moved aside");
+    assert!(!aside.join("pets/nori").exists());
+    assert!(f.root.join("pets/only-here/pet.json").exists(), "a pet only Rust has stays");
+    assert_eq!(f.electron_as_it_is(), before, "Electron's folder is only read");
+}
+
+#[test]
+fn a_pet_that_does_not_read_is_not_carried_and_the_rust_one_stays() {
+    let f = Folders::new("petsbad");
+    let electron = f.temp.join("electron");
+    put_pet(&electron, "macintosh", "Macintosh", 1);
+    // A sheet that is not a WebP, and a pet.json that names another pet.
+    fs::write(electron.join("pets/macintosh/spritesheet.webp"), b"not a webp").unwrap();
+    put_pet(&electron, "nori", "Nori", 2);
+    fs::write(electron.join("pets/nori/pet.json"), r#"{"id":"someone-else","displayName":"Nori","spritesheetPath":"spritesheet.webp"}"#).unwrap();
+    put_pet(&f.temp.join("native"), "macintosh", "Kept", 7);
+
+    let done = f.store().reseed_from_electron("20261126-100002").unwrap();
+
+    assert!(done.copied.is_empty() && done.aside.is_none(), "{done:?}");
+    assert!(fs::read_to_string(f.root.join("pets/macintosh/pet.json")).unwrap().contains("Kept"));
+    assert!(!f.root.join("pets/nori").exists());
+    assert!(!f.root.join("seeded-before-20261126-100002").exists());
+}
+
+#[test]
+fn a_pet_that_is_a_link_in_electrons_folder_is_not_followed() {
+    let f = Folders::new("petslink");
+    let electron = f.temp.join("electron");
+    put_pet(&f.temp, "outside", "Outside", 6);
+    fs::create_dir_all(electron.join("pets")).unwrap();
+    std::os::unix::fs::symlink(f.temp.join("pets/outside"), electron.join("pets/outside")).unwrap();
+
+    let done = f.store().reseed_from_electron("20261126-100003").unwrap();
+
+    assert!(done.copied.is_empty(), "{done:?}");
+    assert!(!f.root.join("pets/outside").exists());
+}
+
+#[test]
+fn the_door_and_from_anywhere_switches_come_across_and_each_reader_sees_them_on() {
+    let f = Folders::new("mcp");
+    fs::write(f.electron.join("locust-mcp.json"), MCP_ON).unwrap();
+    fs::write(f.electron.join("remote-mcp.json"), remote_on()).unwrap();
+    fs::write(f.root.join("locust-mcp.json"), MCP_OFF).unwrap();
+    let before = f.electron_as_it_is();
+    let remote = |file: PathBuf| {
+        let options = crate::remote_mcp::Options::new(
+            file,
+            Arc::new(crate::remote_mcp::StubMcpRelay),
+            Arc::new(|_: &str, _: &serde_json::Value| crate::door_tools::ToolResult::refused("No tools here.")),
+        );
+        crate::remote_mcp::RemoteMcp::new(options).load()
+    };
+    assert!(!remote(f.root.join("remote-mcp.json")).enabled, "Off before: nothing to read");
+
+    let done = f.store().reseed_from_electron("20261126-100004").unwrap();
+
+    let door: serde_json::Value = serde_json::from_str(&fs::read_to_string(f.root.join("locust-mcp.json")).unwrap()).unwrap();
+    assert_eq!(door["conversations"], true, "Let apps see your conversations");
+    assert_eq!(door["ownMode"], true);
+    let state = remote(f.root.join("remote-mcp.json"));
+    assert!(state.enabled, "Use from anywhere");
+    assert_eq!(state.apps.len(), 1);
+    assert_eq!(state.apps[0].name, "Claude");
+    assert_eq!(done.copied, ["locust-mcp.json", "remote-mcp.json"]);
+    assert_eq!(done.moved_aside, ["locust-mcp.json"]);
+    assert_eq!(fs::read_to_string(f.root.join("seeded-before-20261126-100004/locust-mcp.json")).unwrap(), MCP_OFF);
+    assert_eq!(f.electron_as_it_is(), before);
+}
+
+#[test]
+fn sign_in_and_key_files_are_never_carried() {
+    // Own models' keys, agent accounts and the teammates' keys stay where they are made: the seed names none of them.
+    let f = Folders::new("secrets");
+    for name in ["own-models.json", "teammate-keys.json", "account-sync.json", "phone.json", "phone-relay.json"] {
+        fs::write(f.electron.join(name), r#"{"secret":"x"}"#).unwrap();
+    }
+    fs::create_dir_all(f.electron.join("agent-accounts/one")).unwrap();
+    fs::write(f.electron.join("agent-accounts/one/auth.json"), r#"{"token":"x"}"#).unwrap();
+
+    let done = f.store().reseed_from_electron("20261126-100005").unwrap();
+
+    assert!(done.copied.is_empty(), "{done:?}");
+    for name in ["own-models.json", "teammate-keys.json", "account-sync.json", "phone.json", "phone-relay.json", "agent-accounts"] {
+        assert!(!f.root.join(name).exists(), "{name}");
+    }
 }
