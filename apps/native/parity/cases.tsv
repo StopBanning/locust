@@ -7936,17 +7936,17 @@ packages/runtime-adapters/test/effort-choices.test.ts	still reads the bare, sing
 packages/runtime-adapters/test/effort-choices.test.ts	invents nothing when a CLI names no levels	yes
 packages/runtime-adapters/test/effort-choices.test.ts	passes the effort through as --effort	no
 packages/runtime-adapters/test/effort-choices.test.ts	sends no effort flag when none was chosen	yes
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is ready from the version and acp help, and does not list models or look for a credential file	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not ready when acp help does not name the protocol	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not installed when the command is absent	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	never keeps the session default	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	maps Ask and Plan onto ask, and Edit and Auto onto code	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	launches kilo acp and keeps a per-run environment on the command	no
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is ready from the version and acp help, and does not list models or look for a credential file	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not ready when acp help does not name the protocol	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not installed when the command is absent	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	never keeps the session default	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	maps Ask and Plan onto ask, and Edit and Auto onto code	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	launches kilo acp and keeps a per-run environment on the command	yes
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	prefers git.exe over a git.cmd that appears earlier on PATH	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	puts git.cmd first on the child PATH and leaves the process PATH alone	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	no
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	puts git.cmd first on the child PATH and leaves the process PATH alone	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	yes
 packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	yes
 packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	yes
 packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	yes
