@@ -1919,6 +1919,11 @@ mod tests {
 
         // What the window draws is what the browser reads next.
         rt.state.appearance = Some(true);
+        // The window keeps what it draws on its own poll (publish_desk_view): let it poll before the browser asks, or the
+        // line's thread can answer from the picture before the change (2 of 6 plain `cargo test` runs did).
+        rt.update(|s, tx| {
+            crate::poll(s, 0.0, tx);
+        });
         desk_frame(&relay, &browser, 2, serde_json::json!([{ "kind": "call", "id": "c2", "channel": "appearance:get", "args": "[]" }]));
         pump_until(&mut rt, "the second read", |_| told_desk(&relay, &browser, 1).len() == 1);
         let again = told_desk(&relay, &browser, 1);
