@@ -8043,48 +8043,48 @@ packages/runtime-adapters/test/opencode-error.test.ts	admits it does not know, r
 packages/runtime-adapters/test/opencode-error.test.ts	never tells anyone a run simply stopped for no reason	yes
 packages/runtime-adapters/test/opencode-error.test.ts	says what happened and what to do, not what the provider said	yes
 packages/runtime-adapters/test/opencode-error.test.ts	leaves every other provider message alone	yes
-packages/runtime-adapters/test/opencode-events.test.ts	takes the session id from the first record, not from a header record it never sends	no
-packages/runtime-adapters/test/opencode-events.test.ts	opens and closes one turn per step, so nothing is left looking unfinished	no
-packages/runtime-adapters/test/opencode-events.test.ts	delivers each text part whole, as its own final message	no
-packages/runtime-adapters/test/opencode-events.test.ts	reports each tool call as a started and a completed event under its call id	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the created file's change, built from the content it wrote	no
-packages/runtime-adapters/test/opencode-events.test.ts	adds up what every step cost, rather than reporting the last step as the total	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries a real cost when a model has one	no
-packages/runtime-adapters/test/opencode-events.test.ts	keeps the earlier session id, which is what -s takes back	no
-packages/runtime-adapters/test/opencode-events.test.ts	shows a run that could only read, and no write tool anywhere in it	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the runtime's own account of what it was not given	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a run that only talked -- which is why plan mode is not the read-only mechanism	no
-packages/runtime-adapters/test/opencode-events.test.ts	becomes a patch only when the runtime said the file did not exist	no
-packages/runtime-adapters/test/opencode-events.test.ts	counts a trailing newline as the end of the last line, not as another one	no
-packages/runtime-adapters/test/opencode-events.test.ts	treats anything but `completed` as a failure, including nothing at all	no
-packages/runtime-adapters/test/opencode-events.test.ts	names what a tool acted on, whichever field the tool used	no
-packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed only when nothing that could change anything had finished	no
-packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	no
+packages/runtime-adapters/test/opencode-events.test.ts	takes the session id from the first record, not from a header record it never sends	yes
+packages/runtime-adapters/test/opencode-events.test.ts	opens and closes one turn per step, so nothing is left looking unfinished	yes
+packages/runtime-adapters/test/opencode-events.test.ts	delivers each text part whole, as its own final message	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reports each tool call as a started and a completed event under its call id	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the created file's change, built from the content it wrote	yes
+packages/runtime-adapters/test/opencode-events.test.ts	adds up what every step cost, rather than reporting the last step as the total	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries a real cost when a model has one	yes
+packages/runtime-adapters/test/opencode-events.test.ts	keeps the earlier session id, which is what -s takes back	yes
+packages/runtime-adapters/test/opencode-events.test.ts	shows a run that could only read, and no write tool anywhere in it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the runtime's own account of what it was not given	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a run that only talked -- which is why plan mode is not the read-only mechanism	yes
+packages/runtime-adapters/test/opencode-events.test.ts	becomes a patch only when the runtime said the file did not exist	yes
+packages/runtime-adapters/test/opencode-events.test.ts	counts a trailing newline as the end of the last line, not as another one	yes
+packages/runtime-adapters/test/opencode-events.test.ts	treats anything but `completed` as a failure, including nothing at all	yes
+packages/runtime-adapters/test/opencode-events.test.ts	names what a tool acted on, whichever field the tool used	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed only when nothing that could change anything had finished	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	yes
 packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	yes
 packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	yes
-packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	no
-packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	no
-packages/runtime-adapters/test/opencode-events.test.ts	still puts the confined-workspace refusal first, which says more	no
-packages/runtime-adapters/test/opencode-events.test.ts	leaves an ordinary non-zero exit saying what it always said	no
-packages/runtime-adapters/test/opencode-events.test.ts	becomes a plan, four times, not four tool rows	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the steps and their advancing state	no
-packages/runtime-adapters/test/opencode-events.test.ts	invents no plan when a todo call carries no todos	no
-packages/runtime-adapters/test/opencode-events.test.ts	leaves every other tool alone	no
-packages/runtime-adapters/test/opencode-events.test.ts	reads the plan out of a captured live run, advancing step by step	no
-packages/runtime-adapters/test/opencode-events.test.ts	never gives OpenCode's note to the model as the teammate's words	no
-packages/runtime-adapters/test/opencode-events.test.ts	takes the summary back, so it is neither drawn nor the reply, and says what happened	no
-packages/runtime-adapters/test/opencode-events.test.ts	does not count the summary's stop as the run's	no
-packages/runtime-adapters/test/opencode-events.test.ts	takes nothing back from a step that called a tool, or across a step that began	no
-packages/runtime-adapters/test/opencode-events.test.ts	keeps OpenCode's summary and note out of the teammate's words, and ends on the real answer	no
-packages/runtime-adapters/test/opencode-events.test.ts	says once that the conversation was summarized	no
-packages/runtime-adapters/test/opencode-events.test.ts	ends completed on the answer, though the process exits 1	no
-packages/runtime-adapters/test/opencode-events.test.ts	still fails when the retry never reached its own stop	no
-packages/runtime-adapters/test/opencode-events.test.ts	still fails when a different error follows the recovery	no
-packages/runtime-adapters/test/opencode-events.test.ts	rides on the completion, in milliseconds	no
-packages/runtime-adapters/test/opencode-events.test.ts	is left out when the part says nothing usable	no
+packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still puts the confined-workspace refusal first, which says more	yes
+packages/runtime-adapters/test/opencode-events.test.ts	leaves an ordinary non-zero exit saying what it always said	yes
+packages/runtime-adapters/test/opencode-events.test.ts	becomes a plan, four times, not four tool rows	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the steps and their advancing state	yes
+packages/runtime-adapters/test/opencode-events.test.ts	invents no plan when a todo call carries no todos	yes
+packages/runtime-adapters/test/opencode-events.test.ts	leaves every other tool alone	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reads the plan out of a captured live run, advancing step by step	yes
+packages/runtime-adapters/test/opencode-events.test.ts	never gives OpenCode's note to the model as the teammate's words	yes
+packages/runtime-adapters/test/opencode-events.test.ts	takes the summary back, so it is neither drawn nor the reply, and says what happened	yes
+packages/runtime-adapters/test/opencode-events.test.ts	does not count the summary's stop as the run's	yes
+packages/runtime-adapters/test/opencode-events.test.ts	takes nothing back from a step that called a tool, or across a step that began	yes
+packages/runtime-adapters/test/opencode-events.test.ts	keeps OpenCode's summary and note out of the teammate's words, and ends on the real answer	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says once that the conversation was summarized	yes
+packages/runtime-adapters/test/opencode-events.test.ts	ends completed on the answer, though the process exits 1	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still fails when the retry never reached its own stop	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still fails when a different error follows the recovery	yes
+packages/runtime-adapters/test/opencode-events.test.ts	rides on the completion, in milliseconds	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is left out when the part says nothing usable	yes
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	streams from the server's deltas, and ends as exactly the finished text	no
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	a step that ends before its text's finished form closes it with every word, none held back by the pace	no
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	names its session, so OpenCode does not spend a model call naming it	no
