@@ -5,6 +5,16 @@ use crate::conversation_list::{
 use crate::conversation_search::missions_matching;
 use crate::settled::is_put_away;
 
+/// A run that is never a conversation: Scout's own looks and a comparison's judge (App.tsx `isHiddenRun`). Scout names
+/// its looks' turns in its state (`lookIds`); a turn that says it was started by Scout or a judge is one too.
+pub(super) fn is_background_run(s: &State, id: &str) -> bool {
+    s.scout.state.as_ref().is_some_and(|scout| scout.look_ids.iter().any(|look| look == id))
+        || matches!(
+            s.ledger_summaries.get(id).and_then(|m| m.started_by_kind.as_deref()),
+            Some("scout" | "judge")
+        )
+}
+
 pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
     let judges = locust_core::compare::judge_mission_ids(&s.compare.compares);
     let reruns = locust_core::compare::rerun_mission_ids(&s.compare.compares);
@@ -12,7 +22,7 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
     let by_id: HashMap<_, _> = s.recent.iter().map(|m| (m.id.as_str(), m)).collect();
     let mut groups: Vec<(String, Vec<&ConversationRow>)> = Vec::new();
     for item in &s.recent {
-        if judges.contains(&item.id) || reruns.contains(&item.id) {
+        if judges.contains(&item.id) || reruns.contains(&item.id) || is_background_run(s, &item.id) {
             continue;
         }
         let mut root = item.id.as_str();
@@ -2208,3 +2218,7 @@ mod name_and_group_kept_tests;
 #[cfg(test)]
 #[path = "groups_hold_tests.rs"]
 mod groups_hold_tests;
+
+#[cfg(test)]
+#[path = "scout_runs_kept_out_tests.rs"]
+mod scout_runs_kept_out_tests;
