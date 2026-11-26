@@ -2795,6 +2795,89 @@ mod tests {
         assert!(!sent.contains("ABCD-1234") && !sent.contains("secret-scrollback"), "{sent}");
     }
 
+    /// Lane check of desk-3 row 2: `mirror_desk` runs on every window poll, so at rest it must cost nothing. Electron's
+    /// `mirrorToDesk` (index.ts:627) only forwards what `webContents.send` was already sending, and only to a browser
+    /// holding the window: no browser holding it, nothing is read from the engine and nothing is told. Counted with a
+    /// stand-in engine: none paired, one paired but not holding, and one that held the window and was taken back.
+    #[test]
+    fn at_rest_the_mirror_asks_the_engine_nothing_on_any_poll() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let asked = Arc::new(AtomicUsize::new(0));
+        let counting = |asked: &Arc<AtomicUsize>| -> DeskEngineHeard {
+            let asked = asked.clone();
+            Arc::new(move || {
+                asked.fetch_add(1, Ordering::SeqCst);
+                (vec![card("ap_1", "m_1")], vec![("m_1".to_owned(), "npm test".to_owned())])
+            })
+        };
+
+        // No phone link at all: no desk host.
+        let mut s = State::default();
+        s.phone_anywhere_link.desk_engine = Some(counting(&asked));
+        for _ in 0..5 {
+            mirror_desk(&mut s);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "no desk host: the engine is never asked");
+
+        // A browser paired but not holding the window, through the window's own poll.
+        let (_root, relay, mut rt, browser, _cards, _checks) = mirrored_window("desk-mirror-at-rest");
+        rt.state.phone_anywhere_link.desk_engine = Some(counting(&asked));
+        for _ in 0..5 {
+            poll_once(&mut rt);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "paired, not holding: the engine is never asked");
+        assert!(told_desk(&relay, &browser, 0).is_empty(), "and nothing is told");
+
+        // Holding it, the engine is asked once a poll (the counter is wired)...
+        take_window(&mut rt, &relay, &browser);
+        let held = asked.load(Ordering::SeqCst);
+        assert!(held >= 1, "holding the window, the engine is read");
+        poll_once(&mut rt);
+        assert_eq!(asked.load(Ordering::SeqCst), held + 1, "once a poll while held");
+
+        // ...and taken back, never again.
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().take_back();
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().flush();
+        let back = asked.load(Ordering::SeqCst);
+        let told_back = told_desk(&relay, &browser, 0).len();
+        for _ in 0..5 {
+            poll_once(&mut rt);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), back, "taken back: the engine is never asked");
+        assert_eq!(told_desk(&relay, &browser, 0).len(), told_back, "and nothing more is told");
+    }
+
+    /// Lane check of desk-3 row 2: index.ts:627 `mirrorToDesk` forwards only what `webContents.send` sends while the
+    /// browser holds the window. Taken back, then taken again, the browser is told nothing of what changed in between
+    /// as news (cards waiting then reach it only by its own `replay: 'approvals'`); what changes after it holds the
+    /// window again is told.
+    #[test]
+    fn a_browser_taking_the_window_again_is_not_told_what_changed_while_it_did_not_hold_it() {
+        let (_root, relay, mut rt, browser, cards, _checks) = mirrored_window("desk-mirror-retake");
+        take_window(&mut rt, &relay, &browser);
+        poll_once(&mut rt);
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().take_back();
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().flush();
+        poll_once(&mut rt);
+
+        // While this computer has the window: a card is raised and the window turns light.
+        cards.lock().unwrap().push(card("ap_gap", "m_gap"));
+        rt.state.appearance = Some(true);
+        poll_once(&mut rt);
+
+        let before = told_desk(&relay, &browser, 0).len();
+        desk_frame(&relay, &browser, 2, serde_json::json!([{ "kind": "take", "id": "t2" }]));
+        pump_until(&mut rt, "the browser holds the window again", |s| s.elsewhere_cover.covered);
+        poll_once(&mut rt);
+        poll_once(&mut rt);
+        assert!(told_events(&relay, &browser, before).is_empty(), "{:?}", told_events(&relay, &browser, before));
+
+        cards.lock().unwrap().push(card("ap_new", "m_new"));
+        poll_once(&mut rt);
+        let told = told_events(&relay, &browser, before);
+        assert_eq!(told.iter().map(|(c, a)| (c.as_str(), a[0]["approvalId"].clone())).collect::<Vec<_>>(), [("mission-approval:request", serde_json::json!("ap_new"))]);
+    }
+
     #[test]
     // case: what the window hears between two polls, said as Electron's main process says it
     fn what_the_window_hears_between_two_polls_is_said_as_electrons_main_process_says_it() {
