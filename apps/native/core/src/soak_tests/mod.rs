@@ -20,6 +20,7 @@ use std::{
 mod bursts;
 mod killed_mid_turn;
 mod many_turns;
+mod two_at_once;
 
 static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 

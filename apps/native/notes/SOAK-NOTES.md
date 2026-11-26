@@ -149,3 +149,16 @@ still running in that conversation. Wait for it or stop it first." `native::send
 minutes; native.rs:1332 `running: transcript.running && fresh`) and never asks `orphaned`, while `list_recent`
 (native.rs:977) and the reader (ledger.rs:2545) do. Only an app's carry-on (`allow_cut_off`) gets past it. So after the
 engine crashes, for 15 minutes the window says the turn has ended and refuses to continue it, in words that say it runs.
+
+## Row 4: two at once (`two_at_once.rs`)
+
+Each round: engine A (this binary in a child, a real `engine_process::Server::start` on a fresh native folder) takes
+the folder; a second engine in this process and one in another process both try; A exits (quits on even rounds, is
+SIGKILLed on odd ones, which leaves `engine.sock` behind); this process then takes the lock and lets it go; then two
+children started at once race for it.
+
+Long form `two_at_once_long`: 50 rounds in 41.4 s (~822 ms a round, most of it the race winner's 800 ms hold), 0 faults.
+Every round: both second engines refused with exactly "Another Locust engine is already running."; the lock was free
+at once after A quit (25 rounds) and after A was killed (25 rounds, socket file left behind each time, replaced by the
+next engine, which then had its own socket); exactly one of the two racers took the folder and the other was refused in
+the same words. Short form: 6 rounds, same.
