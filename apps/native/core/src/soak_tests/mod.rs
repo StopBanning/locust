@@ -19,6 +19,7 @@ use std::{
 
 mod bursts;
 mod killed_mid_turn;
+mod long_conversation;
 mod many_turns;
 mod two_at_once;
 

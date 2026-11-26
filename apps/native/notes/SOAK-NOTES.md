@@ -162,3 +162,35 @@ Every round: both second engines refused with exactly "Another Locust engine is 
 at once after A quit (25 rounds) and after A was killed (25 rounds, socket file left behind each time, replaced by the
 next engine, which then had its own socket); exactly one of the two racers took the folder and the other was refused in
 the same words. Short form: 6 rounds, same.
+
+## Row 5: a long conversation (`long_conversation.rs`)
+
+300 follow-ups in one conversation (soak fake, `quick`), in a child engine. After every turn: `list_recent(50)` as the
+window's list asks it; opening the conversation (a fresh `native::session` and its first `poll`, which follows all
+the turns' ledgers); the window's reader kept open across turns polling once after the turn (tail) and once more with
+nothing new (idle). Medians of each third of the turns, in ms (debug build):
+
+| measure | turns 1-100 | 101-200 | 201-300 | last/first |
+|---|---:|---:|---:|---:|
+| list recent | 2.71 | 4.76 | 6.24 | **2.30x** (passes) |
+| open the conversation | 31.70 | 114.91 | 199.41 | **6.29x** |
+| open reader, after a turn | 4.30 | 25.90 | 58.81 | **13.68x** |
+| open reader, nothing new | 3.31 | 24.57 | 59.39 | **17.94x** |
+| the turn itself (send to slot released) | 94.28 | 120.39 | 141.01 | 1.50x |
+
+Short form (60 follow-ups, thirds of 20): list 1.30 / 1.96 / 2.47 ms (1.90x), passes; open 7.25 / 20.65 / 30.83
+(4.25x), tail 1.12 / 2.57 / 4.11 (3.67x), idle 0.47 / 1.60 / 3.32 (7.06x).
+
+`long_conversation_list_short` runs in the suite (the list part). Every read gave back every prompt (turn + 1 user
+items), not running, not failed.
+
+### Fault 5: reading a long conversation slows down faster than its turns, even when nothing changed
+
+`long_conversation_read_short` (ignored, failing) and `long_conversation_long` (ignored, failing). Opening the
+conversation is 6.3x slower at turns 201-300 than at 1-100 (it reads every turn's ledger, so some growth is expected,
+but the cost a turn also rises: 0.63 ms a turn at turn ~50, 0.80 at turn ~250). Worse, the reader the window keeps
+open costs 59 ms a poll at turn ~250 **with nothing new to read** (3.3 ms at turn ~50, 18x): an idle poll redoes work
+in proportion to the whole conversation instead of the bytes that arrived. The window polls an open conversation
+continuously, so a 300-turn conversation left open keeps a core busy in a debug build (several times less in release,
+still growing with every turn). Not chased into the code (tests and notes only); `ledger::Session::poll`
+(ledger.rs:2396) is where to look: the per-poll rebuild of the snapshot over every reader in the chain.
