@@ -100,7 +100,7 @@ fn click_into_view(rt: &mut Runtime<State>, key: &str) {
         rt.wheel(hx, hy + 40.0, dy);
         rt.frame(0.3);
     }
-    panic!("{key} never came into view under Home's scroll pane");
+    panic!("{key} never came into view under its scroll pane");
 }
 
 /// Text into whatever holds the keyboard, then Return.
@@ -1963,7 +1963,7 @@ fn privacy_page_backs_up_previews_and_applies_restore_at_next_start() {
     .unwrap();
 
     // 2. Preview restore via the folder dialog.
-    click(&mut rt, "backup-restore-choose");
+    click_into_view(&mut rt, "backup-restore-choose");
     let (kind, _opts) = rt.file_dialog().expect("restore folder picker");
     assert_eq!(kind, rune::FileDialogKind::Folder);
     rt.resolve_file_dialog(Some(backup_folder)).unwrap();
@@ -1973,7 +1973,7 @@ fn privacy_page_backs_up_previews_and_applies_restore_at_next_start() {
     assert!(preview_text.contains("1 teammate and 1 conversation, here now"), "{preview_text}");
 
     // 3. Ask for restore; check pending-restore.json is written (and test does not exit/relaunch).
-    click(&mut rt, "backup-restore-confirm");
+    click_into_view(&mut rt, "backup-restore-confirm");
     settle(&mut rt);
     assert!(store.root().join(locust_core::profile_backup::PENDING_RESTORE_FILE).exists());
     assert!(rt.find("backup-restarting").is_some());
