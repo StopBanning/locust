@@ -95,6 +95,57 @@ pub struct BootView {
     pub all_answered: bool,
 }
 
+/// One discovery event, as the boot screen folds it (`shared/ipc.ts` DiscoveryEvent).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DiscoveryEvent {
+    Started { at: u64 },
+    Context(BootContext),
+    ProbeStarted { id: String, bin: String, product: String, at: u64 },
+    ProbeFinished { id: String, at: u64, outcome: &'static str, version: Option<String> },
+    Finished { at: u64, ready: usize, needs_you: usize },
+}
+
+/// applyDiscoveryEvent: fold one discovery event into the screen's state.
+///
+/// `Started` resets the probes, because a second sweep is a second log; the launch's context survives it. Probes are
+/// keyed by id, not by the command name (Cursor's id is `cursor`, its command `cursor-agent`), and a repeat replaces
+/// rather than appends: one row per runtime.
+pub fn apply_discovery_event(state: BootState, event: DiscoveryEvent) -> BootState {
+    match event {
+        DiscoveryEvent::Started { at } => BootState {
+            phase: BootPhase::Probing,
+            started_at: Some(at),
+            probes: Vec::new(),
+            ..state
+        },
+        DiscoveryEvent::Context(context) => BootState { context: Some(context), ..state },
+        DiscoveryEvent::ProbeStarted { id, bin, product, at } => {
+            let mut probes: Vec<BootProbe> = state.probes.into_iter().filter(|probe| probe.id != id).collect();
+            probes.push(BootProbe { id, bin, product, at, outcome: None, version: None });
+            BootState {
+                phase: if state.phase == BootPhase::Idle { BootPhase::Probing } else { state.phase },
+                probes,
+                ..state
+            }
+        }
+        DiscoveryEvent::ProbeFinished { id, outcome, version, .. } => {
+            let probes = state
+                .probes
+                .into_iter()
+                .map(|probe| {
+                    if probe.id == id {
+                        BootProbe { outcome: Some(outcome), version: version.clone().or(probe.version.clone()), ..probe }
+                    } else {
+                        probe
+                    }
+                })
+                .collect();
+            BootState { probes, ..state }
+        }
+        DiscoveryEvent::Finished { at, ready, needs_you } => BootState { finished: Some((at, ready, needs_you)), ..state },
+    }
+}
+
 pub fn home_relative(path: &str) -> String {
     let separator = if path.contains('/') && !path.contains('\\') {
         '/'
@@ -161,10 +212,12 @@ pub fn boot_view(state: &BootState, phase: BootPhase, now: u64) -> BootView {
         });
     }
 
-    // Native does not probe planned/roadmap integrations.
+    // The log lists what this build can use: discovery may still know about a planned (roadmap) agent, but this
+    // screen offers no fact about one the app cannot run (bootView.ts, Colin's launch of 2026-09-14).
     let rows: Vec<BootRow> = state
         .probes
         .iter()
+        .filter(|probe| locust_core::agents::integration_of(&probe.id) != locust_core::agents::Integration::Planned)
         .map(|probe| {
             let waited = now.saturating_sub(probe.at);
             BootRow {
@@ -246,38 +299,32 @@ pub const PROBE_RUNTIME: &[(&str, &str, &str)] = &[
     ("antigravity", "agy", "Antigravity"),
 ];
 
-/// Sweep installed runtimes using PATH discovery (no invented facts).
+/// Sweep installed runtimes using PATH discovery (no invented facts), told as the events the screen folds.
 pub fn path_discovery_sweep(now: u64) -> BootState {
-    let mut probes = Vec::new();
+    let mut state = apply_discovery_event(BootState::default(), DiscoveryEvent::Started { at: now });
     let mut ready = 0usize;
     let mut needs_you = 0usize;
     for (id, bin, product) in PROBE_RUNTIME {
+        state = apply_discovery_event(
+            state,
+            DiscoveryEvent::ProbeStarted { id: (*id).into(), bin: (*bin).into(), product: (*product).into(), at: now },
+        );
         let outcome = match discovery::find_named(bin) {
             Ok(_) => {
                 ready += 1;
-                Some("ready")
+                "ready"
             }
             Err(_) => {
                 needs_you += 1;
-                Some("missing")
+                "missing"
             }
         };
-        probes.push(BootProbe {
-            id: (*id).into(),
-            bin: (*bin).into(),
-            product: (*product).into(),
-            at: now,
-            outcome,
-            version: None,
-        });
+        state = apply_discovery_event(
+            state,
+            DiscoveryEvent::ProbeFinished { id: (*id).into(), at: now, outcome, version: None },
+        );
     }
-    BootState {
-        phase: BootPhase::Probing,
-        started_at: Some(now),
-        context: None,
-        probes,
-        finished: Some((now, ready, needs_you)),
-    }
+    apply_discovery_event(state, DiscoveryEvent::Finished { at: now, ready, needs_you })
 }
 
 pub fn deferred_others_sentence(installs_from_here: &[bool]) -> String {
@@ -388,3 +435,7 @@ mod tests {
 #[cfg(test)]
 #[path = "others_line_tests.rs"]
 mod others_line_tests;
+
+#[cfg(test)]
+#[path = "the_boot_screen_tests.rs"]
+mod the_boot_screen_tests;

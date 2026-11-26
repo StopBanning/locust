@@ -6184,24 +6184,24 @@ apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels whil
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears the beam while a run goes	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	has no beam when there is nothing to stop	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels at the faces' rate, not the screen's (0.698)	yes
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts the runtimes it shows, not every probe that ran	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	never invents a summary before discovery has finished	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	says what was found, once there is something to say	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not claim a version it was never given	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	says an agent not added yet is ready to install, never "not installed"	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	a second sweep is a new log, not more rows under the old one	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	waits a beat before settling, so the screen does not flinch	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	runs settling, settled, dissolving, then gone, in that order	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	has NO minimum dwell	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	shortens a home path the way a terminal would	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	leaves a path it does not recognise exactly as it is	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtime whose binary is not its id	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	no
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts the runtimes it shows, not every probe that ran	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	never invents a summary before discovery has finished	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	says what was found, once there is something to say	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not claim a version it was never given	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	says an agent not added yet is ready to install, never "not installed"	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	a second sweep is a new log, not more rows under the old one	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	waits a beat before settling, so the screen does not flinch	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	runs settling, settled, dissolving, then gone, in that order	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	has NO minimum dwell	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	shortens a home path the way a terminal would	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	leaves a path it does not recognise exactly as it is	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtime whose binary is not its id	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	yes
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	yes
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
