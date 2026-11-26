@@ -230,6 +230,18 @@ fn a_download_that_is_not_there_says_what_answered_and_leaves_no_file() {
 }
 
 #[test]
+fn a_download_that_reaches_no_server_fails_and_leaves_no_file() {
+    // A port nothing listens on: bound, read, then let go.
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let root = temp_root("unreachable");
+    let to = root.join("image.dmg");
+    let result = download_release(&format!("http://127.0.0.1:{port}/image.dmg"), &to, &|_| {});
+    assert!(result.is_err(), "a download that never connected was taken as done");
+    assert!(!to.exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
 fn the_real_run_says_how_a_command_ended_and_what_it_said() {
     let ran = run_command("/bin/sh", &["-c", "echo said; echo complained >&2; exit 3"]);
     assert_eq!(ran.code, Some(3));
