@@ -102,3 +102,28 @@ fn does_not_read_the_persons_own_message_as_the_teammate_writing() {
     let mut codex = app();
     assert!(codex.accept("item/started", &json!({"threadId":"t","turnId":"u","item":{"type":"userMessage","id":"u1","content":[]}})).is_empty());
 }
+
+// Claude: which tools print what they printed (claude-events.ts claudeShowsOutput, as Electron's list has it)
+
+#[test]
+fn shows_the_output_of_the_eight_named_tools_and_every_mcp_tool_and_of_no_other() {
+    for name in ["Bash", "BashOutput", "PowerShell", "Grep", "Glob", "WebFetch", "WebSearch", "LS", "mcp__github__list_issues"] {
+        assert!(claude_shows_output(Some(name)), "{name}");
+        assert_eq!(completed(&claude_call(name, json!("printed"))).payload["output"], "printed", "{name}");
+    }
+    for name in ["Read", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite", "Task"] {
+        assert!(!claude_shows_output(Some(name)), "{name}");
+    }
+    assert!(!claude_shows_output(None));
+}
+
+#[test]
+fn a_helpers_own_summary_is_its_output_not_what_the_tool_result_printed() {
+    // claude-events.ts: `subagentSummary !== undefined` -> the summary is the output and the printed text is not read.
+    let mut n = ClaudeNormalizer::default();
+    let mut events = claude_record(&mut n, json!({"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t1","name":"Grep"}}}));
+    events.extend(claude_record(&mut n, json!({"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Grep","input":{"pattern":"cart"}}]}})));
+    events.extend(claude_record(&mut n, json!({"type":"system","subtype":"task_notification","task_id":"k1","tool_use_id":"t1","status":"completed","summary":"Found the cart code in three files."})));
+    events.extend(claude_record(&mut n, json!({"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"src/a.ts\nsrc/b.ts"}]}})));
+    assert_eq!(completed(&events).payload["output"], "Found the cart code in three files.");
+}

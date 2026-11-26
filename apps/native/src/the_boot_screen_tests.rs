@@ -211,3 +211,26 @@ fn the_window_sweep_is_folded_from_discovery_events() {
     let (_, ready, needs_you) = state.finished.expect("finished");
     assert_eq!(ready + needs_you, PROBE_RUNTIME.len());
 }
+
+#[test]
+fn a_probe_belongs_to_its_runtime_by_id_not_by_the_command_it_runs() {
+    // bootView.ts: "Keyed by ID, not by the command name: those differ for Cursor ... A repeat replaces rather than appends."
+    let state = fold(vec![started(0), probe("cursor", "agent", "Cursor", 10), probe("other", "agent", "Other", 20)]);
+    assert_eq!(state.probes.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["cursor", "other"], "one command name, two runtimes, two rows");
+    let state = fold(vec![started(0), probe("cursor", "agent", "Cursor", 10), probe("cursor", "cursor-agent", "Cursor", 20)]);
+    assert_eq!(state.probes.len(), 1, "a repeat of an id replaces its row");
+    assert_eq!((state.probes[0].bin.as_str(), state.probes[0].at), ("cursor-agent", 20));
+}
+
+#[test]
+fn a_later_answer_with_no_version_keeps_the_version_an_earlier_one_gave() {
+    // bootView.ts probe.finished: `...(event.version === undefined ? {} : { version: event.version })`.
+    let state = fold(vec![
+        started(0),
+        probe("codex", "codex", "Codex", 1),
+        answer("codex", 2, "ready", Some("0.153.0")),
+        answer("codex", 3, "ready", None),
+    ]);
+    assert_eq!(state.probes[0].version.as_deref(), Some("0.153.0"));
+    assert_eq!(state.probes[0].outcome, Some("ready"));
+}

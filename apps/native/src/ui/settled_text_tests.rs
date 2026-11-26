@@ -285,3 +285,11 @@ fn loses_nothing_but_held(stage: &str) {
     }
 }
 
+
+#[test]
+fn a_header_whose_rule_is_written_with_spaces_is_a_table_as_soon_as_the_rule_begins() {
+    // settledText.ts TABLE_RULE: `|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*|?[ \t]*`: spaces around the dashes are the rule's.
+    let drawn = live("| name | qty |\n| --- | --- |");
+    assert_eq!(drawn.iter().map(|d| d.kind).collect::<Vec<_>>(), ["table"], "{drawn:?}");
+    assert_eq!(drawn, draw("| name | qty |\n| --- | --- |", false));
+}

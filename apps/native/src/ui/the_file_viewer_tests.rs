@@ -172,3 +172,15 @@ fn still_only_reveals_where_nothing_can_open_it() {
     let reveal = rt.elements().into_iter().find(|e| e.key.as_deref().is_some_and(|k| k.ends_with("/reveal"))).expect("a reveal control");
     assert_eq!(reveal.label.as_deref(), Some("Show docs/report.md in the file manager"));
 }
+
+#[test]
+fn says_a_refusal_it_gave_for_its_own_file_and_not_another_scopes() {
+    let said_with = |scope: &str| {
+        let mut rt = viewer("/work/docs/report.md", "Two things went wrong.\n");
+        rt.update(|s, _| s.handed_file_refusal = Some((scope.to_owned(), "Locust will not show a file outside the folder.".into())));
+        rt.frame(0.016);
+        said(&rt)
+    };
+    assert!(said_with("file-reader").contains("Locust will not show a file outside the folder."));
+    assert!(!said_with("conv/t1/file/0").contains("Locust will not show a file outside the folder."), "a refusal on a thread's file row is not the viewer's");
+}

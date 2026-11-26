@@ -123,3 +123,25 @@ fn with_no_model_of_its_own_draws_no_route_line_and_no_mark() {
     let said: String = rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
     assert!(!said.contains("runs on the model you pick"), "{said}");
 }
+
+#[test]
+fn says_a_fast_level_in_the_whole_route_and_a_chosen_level_beats_the_one_a_cursor_id_carries() {
+    // routeName.ts homeRouteOf: `${name} · ${effortName(base)}${fast ? ' · Fast' : ''}`; routeEffortOf: route.effort ?? ofId ?? default.
+    assert_eq!(home_route_of("claude", "opus", Some("high-fast"), &opus()).route, "Claude · Opus 5.5 · High · Fast");
+    assert_eq!(home_route_of("claude", "opus", Some("high"), &opus()).route, "Claude · Opus 5.5 · High");
+    assert_eq!(home_route_of("cursor", "grok-4.7-medium", Some("high"), &grok()).route, "Cursor · Grok 4.7 · High");
+    assert_eq!(route_effort_of("cursor", "grok-4.7-medium", Some("high"), &grok()).as_deref(), Some("high"));
+    assert_eq!(route_effort_of("cursor", "grok-4.7-medium", None, &grok()).as_deref(), Some("medium"));
+}
+
+#[test]
+fn a_card_for_a_teammate_working_now_says_so_in_its_accessible_name() {
+    // HomeTeam.tsx: `, ${mate.state.spoken}` where there is a state, else ', working now' for a teammate at work.
+    assert_eq!(home_card_label("Wren", "Code", None, true, Some("Claude · Opus 5.5")), "Message Wren, Code, working now, on Claude · Opus 5.5");
+    assert_eq!(home_card_label("Wren", "Code", Some("waiting for you"), true, None), "Message Wren, Code, waiting for you");
+    assert_eq!(home_card_label("Wren", "Code", None, false, None), "Message Wren, Code");
+    let mut busy = mate("tm_wren", "Wren", "Code", Some("claude"), Some("opus"));
+    busy.busy = true;
+    let rt = home(vec![busy]);
+    assert_eq!(keyed(&rt, "home-card-tm_wren").and_then(|e| e.label).as_deref(), Some("Message Wren, Code, working now, on Claude · Opus 5.5"));
+}
