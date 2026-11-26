@@ -1,5 +1,5 @@
 //! Parity tests for `packages/runtime-adapters/test/runtime-adapters.test.ts` (launch-argument,
-//! mode-containment, safety-guard, version-parsing, and model-list cases).
+//! mode-containment, safety-guard, version-parsing, model-list, and Windows-locator cases).
 
 use super::{claude, codex, copilot, cursor, discovery, opencode_config, opencode_serve, process, safety, version, Runtime, Turn};
 use crate::agents::{self, Answer, Auth, EachOptions, Machine, Probe, Seams};
@@ -1166,4 +1166,283 @@ fn off_windows_spawns_probe_as_own_process_group_and_signals_group() {
     assert_eq!(pgid, pid, "child must be leader of its own process group");
     process::kill(child.id());
     assert!(process::confirm_exit(&mut child, std::time::Duration::from_secs(3)));
+}
+
+// ---- Group 4: the Windows locator (path-locator.ts), driven through its seams on any machine -----------------------
+
+const ROAMING: &str = "C:\\Users\\x\\AppData\\Roaming";
+const LOCAL: &str = "C:\\Users\\x\\AppData\\Local";
+const WIN_POWERSHELL: &str = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+const WIN_CMD: &str = "C:\\Windows\\System32\\cmd.exe";
+
+/// path-locator.ts's options as a test hands them: Windows, an environment read without case, and the files there.
+fn win_locate(
+    name: &str,
+    env: &[(&str, &str)],
+    files: &dyn Fn(&str) -> bool,
+    dirs: &dyn Fn(&str) -> Vec<(String, u128)>,
+    shim: &dyn Fn(&str) -> Option<String>,
+) -> Option<discovery::Launch> {
+    let env_of = |key: &str| env.iter().find(|(k, _)| k.eq_ignore_ascii_case(key)).map(|(_, v)| (*v).to_owned());
+    let no_npm = || None;
+    let look = discovery::Look { windows: true, env: &env_of, is_executable: files, read_dir: dirs, read_file: shim, npm_bin: &no_npm };
+    discovery::locate(name, &look)
+}
+
+fn no_dirs(_: &str) -> Vec<(String, u128)> {
+    Vec::new()
+}
+
+fn no_shim(_: &str) -> Option<String> {
+    None
+}
+
+fn pre(args: &[&str]) -> Vec<String> {
+    s(args)
+}
+
+#[test]
+fn prefers_native_windows_executables_and_safely_wraps_powershell_shims() {
+    let existing = ["c:\\tools\\codex.exe", "c:\\shims\\claude.ps1", "c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe"];
+    let files = |c: &str| existing.contains(&c.to_lowercase().as_str());
+    let env = [("PATH", "C:\\tools;C:\\shims;C:\\Windows\\System32\\WindowsPowerShell\\v1.0")];
+    let codex = win_locate("codex", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(codex.executable, "C:\\tools\\codex.exe");
+    assert_eq!(codex.kind, discovery::LaunchKind::Native);
+    let claude = win_locate("claude", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(claude.executable, WIN_POWERSHELL);
+    assert_eq!(claude.prefix_args, pre(&["-NoProfile", "-NonInteractive", "-File", "C:\\shims\\claude.ps1"]));
+    assert_eq!(claude.kind, discovery::LaunchKind::PowershellShim);
+    // What a bare start can run: the native program, and nothing for a script that needs a host.
+    assert_eq!(codex.program(), Some("C:\\tools\\codex.exe"));
+    assert_eq!(claude.program(), None);
+}
+
+#[test]
+fn finds_opencodes_and_copilots_launchers_in_the_npm_bin_directory_without_path() {
+    let env = [("PATH", ""), ("APPDATA", ROAMING), ("LOCALAPPDATA", LOCAL), ("SystemRoot", "C:\\Windows")];
+    let opencode_ps1 = format!("{ROAMING}\\npm\\opencode.ps1");
+    let copilot_ps1 = format!("{ROAMING}\\npm\\copilot.ps1");
+    let files = |c: &str| c == opencode_ps1 || c == copilot_ps1 || c == WIN_POWERSHELL;
+    let opencode = win_locate("opencode", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(opencode.discovered, opencode_ps1);
+    assert_eq!(opencode.kind, discovery::LaunchKind::PowershellShim);
+    let copilot = win_locate("copilot", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(copilot.discovered, copilot_ps1);
+    assert_eq!(copilot.kind, discovery::LaunchKind::PowershellShim);
+}
+
+#[test]
+fn prefers_a_shim_on_path_over_an_executable_in_a_guessed_install_directory() {
+    let on_path = format!("{ROAMING}\\npm\\codex.ps1");
+    let guessed = format!("{LOCAL}\\OpenAI\\Codex\\bin\\abc123\\codex.exe");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("LOCALAPPDATA", LOCAL), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == on_path || c == guessed || c == WIN_POWERSHELL;
+    let versions_dir = format!("{LOCAL}\\OpenAI\\Codex\\bin");
+    let dirs = |d: &str| if d == versions_dir { vec![("abc123".to_owned(), 1)] } else { Vec::new() };
+    let found = win_locate("codex", &env, &files, &dirs, &no_shim).unwrap();
+    assert_eq!(found.discovered, on_path);
+    assert_eq!(found.kind, discovery::LaunchKind::PowershellShim);
+}
+
+#[test]
+fn runs_a_cmd_shim_through_cmd_exe_and_prefers_it_to_the_ps1_npm_writes_beside_it() {
+    let cmd_shim = format!("{ROAMING}\\npm\\codex.cmd");
+    let ps_shim = format!("{ROAMING}\\npm\\codex.ps1");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("LOCALAPPDATA", LOCAL), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == ps_shim || c == WIN_CMD;
+    let found = win_locate("codex", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(found.discovered, cmd_shim);
+    assert_eq!(found.executable, WIN_CMD);
+    assert_eq!(found.prefix_args, pre(&["/d", "/s", "/c", &cmd_shim]));
+    assert_eq!(found.kind, discovery::LaunchKind::CmdShim);
+}
+
+#[test]
+fn resolves_an_npm_cmd_shim_past_cmd_exe_to_the_node_script_it_wraps() {
+    let cmd_shim = format!("{ROAMING}\\npm\\copilot.cmd");
+    let script = format!("{ROAMING}\\npm\\node_modules\\@github\\copilot\\npm-loader.js");
+    let node = "C:\\Program Files\\nodejs\\node.exe";
+    let path = format!("{ROAMING}\\npm;C:\\Program Files\\nodejs");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("LOCALAPPDATA", LOCAL), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == node || c == WIN_CMD;
+    let shim = |p: &str| {
+        (p == cmd_shim).then(|| {
+            "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\node_modules\\@github\\copilot\\npm-loader.js\" %*\r\n".to_owned()
+        })
+    };
+    let found = win_locate("copilot", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.discovered, cmd_shim);
+    assert_eq!(found.executable, node);
+    assert_eq!(found.prefix_args, vec![script]);
+    assert_eq!(found.kind, discovery::LaunchKind::NodeShim);
+}
+
+#[test]
+fn resolves_the_shim_of_an_install_that_is_not_global_which_points_one_folder_up() {
+    let prefix = "C:\\work\\.scratch\\runtime-canary\\copilot-1.0.93";
+    let bin = format!("{prefix}\\node_modules\\.bin");
+    let cmd_shim = format!("{bin}\\copilot.cmd");
+    let script = format!("{prefix}\\node_modules\\@github\\copilot\\npm-loader.js");
+    let node = "C:\\Program Files\\nodejs\\node.exe";
+    let path = format!("{bin};C:\\Program Files\\nodejs");
+    let env = [("PATH", path.as_str()), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == node || c == WIN_CMD;
+    let shim = |p: &str| {
+        (p == cmd_shim).then(|| {
+            "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\..\\@github\\copilot\\npm-loader.js\" %*\r\n".to_owned()
+        })
+    };
+    let found = win_locate("copilot", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.discovered, cmd_shim);
+    assert_eq!(found.executable, node);
+    assert_eq!(found.prefix_args, vec![script]);
+    assert_eq!(found.kind, discovery::LaunchKind::NodeShim);
+}
+
+#[test]
+fn prefers_the_node_exe_npm_keeps_beside_its_shim_the_way_the_shim_itself_does() {
+    let cmd_shim = format!("{ROAMING}\\npm\\opencode.cmd");
+    let beside = format!("{ROAMING}\\npm\\node.exe");
+    let on_path = "C:\\Program Files\\nodejs\\node.exe";
+    let path = format!("{ROAMING}\\npm;C:\\Program Files\\nodejs");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == beside || c == on_path;
+    let shim = |_: &str| Some("\"%_prog%\"  \"%dp0%\\node_modules\\opencode-ai\\bin\\opencode.js\" %*".to_owned());
+    let found = win_locate("opencode", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.executable, beside);
+    assert_eq!(found.kind, discovery::LaunchKind::NodeShim);
+    // Beside the shim first even when PATH names the other node.exe's folder first.
+    let path = format!("C:\\Program Files\\nodejs;{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    assert_eq!(win_locate("opencode", &env, &files, &no_dirs, &shim).unwrap().executable, beside);
+}
+
+#[test]
+fn resolves_an_npm_cmd_shim_around_a_native_binary_to_the_binary_itself() {
+    let cmd_shim = format!("{ROAMING}\\npm\\opencode.cmd");
+    let binary = format!("{ROAMING}\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == binary || c == WIN_CMD;
+    let shim = |_: &str| Some("\"%dp0%\\node_modules\\opencode-ai\\bin\\opencode.exe\"   %*\r\n".to_owned());
+    let found = win_locate("opencode", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.discovered, cmd_shim);
+    assert_eq!(found.executable, binary);
+    assert!(found.prefix_args.is_empty());
+    assert_eq!(found.kind, discovery::LaunchKind::Native);
+    assert_eq!(found.program(), Some(binary.as_str()));
+}
+
+#[test]
+fn keeps_cmd_exe_when_the_binary_an_npm_shim_names_is_not_there() {
+    let cmd_shim = format!("{ROAMING}\\npm\\opencode.cmd");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == WIN_CMD;
+    let shim = |_: &str| Some("\"%dp0%\\node_modules\\opencode-ai\\bin\\opencode.exe\"   %*".to_owned());
+    let found = win_locate("opencode", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.kind, discovery::LaunchKind::CmdShim);
+}
+
+#[test]
+fn keeps_cmd_exe_for_a_cmd_that_is_not_an_npm_shim() {
+    let cmd_shim = format!("{ROAMING}\\npm\\codex.cmd");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == WIN_CMD;
+    let shim = |_: &str| Some("@echo off\r\ncall some-other-thing.exe %*\r\n".to_owned());
+    let found = win_locate("codex", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.executable, WIN_CMD);
+    assert_eq!(found.prefix_args, pre(&["/d", "/s", "/c", &cmd_shim]));
+    assert_eq!(found.kind, discovery::LaunchKind::CmdShim);
+    assert_eq!(found.program(), Some(cmd_shim.as_str()));
+}
+
+#[test]
+fn keeps_cmd_exe_for_an_npm_shim_when_no_node_exe_can_be_found() {
+    let cmd_shim = format!("{ROAMING}\\npm\\copilot.cmd");
+    let path = format!("{ROAMING}\\npm");
+    let env = [("PATH", path.as_str()), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == cmd_shim || c == WIN_CMD;
+    let shim = |_: &str| Some("\"%_prog%\"  \"%dp0%\\node_modules\\@github\\copilot\\npm-loader.js\" %*".to_owned());
+    let found = win_locate("copilot", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!(found.kind, discovery::LaunchKind::CmdShim);
+}
+
+#[test]
+fn finds_copilot_cli_where_it_unpacks_itself_when_npms_bin_directory_is_not_there_either() {
+    let launcher = format!("{LOCAL}\\copilot\\copilot.exe");
+    let env = [("PATH", ""), ("LOCALAPPDATA", LOCAL), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == launcher;
+    let found = win_locate("copilot", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(found.kind, discovery::LaunchKind::Native);
+    assert_eq!(found.executable, launcher);
+}
+
+#[test]
+fn finds_cursors_launcher_in_its_own_install_directory_without_path() {
+    let launcher = format!("{LOCAL}\\cursor-agent\\cursor-agent.ps1");
+    let env = [("PATH", ""), ("LOCALAPPDATA", LOCAL), ("APPDATA", ROAMING), ("SystemRoot", "C:\\Windows")];
+    let files = |c: &str| c == launcher || c == WIN_POWERSHELL;
+    let found = win_locate("cursor-agent", &env, &files, &no_dirs, &no_shim).unwrap();
+    assert_eq!(found.kind, discovery::LaunchKind::PowershellShim);
+    assert_eq!(found.discovered, launcher);
+}
+
+/// "finding a CLI that never put itself on PATH": its `locator(files, versions, path)`.
+fn roots_locate(name: &str, files: &[&str], versions: &[&str], path: &str) -> Option<discovery::Launch> {
+    let env = [("PATH", path), ("LOCALAPPDATA", LOCAL), ("APPDATA", ROAMING)];
+    let is_file = |c: &str| files.contains(&c);
+    let versions_dir = format!("{LOCAL}\\OpenAI\\Codex\\bin");
+    let dirs = |d: &str| {
+        if d == versions_dir { versions.iter().map(|v| ((*v).to_owned(), 1)).collect() } else { Vec::new() }
+    };
+    win_locate(name, &env, &is_file, &dirs, &no_shim)
+}
+
+#[test]
+fn finds_codex_in_its_versioned_install_root_when_path_knows_nothing() {
+    let exe = format!("{LOCAL}\\OpenAI\\Codex\\bin\\abc123\\codex.exe");
+    let found = roots_locate("codex", &[&exe], &["abc123"], "").unwrap();
+    assert_eq!(found.executable, exe);
+    assert_eq!(found.kind, discovery::LaunchKind::Native);
+    // Newest by when it was written, since the version names are opaque hashes.
+    let old = format!("{LOCAL}\\OpenAI\\Codex\\bin\\aaa\\codex.exe");
+    let new = format!("{LOCAL}\\OpenAI\\Codex\\bin\\zzz\\codex.exe");
+    let env = [("PATH", ""), ("LOCALAPPDATA", LOCAL)];
+    let files = |c: &str| c == old || c == new;
+    let dirs = |_: &str| vec![("zzz".to_owned(), 5), ("aaa".to_owned(), 9)];
+    assert_eq!(win_locate("codex", &env, &files, &dirs, &no_shim).unwrap().executable, old);
+}
+
+#[test]
+fn finds_claude_codes_npm_shim_without_path() {
+    let shim = format!("{ROAMING}\\npm\\claude.ps1");
+    let powershell = format!("{ROAMING}\\npm\\powershell.exe");
+    let found = roots_locate("claude", &[&shim, &powershell], &[], "").unwrap();
+    assert_eq!(found.kind, discovery::LaunchKind::PowershellShim);
+    assert_eq!(found.discovered, shim);
+}
+
+#[test]
+fn prefers_what_path_says_over_an_install_root_on_windows() {
+    let on_path = "C:\\tools\\codex.exe";
+    let installed = format!("{LOCAL}\\OpenAI\\Codex\\bin\\abc123\\codex.exe");
+    let found = roots_locate("codex", &[on_path, &installed], &["abc123"], "C:\\tools").unwrap();
+    assert_eq!(found.executable, on_path);
+}
+
+#[test]
+fn reports_nothing_when_the_runtime_is_genuinely_absent_on_windows() {
+    assert!(roots_locate("codex", &[], &["abc123"], "").is_none());
+    assert!(roots_locate("claude", &[], &[], "").is_none());
+}
+
+#[test]
+fn searches_no_install_root_for_a_command_it_does_not_know_on_windows() {
+    let stray = format!("{LOCAL}\\OpenAI\\Codex\\bin\\abc123\\somethingelse.exe");
+    assert!(roots_locate("somethingelse", &[&stray], &["abc123"], "").is_none());
 }
