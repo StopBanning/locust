@@ -1739,6 +1739,41 @@ mod tests {
     }
 
     #[test]
+    fn an_organization_that_turns_off_other_apps_or_the_phone_keeps_from_anywhere_off_and_says_which() {
+        // Lane check (26 Nov): index.ts createRemoteMcp's refusal, `otherApps` first, then `phone`.
+        struct Back;
+        impl Drop for Back {
+            fn drop(&mut self) {
+                locust_core::org_policy::use_policy_on_this_thread(None);
+            }
+        }
+        let _back = Back;
+        let off = |setting: &str| {
+            locust_core::org_policy::use_policy_on_this_thread(Some(locust_core::org_policy::PolicyState {
+                path: "/test/policy.json".into(),
+                present: true,
+                policy: [(setting.to_owned(), serde_json::json!(false))].into_iter().collect(),
+                error: None,
+            }));
+        };
+        let (_root, store) = temp_store("apps-anywhere-policy");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+        off("otherApps");
+        let refused = remote.set_enabled(&serde_json::json!(true));
+        assert!(!refused.enabled);
+        assert_eq!(refused.message.as_deref(), Some("Access from other AI apps, the locust command and editors is off. Set by your organization (otherApps in /test/policy.json). Nothing was started."));
+        off("phone");
+        let refused = remote.set_enabled(&serde_json::json!(true));
+        assert!(!refused.enabled);
+        assert_eq!(refused.message.as_deref(), Some("Phone pairing is off. Set by your organization (phone in /test/policy.json). Nothing was started."));
+        assert_eq!(sent(&relay, "mcp-open"), 0, "the relay is never told it may take apps");
+    }
+
+    #[test]
     fn an_app_from_anywhere_signs_in_and_uses_the_doors_own_tools_through_the_phones_link_until_from_anywhere_is_off() {
         let (_root, store) = temp_store("apps-anywhere");
         let root = store.root().parent().unwrap().to_path_buf();

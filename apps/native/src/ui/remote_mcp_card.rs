@@ -99,7 +99,12 @@ pub(super) fn made(s: &State) -> Option<Arc<RemoteMcp>> {
     let store = s.data.as_ref()?;
     let tools = locust_core::door::tools_from_anywhere(store.clone());
     let mut options = Options::new(store.root().join(REMOTE_MCP_FILE), s.phone_anywhere_link.mcp_relay(), Arc::new(tools));
-    options.refusal = Arc::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone"));
+    // index.ts createRemoteMcp: other apps' own setting first, then the phone's, whose link this rides.
+    options.refusal = Arc::new(|| {
+        let policy = locust_core::org_policy::current();
+        locust_core::org_policy::feature_refusal(Some(&policy), "otherApps")
+            .or_else(|| locust_core::org_policy::feature_refusal(Some(&policy), "phone"))
+    });
     let service = Arc::new(RemoteMcp::new(options));
     service.load();
     s.phone_anywhere_link.serve_mcp(&service);
