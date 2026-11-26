@@ -987,6 +987,8 @@ const LIVE_FACE: f32 = 34.0;
 /// face, then the swept word, `sweepText('working')` ("Working…") in `.lc-sweep`. Who is working is the face and the
 /// line's name, "Codec is working…", which the word keeps as its hover title.
 fn working_line(flight: &Flight, p: &Palette, reduced: bool) -> El {
+    #[cfg(test)]
+    WORD_STANDS_STILL.with(|still| still.set(Some(reduced)));
     let l = crate::look::controls::Look::new(p.dark);
     let said = format!("{} is working…", flight.name);
     let word = locust_core::thread_view::sweep_text("working");
@@ -1008,6 +1010,12 @@ fn working_line(flight: &Flight, p: &Palette, reduced: bool) -> El {
                 .truncate()
                 .help(said),
         )
+}
+
+// What the working word was last drawn with: its sweep's spans are not in Rune's ElementInfo, so a test reads this.
+#[cfg(test)]
+thread_local! {
+    static WORD_STANDS_STILL: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
 }
 
 /// The working line is on screen and its word should move: shown, a turn working, and motion wanted.
@@ -2149,6 +2157,23 @@ mod tests {
         // The face is the teammate's own drawn bot (look::faces::face for `codec`), not the old initial in a disc.
         assert!(all.iter().any(|e| e.key.as_deref() == Some("bot-static-codec-34")), "the face drawn is Codec's");
         assert!(!all.iter().any(|e| e.text.as_deref() == Some("Codec is working…")), "the old plain line is gone");
+    }
+
+    // Lane check of small-2 row 4: shell.css:10321-10326 drops only the sweep's highlight under `prefers-reduced-motion:
+    // reduce` (`.lc-sweep::before { display: none }`), so the word drawn stands still exactly when the system asks for
+    // less motion, and sweeps otherwise.
+    #[test]
+    fn the_working_word_drawn_stands_still_only_when_the_system_asks_for_less_motion() {
+        for reduced in [false, true] {
+            let mut s = working(Instant::now());
+            s.demo = false;
+            let mut rt = rune::Runtime::new(s, |s, cx| view(s, cx), (WIDTH, 420.0), rune::Env::new(true, 1.0));
+            rt.set_system_reduced_motion(reduced);
+            WORD_STANDS_STILL.with(|still| still.set(None));
+            rt.frame(0.0);
+            assert!(rt.find("quick-working-word").is_some(), "the working line is drawn");
+            assert_eq!(WORD_STANDS_STILL.with(std::cell::Cell::get), Some(reduced), "less motion asked: {reduced}");
+        }
     }
 
     #[test]

@@ -472,6 +472,37 @@ mod tests {
         assert_eq!(working, None);
     }
 
+    // Lane check of small-2 row 3. CommitChanges.tsx:190-201: each button is `disabled={working !== undefined || drafting
+    // || message.trim().length === 0}`, and only the one working says so (`working === 'push' ? 'Pushing…' : 'Commit and
+    // push'`), the others keeping their own words.
+    #[test]
+    fn while_one_commit_action_works_or_a_message_is_drafted_none_can_be_pressed_and_only_it_says_so() {
+        let mut rt = panel(true);
+        rt.update(|s, _| s.commit.working = Some(Then::Push));
+        rt.frame(0.016);
+        let said = |rt: &Runtime<State>, key: &str| {
+            rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.label).unwrap_or_else(|| panic!("no {key}"))
+        };
+        assert_eq!(
+            [said(&rt, "commit-action-commit"), said(&rt, "commit-action-push"), said(&rt, "commit-action-pull-request")],
+            ["Commit".to_owned(), "Pushing…".to_owned(), "Open a pull request".to_owned()]
+        );
+        for key in ["commit-action-commit", "commit-action-pull-request"] {
+            press(&mut rt, key);
+            let mut working = None;
+            rt.update(|s, _| working = s.commit.working);
+            assert_eq!(working, Some(Then::Push), "{key} pressed while Commit and push works");
+        }
+
+        let mut rt = panel(true);
+        rt.update(|s, _| s.commit.drafting = true);
+        rt.frame(0.016);
+        press(&mut rt, "commit-action-commit");
+        let mut working = Some(Then::Push);
+        rt.update(|s, _| working = s.commit.working);
+        assert_eq!(working, None, "Commit pressed while the message is being written");
+    }
+
     // CommitChanges.tsx `CommitOutcome`: Done after a commit, Back after a refusal, each an `lc-button`.
     #[test]
     fn the_outcome_has_a_done_button_and_a_refusal_a_back_button() {

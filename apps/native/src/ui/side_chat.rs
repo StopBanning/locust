@@ -838,6 +838,29 @@ mod tests {
         assert_eq!((button.rect[2], button.rect[3]), (browser.rect[2], browser.rect[3]), "the same size as the header's other icons");
     }
 
+    // Lane check of small-2 row 2: a header icon that opens a panel reads as on while its panel is open, as App.tsx's
+    // header icons do (`aria-pressed={changesOpen}`, App.tsx:10386; `aria-pressed={inspectorOpen}`, :10354), heard as
+    // AccessKit's toggled state ("checked"/"unchecked", head_icons_tests.rs).
+    #[test]
+    fn ask_on_the_side_reads_as_on_while_the_side_chat_is_open() {
+        fn toggled(rt: &Runtime<State>) -> Vec<String> {
+            fn find<'a>(tree: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+                if tree["key"] == key {
+                    return Some(tree);
+                }
+                tree["children"].as_array()?.iter().find_map(|c| find(c, key))
+            }
+            let tree = rt.accessibility_json();
+            let node = find(&tree, "ask-on-side-button").expect("in the tree");
+            node["states"].as_array().into_iter().flatten().filter_map(|v| v.as_str()).filter(|s| s.ends_with("checked")).map(str::to_owned).collect()
+        }
+        let mut rt = header_pair();
+        assert_eq!(toggled(&rt), ["unchecked"], "closed, it reads as off");
+        rt.update(|s, _| s.side_chat = Some(sample_side("completed", Vec::new())));
+        rt.frame(0.0);
+        assert_eq!(toggled(&rt), ["checked"], "open, it reads as on");
+    }
+
     // shell.css `.lc-headicon { background: transparent }` and `.lc-headicon:hover:not(:disabled) { background:
     // var(--lc-hover-surface) }`: nothing under it at rest, the header's wash under the pointer, as its neighbours.
     // (Rune lists an element's resting fill and how far its hover has come, not the wash's colour, so the wash is
