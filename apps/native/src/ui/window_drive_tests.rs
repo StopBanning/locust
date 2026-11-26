@@ -1401,6 +1401,8 @@ fn a_branch_pull_request_shows_its_chip_watches_and_shows_the_news_banner() {
 
     click(&mut rt, "pr-watch-toggle");
     assert!(text_in(&rt, "pr-watch-toggle").join(" ").contains("Watching"));
+    // The watch's first look (the one later looks are compared with) runs off the UI thread; let it finish.
+    pump(&mut rt, "the watch's first look", |s| s.pr.watch_out.load(std::sync::atomic::Ordering::SeqCst) == 0);
 
     rt.update(|s, _| crate::pull_request_chip::watch_look_now(s));
     pump(&mut rt, "pull request news banner", |s| s.pr.news.is_some());
@@ -1428,6 +1430,196 @@ fn a_branch_pull_request_shows_its_chip_watches_and_shows_the_news_banner() {
 
     click(&mut rt, "pr-news-dismiss");
     assert!(rt.find("pr-news-banner").is_none());
+}
+
+/// a-pull-request-can-be-watched.test.ts, "the watch", in the window: core's `PullRequestWatch` behind the header's
+/// Watch toggle, over a folder on a branch with a pull request and a `gh` that answers `reads` in turn (the last
+/// again once they run out). Each `tick` is the watch's timer coming due: the window's schedule, brought forward.
+mod watched_pull_request {
+    use super::*;
+    use locust_core::folder_commit::{FolderCommits, Network};
+    use std::sync::{
+        Arc, Mutex,
+        atomic::Ordering,
+    };
+
+    const URL: &str = "https://github.com/someone/pebble/pull/12";
+
+    /// `gh pr view` JSON for #12 with three checks in `state`: all still running, or `failing` of them failed and the
+    /// rest passed.
+    pub(super) fn pr_json(state: &str, failing: usize) -> Value {
+        let checks: Vec<Value> = (0..3)
+            .map(|i| if i < failing {
+                json!({ "__typename": "CheckRun", "conclusion": "FAILURE", "status": "COMPLETED", "name": format!("CI {i}") })
+            } else if failing > 0 {
+                json!({ "__typename": "CheckRun", "conclusion": "SUCCESS", "status": "COMPLETED", "name": format!("CI {i}") })
+            } else {
+                json!({ "__typename": "CheckRun", "conclusion": "", "status": "IN_PROGRESS", "name": format!("CI {i}") })
+            })
+            .collect();
+        json!({ "isDraft": false, "number": 12, "reviewDecision": "", "state": state, "statusCheckRollup": checks,
+                "title": "Fix totals", "url": URL })
+    }
+
+    struct ScriptedGh(Mutex<Vec<Value>>);
+    impl Network for ScriptedGh {
+        fn run(&self, program: &str, args: &[String], _cwd: &Path) -> Result<String, String> {
+            if program != "gh" {
+                return Err("unexpected program".into());
+            }
+            match (args.first().map(String::as_str), args.get(1).map(String::as_str)) {
+                (Some("auth"), _) => Ok("Logged in".into()),
+                (Some("pr"), Some("view")) => {
+                    let mut reads = self.0.lock().unwrap();
+                    let read = if reads.len() > 1 { reads.remove(0) } else { reads[0].clone() };
+                    Ok(read.to_string())
+                }
+                _ => Err("unexpected gh call".into()),
+            }
+        }
+    }
+
+    /// The window on Codec's folder, a git repository on a branch whose pull request `gh` reads as `reads`.
+    pub(super) fn pr_window(reads: Vec<Value>) -> (Dirs, Runtime<State>, Arc<ScriptedGhCount>) {
+        let (dirs, _store, mut rt) = window();
+        let work = dirs.0.join("work");
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git").args(args).current_dir(&work).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "you@example.test"]);
+        git(&["config", "user.name", "You"]);
+        std::fs::write(work.join("cart.py"), "def total(): return 0\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "first"]);
+        git(&["remote", "add", "origin", "https://github.com/someone/pebble.git"]);
+        git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+        git(&["checkout", "-q", "-b", "locust/fix-totals"]);
+        let gh = Arc::new(ScriptedGhCount(std::sync::atomic::AtomicUsize::new(0)));
+        let reads = ScriptedGh(Mutex::new(reads));
+        let counted = gh.clone();
+        rt.update(move |s, _| {
+            s.pr.commits = Arc::new(FolderCommits::new(Box::new(Counting(reads, counted))));
+            s.pr.folder = None;
+        });
+        pump(&mut rt, "the pull request chip", |s| s.pr.current.as_ref().is_some_and(|(_, pr)| pr.is_some()));
+        settle(&mut rt);
+        (dirs, rt, gh)
+    }
+
+    /// How many times `gh pr view` was run.
+    pub(super) struct ScriptedGhCount(std::sync::atomic::AtomicUsize);
+    impl ScriptedGhCount {
+        pub(super) fn views(&self) -> usize {
+            self.0.load(Ordering::SeqCst)
+        }
+    }
+    struct Counting(ScriptedGh, Arc<ScriptedGhCount>);
+    impl Network for Counting {
+        fn run(&self, program: &str, args: &[String], cwd: &Path) -> Result<String, String> {
+            if args.first().map(String::as_str) == Some("pr") {
+                self.1.0.fetch_add(1, Ordering::SeqCst);
+            }
+            self.0.run(program, args, cwd)
+        }
+    }
+
+    /// Until the watch's calls are back, then the window's poll once more, so it takes what they said.
+    fn idle(rt: &mut Runtime<State>) {
+        pump(rt, "the watch's calls to finish", |s| s.pr.watch_out.load(Ordering::SeqCst) == 0);
+        rt.update(|s, tx| {
+            poll(s, 0.0, tx);
+        });
+        settle(rt);
+    }
+
+    /// The watch's timer comes due now: the window's tick asks for one look (the 60 s read cache forgotten, as three
+    /// minutes would have).
+    fn tick(rt: &mut Runtime<State>) {
+        rt.update(|s, _| {
+            assert!(s.pr.next_watch_at.is_some(), "the window schedules the watch's next look");
+            s.pr.commits.forget_sign_in();
+            s.pr.next_watch_at = Some(std::time::Instant::now());
+        });
+        pump(rt, "a tick's look to start", |s| s.pr.next_watch_at.is_some_and(|at| at > std::time::Instant::now()));
+        idle(rt);
+    }
+
+    #[test]
+    fn looks_at_once_then_on_each_tick_and_says_only_what_changed() {
+        let (_dirs, mut rt, gh) = pr_window(vec![pr_json("OPEN", 0), pr_json("OPEN", 0), pr_json("OPEN", 0), pr_json("OPEN", 1)]);
+        rt.update(|s, _| s.pr.commits.forget_sign_in());
+        let before = gh.views();
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        assert!(rt.state.pr.watch.watching(URL), "core's watch holds it");
+        assert_eq!(gh.views(), before + 1, "it looks at once");
+        assert!(rt.state.pr.watch.timer_armed(), "and its timer is on");
+        tick(&mut rt);
+        assert_eq!(gh.views(), before + 2, "a tick is one look");
+        assert!(rt.state.pr.news.is_none(), "nothing changed, nothing said");
+        tick(&mut rt);
+        assert_eq!(rt.state.pr.news.as_ref().map(|n| n.said.as_str()), Some("1 of 3 checks did not pass"));
+        assert!(rt.find("pr-news-banner").is_some());
+    }
+
+    #[test]
+    fn stops_watching_a_merged_one_once_it_has_said_so_and_the_timer_with_it() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0), pr_json("MERGED", 0)]);
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        tick(&mut rt);
+        assert_eq!(rt.state.pr.news.as_ref().map(|n| n.said.as_str()), Some("It was merged"));
+        assert!(!rt.state.pr.watch.watching(URL));
+        assert!(!rt.state.pr.watch.timer_armed());
+        rt.update(|s, tx| {
+            poll(s, 0.0, tx);
+        });
+        assert!(rt.state.pr.next_watch_at.is_none(), "no tick is scheduled");
+        assert!(!rt.state.pr.watched_urls.iter().any(|u| u == URL), "nor kept on the window's list");
+    }
+
+    #[test]
+    fn has_no_timer_while_nothing_is_watched() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0)]);
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        assert!(rt.state.pr.next_watch_at.is_some());
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        assert!(!rt.state.pr.watch.watching(URL));
+        assert!(!rt.state.pr.watch.timer_armed());
+        assert!(rt.state.pr.next_watch_at.is_none());
+    }
+
+    // Lane check: PullRequestChip.tsx 0.731 -- a pull request watched before is watched again when it shows.
+    #[test]
+    fn watches_again_a_pull_request_it_watched_before_when_it_shows() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0)]);
+        assert!(!rt.state.pr.watch.watching(URL), "nothing was asked to be watched yet");
+        rt.update(|s, _| {
+            s.pr.watched_urls = vec![URL.to_owned()];
+            s.pr.watched_loaded = true;
+            s.pr.folder = None;
+            s.pr.current = None;
+            s.pr.commits.forget_sign_in();
+        });
+        pump(&mut rt, "the pull request to show again and be watched", |s| s.pr.watch.watching(URL));
+        assert!(rt.state.pr.watch.timer_armed());
+    }
+
+    // Lane check: a closed pull request leaves the window's list as a merged one does (the chip's own `Merged | Closed`).
+    #[test]
+    fn lets_a_closed_one_go_off_the_windows_list_as_a_merged_one_does() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0), pr_json("CLOSED", 0)]);
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        assert!(rt.state.pr.watched_urls.iter().any(|u| u == URL), "watched while open");
+        tick(&mut rt);
+        assert!(!rt.state.pr.watched_urls.iter().any(|u| u == URL), "not kept on the window's list once closed");
+    }
 }
 
 #[test]

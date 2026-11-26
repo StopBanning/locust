@@ -3,8 +3,8 @@
 //! kept, Keep as its own decision, and the kept packs with Look for changes and Remove. Every word about a pack and
 //! every request is `locust_core::skill_library`; this file draws it and runs the requests off the window's thread.
 //!
-//! Not drawn yet: the box to paste a repository of your own (the shelf's packs and the kept ones are looked at here;
-//! a pasted link still runs in Locust).
+//! GitHub is asked through `chat_http::PlainHttp`, which hands every redirect back, so the library's rule (only
+//! GitHub's own two hosts) decides each hop on the real network as it does against the tests' fake.
 
 use super::*;
 use locust_core::chat_http::HttpClient;
@@ -29,6 +29,8 @@ pub(super) struct Shelf {
     pub arming: Option<String>,
     /// Pages a tile opened, kept instead of opened in tests.
     pub opened: Vec<String>,
+    /// The box under the shelf: a repository of the person's own (`owner/repo` or its github.com link).
+    pub link: TextEdit,
 }
 
 pub(super) enum Answer {
@@ -51,10 +53,12 @@ fn client() -> Option<Arc<dyn HttpClient>> {
     if cfg!(test) {
         return None;
     }
-    #[cfg(target_os = "macos")]
-    return Some(Arc::new(locust_core::chat_http::mac::MacUrlSessionClient::new()));
-    #[cfg(not(target_os = "macos"))]
-    None
+    Some(real_client())
+}
+
+/// The client the shelf asks GitHub with, on every platform: one that never follows a redirect itself.
+pub(super) fn real_client() -> Arc<dyn HttpClient> {
+    Arc::new(locust_core::chat_http::PlainHttp::new())
 }
 
 struct Shared(Arc<dyn HttpClient>);
@@ -144,6 +148,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         Answer::Kept(Ok(kept), count, source) => {
             shelf.kept = kept;
             shelf.preview = None;
+            shelf.link = TextEdit::default();
             let them = if count == 1 { "it" } else { "them" };
             shelf.said = Some((format!("Kept {} from {source}. {} teammates get {them} from their next run.", plural(count, "skill"), locust_core::skill_runtimes::SKILL_RUNTIME_NAMES), true));
         }
@@ -230,8 +235,47 @@ fn tile(pack: &'static Pack, meta: String, busy: bool, p: &Palette) -> El {
     )
 }
 
+/// A tile: the box takes the pack's name, and the pack is looked at with all its skills picked.
 fn look_at(s: &mut State, source: &str) {
+    s.skills_from_github.link = TextEdit::new(source);
     look(s, source, true)
+}
+
+/// The box's Look (and Return in it): only a look at what was pasted, nothing picked yet.
+fn look_at_link(s: &mut State) {
+    let link = s.skills_from_github.link.text.clone();
+    look(s, &link, false);
+}
+
+/// SkillsFromGitHub.tsx `lc-skilllib__look`: the box, then Look (Looking… while a look is out).
+fn look_box(shelf: &Shelf, p: &Palette) -> El {
+    let ready = !shelf.link.text.trim().is_empty() && shelf.busy.is_none();
+    let mut go = button(if shelf.busy == Some(LOOKING) { LOOKING } else { "Look" }, "skills-look".into(), false, p);
+    if ready {
+        go = go.on_press(look_at_link);
+    }
+    row()
+        .w_full()
+        .gap(8.0)
+        .center_y()
+        .key("skills-look-box")
+        .child(
+            text_input(&shelf.link, type_::BODY.mono())
+                .key("skills-link")
+                .single_line()
+                .label("A GitHub repository with skills")
+                .placeholder("owner/repo, or its github.com link", p.muted)
+                .grow(1.0)
+                .h(32.0)
+                .padding(6.0)
+                .radius(6.0)
+                .border(1.0, p.hairline)
+                .fill(p.bg)
+                .color(p.text)
+                .on_edit(|s: &mut State| &mut s.skills_from_github.link)
+                .on_submit(|s: &mut State, _: &mut Tx| look_at_link(s)),
+        )
+        .child(go)
 }
 
 fn skill_row(skill: &PreviewSkill, sha: &str, picked: bool, p: &Palette) -> El {
@@ -297,7 +341,11 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         let gone = source.clone();
         let mut actions = row().gap(8.0);
         if !busy {
-            actions = actions.child(button("Look for changes", format!("skills-again-{source}"), false, p).on_press(move |s: &mut State| look(s, &again, false)));
+            let named = source.clone();
+            actions = actions.child(button("Look for changes", format!("skills-again-{source}"), false, p).on_press(move |s: &mut State| {
+                s.skills_from_github.link = TextEdit::new(&named);
+                look(s, &again, false)
+            }));
             actions = actions.child(
                 button(if arming { "Remove?" } else { "Remove" }, format!("skills-remove-{source}"), false, p)
                     .label(if arming { format!("Remove {}?", plural(kept.skills.len(), "skill")) } else { format!("Remove the skills kept from {source}") })
@@ -329,6 +377,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
                 .child(actions),
         );
     }
+    body = body.child(look_box(shelf, p));
     if shelf.busy == Some(LOOKING) {
         body = body.child(text(LOOKING.to_owned()).font(type_::BODY).color(p.secondary).key("skills-looking"));
     }

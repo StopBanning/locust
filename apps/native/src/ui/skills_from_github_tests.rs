@@ -156,3 +156,89 @@ fn every_file_that_runs_is_named_before_keeping_even_when_a_skill_has_more_than_
     assert_eq!(runs_text(&["a.sh", "b.py", "c.js", "d.exe", "e.ps1"]).as_deref(), Some("Runs: a.sh, b.py, c.js, d.exe, e.ps1"));
     assert_eq!(runs_text(&[]), None);
 }
+
+// skills-kept-from-github.test.ts's cases are core's (skill_library.rs); these two are where the window holds them:
+// the box a repository of the person's own is pasted in (SkillsFromGitHub.tsx `lc-skilllib__look`), and the client
+// that lets "follows a redirect only to GitHub's own hosts" hold on the real network.
+
+#[test]
+fn a_repository_of_your_own_is_pasted_in_the_box_and_only_looked_at() {
+    let (_t, s) = with_store();
+    let mut rt = page(s);
+    assert!(rt.find("skills-link").is_some(), "the box is drawn");
+    assert!(words(&rt).contains("| Look |"), "and its Look");
+    // Look does nothing with the box empty.
+    click(&mut rt, "skills-look");
+    assert_eq!(rt.state.skills_from_github.busy, None);
+    use_client(Arc::new(Pack));
+    click(&mut rt, "skills-link");
+    rt.paste("https://github.com/mattpocock/skills");
+    rt.frame(0.0);
+    click(&mut rt, "skills-look");
+    assert_eq!(rt.state.skills_from_github.busy, Some(LOOKING), "Look asks GitHub");
+    settle(&mut rt);
+    let preview = rt.state.skills_from_github.preview.clone().expect("a look");
+    assert_eq!(preview.source, "mattpocock/skills");
+    // A pasted repository is looked at, nothing picked for it and nothing kept.
+    assert!(rt.state.skills_from_github.picked.is_empty());
+    let store = rt.state.data.clone().unwrap();
+    assert!(SkillLibrary::for_store(&store, Box::new(Offline)).list().is_empty(), "a look keeps nothing");
+    // Return in the box looks too.
+    rt.update(|s, _| s.skills_from_github.preview = None);
+    click(&mut rt, "skills-link");
+    rt.key(rune::Key::Enter.into());
+    rt.frame(0.0);
+    settle(&mut rt);
+    assert!(rt.state.skills_from_github.preview.is_some(), "Return looked again");
+}
+
+#[test]
+fn the_shelfs_own_client_hands_a_redirect_back_so_only_githubs_hosts_are_followed() {
+    use std::io::{Read as _, Write as _};
+    let elsewhere = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let target = format!("http://{}/payload", elsewhere.local_addr().unwrap());
+    elsewhere.set_nonblocking(true).unwrap();
+    let first = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/repos/acme/skills", first.local_addr().unwrap());
+    let answer = format!("HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    std::thread::spawn(move || {
+        if let Ok((mut stream, _)) = first.accept() {
+            let _ = stream.read(&mut [0u8; 4096]);
+            let _ = stream.write_all(answer.as_bytes());
+        }
+    });
+    let got = real_client()
+        .send(HttpRequest { method: "GET".into(), url, headers: vec![("User-Agent".into(), "Locust".into())], body: None, timeout_secs: 5 })
+        .expect("an answer");
+    assert_eq!(got.status, 302, "the redirect comes back to the library, which allows only GitHub's own hosts");
+    assert!(elsewhere.accept().is_err(), "where it pointed was never asked");
+}
+
+/// The Look button's own words.
+fn look_button(rt: &Runtime<State>) -> Option<String> {
+    rt.elements().into_iter().find(|e| e.key.as_deref() == Some("skills-look")).and_then(|e| e.text)
+}
+
+// Lane check: SkillsFromGitHub.tsx -- a tile and Look for changes put the pack's name in the box, Look reads Looking…
+// while a look is out, and a keep empties the box.
+#[test]
+fn a_tile_and_look_for_changes_name_the_pack_in_the_box_and_a_keep_empties_it() {
+    let (_t, s) = with_store();
+    let mut rt = page(s);
+    use_client(Arc::new(Pack));
+    assert_eq!(look_button(&rt).as_deref(), Some("Look"));
+    click(&mut rt, "skills-pack-mattpocock/skills");
+    assert_eq!(rt.state.skills_from_github.link.text, "mattpocock/skills", "the tile names its pack in the box");
+    assert_eq!(look_button(&rt).as_deref(), Some("Looking…"), "Look reads Looking… while a look is out");
+    settle(&mut rt);
+    assert_eq!(look_button(&rt).as_deref(), Some("Look"));
+    click(&mut rt, "skills-keep");
+    settle(&mut rt);
+    assert_eq!(rt.state.skills_from_github.link.text, "", "a keep empties the box");
+    for _ in 0..20 {
+        rt.frame(0.05);
+    }
+    click(&mut rt, "skills-again-mattpocock/skills");
+    assert_eq!(rt.state.skills_from_github.link.text, "mattpocock/skills", "Look for changes names the pack too");
+    settle(&mut rt);
+}

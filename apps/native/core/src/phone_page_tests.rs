@@ -156,11 +156,13 @@ fn parses(script: &str) -> Option<bool> {
 
 #[test]
 fn parses_as_the_browser_receives_it_the_phone_page_both_ways_its_service_worker_and_the_way_in() {
-    // The way in (Electron's deskPage) is not built in this app: there is no desk page to parse (tests.tsv says so).
+    // The way in is `desk_page` (Electron's deskPage), which the relay serves at /desk/.
     for (name, script) in [
         ("the home Wi-Fi page", script_of(&phone_page(PhonePageVia::Lan, None)).to_owned()),
         ("the relay page", script_of(&phone_page(PhonePageVia::Relay, Some(&"k".repeat(87)))).to_owned()),
         ("the service worker", PHONE_SERVICE_WORKER.to_owned()),
+        ("the way in", script_of(&crate::desk_page::desk_page(false)).to_owned()),
+        ("the way in, with GitHub", script_of(&crate::desk_page::desk_page(true)).to_owned()),
     ] {
         let Some(ok) = parses(&script) else { return };
         assert!(ok, "{name} does not parse as the browser receives it");

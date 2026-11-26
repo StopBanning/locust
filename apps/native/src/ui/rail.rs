@@ -554,11 +554,12 @@ pub(super) fn needs_you_items(s: &State) -> Vec<locust_core::needs_you::NeedsYou
         if active_mission == Some(mission_id) {
             return active_owner;
         }
-        s.recent
-            .iter()
-            .find(|r| r.id == mission_id)
-            .map(|r| r.teammate.as_str())
-            .filter(|id| !id.is_empty())
+        // The teammate's id, as a needs-you item carries it (`teammateId`): the owner the window keeps, else the one
+        // the listing names (the listing names a teammate by name, so it is looked up).
+        s.mission_owners.get(mission_id).map(String::as_str).or_else(|| {
+            let named = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.as_str()).filter(|n| !n.is_empty())?;
+            s.teammates.iter().find(|t| t.id == named || t.name == named).map(|t| t.id.as_str())
+        })
     };
     let name_of = |teammate_id: &str| -> Option<&str> {
         s.teammates
