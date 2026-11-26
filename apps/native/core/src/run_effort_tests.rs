@@ -176,3 +176,20 @@ fn judges_the_account_default_on_its_own_row_when_no_model_is_named() {
     assert_eq!(start_route(&defaults, "opencode", None, Some("high")), (None, None));
     assert_eq!(start_route(&[], "claude", None, Some("high")), (None, Some("high".to_owned())));
 }
+
+// App.tsx runEffortFor finds the family by `modelId`, and a teammate on the account's default model has the id
+// `account-default` (status.ts ACCOUNT_DEFAULT_MODEL): a run that names no model is judged on that row's levels.
+#[test]
+fn a_run_naming_no_model_is_sent_the_level_the_account_default_row_shows() {
+    let catalog = vec![
+        json!({"id": "account-default", "runtime": "codex", "displayName": "Account default", "description": "", "supportedEfforts": ["low", "medium", "high"]}),
+        json!({"id": "gpt-5.6-sol", "runtime": "codex", "displayName": "Sol", "description": "", "supportedEfforts": ["low", "high"]}),
+    ];
+    use_catalog_on_this_thread(Some(catalog));
+    // Medium: status.ts defaultEffort, for the row listing low, medium and high (not Sol's two, which have no medium).
+    assert_eq!(run_effort_at_start("codex", None, None), Some("medium".to_owned()));
+    assert_eq!(run_effort_at_start("codex", Some(""), None), Some("medium".to_owned()));
+    // A level someone chose is sent as it is, whatever the row.
+    assert_eq!(run_effort_at_start("codex", None, Some("high")), Some("high".to_owned()));
+    use_catalog_on_this_thread(None);
+}
