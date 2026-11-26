@@ -1794,8 +1794,8 @@ apps/desktop/src/main/codex-mission.test.ts	leaves a registered run its skills u
 apps/desktop/src/main/codex-mission.test.ts	gives a Cursor run its copied skills plugin and removes it when the process finishes	no
 apps/desktop/src/main/codex-mission.test.ts	records that a plan was a plan, while still holding it read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when the workspace has Auto switched off, and records nothing	yes
-apps/desktop/src/main/codex-mission.test.ts	refuses a paid route in a window held to free routes, before anything is asked or recorded	no
-apps/desktop/src/main/codex-mission.test.ts	lets a free route through a window held to free routes	no
+apps/desktop/src/main/codex-mission.test.ts	refuses a paid route in a window held to free routes, before anything is asked or recorded	yes
+apps/desktop/src/main/codex-mission.test.ts	lets a free route through a window held to free routes	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when nobody wired the switch at all	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses the NEXT Auto run once the switch is taken back, on the same service	yes
 apps/desktop/src/main/codex-mission.test.ts	runs an Auto mission on the widest sandbox once the workspace allows it	yes

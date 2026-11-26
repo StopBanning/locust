@@ -6,8 +6,9 @@
 //! using Locust launches it that way; the drive harness also sets `LOCUST_FREE_ONLY=1`. `LOCUST_SPEND=1`, set by the
 //! person running a drive that is meant to spend, lifts it. It only ever takes something away.
 //!
-//! On the shelf: the start gate that refuses a route that is not free with `FREE_ONLY_REFUSAL` when this says so
-//! (codex-mission.ts and antigravity-mission.ts in Electron) belongs in `native::send_from`, which this file does not own.
+//! The start gate is in `native::send_from` (codex-mission.ts and antigravity-mission.ts in Electron): when
+//! `free_routes_only_now` says so, a route `scout::host::is_free_route` does not call free is refused with
+//! `FREE_ONLY_REFUSAL` before anything is recorded or spawned. Antigravity has no free route, and starts there too.
 
 /// What the drive harness sets to hold a launch to free routes.
 pub const FREE_ONLY_ENVIRONMENT: &str = "LOCUST_FREE_ONLY";
@@ -26,4 +27,36 @@ pub fn free_routes_only(argv: &[String], environment: &dyn Fn(&str) -> Option<St
         return true;
     }
     argv.iter().any(|argument| argument.starts_with("--remote-debugging-port"))
+}
+
+/// Whether THIS launch is held to free routes: `free_routes_only` over its own arguments and environment, which is
+/// what a start asks. A test holds or frees its own thread instead (`hold_free_routes_for_test`), never the process's.
+pub fn free_routes_only_now() -> bool {
+    #[cfg(any(test, feature = "test-hooks"))]
+    if let Some(held) = HELD_FOR_TEST.with(std::cell::Cell::get) {
+        return held;
+    }
+    free_routes_only(&std::env::args().collect::<Vec<_>>(), &|key| std::env::var(key).ok())
+}
+
+#[cfg(any(test, feature = "test-hooks"))]
+thread_local! {
+    static HELD_FOR_TEST: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// Until the returned guard is dropped, `free_routes_only_now` on this thread answers `held` (tests only).
+#[cfg(any(test, feature = "test-hooks"))]
+pub fn hold_free_routes_for_test(held: bool) -> HeldForTest {
+    HELD_FOR_TEST.with(|cell| cell.set(Some(held)));
+    HeldForTest(())
+}
+
+#[cfg(any(test, feature = "test-hooks"))]
+pub struct HeldForTest(());
+
+#[cfg(any(test, feature = "test-hooks"))]
+impl Drop for HeldForTest {
+    fn drop(&mut self) {
+        HELD_FOR_TEST.with(|cell| cell.set(None));
+    }
 }

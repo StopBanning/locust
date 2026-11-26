@@ -2697,6 +2697,16 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             return Err(why);
         }
     }
+    // free-routes.ts (codex-mission.ts, antigravity-mission.ts): a window a test drive opened spends nothing, whichever
+    // way the run was asked for. Refused before anything is recorded or spawned, on the model the run would be given.
+    {
+        let runtime = job.teammate.runtime.as_deref().unwrap_or("codex");
+        let model = job.model.as_deref().or(job.teammate.model.as_deref()).filter(|m| !m.is_empty() && *m != "account-default");
+        let model = if runtime == "kilo" { Some(crate::runtime::kilo::model_for_run(model)) } else { model.map(str::to_owned) };
+        if crate::model_lists::free_routes_only_now() && !crate::scout::host::is_free_route(runtime, model.as_deref()) {
+            return Err(crate::model_lists::FREE_ONLY_REFUSAL.into());
+        }
+    }
     // organization-spend.ts: a teammate with a monthly limit that this month's spending has reached does not start, and
     // the organization's cap holds over any personal amount, for a turn with no teammate in the roster too.
     let in_roster = saved["teammates"].as_array().and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id));
