@@ -1001,6 +1001,17 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             picker = picker.child(row().w_full().px(6.0).child(plus_menu(s, &l, teammate)));
         }
 
+        // Home sits above the message box, which stays at the window's foot (Electron: FirstLaunch in App's thread
+        // column, the composer under it). Drawing Home in place of the whole column left no message box (live hour).
+        if s.home.home_open {
+            return col()
+                .grow(1.0)
+                .shrink()
+                .h_full()
+                .child(crate::home_panel::home_view(s, p))
+                .child(column(picker))
+                .child(column(composer_stack));
+        }
         col()
             .grow(1.0)
             .shrink()

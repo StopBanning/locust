@@ -6825,3 +6825,15 @@ fn a_recent_route_picked_with_no_level_starts_on_its_runtimes_default_level() {
     assert_eq!(rt.state.picks["tm_codec"].model,"fable");
     assert_eq!(rt.state.picks["tm_codec"].effort.as_deref(),Some("high"));
 }
+
+// Live hour (26 Nov): Home sits above the message box, as Electron's FirstLaunch sits in App's thread column with the
+// composer under it. Home drawn in place of the whole column left no box to write in.
+#[test]
+fn home_keeps_the_message_box_at_its_foot() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| s.home.home_open = true);
+    settle(&mut rt);
+    assert!(rt.find("home-pane").is_some(), "Home is drawn");
+    assert!(rt.find("composer").is_some(), "the message box is under it");
+    assert!(rt.find("thread-header-name").is_none(), "no conversation header over Home");
+}

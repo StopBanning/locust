@@ -2925,7 +2925,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     } else if s.home.board_open {
         home_panel::board_view(s, &p)
     } else if s.home.home_open {
-        home_panel::home_view(s, &p)
+        // With a conversation to send in, Home is drawn inside the thread column, above its message box.
+        if selected_conversation(s).is_some() { thread_view(s, &p) } else { home_panel::home_view(s, &p) }
     } else if s.settings_panel.open {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {

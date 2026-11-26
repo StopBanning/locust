@@ -208,6 +208,13 @@ pub fn write_remembered_workspace(file: &Path, path: &str) -> Result<(), String>
 }
 
 /// Resolve the workspace folder for the current process at startup.
+/// The folder the running program sits in (Electron's `dirname(app.getPath('exe'))`): what a teammate's folder may
+/// never be inside. None when the program's path is unknown.
+pub fn startup_install_directory(exe: Option<&Path>) -> Option<String> {
+    let dir = exe?.parent()?;
+    (dir.parent().is_some()).then(|| dir.to_string_lossy().into_owned())
+}
+
 pub fn resolve_startup_workspace(remembered: Option<&str>) -> Option<String> {
     let argv: Vec<String> = std::env::args().collect();
     let cwd = std::env::current_dir()
@@ -221,12 +228,14 @@ pub fn resolve_startup_workspace(remembered: Option<&str>) -> Option<String> {
         .as_deref()
         .map(|h| Path::new(h).join("Documents").join("Locust").to_string_lossy().into_owned());
     let system_dir = std::env::var("SystemRoot").ok();
-    // On macOS, a bundled .app launched from Finder has cwd = "/". Treat "/" as not a project launch folder.
-    let install_dir = if !cfg!(windows) && cwd == "/" { Some("/") } else { None };
+    // index.ts: the install folder is the one the app's own program sits in (`dirname(app.getPath('exe'))`). A bundled
+    // .app launched from Finder starts in "/", which folder_caution already refuses as a launch folder; "/" must never
+    // be the install folder, or every remembered folder sits inside it and is thrown away (live hour, 26 Nov).
+    let install_dir = startup_install_directory(std::env::current_exe().ok().as_deref());
     resolve_workspace_path(&ResolveOptions {
         argv: &argv,
         cwd: &cwd,
-        install_directory: install_dir,
+        install_directory: install_dir.as_deref(),
         remembered,
         default_workspace: default_ws.as_deref(),
         win32: cfg!(windows),
