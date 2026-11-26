@@ -8024,12 +8024,12 @@ packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in A
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in a worktree, beside the repository it may reach	yes
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	keeps a chat-only model's tools off, every one of them	yes
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	starts a config when there was none	no
-packages/runtime-adapters/test/opencode-commands.test.ts	never starts the V1 command server when OpenCode 2 is installed	no
-packages/runtime-adapters/test/opencode-commands.test.ts	are read from a server started in the folder, with a password and no plugins, which is then stopped	no
-packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an empty menu, when the server will not say, and the server is still stopped	no
+packages/runtime-adapters/test/opencode-commands.test.ts	never starts the V1 command server when OpenCode 2 is installed	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	are read from a server started in the folder, with a password and no plugins, which is then stopped	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an empty menu, when the server will not say, and the server is still stopped	yes
 packages/runtime-adapters/test/opencode-commands.test.ts	is named on the command line, and its arguments are the message on stdin	no
-packages/runtime-adapters/test/opencode-commands.test.ts	refuses a name no command could have	no
-packages/runtime-adapters/test/opencode-commands.test.ts	is an ordinary run when there is no command	no
+packages/runtime-adapters/test/opencode-commands.test.ts	refuses a name no command could have	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	is an ordinary run when there is no command	yes
 packages/runtime-adapters/test/opencode-error.test.ts	pulls the provider's own error type out of the response body	yes
 packages/runtime-adapters/test/opencode-error.test.ts	falls back to the error's name when there is no body to read	yes
 packages/runtime-adapters/test/opencode-error.test.ts	survives a response body that is not JSON	yes

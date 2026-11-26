@@ -43,7 +43,7 @@ pub fn encoded(s: &str) -> String {
     }
     out
 }
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::new();
     for b in bytes.chunks(3) {
@@ -65,7 +65,7 @@ fn base64(bytes: &[u8]) -> String {
     }
     out
 }
-fn password() -> io::Result<String> {
+pub(crate) fn password() -> io::Result<String> {
     let mut bytes = [0u8; 24];
     #[cfg(unix)]
     {

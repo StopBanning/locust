@@ -523,3 +523,6 @@ fn turns_settled_parts_into_records_and_the_replys_text_while_it_is_written_into
 
 #[path = "opencode_every_mode_case_tests.rs"]
 mod every_mode;
+
+#[path = "opencode_commands_run_case_tests.rs"]
+mod commands_run;
