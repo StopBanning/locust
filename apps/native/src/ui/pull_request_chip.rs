@@ -469,7 +469,8 @@ pub(super) fn chip_view(pr: &FolderPullRequest, p: &Palette) -> El {
         .focus_ring(2.0, 2.0, l.c("focus-ring"))
         .role("button")
         .label(format!("Pull request {}, {}. Opens on GitHub.", pr.number, line))
-        .child(rune::icon(&GITHUB_MARK, 13.0).color(l.c("text-secondary")))
+        .help(format!("Pull request #{}: {}\n{}\nOpens on GitHub", pr.number, pr.title, line))
+        .child(rune::icon(&GITHUB_MARK, 13.0).key("pr-chip-mark").color(l.c("text-secondary")))
         .child(
             text(format!("#{}", pr.number))
                 .font(type_::LABEL)
@@ -785,6 +786,37 @@ mod tests {
     }
 
     // --- a-pull-request-chip-says-its-state.test.tsx ---
+
+    // case: names the pull request by number and state, with GitHub’s mark, and the whole line on hover
+    #[test]
+    fn the_chip_names_the_number_and_state_with_githubs_mark_and_the_whole_line_on_hover() {
+        let pr = FolderPullRequest {
+            number: 17,
+            title: "Fix the cart total".into(),
+            url: "https://github.com/someone/pebble/pull/17".into(),
+            state: PullRequestState::Open,
+            checks: PullRequestChecks::Passing,
+            check_count: 2,
+            not_passed: 0,
+            review: None,
+            conflicts: false,
+            updated_at: None,
+        };
+        let rt = render_tree(move |_| chip_view(&pr, &Palette::new(true)));
+        let all = rt.elements();
+        let chip = all.iter().find(|e| e.key.as_deref() == Some("pr-chip")).expect("the chip");
+        // Electron's title attribute, word for word.
+        assert_eq!(
+            chip.help.as_deref(),
+            Some("Pull request #17: Fix the cart total\nOpen · all 2 checks passed\nOpens on GitHub")
+        );
+        let mark = all.iter().find(|e| e.key.as_deref() == Some("pr-chip-mark")).expect("GitHub's mark");
+        assert_eq!(mark.role, "icon");
+        assert_eq!(GITHUB_MARK.view, 16.0, "GitHub's mark is drawn in a 16 x 16 box, like Electron's viewBox");
+        assert!(GITHUB_MARK.body.contains("M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59"));
+        let texts: Vec<String> = all.iter().filter_map(|e| e.text.clone()).collect();
+        assert_eq!(texts, vec!["#17".to_string(), "Open".to_string()]);
+    }
 
     // case: wears its checks’ tone while open, and merged’s own once merged
     #[test]
