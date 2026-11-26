@@ -11,8 +11,9 @@
 //! - The tools are exactly what an app on this computer gets (`locust-mcp-bridge.mjs`), run through [`McpTools`].
 //! - Remove takes one app's keys away at once. Turning this off takes every app's.
 //!
-//! Every network call goes behind [`McpRelay`]; the relay's own side (room, pages, held requests) is not here. The
-//! live transport is [`StubMcpRelay`] until Apple's NSURLSession transport lands (`ureq` has no TLS).
+//! Every network call goes behind [`McpRelay`]; the relay's own side (room, pages, held requests) is not here. The live
+//! relay is the phone link's own line (`PhoneAnywhere` is an `McpRelay`), and the tools are the door's
+//! (`door::tools_from_anywhere`).
 
 use crate::door_tools::ToolResult;
 use crate::routine_hooks::{iso_millis, random_base64url, sha256_base64url};
@@ -200,6 +201,16 @@ impl McpRelay for StubMcpRelay {
 /// Locust's tool calls, as an app on this computer makes them (the door's engine).
 pub trait McpTools: Send + Sync {
     fn call(&self, name: &str, arguments: &Value) -> Result<ToolResult, String>;
+}
+
+/// The door's own tools (`door::tools_from_anywhere`), or any function that answers a call as they do.
+impl<F> McpTools for F
+where
+    F: Fn(&str, &Value) -> ToolResult + Send + Sync,
+{
+    fn call(&self, name: &str, arguments: &Value) -> Result<ToolResult, String> {
+        Ok(self(name, arguments))
+    }
 }
 
 type Now = Arc<dyn Fn() -> i64 + Send + Sync>;

@@ -673,3 +673,29 @@ fn an_app_with_a_long_name_is_shown_by_its_first_eighty_letters_and_one_with_non
     room.remote.answer_sign_in(&card.request, false);
     sign_in.join().unwrap();
 }
+
+#[test]
+fn the_doors_own_tools_answer_an_app_from_anywhere_in_ask_unless_each_teammates_own_mode_is_on() {
+    let root = folder("door-tools");
+    for part in ["native", "electron", "work"] {
+        std::fs::create_dir_all(root.join(part)).unwrap();
+    }
+    std::fs::write(
+        root.join("electron").join("teammates.json"),
+        json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_a", "name": "Reader", "hue": "blue", "role": "Custom", "createdAt": "2026-11-01T00:00:00Z", "folder": root.join("work").to_string_lossy(), "route": {"runtime": "codex", "model": "account-default", "mode": "plan"}}]}).to_string(),
+    )
+    .unwrap();
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let tools: Arc<dyn McpTools> = Arc::new(crate::door::tools_from_anywhere(store.clone()));
+    let runs_in = |tools: &Arc<dyn McpTools>| {
+        let listed: Value = serde_json::from_str(&tools.call("list_teammates", &json!({})).unwrap().text).unwrap();
+        (listed[0]["name"].clone(), listed[0]["runs_in"].clone())
+    };
+    // locust-mcp-tools.ts: `runs_in: own ? t.route?.mode ?? 'ask' : 'ask'`, the switch read as each call comes.
+    assert_eq!(runs_in(&tools), (json!("Reader"), json!("ask")));
+    let off = tools.call("list_conversations", &json!({})).unwrap();
+    assert_eq!(off.text, "Off: this app sees only the conversations it started. The person can turn on \"Let apps see your conversations\" in Locust's Settings.");
+    std::fs::write(store.root().join(crate::door::SETTINGS_FILE), json!({"enabled": true, "ownMode": true}).to_string()).unwrap();
+    assert_eq!(runs_in(&tools), (json!("Reader"), json!("plan")));
+    let _ = std::fs::remove_dir_all(&root);
+}
