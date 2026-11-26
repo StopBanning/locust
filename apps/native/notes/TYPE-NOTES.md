@@ -45,3 +45,28 @@ through the one import line in `main.rs` (`use crate::look::type_;`, line 362) a
 - Call sites outside tests: every screen's `type_::LABEL / BODY / TITLE` (933 uses, e.g. src/ui/sidebar.rs:384 `type_::LABEL`,
   src/main.rs:2885 `.body_font(type_::BODY)`); the two import lines above.
 - Pictures: `~/work/scratch/type-1/row2/`.
+
+## Row 3: Electron's line height for BODY and LABEL
+
+Electron: `body { font-size: 13.5px; line-height: var(--lc-leading-prose) }` (shell.css:25-31), `--lc-leading-prose: 1.55`
+(tokens.css:556). A unitless line height is inherited as the factor, so every rule that sets a size and no line height
+of its own has 1.55: counted over shell.css, 266 of the 291 rules at `--lc-text-description` (13 px) write none; the 25
+that do write 1.35 to 1.6 (1.5 the commonest, 12 of them). The toolkit's default, which `type_::LABEL` and `BODY` had, is
+1.25 times the size.
+
+- `look::type_::LEADING = 1.55`; `BODY` has 20.15 px lines (was 16.25) and `LABEL` 18.6 px (was 15). `TITLE` keeps 1.25
+  (a heading; the brief names BODY and LABEL). No screen gets the old height back: none looked clearly worse.
+- Tests: body's `line-height: var(--lc-leading-prose)` is in shell.css, the token is 1.55, and `line_px()` of BODY and LABEL
+  is size times it; TITLE is still 1.25; `crate::type_` (the screens') has the same heights.
+- Breaks (`~/work/scratch/evidence/type-1/row3.entries`): 5 of 5 KILLED. LEADING to 1.25, the `.lh(..)` taken off BODY
+  and off LABEL, TITLE given a line height, the import line pointed back at the toolkit.
+- Pictures: `~/work/scratch/type-1/row3/` against `row2/`. All ten read. Nothing wraps, clips or overlaps. Heights are in
+  CSS px (the pictures are at scale 2 and were viewed at 1.667 per CSS px, so figures are +-1 px):
+  - settings, settings-light: the settings page grows. Every row in the left list +3 px (53 to 58 viewed px at ~1.67);
+    the search field +4; the Dark/Light/Match chips and Standard/Large/Largest +4; each setting block +2 to +4 (Reply text
+    size block 183 to 190 viewed, Code font 124 to 128, Terminal faces 123 to 130). By the bottom of the window the page
+    is 29 px lower (Plush at 1120 to 1168 viewed): the Sidebar row now falls below the 800 px window where it was visible.
+  - team, team-light (a conversation with Codec): each reply paragraph +2 to +3 px a line (a reply at 431 to 435 viewed,
+    the second at 667 to 677); the copy icon, which follows the last reply, +8 px lower in all. User bubbles are the same.
+  - thread-rich, thread-rich-light: the status line under the thread ("Working...") is 2 px taller and sits 2 px higher.
+  - home, home-light, kit, kit-light: every box is within 2 px of row 2's (no change in the positions I measured).

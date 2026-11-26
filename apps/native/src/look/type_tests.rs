@@ -68,3 +68,27 @@ fn main_and_quick_take_their_type_from_this_module_not_the_toolkits() {
         assert!(!source.contains("use rune::tok::type_"), "{name} still imports the toolkit's sample scale");
     }
 }
+
+// ---- Row 3: the line height Electron's text has ------------------------------------------------------------------
+
+#[test]
+fn body_and_label_sit_on_electrons_line_height() {
+    let t = super::super::tokens(true);
+    let leading: f32 = t.raw("leading-prose").parse().expect("--lc-leading-prose is a number");
+    // shell.css gives `body` that leading, and text that writes no line-height inherits it.
+    assert!(SHELL_CSS.contains("line-height: var(--lc-leading-prose);"), "body's line-height");
+    assert_eq!(leading, 1.55);
+    for (name, style) in [("BODY", BODY), ("LABEL", LABEL)] {
+        assert!((style.line_px() - style.size * leading).abs() < 1e-3, "{name}: {} px lines for {} px text", style.line_px(), style.size);
+    }
+    // Neither is the toolkit's 1.25 any more; a heading keeps the toolkit's, as Row 3 of notes/TYPE-NOTES.md says.
+    assert!(BODY.line_px() > BODY.size * 1.5 && LABEL.line_px() > LABEL.size * 1.5);
+    assert_eq!(TITLE.line_px(), TITLE.size * 1.25);
+}
+
+#[test]
+fn the_screens_reach_those_line_heights() {
+    // Through main.rs's `type_`, the one every screen's import reaches.
+    assert_eq!(crate::type_::BODY.line_px(), BODY.line_px());
+    assert_eq!(crate::type_::LABEL.line_px(), LABEL.line_px());
+}
