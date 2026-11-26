@@ -81,6 +81,7 @@ fn versions_in(directory: &str) -> Vec<(String, u128)> {
 
 /// `find_named` over a given PATH (its name already checked), for a test to hand it one: the first absolute entry holding `name` as an
 /// executable file; relative and empty entries are never searched.
+#[cfg(test)]
 pub(crate) fn find_in(name: &str, paths: &std::ffi::OsStr) -> io::Result<PathBuf> {
     find_beyond_path(name, paths, || None)
 }
