@@ -2328,6 +2328,15 @@ mod renderer_model_tests {
         assert_eq!(saved["route"]["mode"],"ask");
     }
 
+    /// Lane check (26 Nov): NewTeammateDialog's fallback is the first mode the new route offers (modesFor), not Ask by
+    /// name: an ACP agent runs only Approve each, so a teammate on Ask moved to one lands on Approve each.
+    #[test]
+    fn a_mode_the_new_route_cannot_run_falls_back_to_the_first_it_offers() {
+        let mut s = form(Some(own(None)),true,LEVELS);
+        pick_model(&mut s, TurnPick {model:"some-agent".into(), runtime:Some("acp".into()), effort:None, account:Some(None)});
+        assert_eq!(s.people_panel.fields[6].text,"approve-each");
+    }
+
     #[test]
     fn a_new_team_without_a_composer_route_can_still_pick_its_first_model() {
         let mut s = form(None,true,LEVELS);
