@@ -522,23 +522,31 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
             label.push(' ');
             label.push_str(&locust_core::changes::line_counts(a, d));
         }
-        // ActivityCard.tsx COPY THE FILE (0.649): the whole file as it is now, read when asked; not for a deleted one.
-        let heading = if entry.file.status == "DELETED" {
-            disclosure(key.clone(), label, open, p)
-        } else {
-            let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
-            let shown = locust_core::path_words::relative_path(&entry.file.path, folder.as_deref());
-            let path = entry.file.path.clone();
-            row().w_full().center_y().gap(6.0).child(el().grow(1.0).shrink().child(disclosure(key.clone(), label, open, p))).child(
-                text("Copy")
-                    .font(type_::LABEL)
-                    .color(p.secondary)
-                    .role("button")
-                    .label(format!("Copy {shown}"))
-                    .key(format!("{key}/copy"))
-                    .on_press_tx(move |s: &mut State, tx: &mut Tx| copy_whole_file(s, tx, &path)),
-            )
+        // ActivityCard.tsx's file row: Open it in the viewer beside the conversation where one can (a conversation with a
+        // folder), Copy the whole file as it is now (0.649, not for a deleted one), and Show it in the file manager.
+        // None of them hands the file to the system to run.
+        let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
+        let shown = locust_core::path_words::relative_path(&entry.file.path, folder.as_deref());
+        let control = |word: &str, label: String, end: &str| {
+            text(word.to_owned()).font(type_::LABEL).color(p.secondary).role("button").label(label).key(format!("{key}/{end}"))
         };
+        let mut heading = row().w_full().center_y().gap(6.0).child(el().grow(1.0).shrink().child(disclosure(key.clone(), label, open, p)));
+        if folder.is_some() {
+            let path = entry.file.path.clone();
+            heading = heading.child(control("Open", format!("Open {shown}"), "view").on_press(move |s: &mut State| {
+                super::reply_actions::open_file(s, super::reply_actions::FileTarget { path: path.clone(), start: 0, end: 0 });
+            }));
+        }
+        if entry.file.status != "DELETED" {
+            let path = entry.file.path.clone();
+            heading = heading.child(control("Copy", format!("Copy {shown}"), "copy").on_press_tx(move |s: &mut State, tx: &mut Tx| copy_whole_file(s, tx, &path)));
+        }
+        let reveal = entry.file.path.clone();
+        let scope_key = key.clone();
+        let heading = heading.child(
+            control("Show", format!("Show {shown} in the file manager"), "reveal")
+                .on_press(move |s: &mut State| super::handed_files::reveal_handed_file(s, &scope_key, &reveal)),
+        );
         let mut card = col().w_full().child(heading);
         if open {
             card = card.child(match locust_core::changes::new_document(&entry.file) {

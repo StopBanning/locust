@@ -938,6 +938,25 @@ fn render_inline_math_para(
     row().w_full().flex_wrap().items_center().children(items)
 }
 
+/// A live reply without the table header still arriving at its end (settledText.ts: "holds a header row back until the
+/// rule under it has arrived"). rune-kit draws a `|` line of two cells as a table's head at once, so a line that turns
+/// out to be prose would redraw from a table into a paragraph; held, it is drawn once its rule begins, as the table it
+/// is. Only a header with nothing under it yet is held: not a row under another `|` line, nor a line inside a fence.
+fn without_bare_header(body: &str) -> &str {
+    let lines = body.strip_suffix('\n').unwrap_or(body);
+    let at = lines.rfind('\n').map_or(0, |i| i + 1);
+    let last = &lines[at..];
+    let piped = |line: &str| line.trim_start().starts_with('|');
+    let rule = |line: &str| line.trim().chars().all(|c| "|:- ".contains(c));
+    if !piped(last) || rule(last) {
+        return body;
+    }
+    let above = &lines[..at.saturating_sub(1)];
+    let above_line = above.rsplit('\n').next().unwrap_or("");
+    let in_fence = above.lines().filter(|l| l.trim_start().starts_with("```")).count() % 2 == 1;
+    if (at > 0 && piped(above_line)) || in_fence { body } else { &body[..at] }
+}
+
 fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
     let chip_reply = body_key(body);
     let feedback = s.copy_feedback.clone();
@@ -946,7 +965,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
         undrawn,
         math: math_pngs,
         inline_math,
-    } = crate::markdown_prep::prepare_reply(body, p.dark);
+    } = crate::markdown_prep::prepare_reply(if live { without_bare_header(body) } else { body }, p.dark);
     let diagram_tabs = s.diagram_code_tab.clone();
     let image_cache = s.image_cache.clone();
     let pictures = crate::step_pictures::reply_pictures(s, &prepared);
@@ -1275,6 +1294,40 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
         );
     }
     let picture = locust_core::image_files::is_image_path(&target.path);
+    // FileViewer.tsx's head: the file by its own name, the whole path in its hover (a viewer that says only
+    // `report.md` cannot tell you which); then Show it in the file manager and Save a copy. Nothing here hands the
+    // file to the system to run.
+    let name = target.path.replace('\\', "/").rsplit('/').next().unwrap_or(&target.path).to_owned();
+    let mut head = row()
+        .w_full()
+        .gap(8.0)
+        .center_y()
+        .child(text(name).color(p.text).wrap_anywhere().key("file-reader/name").label(target.path.clone()).help(target.path.clone()));
+    if !picture && target.start > 0 {
+        head = head.child(text(format!("lines {}\u{2013}{}", target.start, target.end)).font(type_::LABEL).color(p.muted));
+    }
+    let reveal_path = target.path.clone();
+    let save_path = target.path.clone();
+    head = head
+        .child(rune::spacer())
+        .child(
+            el().padding(4.0)
+                .key("file-reader/reveal")
+                .role("button")
+                .label("Show it in the file manager")
+                .help("Show it in the file manager")
+                .child(text("Show").font(type_::LABEL).color(p.secondary))
+                .on_press(move |s: &mut State| crate::handed_files::reveal_handed_file(s, "file-reader", &reveal_path)),
+        )
+        .child(
+            el().padding(4.0)
+                .key("file-reader/save")
+                .role("button")
+                .label("Save a copy\u{2026}")
+                .help("Save a copy\u{2026}")
+                .child(text("Save a copy\u{2026}").font(type_::LABEL).color(p.secondary))
+                .on_press_tx(move |s: &mut State, tx| crate::handed_files::save_handed_copy(s, tx, "file-reader", &save_path)),
+        );
     let mut pane = col()
         .key("file-reader")
         .w(340.0)
@@ -1282,12 +1335,11 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
         .padding(16.0)
         .gap(12.0)
         .fill(p.sidebar)
-        .child(
-            text(if picture { target.path.clone() } else { format!("{}:{}-{}", target.path, target.start, target.end) })
-                .color(p.text)
-                .wrap_anywhere(),
-        )
-        .child(menu_row)
+        .child(head);
+    if let Some((_, said)) = s.handed_file_refusal.as_ref().filter(|(scope, _)| scope == "file-reader") {
+        pane = pane.child(text(said.clone()).font(type_::LABEL).color(p.amber).wrap_anywhere().role("status"));
+    }
+    pane = pane.child(menu_row)
         .child(
             el().child(text("Close").color(p.secondary))
                 .on_press(|s: &mut State| {
@@ -1323,6 +1375,19 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
                 None => pane.child(text("This picture cannot be shown here.").color(p.muted).wrap_anywhere()),
             };
         }
+        // Markdown is rendered as prose, through the renderer every reply uses: drawn, never interpreted.
+        Ok(body) if locust_core::text_files::viewer_mode(&target.path) == locust_core::text_files::ViewerMode::Markdown => {
+            pane = pane.child(
+                col()
+                    .key("file-reader/prose")
+                    .grow(1.0)
+                    .min_h(0.0)
+                    .w_full()
+                    .scroll(ScrollSpec { stick_bottom: false })
+                    .child(reply_markdown(s, body, false, false, false, p)),
+            );
+        }
+        // Anything else verbatim, in its own scroll box.
         Ok(body) => {
             let mut lines = col().w_full().gap(2.0);
             for (i, line) in body
@@ -1346,6 +1411,7 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
                 .child(copy_button(s.copy_feedback.as_ref(), body.clone(), p))
                 .child(
                     col()
+                        .key("file-reader/code")
                         .grow(1.0)
                         .min_h(0.0)
                         .w_full()
@@ -1357,8 +1423,15 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
         }
         Err(error) => pane = pane.child(text(error.clone()).color(p.red).wrap_anywhere()),
     }
-    Some(pane.child(text("Shown here only: Locust never runs a file a teammate made, or opens it in another app.").font(type_::LABEL).color(p.muted).wrap_anywhere()))
+    Some(pane.child(text(VIEWER_REGISTER).font(type_::LABEL).color(p.muted).wrap_anywhere().key("file-reader/register")))
 }
+
+/// FileViewer.tsx's register: why there is no open button, said as what it does (0.515).
+const VIEWER_REGISTER: &str = "Shown here only: Locust never runs a file a teammate made, or opens it in another app.";
+
+#[cfg(test)]
+#[path = "the_file_viewer_tests.rs"]
+mod the_file_viewer_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1444,3 +1517,7 @@ mod live2_math_scene_tests;
 #[cfg(test)]
 #[path = "inline_math_tests.rs"]
 mod inline_math_tests;
+
+#[cfg(test)]
+#[path = "settled_text_tests.rs"]
+mod settled_text_tests;

@@ -4998,14 +4998,14 @@ apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	does not clai
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	tells a Cursor route outside Auto that its connectors work, and how	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	stays quiet when this machine has none, because then there is nothing to place	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	leaves the Claude sentence exactly as it was	yes
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a live run in Working and every other phase in Done	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	orders a column newest first	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	leaves a room and a trashed conversation out	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lists a sub-conversation once, with the conversation it sits under	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing when nobody is working and nothing waits	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a live run in Working and every other phase in Done	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	orders a column newest first	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	leaves a room and a trashed conversation out	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lists a sub-conversation once, with the conversation it sits under	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing when nobody is working and nothing waits	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	yes
 apps/desktop/src/renderer/src/cost.test.ts	adds every turn that reported a number, including the one still running	yes
 apps/desktop/src/renderer/src/cost.test.ts	counts the earlier turns while the current one has reported nothing yet	yes
 apps/desktop/src/renderer/src/cost.test.ts	says nothing when no turn reported anything, rather than zero	yes
@@ -5198,23 +5198,23 @@ apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.tes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	goes tight once and stays tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	adds back what tight took, and only while tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	a new count of sections starts over rather than borrowing an old height	yes
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	leads with the team: a card per teammate, and who is working	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds the agent list to one line when every installed agent is ready	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list when an installed agent needs the person	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list on a first run while another agent could still be added	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds on a first run too, once every agent is ready	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	with a team, folds while an agent is still being checked, and says which	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says nothing of checking once every answer is in	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says where each teammate stands, beside the name, and reads it aloud with the card (0.606)	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the version an alias runs, as the Team screen does	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names Antigravity's Flash tier by the model it runs, and guesses no version for the others	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	is what Home's cards are given -- not the alias, spelled	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the model alone on the line, every card alike, and the level in the whole route -- the one chosen, else the model's default	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names a Cursor family by the family, so its line carries no level where the others carry none	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	says no level for a model that has none, and guesses none before the catalog has answered	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows no maker's mark for a model of the person's own	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows the runtime as its mark and the model in words, the whole route on hover and for a screen reader	no
-apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	with no model of its own, draws no route line and no mark	no
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	leads with the team: a card per teammate, and who is working	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds the agent list to one line when every installed agent is ready	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list when an installed agent needs the person	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list on a first run while another agent could still be added	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds on a first run too, once every agent is ready	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	with a team, folds while an agent is still being checked, and says which	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says nothing of checking once every answer is in	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says where each teammate stands, beside the name, and reads it aloud with the card (0.606)	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the version an alias runs, as the Team screen does	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names Antigravity's Flash tier by the model it runs, and guesses no version for the others	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	is what Home's cards are given -- not the alias, spelled	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the model alone on the line, every card alike, and the level in the whole route -- the one chosen, else the model's default	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names a Cursor family by the family, so its line carries no level where the others carry none	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	says no level for a model that has none, and guesses none before the catalog has answered	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows no maker's mark for a model of the person's own	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows the runtime as its mark and the model in words, the whole route on hover and for a screen reader	yes
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	with no model of its own, draws no route line and no mark	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	names who is working and who waits on you, waiting first	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	counts past two, so it fits the glass	yes
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts	says nothing when nothing runs or waits: the glass keeps its claim	yes
@@ -5958,19 +5958,19 @@ apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty s
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	yes
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	no
-apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	no
-apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a fence the moment it closes, blank line or not	no
-apps/desktop/src/renderer/src/settled-text.test.ts	loses nothing: settled plus tail is the text	no
-apps/desktop/src/renderer/src/settled-text.test.ts	only ever moves forward as text arrives	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a table from its rule on, row by finished row	no
-apps/desktop/src/renderer/src/settled-text.test.ts	holds a header row back until the rule under it has arrived	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles a reply that opens with a table	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles each finished list item and heading, never the line still being written	no
-apps/desktop/src/renderer/src/settled-text.test.ts	stops at prose: a paragraph line still waits for its blank line	no
-apps/desktop/src/renderer/src/settled-text.test.ts	settles the rows after a closed fence too	no
-apps/desktop/src/renderer/src/settled-text.test.ts	only moves forward as a table arrives a character at a time	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a fence the moment it closes, blank line or not	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	loses nothing: settled plus tail is the text	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	only ever moves forward as text arrives	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a table from its rule on, row by finished row	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	holds a header row back until the rule under it has arrived	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a reply that opens with a table	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles each finished list item and heading, never the line still being written	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	stops at prose: a paragraph line still waits for its blank line	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	settles the rows after a closed fence too	yes
+apps/desktop/src/renderer/src/settled-text.test.ts	only moves forward as a table arrives a character at a time	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	skips Auto while the Auto switch is off	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	includes it once the switch is on	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	moves off Auto to the first mode when Auto is no longer allowed	yes
@@ -6184,24 +6184,24 @@ apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels whil
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears the beam while a run goes	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	has no beam when there is nothing to stop	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels at the faces' rate, not the screen's (0.698)	yes
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts the runtimes it shows, not every probe that ran	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	never invents a summary before discovery has finished	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	says what was found, once there is something to say	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not claim a version it was never given	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	says an agent not added yet is ready to install, never "not installed"	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	a second sweep is a new log, not more rows under the old one	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	waits a beat before settling, so the screen does not flinch	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	runs settling, settled, dissolving, then gone, in that order	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	has NO minimum dwell	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	shortens a home path the way a terminal would	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	leaves a path it does not recognise exactly as it is	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtime whose binary is not its id	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	no
-apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	no
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts the runtimes it shows, not every probe that ran	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	never invents a summary before discovery has finished	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	says what was found, once there is something to say	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not claim a version it was never given	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	says an agent not added yet is ready to install, never "not installed"	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	a second sweep is a new log, not more rows under the old one	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	waits a beat before settling, so the screen does not flinch	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	runs settling, settled, dissolving, then gone, in that order	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	has NO minimum dwell	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	shortens a home path the way a terminal would	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	leaves a path it does not recognise exactly as it is	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtime whose binary is not its id	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	yes
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	yes
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	yes
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
@@ -6256,19 +6256,19 @@ apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	names ea
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	gives each face the dot a teammate's has for it	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	holds each long enough to be read, the whole round under half a minute	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	is a button that says which face it shows, the face under it a real teammate face	yes
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders markdown as prose, not as its source	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders anything else in its own scroll box, verbatim	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	does not interpret the file, whichever mode it is in	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers no way to hand the file to the operating system	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says why there is no open button, rather than leaving a hole	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	names the file by its own name and keeps the whole path reachable	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers to open a file it touched, not only to go find it	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	still only reveals where nothing can open it	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	counts the turns that changed it and offers each one	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says one turn in the singular	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	shows nothing at all for a file this conversation never changed	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	opens on the file, not on a turn	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	never offers to show the file as it stood	no
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders markdown as prose, not as its source	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders anything else in its own scroll box, verbatim	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	does not interpret the file, whichever mode it is in	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers no way to hand the file to the operating system	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says why there is no open button, rather than leaving a hole	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	names the file by its own name and keeps the whole path reachable	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers to open a file it touched, not only to go find it	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	still only reveals where nothing can open it	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	counts the turns that changed it and offers each one	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says one turn in the singular	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	shows nothing at all for a file this conversation never changed	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	opens on the file, not on a turn	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	never offers to show the file as it stood	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	takes a free model, the steadiest listed first (0.712), and among the unnamed the first listed	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	leaves the route alone when nothing listed is free	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	leaves the route alone before the catalogue has been read	yes
@@ -8268,14 +8268,14 @@ packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	changes nothing for a run without it	no
 packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is spelled as the root is: backslashes on Windows, slashes elsewhere	yes
 packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is the one directory allowed outside the worktree	yes
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	scrubs a key in the output	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	opens and closes a reasoning step around a thinking block, with no text	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	no
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	scrubs a key in the output	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	opens and closes a reasoning step around a thinking block, with no text	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	is declared as an openai-compatible provider, beside the run's own permissions	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	yes

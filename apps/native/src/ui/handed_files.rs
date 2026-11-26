@@ -81,7 +81,7 @@ fn copy_handed_file(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
 }
 
 /// Save a copy where the person picks, in the system's save dialog; the file itself is never opened or run.
-fn save_handed_copy(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
+pub(super) fn save_handed_copy(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
     let Some(file) = resolved(s, scope, path, Asked::Save) else { return };
     let name = file.file_name().map(|n| n.to_string_lossy().into_owned());
     let scope = scope.to_owned();
@@ -98,7 +98,7 @@ fn save_handed_copy(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
     });
 }
 
-fn reveal_handed_file(s: &mut State, scope: &str, path: &str) {
+pub(super) fn reveal_handed_file(s: &mut State, scope: &str, path: &str) {
     if selected_conversation(s).is_none() {
         return;
     }

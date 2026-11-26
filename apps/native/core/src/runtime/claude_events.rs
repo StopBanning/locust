@@ -1658,6 +1658,10 @@ mod a_long_command_tests;
 #[cfg(test)]
 #[path = "claude_events_case_tests.rs"]
 mod claude_events_case_tests;
+
+#[cfg(test)]
+#[path = "the_steps_show_tests.rs"]
+mod the_steps_show_tests;
 #[cfg(test)]
 #[path = "refusal_is_readable_tests.rs"]
 mod refusal_is_readable_tests;
