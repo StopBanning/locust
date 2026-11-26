@@ -3636,9 +3636,9 @@ apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS r
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	still offers the conversation total, on the conversation-scoped surface	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	marks a live run as still going	yes
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	no
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	no
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	no
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	yes
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	yes
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	shows who takes each step, the checker marked on the last, and the run set to change files in a copy	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	says beside each step the role it was proposed for, and nothing when the routine has no roles	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	keeps the checker for a teammate on their own: every step is theirs and the last still has to approve	yes
