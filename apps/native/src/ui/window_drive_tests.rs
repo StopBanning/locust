@@ -6586,7 +6586,11 @@ fn the_picker_and_model_chip_show_the_name_earned_from_local_history() {
     // The line is the catalogue's words and the resolved name (RoutePicker): "Always the newest Fable · claude-fable-5-1".
     assert!(text_in(&rt,"model-claude-fable").iter().any(|text| text.contains("claude-fable-5-1")));
     click(&mut rt,"model-claude-fable");
-    assert!(text_in(&rt,"model-chip").iter().any(|text| text.contains("claude-fable-5-1")));
+    // The chip names the version the run reported, not its id (Composer.tsx `namedModel`: `routeModelName('claude',
+    // 'fable', 'claude-fable-5-1')`, which a-claude-route-names-its-version.test.tsx reads as "Fable 5.1"; chip-1 row 1).
+    let chip = text_in(&rt,"model-chip");
+    assert!(chip.iter().any(|text| text.contains("Fable 5.1")), "{chip:?}");
+    assert!(!chip.iter().any(|text| text.contains("claude-fable-5-1")), "{chip:?}");
 }
 
 #[test]

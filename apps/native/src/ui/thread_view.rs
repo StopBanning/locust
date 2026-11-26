@@ -316,11 +316,12 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .flatten()
             .map(|id| locust_core::teammate_tooltip::route_model_name(rt, id));
         // Composer.tsx `shownFamily` (status.ts `modelFamily` over the whole catalogue): the window's list of every
-        // agent, which a conversation with no teammate is drawn from, carries no levels, so the catalogue this process
-        // read is asked as well (models.rs `chip_levels`).
+        // agent, which a conversation with no teammate is drawn from, carries no levels, so its rows say nothing of
+        // them and the catalogue this process read answers instead (models.rs `chip_levels`).
         let chip_row = current.and_then(|a| a.models.iter().find(|m| m.id == model));
+        let listed_levels = chip_row.map(|m| m.efforts.as_slice()).filter(|levels| !levels.is_empty() || id != LEDGER_TARGET);
         let family = locust_core::models::chip_family_as_read(rt, model);
-        let reading = locust_core::models::chip_levels(chip_row.map(|m| m.efforts.as_slice()), family.clone());
+        let reading = locust_core::models::chip_levels(listed_levels, family.clone());
         // Composer.tsx `effortIsGenuinelyFixed`: once the catalog has answered for this model and it lists no levels,
         // the chip says "Fixed", whatever effort was stored; before it answers, nothing is claimed.
         let effort_is_fixed = reading.as_ref().is_some_and(|r| r.levels.is_empty());

@@ -35,13 +35,14 @@ fn a_row_of_its_own_keeps_its_levels_and_default_and_no_family_name() {
     assert_eq!(found, ChipFamily { levels: levels(&["low", "high"]), default_effort: Some("low".into()), family_name: None });
 }
 
-// The window's list of every agent carries no levels: the catalogue's family speaks for it; the window's own levels
-// (a teammate's agent, narrowed by policy) speak first; an empty row with nothing else known says "lists none"; and
-// before anything has answered, nothing is claimed (Composer.tsx: "Only true once the catalog has actually answered").
+// The window's list of every agent carries no levels, so it is not passed and the catalogue's family speaks; a list that
+// carries levels (a teammate's own agent, narrowed by policy) speaks first, with the catalogue's default; a model it
+// lists with none is Fixed; and before anything has answered, nothing is claimed (Composer.tsx: "Only true once the
+// catalog has actually answered for THIS model").
 #[test]
 fn the_levels_come_from_the_catalogue_when_the_window_list_has_none() {
     let family = ChipFamily { levels: levels(&["low", "medium", "high"]), default_effort: Some("high".into()), family_name: None };
-    let from_catalogue = chip_levels(Some(&[]), Some(family.clone())).expect("answered");
+    let from_catalogue = chip_levels(None, Some(family.clone())).expect("answered");
     assert_eq!(from_catalogue.levels, levels(&["low", "medium", "high"]));
     assert_eq!(from_catalogue.default_effort.as_deref(), Some("high"));
     let narrowed = levels(&["low"]);

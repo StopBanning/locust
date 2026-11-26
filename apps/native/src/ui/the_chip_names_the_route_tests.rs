@@ -135,3 +135,12 @@ fn fixed_is_said_only_when_the_catalogue_lists_no_levels() {
     let words = chip_reads("claude", "claude-opus-4-5", &[("claude-opus-4-5", "Opus 4.5")], None, &[opus_row(), row]);
     assert_eq!(words, ["Opus 4.5 · Fixed"]);
 }
+
+// Composer.tsx `effortIsGenuinelyFixed` ("Only true once the catalog has actually answered for THIS model"): before this
+// process has read the catalogue, the window's list of every agent is all there is, and it names no levels, so the chip
+// claims none -- not "Fixed", which is what the fault's conversation read.
+#[test]
+fn before_the_catalogue_answers_a_conversation_with_no_teammate_claims_no_level() {
+    let words = chip_reads("claude", "opus", &[("opus", "Opus 5.5")], Some("claude-opus-5-5"), &[]);
+    assert_eq!(words, ["Opus 5.5"]);
+}

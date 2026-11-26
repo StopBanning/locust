@@ -1121,32 +1121,48 @@ pub fn chip_family(catalog: &[Value], runtime: &str, model: &str) -> Option<Chip
 }
 
 /// The catalogue `local` read last, as the chip reads it: kept apart from the cache, whose lock a sweep holds for as
-/// long as it reads, so drawing the chip never waits on one.
+/// long as it reads, so drawing the chip never waits on one. `local` runs on a worker; the chip is drawn on the window's
+/// thread, so in the app it is one for the process.
+#[cfg(not(any(test, feature = "test-hooks")))]
 static FOR_THE_CHIP: std::sync::Mutex<Vec<Value>> = std::sync::Mutex::new(Vec::new());
+
+// Under test, each test thread's own (as run_effort.rs `use_catalog_on_this_thread`): no test reads another's catalogue.
+#[cfg(any(test, feature = "test-hooks"))]
+thread_local! {
+    static FOR_THE_CHIP: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 
 /// Keeps `models` as the catalogue the chip reads (`chip_family_as_read`): `local` keeps every catalogue it reads.
 pub fn keep_for_the_chip(models: &[Value]) {
-    *crate::invariants::lock(&FOR_THE_CHIP) = models.to_vec();
+    #[cfg(not(any(test, feature = "test-hooks")))]
+    {
+        *crate::invariants::lock(&FOR_THE_CHIP) = models.to_vec();
+    }
+    #[cfg(any(test, feature = "test-hooks"))]
+    FOR_THE_CHIP.with(|c| *c.borrow_mut() = models.to_vec());
 }
 
 /// `chip_family` over the catalogue this process read last, never read here; None before the first read.
 pub fn chip_family_as_read(runtime: &str, model: &str) -> Option<ChipFamily> {
-    chip_family(&crate::invariants::lock(&FOR_THE_CHIP), runtime, model)
+    #[cfg(not(any(test, feature = "test-hooks")))]
+    {
+        chip_family(&crate::invariants::lock(&FOR_THE_CHIP), runtime, model)
+    }
+    #[cfg(any(test, feature = "test-hooks"))]
+    {
+        FOR_THE_CHIP.with(|c| chip_family(&c.borrow(), runtime, model))
+    }
 }
 
-/// What the chip may say of a model's levels (Composer.tsx `supportedEfforts`, `effortIsGenuinelyFixed`): the window's
-/// row where it lists levels (a teammate's own agent, already narrowed by policy); else the catalogue's family, since
-/// the window's list of every agent (the door's `list_models` with no teammate) carries no levels; else the window's
-/// row, which says the model lists none. None while nothing has answered for the model: then nothing is claimed.
-pub fn chip_levels(row: Option<&[String]>, family: Option<ChipFamily>) -> Option<ChipFamily> {
-    match (row, family) {
-        (Some(levels), family) if !levels.is_empty() => {
-            let family = family.unwrap_or_default();
-            Some(ChipFamily { levels: levels.to_vec(), ..family })
-        }
-        (_, Some(family)) => Some(family),
-        (Some(_), None) => Some(ChipFamily::default()),
-        (None, None) => None,
+/// What the chip may say of a model's levels (Composer.tsx `supportedEfforts`, `effortIsGenuinelyFixed`). `listed` is
+/// the window's own row for the model, given only where its list carries levels (a teammate's own agent, already
+/// narrowed by policy; the door's `list_models` with no teammate, which a conversation with no teammate is drawn from,
+/// names models with no levels at all): its levels, with the catalogue's default and family name. Else the catalogue's
+/// family. None while neither has answered for the model: then nothing is claimed, not even "Fixed".
+pub fn chip_levels(listed: Option<&[String]>, family: Option<ChipFamily>) -> Option<ChipFamily> {
+    match listed {
+        Some(levels) => Some(ChipFamily { levels: levels.to_vec(), ..family.unwrap_or_default() }),
+        None => family,
     }
 }
 
