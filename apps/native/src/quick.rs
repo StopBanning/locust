@@ -7,7 +7,7 @@
 use crate::engine::{self, Engine, Reply, Started, Teammate};
 use crate::ledger::{self, Item};
 use crate::{Palette, markdown_style};
-use rune::tok::type_;
+use crate::look::type_;
 use rune::{
     Align, App, AppHandle, AppSpec, Chrome, Cx, DisplayTarget, El, Key, KeyEvent, Latest,
     OverlayPlacement, RunOptions, ScreenEdge, ScrollSpec, Shortcut, TextEdit, Tx, Waker,

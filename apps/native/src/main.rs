@@ -359,7 +359,7 @@ mod starters;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;
-use rune::tok::type_;
+use crate::look::type_;
 use rune::{
     Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, ImageCache, Key, KeyEvent, Latest,
     ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,

@@ -25,3 +25,23 @@ thickens every glyph.
   `electron_smooths_the_body_with_antialiased_and_that_is_runes_off`.
 - Call sites of `SMOOTHING` outside tests: `src/main.rs` (the `App::new(AppSpec{..})` chain, after `.window_options(window_glass::…)`)
   and `src/quick.rs` (the Quick Ask `App::new(scenes())` chain, before `.chrome(..)`).
+
+## Row 2: Locust's own BODY, LABEL and TITLE (weight only)
+
+The 712 + 143 + 78 uses of `type_::LABEL`, `BODY` and `TITLE` came from `rune::tok::type_`, the toolkit's sample scale
+(vendor/rune/crates/rune/src/tok.rs:137-143). `look::type_` now has the same three names and the screens reach them
+through the one import line in `main.rs` (`use crate::look::type_;`, line 362) and the one in `quick.rs` (line 10).
+
+- `BODY` 13 px / 400 and `TITLE` 13 px / 600: the toolkit's own numbers, unchanged.
+- `LABEL` 12 px, weight 500 to **400**. Electron's body sets no weight, so text is 400 unless a rule asks (shell.css sets
+  `font-weight` on 119 rules, 500 on 50 and 600 on 45). Sizes and line heights are exactly the toolkit's, so text only
+  gets narrower and nothing can wrap that did not.
+- Tests (`look/type_tests.rs`), expected values from Electron's CSS: body rule has no `font-weight`, so BODY and LABEL are
+  400; sizes equal `--lc-text-description` (13) and `--lc-text-ask` (12); TITLE's 600 is a weight 40+ shell.css rules use;
+  `crate::type_::{LABEL,BODY,TITLE}` (what every screen imports) equal this module's, and both import lines are scanned.
+- Breaks (`~/work/scratch/evidence/type-1/row2.entries`): 5 of 5 KILLED. The import line in main.rs and in quick.rs
+  (`main_and_quick_take_their_type_from_this_module_not_the_toolkits`); LABEL back to 500, BODY to 12 px, TITLE to 500
+  (one test each, named in the log `row2.out`).
+- Call sites outside tests: every screen's `type_::LABEL / BODY / TITLE` (933 uses, e.g. src/ui/sidebar.rs:384 `type_::LABEL`,
+  src/main.rs:2885 `.body_font(type_::BODY)`); the two import lines above.
+- Pictures: `~/work/scratch/type-1/row2/`.
