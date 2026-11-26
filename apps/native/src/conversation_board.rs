@@ -83,9 +83,10 @@ fn any_of(row: &SidebarMission, ids: &HashSet<String>) -> bool {
     !ids.is_empty() && conversation_keys(row).iter().any(|id| ids.contains(id))
 }
 
-/// The sidebar's running mark: RUNNING phase (the spark).
+/// The sidebar's running mark (conversationBoard.ts `conversationIsRunning`): the row's phase view says RUNNING, the
+/// same fact the sidebar draws its spark from, so a card never lands in a column its row's mark contradicts.
 pub fn conversation_is_running(row: &SidebarMission) -> bool {
-    row.phase == "running"
+    crate::missions_screen::mission_phase_view(&row.phase, row.integrity_issue_count > 0).tag == "RUNNING"
 }
 
 pub fn conversation_column(
@@ -285,6 +286,7 @@ mod tests {
             .collect()
     }
 
+    // case: puts a live run in Working and every other phase in Done
     #[test]
     fn puts_live_run_in_working_and_others_in_done() {
         let board = conversation_board(
@@ -342,6 +344,7 @@ mod tests {
         );
     }
 
+    // case: orders a column newest first
     #[test]
     fn orders_column_newest_first() {
         let board = conversation_board(
@@ -373,6 +376,7 @@ mod tests {
         );
     }
 
+    // case: leaves a room and a trashed conversation out
     #[test]
     fn leaves_room_and_trashed_out() {
         let rooms = [BoardRoom {
@@ -409,6 +413,7 @@ mod tests {
         );
     }
 
+    // case: lists a sub-conversation once, with the conversation it sits under
     #[test]
     fn lists_sub_conversation_once_with_parent() {
         let board = conversation_board(
@@ -438,6 +443,7 @@ mod tests {
         );
     }
 
+    // case: draws nothing when nobody is working and nothing waits
     #[test]
     fn draws_nothing_when_quiet_done_only() {
         assert!(
@@ -460,6 +466,7 @@ mod tests {
         );
     }
 
+    // case: puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at
     #[test]
     fn needs_you_and_to_look_at_columns() {
         let at = |hour: u32| format!("2026-10-04T0{hour}:00:00.000Z");
@@ -513,6 +520,42 @@ mod tests {
                 ("done", vec!["old"]),
             ]
         );
+    }
+
+    // case: lands each conversation in the column the sidebar mark already gives that row
+    #[test]
+    fn lands_each_conversation_in_the_column_its_sidebar_mark_gives() {
+        let rows = [
+            row("live", "running"),
+            row("finished", "completed"),
+            row("broke", "failed"),
+            SidebarMission { integrity_issue_count: 2, ..row("torn", "completed") },
+        ];
+        let board = conversation_board(&rows, &[], &HashSet::new(), &ConversationBoardFacts::default());
+        let column_of: HashMap<String, &'static str> = ids_in(&board).into_iter().map(|(id, key, _)| (id, key)).collect();
+        for entry in &rows {
+            let running = conversation_is_running(entry);
+            assert_eq!(running, crate::missions_screen::mission_phase_view(&entry.phase, entry.integrity_issue_count > 0).tag == "RUNNING");
+            assert_eq!(column_of.get(&entry.mission_id).copied(), Some(if running { "working" } else { "done" }), "{}", entry.mission_id);
+        }
+        // Electron's phases: only "running" is RUNNING.
+        assert_eq!(rows.iter().filter(|r| conversation_is_running(r)).map(|r| r.mission_id.as_str()).collect::<Vec<_>>(), ["live"]);
+    }
+
+    // case: a finish to look at keeps the board up on its own; one looked at since does not (control)
+    #[test]
+    fn a_finish_to_look_at_keeps_the_board_up_on_its_own() {
+        let ended = row("ended", "completed");
+        let facts = |needs: &[&str], look: &[&str]| ConversationBoardFacts {
+            needs_you: needs.iter().map(|s| (*s).to_owned()).collect(),
+            to_look_at: look.iter().map(|s| (*s).to_owned()).collect(),
+        };
+        let keys = conversation_board(std::slice::from_ref(&ended), &[], &HashSet::new(), &facts(&[], &["ended"]))
+            .map(|sections| sections.iter().map(|s| s.key.as_str()).collect::<Vec<_>>());
+        assert_eq!(keys, Some(vec!["to-look-at"]));
+        assert!(conversation_board(std::slice::from_ref(&ended), &[], &HashSet::new(), &facts(&[], &["someone-else"])).is_none());
+        assert_eq!(conversation_column(&ended, &facts(&["ended"], &[])), ConversationBoardKey::NeedsYou);
+        assert_eq!(conversation_column(&ended, &ConversationBoardFacts::default()), ConversationBoardKey::Done);
     }
 
     #[test]

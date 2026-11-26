@@ -4998,14 +4998,14 @@ apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	does not clai
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	tells a Cursor route outside Auto that its connectors work, and how	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	stays quiet when this machine has none, because then there is nothing to place	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	leaves the Claude sentence exactly as it was	yes
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a live run in Working and every other phase in Done	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	orders a column newest first	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	leaves a room and a trashed conversation out	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lists a sub-conversation once, with the conversation it sits under	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing when nobody is working and nothing waits	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
-apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a live run in Working and every other phase in Done	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	orders a column newest first	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	leaves a room and a trashed conversation out	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lists a sub-conversation once, with the conversation it sits under	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing when nobody is working and nothing waits	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	yes
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	yes
 apps/desktop/src/renderer/src/cost.test.ts	adds every turn that reported a number, including the one still running	yes
 apps/desktop/src/renderer/src/cost.test.ts	counts the earlier turns while the current one has reported nothing yet	yes
 apps/desktop/src/renderer/src/cost.test.ts	says nothing when no turn reported anything, rather than zero	yes
