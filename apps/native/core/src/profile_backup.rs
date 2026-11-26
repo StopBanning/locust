@@ -1061,6 +1061,15 @@ mod tests {
         }
     }
 
+    /// Cutover 1, row 2: the Rust app numbers its versions after Electron's (0.882.0 was Electron's last), so a backup
+    /// Electron made is never "newer than this one". Later releases only go up.
+    #[test]
+    fn this_app_is_numbered_after_electrons_0_882_0() {
+        let parts: Vec<u64> = env!("CARGO_PKG_VERSION").split('.').map(|p| p.parse().unwrap()).collect();
+        assert_eq!(parts.len(), 3);
+        assert!(parts >= vec![0, 883, 0], "{}", env!("CARGO_PKG_VERSION"));
+    }
+
     #[test]
     fn reader_validates_manifest_hashes_versions_and_paths() {
         let root = make_profile(&["Wren", "Atlas"]);

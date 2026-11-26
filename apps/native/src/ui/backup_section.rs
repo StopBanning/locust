@@ -576,6 +576,14 @@ mod electron_backup_tests {
         dir
     }
 
+    /// The window says its version (the title bar, What's new, the backup check) from this crate's: it follows Electron's.
+    #[test]
+    fn the_window_is_numbered_after_electrons_0_882_0() {
+        let parts: Vec<u64> = env!("CARGO_PKG_VERSION").split('.').map(|p| p.parse().unwrap()).collect();
+        assert_eq!(parts.len(), 3);
+        assert!(parts >= vec![0, 883, 0], "{}", env!("CARGO_PKG_VERSION"));
+    }
+
     #[test]
     fn the_window_previews_a_backup_from_electron_0_882_0_and_refuses_one_from_0_884_0() {
         let root = temp("electron-made");

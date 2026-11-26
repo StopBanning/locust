@@ -29,15 +29,24 @@ fn door_that_counts() -> (std::path::PathBuf, std::sync::Arc<std::sync::atomic::
 
 /// Runs `choose_engine_in_a_child` in a child copy of this binary; returns what it printed and whether it passed.
 fn choose_in_a_child(connection: &std::path::Path, engine: Option<&str>) -> (bool, String) {
+    in_a_child("choose_engine_in_a_child", connection, engine)
+}
+
+/// Runs the named ignored test of this file in a child copy of this binary, with Electron's door at `connection`, its
+/// own made-up data folder, and `LOCUST_NATIVE_ENGINE` set to `engine` or not set at all.
+fn in_a_child(test: &str, connection: &std::path::Path, engine: Option<&str>) -> (bool, String) {
+    let data = std::env::temp_dir().join(format!("locust-engine-default-{test}-{}", std::process::id()));
     let mut child = std::process::Command::new(std::env::current_exe().unwrap());
     child
-        .args(["engine_default_tests::choose_engine_in_a_child", "--exact", "--ignored", "--nocapture", "--test-threads=1"])
+        .env("LOCUST_NATIVE_DATA", &data)
+        .args([&format!("engine_default_tests::{test}"), "--exact", "--ignored", "--nocapture", "--test-threads=1"])
         .env("LOCUST_MCP_CONNECTION", connection)
         .env_remove("LOCUST_NATIVE_ENGINE");
     if let Some(value) = engine {
         child.env("LOCUST_NATIVE_ENGINE", value);
     }
     let out = child.output().unwrap();
+    let _ = std::fs::remove_dir_all(&data);
     let words = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     (out.status.success(), words)
 }
@@ -64,5 +73,30 @@ fn choose_engine_in_a_child() {
     match choose_engine() {
         Ok((kind, _)) => println!("chose {kind:?}"),
         Err(words) => println!("no engine: {words}"),
+    }
+}
+
+#[test]
+fn quick_ask_runs_on_its_own_engine_while_electrons_door_is_up() {
+    let (connection, asked) = door_that_counts();
+    let (passed, words) = in_a_child("quick_ask_reach_in_a_child", &connection, None);
+    assert!(passed, "{words}");
+    assert!(words.contains("quick ask reached native=true"), "{words}");
+    assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), 0, "Quick Ask must not ask Electron's door by default");
+
+    // LOCUST_NATIVE_ENGINE=0 sends Quick Ask the way it sends the window: Electron's door first.
+    let (passed, words) = in_a_child("quick_ask_reach_in_a_child", &connection, Some("0"));
+    assert!(passed, "{words}");
+    assert!(asked.load(std::sync::atomic::Ordering::SeqCst) >= 1, "LOCUST_NATIVE_ENGINE=0 asks Electron's door: {words}");
+}
+
+/// Only ever run by the test above, in its own process.
+#[test]
+#[ignore = "run by quick_ask_runs_on_its_own_engine_while_electrons_door_is_up in a child process"]
+fn quick_ask_reach_in_a_child() {
+    HEADLESS.store(true, std::sync::atomic::Ordering::Relaxed);
+    match crate::quick::reach() {
+        Ok((_, native, _)) => println!("quick ask reached native={native}"),
+        Err(words) => println!("quick ask: no engine: {words}"),
     }
 }

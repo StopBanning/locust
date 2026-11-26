@@ -142,3 +142,69 @@ fn seeding_again_is_refused_while_an_engine_holds_the_folder() {
     drop(lock);
     assert!(f.store().reseed_from_electron("20261125-120005").is_ok());
 }
+
+#[test]
+fn every_file_the_app_seeds_from_electron_is_seeded_again() {
+    // The nine names the app's own readers ask `seeded_json` for (people, folders, routines, approval rules, references,
+    // appearance, terminal imports, folder cautions): one left out would stay days old on the switch.
+    let names = [
+        "teammates.json",
+        "memories.json",
+        "folders.json",
+        "routines.json",
+        "approval-rules.json",
+        "conversation-references.json",
+        "appearance.json",
+        "terminal-imports.json",
+        "folder-cautions.json",
+    ];
+    let f = Folders::new("all");
+    for name in names {
+        fs::write(f.electron.join(name), format!(r#"{{"from":"electron","file":"{name}"}}"#)).unwrap();
+        fs::write(f.root.join(name), r#"{"from":"rust"}"#).unwrap();
+    }
+
+    let done = f.store().reseed_from_electron("20261125-120006").unwrap();
+
+    let mut copied = done.copied.clone();
+    copied.sort();
+    let mut expected: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+    expected.sort();
+    assert_eq!(copied, expected, "{done:?}");
+    for name in names {
+        assert_eq!(fs::read_to_string(f.root.join(name)).unwrap(), fs::read_to_string(f.electron.join(name)).unwrap(), "{name}");
+        assert_eq!(fs::read_to_string(f.root.join("seeded-before-20261125-120006").join(name)).unwrap(), r#"{"from":"rust"}"#, "{name}");
+    }
+}
+
+#[test]
+fn a_stamp_that_is_not_a_plain_name_is_refused_before_anything_is_touched() {
+    let f = Folders::new("stamp");
+    fs::write(f.electron.join("teammates.json"), FRESH).unwrap();
+    fs::write(f.root.join("teammates.json"), STALE).unwrap();
+    for stamp in ["", "a/b", "../elsewhere", "two words", "x\u{0}y"] {
+        assert!(f.store().reseed_from_electron(stamp).is_err(), "{stamp:?}");
+    }
+    assert_eq!(fs::read_to_string(f.root.join("teammates.json")).unwrap(), STALE);
+    assert!(fs::read_dir(&f.root).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().starts_with("seeded-before")));
+}
+
+#[test]
+fn a_copy_that_is_really_a_link_into_electrons_folder_is_not_touched() {
+    // `Store::refuse`: Electron's folder is only read. A Rust copy that is a link into it is where a replace could land.
+    let f = Folders::new("link");
+    fs::write(f.electron.join("teammates.json"), FRESH).unwrap();
+    fs::write(f.electron.join("other.json"), STALE).unwrap();
+    std::os::unix::fs::symlink(f.electron.join("other.json"), f.root.join("teammates.json")).unwrap();
+    let before = f.electron_as_it_is();
+
+    let done = f.store().reseed_from_electron("20261125-120007").unwrap();
+
+    assert!(done.copied.is_empty() && done.moved_aside.is_empty() && done.aside.is_none(), "{done:?}");
+    assert!(
+        done.skipped.iter().any(|(name, why)| name == "teammates.json" && why.contains("Refusing to write inside Electron's data folder")),
+        "{done:?}"
+    );
+    assert!(fs::symlink_metadata(f.root.join("teammates.json")).unwrap().file_type().is_symlink(), "the link is left where it was");
+    assert_eq!(f.electron_as_it_is(), before);
+}
