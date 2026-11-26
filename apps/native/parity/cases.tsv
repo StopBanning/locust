@@ -8268,14 +8268,14 @@ packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	changes nothing for a run without it	no
 packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is spelled as the root is: backslashes on Windows, slashes elsewhere	yes
 packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is the one directory allowed outside the worktree	yes
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	scrubs a key in the output	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	opens and closes a reasoning step around a thinking block, with no text	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	no
-packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	no
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	scrubs a key in the output	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	opens and closes a reasoning step around a thinking block, with no text	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	yes
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	is declared as an openai-compatible provider, beside the run's own permissions	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	yes
