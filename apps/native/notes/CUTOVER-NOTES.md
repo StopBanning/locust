@@ -38,3 +38,41 @@ cannot be reached, as before).
 
 **Not changed (not this lane's files).** These still describe the old default: the comment above `choose_engine`
 (`src/main.rs:840`), `src/quick.rs:323`, `README.md:23` and `PARITY.md:11`.
+
+## Row 2: the version follows Electron's numbering
+
+**What changed.** `apps/native/Cargo.toml` and `apps/native/core/Cargo.toml` say `0.883.0`, the next number after the
+Electron Locust installed on this Mac (`/Applications/Locust.app` reports 0.882.0; this branch's
+`apps/desktop/package.json` is older and says 0.870.0). `Cargo.lock` follows. Every `env!("CARGO_PKG_VERSION")` now
+reads 0.883.0: the backup's read, write and restore (`src/ui/backup_section.rs:223,258,298`), the pending restore the
+engine applies (`core/src/engine_process.rs:497`), the diagnostic log, feedback, the record files, and the version
+the app gives agents (`codex_voice.rs`, `acp_agent.rs`). So a backup Electron 0.882.0 made is read; one from a newer
+Locust is still refused with Electron's words.
+
+**Call site.** `src/ui/backup_section.rs:258` (`preview_restore`, reached from the restore folder picker at
+`backup_section.rs:248`).
+
+**Tests.**
+- `core/src/profile_backup.rs` `a_backup_from_electron_0_882_0_is_read_and_one_from_0_884_0_is_refused_with_electrons_words`.
+- `src/ui/backup_section.rs` `electron_backup_tests::the_window_previews_a_backup_from_electron_0_882_0_and_refuses_one_from_0_884_0`:
+  through `preview_restore`, as the window does.
+
+**Breaks.** 4 of 4 caught by name.
+- `row2-core.entries` / `row2-core.out` (locust-core): the core manifest back at `0.1.0`, caught by
+  `a_backup_from_electron_0_882_0_is_read_and_one_from_0_884_0_is_refused_with_electrons_words`; the version
+  comparison turned round, caught by it and `reader_validates_manifest_hashes_versions_and_paths`.
+- `row2-native.entries` / `row2-native.out` (locust-native): the window manifest back at `0.1.0`, and the call site
+  in `preview_restore` passing `"0.1.0"` instead of `CARGO_PKG_VERSION`, both caught by
+  `electron_backup_tests::the_window_previews_a_backup_from_electron_0_882_0_and_refuses_one_from_0_884_0`.
+
+**What still says 0.1.0 (grep of the tree; none in this lane's files).**
+- **The title bar, Settings and the updater do not read the Cargo version.** `src/ui/home_panel.rs:184-190` sets
+  `s.home.current_version` from the first heading of the native changelog, `src/changelog.rs:19` `## 0.1.0`; the
+  title (`src/ui/rail.rs:669`, "Locust 0.1.0"), Settings' version line (`settings_panel.rs:148,950`) and the update
+  service's current version (`settings_panel.rs:149`) all use it. Until the changelog gains a `0.883.0` entry, or
+  `home_panel.rs` falls back to `CARGO_PKG_VERSION`, the app still calls itself 0.1.0 there. What's new is still the
+  native app's own notes, not Electron's (eyes-3 finding 6, a decision for Colin).
+- `scripts/bundle-mac.sh:36`: `CFBundleShortVersionString` 0.1.0 (and the bundle id `lol.locust.native.preview`).
+- `core/src/updates.rs:190`: `AppUpdateState::default()`'s `current_version` (a placeholder the window replaces).
+- Fixed strings that are not this app's version: `models.rs:779,992` and `runtime/codex.rs:573` send
+  `clientInfo.version "0.1.0"` to agents; test-only values in `mission_export.rs` and `home_panel.rs` tests.

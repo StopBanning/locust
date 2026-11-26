@@ -2213,7 +2213,7 @@ dependencies = [
 
 [[package]]
 name = "locust-core"
-version = "0.1.0"
+version = "0.883.0"
 dependencies = [
  "aes-gcm",
  "block2 0.6.2",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "locust-native"
-version = "0.1.0"
+version = "0.883.0"
 dependencies = [
  "block2 0.6.2",
  "chrono",

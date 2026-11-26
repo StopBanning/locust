@@ -3,7 +3,7 @@ members = [".", "core"]
 
 [package]
 name = "locust-native"
-version = "0.1.0"
+version = "0.883.0"
 edition = "2024"
 license = "MIT"
 description = "Locust Native (preview): Locust rewritten in Rust on Rune, with its own engine, built beside the Electron app."

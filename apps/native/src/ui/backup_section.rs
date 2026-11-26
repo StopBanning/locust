@@ -558,3 +558,51 @@ mod storage_cache_wire_tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+/// Cutover 1, row 2: the window reads a backup Electron 0.882.0 made, and refuses one from a newer Locust in
+/// Electron's words. Made-up profile and backups under the test's temp dir.
+#[cfg(test)]
+mod electron_backup_tests {
+    use super::*;
+    use crate::store::Store;
+
+    fn temp(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "locust-backup-{tag}-{}-{}",
+            std::process::id(),
+            locust_core::native::uuid_v4().unwrap_or_else(|_| "0".into())
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn the_window_previews_a_backup_from_electron_0_882_0_and_refuses_one_from_0_884_0() {
+        let root = temp("electron-made");
+        let teammates = serde_json::json!({"schemaVersion": 15, "teammates": [{"name": "Wren"}], "missionOwners": {}, "settings": {}});
+        std::fs::write(root.join("teammates.json"), format!("{teammates}\n")).unwrap();
+        let made_by = |version: &str| {
+            profile_backup::write_backup(&root, &temp(&format!("to-{version}")), version, Local::now()).unwrap().folder
+        };
+        let mut s = State::default();
+        s.data = Some(Store::new(root.join("native"), root.join("electron")).unwrap());
+
+        preview_restore(&mut s, &made_by("0.882.0"));
+        match &s.settings_panel.privacy.backup {
+            BackupUiState::Preview { reading, .. } => assert_eq!(reading.manifest.counts.teammates, 1),
+            other => panic!("an Electron 0.882.0 backup is read, not {other:?}"),
+        }
+
+        preview_restore(&mut s, &made_by("0.884.0"));
+        match &s.settings_panel.privacy.backup {
+            BackupUiState::Error(words) => assert_eq!(
+                words,
+                &format!(
+                    "This backup was made by Locust 0.884.0, newer than this one ({}). Update Locust, then restore it.",
+                    env!("CARGO_PKG_VERSION")
+                )
+            ),
+            other => panic!("a newer backup is refused, not {other:?}"),
+        }
+    }
+}

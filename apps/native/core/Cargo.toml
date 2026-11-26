@@ -1,6 +1,6 @@
 [package]
 name = "locust-core"
-version = "0.1.0"
+version = "0.883.0"
 edition = "2024"
 license = "MIT"
 description = "Locust's engine in Rust: agent drivers, ledgers, approvals and the command guard, stores, routines and usage. No UI toolkit."
