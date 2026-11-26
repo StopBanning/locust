@@ -301,3 +301,30 @@ fn a_turn_the_card_does_not_offer_to_resume_is_not_resumed() {
         assert!(continuing(&t, &id).is_empty(), "nothing started");
     }
 }
+
+/// Lane check (quit-1): native writes only its own ledgers; Electron's are read. A turn the quit cut short whose ledger
+/// is in Electron's folder is never given a checkpoint there, and its file is left byte for byte as it was.
+#[test]
+fn a_turn_whose_ledger_is_electrons_gets_no_checkpoint_and_its_file_is_untouched() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let id = format!("mission_electron_{}_{}", std::process::id(), crate::invariants::unique_nanos());
+    let lines = [
+        json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":"2026-11-26T00:00:00.000Z","metadata":{"missionId":id,"runId":format!("run_{id}"),"prompt":"Electron's turn","runtime":"codex","model":"synthetic-model","createdAt":"2026-11-26T00:00:00.000Z"}}),
+        json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":2,"occurredAt":"2026-11-26T00:00:01.000Z","event":{"id":"e1","sequence":1,"occurredAt":"2026-11-26T00:00:01.000Z","type":"run.started","payload":{"runtimeThreadId":"thread_e"}}}),
+    ];
+    let dir = electron_ledger_dir().expect("the test store names Electron's folder");
+    assert!(!t.store().ledger_dir().is_ok_and(|native| dir.starts_with(&native)), "Electron's folder is not native's");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{id}.jsonl"));
+    fs::write(&path, lines.iter().map(|l| format!("{l}\n")).collect::<String>()).unwrap();
+    let before = fs::read(&path).unwrap();
+    assert_eq!(find_ledger(&id).as_deref(), Some(path.as_path()), "the turn is found in Electron's folder");
+
+    let refused = checkpoint_on_quit(&id).expect_err("no checkpoint is written into Electron's ledger");
+    assert_eq!(refused, "its ledger is not native's own");
+    checkpoint_cut_short(&[id.clone()]);
+
+    assert_eq!(fs::read(&path).unwrap(), before, "Electron's ledger is left byte for byte as it was");
+    assert!(checkpoints_in(&path).is_empty());
+}
