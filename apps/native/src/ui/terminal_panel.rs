@@ -708,14 +708,68 @@ pub(super) fn shown_terminal(s: &State) -> Option<TerminalOffer> {
 }
 
 /// Open in terminal, from the More actions menu: the conversation's session resumed in its runtime's own interface.
+/// Whether it opens, and the reason when it does not, is Electron's `terminalRequestFor`
+/// (`runtime_terminal::terminal_request_for`), over what this window knows of the conversation.
 pub(super) fn open_in_terminal(s: &mut State) {
     let Some(open_id) = s.ledger.as_ref().map(|pane| pane.snapshot.tip.clone()) else { return };
     let offer = shown_terminal(s);
-    let offer = offer.as_ref();
- if turn_running(s){s.composer_note=Some("This conversation is still running. Open it in a terminal once the run finishes: two programs on one session at once would talk over each other.".into());return;}
- let result=(||{let newest=native::real_tip(&open_id)?;let(m,rows)=runtime_terminal::mission(&newest)?;let runtime=m["runtime"].as_str().ok_or("That conversation is not in the ledger.")?;if m["model"].as_str().is_some_and(|m|m.starts_with("own-")){return Err("A model of your own runs on settings only Locust gives OpenCode, so a terminal could not run it. Keep this conversation here.".into());}let session=runtime_terminal::session(&rows).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let args=runtime_terminal::resume_args(runtime,&session).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let executable=crate::runtime::find_executable(match runtime {"cursor"=>"cursor-agent","antigravity"=>"agy",other=>other}).map_err(|e|e.to_string())?;let folder=folder(s).ok_or("Choose a folder first. Nothing was run.")?;let store=native::store().ok_or("Native data folder is unavailable.")?;let account=m["resolvedRouteId"].as_str().and_then(locust_core::agent_accounts::account_from_route);let env=native::account_launch_env(&store,runtime,account)?;let env_pairs:Vec<(&str,&str)>=env.iter().map(|(k,v)|(*k,v.as_str())).collect();let dir=store.attachments_dir().map_err(|e|e.to_string())?;let script=dir.join(format!("terminal-{}.command",native::uuid_v4().map_err(|e|e.to_string())?));runtime_terminal::open_with_env(&executable,&args,&folder,&script,&store,&env_pairs)?;Ok::<_,String>(matches!(runtime,"claude"|"codex"))})();
- s.composer_note=Some(match result{Ok(_)=>offer.map(|o|o.opened("Terminal")).unwrap_or_else(||"Opened in Terminal.".into()),Err(e)=>e});
- 
+    let running = turn_running(s);
+    let owner = selected_conversation(s).map(|(t, _)| (t.id.clone(), t.name.clone()));
+    let place = folder(s).map(|f| f.to_string_lossy().into_owned());
+    // The conversation's newest run, read from the ledger once, and only when it is asked for.
+    let loaded = std::cell::OnceCell::new();
+    let ledger = || loaded.get_or_init(|| native::real_tip(&open_id).and_then(|newest| runtime_terminal::mission(&newest)).ok()).as_ref();
+    let result = (|| {
+        let request = runtime_terminal::terminal_request_for(
+            &open_id,
+            &runtime_terminal::TerminalFacts {
+                live: &|_| running,
+                mission: &|_| {
+                    let (m, rows) = ledger()?;
+                    Some(runtime_terminal::TerminalMission {
+                        runtime: m["runtime"].as_str()?.to_owned(),
+                        model: m["model"].as_str().unwrap_or_default().to_owned(),
+                        session: runtime_terminal::session(rows),
+                    })
+                },
+                owner_of: &|_| owner.clone(),
+                // A teammate's runs happen in its folder, as the engine resolves it for a turn.
+                cwd_for: &|_| place.clone(),
+                workspace_path: place.clone().unwrap_or_default(),
+                launch_for: &|runtime| {
+                    let command = match runtime {
+                        "cursor" => "cursor-agent",
+                        "antigravity" => "agy",
+                        other => other,
+                    };
+                    let found = crate::runtime::find_executable(command).ok()?;
+                    Some(runtime_terminal::TerminalLaunch {
+                        command_name: command.to_owned(),
+                        executable_path: found.to_string_lossy().into_owned(),
+                        prefix_args: Vec::new(),
+                        env: None,
+                    })
+                },
+            },
+        )?;
+        if place.is_none() {
+            return Err("Choose a folder first. Nothing was run.".to_owned());
+        }
+        let args = runtime_terminal::resume_args(&request.runtime, &request.session_id)
+            .ok_or("This conversation has no session its runtime can resume in a terminal.")?;
+        let store = native::store().ok_or("Native data folder is unavailable.")?;
+        let account = ledger().and_then(|(m, _)| m["resolvedRouteId"].as_str()).and_then(locust_core::agent_accounts::account_from_route);
+        let env = native::account_launch_env(&store, &request.runtime, account)?;
+        let env_pairs: Vec<(&str, &str)> = env.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let dir = store.attachments_dir().map_err(|e| e.to_string())?;
+        let script = dir.join(format!("terminal-{}.command", native::uuid_v4().map_err(|e| e.to_string())?));
+        let file = std::path::Path::new(&request.launch.executable_path);
+        runtime_terminal::open_with_env(file, &args, std::path::Path::new(&request.cwd), &script, &store, &env_pairs)
+    })();
+    s.composer_note = Some(match result {
+        Ok(()) => offer.as_ref().map(|o| o.opened("Terminal")).unwrap_or_else(|| "Opened in Terminal.".into()),
+        Err(e) => e,
+    });
 }
 
 #[cfg(test)]
@@ -776,6 +830,10 @@ mod command_mode_tests;
 #[cfg(test)]
 #[path = "terminal_offer_tests.rs"]
 mod terminal_offer_tests;
+
+#[cfg(test)]
+#[path = "terminal_request_tests.rs"]
+mod terminal_request_tests;
 
 #[cfg(test)]
 #[path = "command_carry_tests.rs"]

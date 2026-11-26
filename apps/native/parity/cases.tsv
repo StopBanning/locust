@@ -308,20 +308,20 @@ apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.te
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	matches the same folder only, as Windows spells it either way	yes
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	starts nothing for a new conversation there until the folder is said yes to, and asks in the window	yes
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	keeps only the current folder, only from its own window, and only one that needed asking	yes
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the Node script, the native binary, or the .cmd launcher itself -- never cmd wrapping cmd	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes to Windows Terminal as a new window titled for the conversation, in the teammate’s folder	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	does not go to Windows Terminal with a ";" anywhere in it: wt splits its own commands there	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	in a console window, is one cmd line with every path quoted, the way the sign-in window does it	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts Windows Terminal when it is there, detached, and says so	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	falls back to a console window of its own when Windows Terminal will not start	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes straight to the console window for a CLI run under Locust’s own Node, with its environment	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts nothing for a session id that is not a plain token, or on a system with no terminal Locust knows (macOS and Linux: a-mac-opens-its-own-terminal, a-linux-terminal-is-the-one-the-desktop-has)	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the mission’s own session, in its teammate’s folder, titled for them	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused while the run is going, and says why	no
-apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused, with the reason, for Antigravity, a model of your own, a turn with no session, and a CLI not found	no
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the Node script, the native binary, or the .cmd launcher itself -- never cmd wrapping cmd	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes to Windows Terminal as a new window titled for the conversation, in the teammate’s folder	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	does not go to Windows Terminal with a ";" anywhere in it: wt splits its own commands there	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	in a console window, is one cmd line with every path quoted, the way the sign-in window does it	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts Windows Terminal when it is there, detached, and says so	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	falls back to a console window of its own when Windows Terminal will not start	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	goes straight to the console window for a CLI run under Locust’s own Node, with its environment	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	starts nothing for a session id that is not a plain token, or on a system with no terminal Locust knows (macOS and Linux: a-mac-opens-its-own-terminal, a-linux-terminal-is-the-one-the-desktop-has)	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is the mission’s own session, in its teammate’s folder, titled for them	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused while the run is going, and says why	yes
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	is refused, with the reason, for Antigravity, a model of your own, a turn with no session, and a CLI not found	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	runs in its conversation's folder, not the window's, and is recorded there	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	continues a restored Windows conversation in the chosen Mac folder	yes
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts	a new conversation still starts in the window's folder	yes
