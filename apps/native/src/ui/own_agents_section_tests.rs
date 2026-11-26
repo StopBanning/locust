@@ -230,3 +230,25 @@ fn remove_asks_on_the_first_press_and_removes_on_the_second() {
     let kept = locust_core::acp_agents::read_saved_agents(data.root());
     assert_eq!(kept.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), vec!["acp_kimi"], "the rest of Electron's list is kept");
 }
+
+// AcpAgentsSettings.tsx: Add agent is disabled while a Test or an Add is under way (`busy`), so a second press is not a
+// second start. The press itself is refused by the button; this is the function behind it, reached some other way.
+#[test]
+fn add_agent_starts_nothing_while_a_test_or_an_add_is_under_way() {
+    let (dirs, data, mut rt) = window(None);
+    type_into(&mut rt, "acp-agent-name", "Stub");
+    type_into(&mut rt, "acp-agent-command", &stub_command(&dirs));
+    rt.update(|s, _| s.own_agents.busy = true);
+    rt.update(|s, _| add(s));
+    assert_eq!(rt.state.own_agents.said, None, "nothing was started, so nothing is being tested");
+    assert!(rt.state.own_agents.busy, "the one under way is still the only one");
+    assert!(!data.root().join(locust_core::acp_agents::ACP_AGENTS_FILE).exists(), "nothing kept");
+
+    // The same press once nothing is under way starts the Add.
+    rt.update(|s, _| s.own_agents.busy = false);
+    rt.update(|s, _| add(s));
+    assert!(rt.state.own_agents.busy, "Add agent started");
+    pump(&mut rt, settled);
+    assert_eq!(rt.state.own_agents.said.as_ref().map(|(_, good)| *good), Some(true));
+    assert!(data.root().join(locust_core::acp_agents::ACP_AGENTS_FILE).exists(), "the agent that answered is kept");
+}
