@@ -14,7 +14,8 @@ use locust_core::phone_anywhere::{
 use locust_core::chat_http::WsClient;
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use locust_core::phone_anywhere::HooksCallbacks;
+use locust_core::phone_anywhere::{HooksCallbacks, McpCallbacks};
+use locust_core::remote_mcp::{McpRelay, RemoteMcp, RemoteMcpAsk, RemoteMcpReply};
 use locust_core::routine_hooks::{HookLettersPage, HookRelay, HookRoom, RoutineHooks};
 use locust_core::routine_host::LiveHost;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -81,6 +82,54 @@ pub(crate) struct PhoneAnywhereLink {
 pub(crate) struct SharedLink {
     live: Arc<Mutex<Option<PhoneAnywhere>>>,
     hooks: Arc<Mutex<Option<Weak<RoutineHooks>>>>,
+    mcp: Arc<Mutex<Option<Weak<RemoteMcp>>>>,
+}
+
+/// Other apps reach this computer at the live link's room (index.ts `address: () => phoneAnywhere.mcpAddress()`,
+/// `open: (on) => phoneAnywhere.mcpOpen(on)`); with From anywhere off there is no address.
+impl McpRelay for SharedLink {
+    fn address(&self) -> Option<String> {
+        self.live().and_then(|link| link.mcp_address())
+    }
+    fn open(&self, on: bool) -> bool {
+        self.live().map_or(!on, |link| link.mcp_open(on))
+    }
+}
+
+/// index.ts's `mcp: { answer, sync }`: an app's request the relay passed on is answered by this window's pairing, and on
+/// each connect the relay is told again whether it may take apps.
+struct ServeMcp(Arc<Mutex<Option<Weak<RemoteMcp>>>>);
+
+impl ServeMcp {
+    fn remote(&self) -> Option<Arc<RemoteMcp>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(Weak::upgrade)
+    }
+
+    /// From anywhere off forgets the room, and with it every app's address: they are let go here too (index.ts's
+    /// `changed`). Never on the window's thread: the relay may be asked.
+    fn follow(&self, phone: &PhoneAnywhereSettings) {
+        if !phone.enabled
+            && let Some(remote) = self.remote().filter(|remote| remote.settings().enabled)
+        {
+            std::thread::spawn(move || {
+                remote.set_enabled(&serde_json::json!(false));
+            });
+        }
+    }
+}
+
+impl McpCallbacks for ServeMcp {
+    fn answer(&self, asked: RemoteMcpAsk) -> RemoteMcpReply {
+        match self.remote() {
+            Some(remote) => remote.answer(&asked),
+            None => RemoteMcpReply { status: 503, body: serde_json::json!({ "error": "pc-offline" }).to_string() },
+        }
+    }
+    fn sync(&self) {
+        if let Some(remote) = self.remote() {
+            remote.sync();
+        }
+    }
 }
 
 impl SharedLink {
@@ -141,6 +190,21 @@ pub(crate) fn routine_host(
 impl PhoneAnywhereLink {
     pub(crate) fn is_live(&self) -> bool {
         self.live.is_some()
+    }
+
+    /// Other apps' relay: this window's one phone link.
+    pub(crate) fn mcp_relay(&self) -> Arc<dyn McpRelay> {
+        Arc::new(self.shared.clone())
+    }
+
+    /// The pairing that answers apps' requests the link passes on; told at once when the link is already up (index.ts:
+    /// `void remoteMcp.load().then(() => { if (phoneAnywhere.connected()) void remoteMcp?.sync() })`).
+    pub(crate) fn serve_mcp(&self, remote: &Arc<RemoteMcp>) {
+        *self.shared.mcp.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::downgrade(remote));
+        if self.shared.live().is_some_and(|link| link.connected()) {
+            let remote = remote.clone();
+            std::thread::spawn(move || remote.sync());
+        }
     }
 
     /// The live link, here and where the routine links reach it; the one it replaces is handed back.
@@ -293,6 +357,7 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
                     .ok()
             })
         })),
+        mcp: Some(Arc::new(ServeMcp(s.phone_anywhere_link.shared.mcp.clone()))),
     }))
 }
 
@@ -377,6 +442,7 @@ fn enable_anywhere(s: &mut State) {
 fn disable_anywhere(s: &mut State) {
     if let Some(pa) = s.phone_anywhere_link.set_live(None) {
         let mut next = pa.set_enabled(false);
+        ServeMcp(s.phone_anywhere_link.shared.mcp.clone()).follow(&next);
         pa.dispose();
         s.phone_anywhere_link.rx = None;
         next.connected = false;
@@ -1391,7 +1457,8 @@ mod tests {
             let id = val.get("id").and_then(serde_json::Value::as_str).map(str::to_owned);
             let reply = match kind {
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
-                "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected" => {
+                "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected"
+                | "mcp-open" | "mcp-close" => {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
                 }
                 "hook-letters" => id.map(|id| serde_json::json!({ "t": "hook-letters", "id": id, "items": [], "lost": 0 })),
@@ -1656,6 +1723,84 @@ mod tests {
         let made = hooks.state(&id, false).unwrap();
         let prefix = format!("https://relay.test/v1/room/{room}/hook/");
         assert!(made.url.as_deref().is_some_and(|url| url.starts_with(&prefix)), "the link is this room's");
+    }
+
+    /// What the PC answered the relay for one app's request.
+    fn answered(relay: &FakeRelay, ask: &str) -> serde_json::Value {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            let found = relay.frames.lock().unwrap().iter().find(|f| f["t"] == "mcp-answer" && f["ask"] == ask).cloned();
+            if let Some(found) = found {
+                return found;
+            }
+            assert!(std::time::Instant::now() < deadline, "no answer to an app's request");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn an_app_from_anywhere_signs_in_and_uses_the_doors_own_tools_through_the_phones_link_until_from_anywhere_is_off() {
+        let (_root, store) = temp_store("apps-anywhere");
+        let root = store.root().parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(root.join("work")).unwrap();
+        std::fs::write(
+            root.join("electron").join("teammates.json"),
+            serde_json::json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_a", "name": "Reader", "hue": "blue", "role": "Custom", "createdAt": "2026-11-01T00:00:00Z", "folder": root.join("work").to_string_lossy(), "route": {"runtime": "codex", "model": "account-default", "mode": "plan"}}]}).to_string(),
+        )
+        .unwrap();
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+        // On only with the phone link's room as the address, and the relay told it may take apps.
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled, "turned on over the phone link");
+        assert_eq!(sent(&relay, "mcp-open"), 1);
+        let room = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::room).unwrap().1;
+        assert_eq!(rt.state.phone_anywhere_link.mcp_relay().address(), Some(format!("https://relay.test/v1/room/{room}/mcp")));
+
+        // An app signs in the way the relay passes it on, and the person allows its card.
+        let redirect = "https://claude.ai/api/mcp/auth_callback";
+        let verifier = locust_core::relay_crypto::random_text(32);
+        let challenge = locust_core::relay_crypto::sha256_b64url(&verifier);
+        let connect = serde_json::json!({"client_id": "client_1", "client": "Claude", "redirect": redirect, "challenge": challenge, "match": "123456"});
+        relay.push_frame(serde_json::json!({ "t": "mcp-ask", "ask": "Ask_one-16-chars", "kind": "connect", "body": connect.to_string() }));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let card = loop {
+            if let Some(card) = remote.settings().asking.first().cloned() {
+                break card;
+            }
+            assert!(std::time::Instant::now() < deadline, "no card");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+        assert_eq!((card.name.as_str(), card.host.as_str()), ("Claude", "claude.ai"));
+        remote.answer_sign_in(&card.request, true);
+        let signed: serde_json::Value = serde_json::from_str(answered(&relay, "Ask_one-16-chars")["body"].as_str().unwrap()).unwrap();
+        let code = signed["code"].as_str().expect("a code").to_owned();
+        let token = serde_json::json!({"grant_type": "authorization_code", "code": code, "code_verifier": verifier, "client_id": "client_1", "redirect_uri": redirect});
+        relay.push_frame(serde_json::json!({ "t": "mcp-ask", "ask": "Ask_two-16-chars", "kind": "token", "body": token.to_string() }));
+        let keys = answered(&relay, "Ask_two-16-chars");
+        assert_eq!(keys["status"], 200);
+        let keys: serde_json::Value = serde_json::from_str(keys["body"].as_str().unwrap()).unwrap();
+        let key = keys["access_token"].as_str().expect("a key").to_owned();
+
+        // Its call is the door's own list_teammates, in Ask: each teammate's own mode is off.
+        let call = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "list_teammates", "arguments": {}}});
+        relay.push_frame(serde_json::json!({ "t": "mcp-ask", "ask": "Ask_three-16char", "kind": "call", "body": call.to_string(), "auth": key }));
+        let reply = answered(&relay, "Ask_three-16char");
+        assert_eq!(reply["status"], 200);
+        let reply: serde_json::Value = serde_json::from_str(reply["body"].as_str().unwrap()).unwrap();
+        let listed: serde_json::Value = serde_json::from_str(reply["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!((listed[0]["name"].as_str(), listed[0]["runs_in"].as_str()), (Some("Reader"), Some("ask")));
+
+        // From anywhere off turns this off too (index.ts `changed`).
+        click_key(&mut rt, "phone-switch");
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while remote.settings().enabled {
+            assert!(std::time::Instant::now() < deadline, "still on after From anywhere was turned off");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(remote.settings().apps.is_empty());
     }
 
     #[test]

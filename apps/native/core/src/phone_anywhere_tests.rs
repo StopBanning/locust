@@ -1,7 +1,7 @@
 use crate::desk::{DeskJoiner, DeskPart, desk_parts};
 use crate::phone_alerts::{AlertKind, PhoneAlert};
 use crate::phone_anywhere::{
-    AwayCallbacks, AwayForPhone, DeskCallbacks, HooksCallbacks, NOTE_SENDS_WITHIN_MS,
+    AwayCallbacks, AwayForPhone, DeskCallbacks, HooksCallbacks, McpCallbacks, NOTE_SENDS_WITHIN_MS,
     NoteDelivery, NotesCallbacks, PHONE_ANYWHERE_FILE, PhoneAnywhere, PhoneAnywhereOptions,
     RelayLetter, RelaySocket, RelaySocketCallbacks, away_found_alert_json,
 };
@@ -152,6 +152,9 @@ struct RoomState {
     github_link: Option<(String, i64, String, String)>,
     github_account: Option<(u64, String, String, String, String)>,
     github_tickets: Vec<(String, i64)>,
+    /// What the PC told the relay about other apps (`mcp-open`/`mcp-close`), and what it answered them.
+    mcp_told: Vec<String>,
+    mcp_answers: Vec<Value>,
 }
 
 impl RoomState {
@@ -173,6 +176,8 @@ impl RoomState {
             github_link: None,
             github_account: None,
             github_tickets: Vec::new(),
+            mcp_told: Vec::new(),
+            mcp_answers: Vec::new(),
         }
     }
 
@@ -635,6 +640,13 @@ impl RoomState {
                     }
                 }
             }
+            "mcp-open" | "mcp-close" if matches!(role, PeerRole::Pc) => {
+                self.mcp_told.push(t.to_owned());
+                self.send_done(peer_id, t, cmd_id);
+            }
+            "mcp-answer" if matches!(role, PeerRole::Pc) => {
+                self.mcp_answers.push(frame.clone());
+            }
             _ => {}
         }
     }
@@ -948,6 +960,14 @@ impl MemoryRelay {
     fn connector(&self) -> crate::phone_anywhere::RelayConnector {
         let relay = self.clone();
         Arc::new(move |_url: &str| Ok(relay.connect_line() as Arc<dyn RelaySocket>))
+    }
+
+    /// An app's request, passed to the PC as room.ts passes it.
+    fn mcp_ask(&self, frame: Value) {
+        let st = self.room.lock().unwrap();
+        if let Some(pc) = st.pc_peer_id(None) {
+            st.send_to(pc, frame);
+        }
     }
 
     fn drop_all(&self) {
@@ -1383,10 +1403,95 @@ fn make_pc(
         notes,
         github_user: None,
         computer_name: None,
+        mcp: None,
     })
 }
 
 // ---- Tests (15 cases from apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts) -------------------
+
+/// index.ts's `mcp: { answer, sync }`, recorded: each app's request, and each time the relay is told again.
+#[derive(Default)]
+struct Apps {
+    asked: Mutex<Vec<crate::remote_mcp::RemoteMcpAsk>>,
+    synced: AtomicUsize,
+}
+impl McpCallbacks for Apps {
+    fn answer(&self, asked: crate::remote_mcp::RemoteMcpAsk) -> crate::remote_mcp::RemoteMcpReply {
+        self.asked.lock().unwrap().push(asked);
+        crate::remote_mcp::RemoteMcpReply { status: 200, body: "{\"jsonrpc\":\"2.0\"}".to_owned() }
+    }
+    fn sync(&self) {
+        self.synced.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[test]
+fn answers_an_apps_request_the_relay_passed_on_and_tells_the_relay_again_whether_it_may_take_apps_each_time_it_connects() {
+    use crate::remote_mcp::AskKind;
+    let relay = MemoryRelay::new(None);
+    let dir = TempDir::new("locust-mcp-line");
+    let apps = Arc::new(Apps::default());
+    let pc = PhoneAnywhere::new(PhoneAnywhereOptions {
+        directory: dir.path().clone(),
+        calls: FakeCalls::new(),
+        relay: Arc::new(|| "https://relay.test".to_owned()),
+        refusal: None,
+        changed: None,
+        connect: relay.connector(),
+        now: None,
+        protect_file: Some(Arc::new(|_| Ok(()))),
+        retry_ms: Some(Arc::new(|_| 20)),
+        away: None,
+        hooks: None,
+        desk: None,
+        notes: None,
+        github_user: None,
+        computer_name: None,
+        mcp: Some(apps.clone()),
+    });
+    pc.set_enabled(true);
+    until(3_000, || pc.connected() && apps.synced.load(Ordering::SeqCst) == 1);
+    // phone-anywhere.ts `mcpAddress`: `${saved.relay}/v1/room/${saved.room}/mcp`; `mcpOpen`: 'mcp-open' or 'mcp-close'.
+    let (relay_url, room) = pc.room().unwrap();
+    assert_eq!(pc.mcp_address(), Some(format!("{relay_url}/v1/room/{room}/mcp")));
+    assert!(pc.mcp_open(true));
+    assert!(pc.mcp_open(false));
+    assert_eq!(relay.room.lock().unwrap().mcp_told, ["mcp-open", "mcp-close"]);
+
+    // An ask of 16 letters, of a kind the relay passes, with a string body and a string auth or none, is answered.
+    relay.mcp_ask(json!({ "t": "mcp-ask", "ask": "Ask_one-16-chars", "kind": "call", "body": "{\"id\":1}", "auth": "a key" }));
+    until(3_000, || relay.room.lock().unwrap().mcp_answers.len() == 1);
+    assert_eq!(
+        relay.room.lock().unwrap().mcp_answers[0],
+        json!({ "t": "mcp-answer", "ask": "Ask_one-16-chars", "status": 200, "body": "{\"jsonrpc\":\"2.0\"}" })
+    );
+    for odd in [
+        json!({ "t": "mcp-ask", "ask": "too-short", "kind": "call", "body": "{}" }),
+        json!({ "t": "mcp-ask", "ask": "Ask_odd-16-chars", "kind": "list", "body": "{}" }),
+        json!({ "t": "mcp-ask", "ask": "Ask_odd-16-chars", "kind": "call", "body": 7 }),
+        json!({ "t": "mcp-ask", "ask": "Ask_odd-16-chars", "kind": "call", "body": "{}", "auth": 7 }),
+    ] {
+        relay.mcp_ask(odd);
+    }
+    relay.mcp_ask(json!({ "t": "mcp-ask", "ask": "Ask_two-16-chars", "kind": "connect", "body": "{}" }));
+    until(3_000, || relay.room.lock().unwrap().mcp_answers.len() == 2);
+    std::thread::sleep(Duration::from_millis(100));
+    let asked = apps.asked.lock().unwrap().clone();
+    assert_eq!(asked.len(), 2);
+    assert_eq!((asked[0].kind.clone(), asked[0].auth.as_deref(), asked[0].body.as_str()), (AskKind::Call, Some("a key"), "{\"id\":1}"));
+    assert_eq!((asked[1].ask.as_str(), asked[1].kind.clone(), asked[1].auth.as_deref()), ("Ask_two-16-chars", AskKind::Connect, None));
+
+    // Connected again, the relay is told again.
+    relay.drop_all();
+    until(3_000, || pc.connected() && apps.synced.load(Ordering::SeqCst) == 2);
+
+    // Off, there is no address: nothing can be turned on, and off is already so.
+    pc.set_enabled(false);
+    assert_eq!(pc.mcp_address(), None);
+    assert!(!pc.mcp_open(true));
+    assert!(pc.mcp_open(false));
+    pc.dispose();
+}
 
 /// A box that keeps a key by turning it round: never the keychain.
 struct TurnedRound;
@@ -1802,6 +1907,7 @@ fn forgets_a_called_link_when_the_phone_relay_is_turned_off_while_it_is_disconne
         notes: None,
         github_user: None,
         computer_name: None,
+        mcp: None,
     });
     pc.set_enabled(true);
     until(3_000, || pc.connected());
@@ -1847,6 +1953,7 @@ fn says_it_is_turning_off_until_the_relay_confirms_and_finishes_after_a_restart(
             notes: None,
             github_user: None,
             computer_name: None,
+            mcp: None,
         })
     };
 
@@ -2491,6 +2598,7 @@ fn github_pc(relay: &MemoryRelay) -> (TempDir, PhoneAnywhere, Arc<Mutex<Vec<Stri
             }
         })),
         computer_name: Some(Arc::new(|| Some("DESKTOP-1<b>".to_owned()))),
+        mcp: None,
     });
     pc.set_enabled(true);
     until(3_000, || pc.connected());
@@ -2692,6 +2800,7 @@ fn github_link_returns_none_with_not_connected_message_before_relay_connects() {
         notes: None,
         github_user: None,
         computer_name: None,
+        mcp: None,
     });
     pc.set_enabled(true);
     assert!(!pc.connected());

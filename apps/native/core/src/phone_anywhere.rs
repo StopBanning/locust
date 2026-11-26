@@ -7,6 +7,7 @@
 use crate::desk::{DESK_PART_CHARS, DeskJoiner, DeskPart, desk_parts};
 use crate::phone_alerts::{AlertKind, PhoneAlert};
 use crate::phone_host::{MAX_BODY, PhoneCalls, answer_phone};
+use crate::remote_mcp::{AskKind, RemoteMcpAsk, RemoteMcpReply};
 use crate::relay_crypto::{
     Direction, LinkKeys, LinkSide, aad_of, device_id_of, from_base64url, link_keys, new_pc_keys,
     open_json, pairing_proof, pairing_token, random_text, same_text, seal_json, sha256_b64url,
@@ -192,6 +193,13 @@ pub trait NotesCallbacks: Send + Sync {
     fn deliver(&self, mission_id: &str, text: &str) -> NoteDelivery;
 }
 
+/// Other apps from anywhere (0.841, remote-mcp.ts): an app's request the relay passed on, answered here, and the relay
+/// told again whether it may take apps each time this computer connects.
+pub trait McpCallbacks: Send + Sync {
+    fn answer(&self, asked: RemoteMcpAsk) -> RemoteMcpReply;
+    fn sync(&self);
+}
+
 pub struct PhoneAnywhereOptions {
     pub directory: PathBuf,
     pub calls: Arc<dyn PhoneCalls>,
@@ -208,6 +216,7 @@ pub struct PhoneAnywhereOptions {
     pub notes: Option<Arc<dyn NotesCallbacks>>,
     pub github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
     pub computer_name: Option<Arc<dyn Fn() -> Option<String> + Send + Sync>>,
+    pub mcp: Option<Arc<dyn McpCallbacks>>,
 }
 
 // ---- Persisted state ------------------------------------------------------------------------------------------------
@@ -389,6 +398,11 @@ fn push_of(value: &Value) -> Option<PushSubscriptionKeys> {
 fn letter_id_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"^\d{13}-[A-Za-z0-9_-]{8}$").unwrap())
+}
+
+fn mcp_ask_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9_-]{16}$").unwrap())
 }
 
 fn hook_id_re() -> &'static Regex {
@@ -1196,6 +1210,22 @@ impl PhoneAnywhere {
         sent
     }
 
+    /// Where other apps reach this computer from anywhere (0.841): its room's MCP address, while From anywhere is on.
+    pub fn mcp_address(&self) -> Option<String> {
+        let st = self.inner.state.lock().unwrap();
+        let held = st.saved.as_ref().filter(|held| !held.closing)?;
+        Some(format!("{}/v1/room/{}/mcp", held.relay, held.room))
+    }
+
+    /// The relay takes apps for this room, or no longer: off forgets every app it registered. With no room there is
+    /// nothing to turn off, and nothing can be turned on.
+    pub fn mcp_open(&self, on: bool) -> bool {
+        if !self.inner.state.lock().unwrap().saved.as_ref().is_some_and(|held| !held.closing) {
+            return !on;
+        }
+        self.inner.command(json!({ "t": if on { "mcp-open" } else { "mcp-close" } }))
+    }
+
     pub fn hook_open(&self, hook: &str, hash: &str) -> bool {
         if self
             .inner
@@ -1759,7 +1789,40 @@ impl PhoneAnywhereInner {
                 if let Some(hooks) = &self.options.hooks {
                     hooks.refresh();
                 }
+                if let Some(mcp) = self.options.mcp.clone() {
+                    // Never on the line's own thread: the relay's answer comes back on it.
+                    self.spawn_tracked(move |_| mcp.sync());
+                }
                 self.trigger_collect_notes();
+            }
+            "mcp-ask" => {
+                // An app's request (0.841): answered, however long the person takes over a card; the relay holds the rest.
+                let Some(mcp) = self.options.mcp.clone() else { return };
+                let ask = frame.get("ask").and_then(Value::as_str).filter(|ask| mcp_ask_re().is_match(ask));
+                let kind = match frame.get("kind").and_then(Value::as_str) {
+                    Some("connect") => Some(AskKind::Connect),
+                    Some("token") => Some(AskKind::Token),
+                    Some("call") => Some(AskKind::Call),
+                    _ => None,
+                };
+                let body = frame.get("body").and_then(Value::as_str);
+                let auth = frame.get("auth");
+                let (Some(ask), Some(kind), Some(body)) = (ask, kind, body) else { return };
+                if auth.is_some_and(|auth| !auth.is_string()) {
+                    return;
+                }
+                let asked = RemoteMcpAsk {
+                    ask: ask.to_owned(),
+                    kind,
+                    body: body.to_owned(),
+                    auth: auth.and_then(Value::as_str).map(str::to_owned),
+                };
+                self.spawn_tracked(move |this| {
+                    let ask = asked.ask.clone();
+                    let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| mcp.answer(asked)))
+                        .unwrap_or_else(|_| RemoteMcpReply { status: 500, body: json!({ "error": "locust-failed" }).to_string() });
+                    this.send_frame(json!({ "t": "mcp-answer", "ask": ask, "status": answer.status, "body": answer.body }));
+                });
             }
             "notes-changed" => {
                 self.trigger_collect_notes();
@@ -2777,6 +2840,7 @@ mod desk_code_guard_tests {
             notes: None,
             github_user: None,
             computer_name: None,
+            mcp: None,
         });
         pc.set_enabled(true);
         let deadline = std::time::Instant::now() + Duration::from_secs(3);

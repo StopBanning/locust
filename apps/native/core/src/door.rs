@@ -714,6 +714,24 @@ pub fn list_models_here(teammate: Option<&str>) -> Result<String, String> {
     if said.is_error { Err(said.text) } else { Ok(said.text) }
 }
 
+/// The door's tools for an app that reaches this computer through Locust's relay (index.ts's `mcpTools`, which
+/// remote-mcp.ts calls): what an app on this computer gets, with the same rules. The person's saved switches are read
+/// as each call comes, so a turn is Ask unless each teammate's own mode is on.
+pub fn tools_from_anywhere(store: Store) -> impl Fn(&str, &Value) -> crate::door_tools::ToolResult + Send + Sync + 'static {
+    let file = store.root().join(SETTINGS_FILE);
+    let settings = Arc::new(Mutex::new(Settings::default()));
+    let tools = Tools::new(Engine { store, settings: settings.clone(), voice: false });
+    move |name: &str, arguments: &Value| {
+        let saved = std::fs::read_to_string(&file)
+            .ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .map(|v| Settings::parse(&v))
+            .unwrap_or_default();
+        *settings.lock().unwrap_or_else(|e| e.into_inner()) = saved;
+        tools.call(name, arguments)
+    }
+}
+
 /// The saved routines, only when the window offered its runner: the door with no window offers none.
 fn routines_if_offered(store: &Store, offered: bool) -> Option<Vec<Value>> {
     if !offered {

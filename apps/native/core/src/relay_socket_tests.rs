@@ -178,6 +178,7 @@ fn the_phone_link_over_it_signs_in_as_this_pc_once_the_line_opens_and_connects_a
         notes: None,
         github_user: None,
         computer_name: None,
+        mcp: None,
     });
     pc.set_enabled(true);
     until("the relay's ok", || pc.connected());

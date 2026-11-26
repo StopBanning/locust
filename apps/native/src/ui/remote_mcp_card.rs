@@ -2,14 +2,15 @@
 //! window (Electron `RemoteConnectCard.tsx`, mounted over every screen). The logic, keys and hashes are
 //! `locust_core::remote_mcp`'s; this only shows its state and passes the person's answers on.
 //!
-//! The relay is `StubMcpRelay` until Apple's NSURLSession transport lands, so From anywhere is never on and the switch
-//! says so in Electron's own words. The "keep it running" line (Electron's `stay`) is not shown: it needs the tray and
-//! login-item switches this window does not have yet.
+//! The relay is this window's one phone link (index.ts `address`/`open` on `phoneAnywhere`) and the tools are the door's
+//! own, as an app on this computer gets them. The phone link's line is NSURLSession's WebSocket on macOS; on Windows and
+//! Linux it is still a stand-in, so From anywhere never connects there and the switch says so in Electron's own words.
+//! The "keep it running" line (Electron's `stay`) is not shown: it needs the tray and login-item switches this window
+//! does not have yet.
 
 use super::*;
 use chrono::{DateTime, Local};
-use locust_core::door_tools::ToolResult;
-use locust_core::remote_mcp::{McpTools, Options, REMOTE_MCP_FILE, RemoteMcp, RemoteMcpApp, RemoteMcpState, StubMcpRelay};
+use locust_core::remote_mcp::{Options, REMOTE_MCP_FILE, RemoteMcp, RemoteMcpApp, RemoteMcpState};
 use std::sync::{Arc, Mutex};
 
 static SERVICE: Mutex<Option<Arc<RemoteMcp>>> = Mutex::new(None);
@@ -79,15 +80,6 @@ fn press_keep_it_running(s: &mut State) {
     }
 }
 
-/// The tools an app is offered reach the door's engine only once the relay's real transport brings an app's call; until
-/// then nothing can arrive, and a call that did would be refused.
-struct NoToolsYet;
-impl McpTools for NoToolsYet {
-    fn call(&self, _name: &str, _arguments: &serde_json::Value) -> Result<ToolResult, String> {
-        Err("Locust's tools are not reachable through the relay yet.".into())
-    }
-}
-
 /// This computer's pairing, made once. Tests never reach a relay: without a stand-in of their own there is none.
 fn service(s: &State) -> Option<Arc<RemoteMcp>> {
     let mut held = SERVICE.lock().unwrap_or_else(|e| e.into_inner());
@@ -95,14 +87,23 @@ fn service(s: &State) -> Option<Arc<RemoteMcp>> {
         return held.clone();
     }
     if held.is_none() {
-        let store = s.data.as_ref()?;
-        let mut options = Options::new(store.root().join(REMOTE_MCP_FILE), Arc::new(StubMcpRelay), Arc::new(NoToolsYet));
-        options.refusal = Arc::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone"));
-        let service = Arc::new(RemoteMcp::new(options));
-        service.load();
-        *held = Some(service);
+        *held = Some(made(s)?);
     }
     held.clone()
+}
+
+/// The pairing as index.ts makes it (`createRemoteMcp`): the relay is this window's phone link, which passes each app's
+/// request here, and the tools are the ones an app on this computer gets, with the same rules -- Ask unless each
+/// teammate's own mode is on.
+pub(super) fn made(s: &State) -> Option<Arc<RemoteMcp>> {
+    let store = s.data.as_ref()?;
+    let tools = locust_core::door::tools_from_anywhere(store.clone());
+    let mut options = Options::new(store.root().join(REMOTE_MCP_FILE), s.phone_anywhere_link.mcp_relay(), Arc::new(tools));
+    options.refusal = Arc::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone"));
+    let service = Arc::new(RemoteMcp::new(options));
+    service.load();
+    s.phone_anywhere_link.serve_mcp(&service);
+    Some(service)
 }
 
 #[cfg(test)]
@@ -313,7 +314,7 @@ mod tests {
     fn pairing(label: &str, address: Option<&str>) -> (Arc<RemoteMcp>, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("locust-remote-mcp-ui-{label}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let options = Options::new(dir.join(REMOTE_MCP_FILE), Arc::new(Relay(Mutex::new(address.map(str::to_owned)))), Arc::new(NoToolsYet));
+        let options = Options::new(dir.join(REMOTE_MCP_FILE), Arc::new(Relay(Mutex::new(address.map(str::to_owned)))), Arc::new(|_: &str, _: &serde_json::Value| locust_core::door_tools::ToolResult::refused("No tools here.")));
         (Arc::new(RemoteMcp::new(options)), dir)
     }
     fn words(s: State) -> String {
