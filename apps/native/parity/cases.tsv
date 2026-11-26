@@ -3238,8 +3238,8 @@ apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newes
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
 apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	yes
-apps/desktop/src/main/three-placements.test.ts	gives the note its own register: left-ruled, not centred	no
-apps/desktop/src/main/three-placements.test.ts	leaves the boundary marker centred, because it IS a boundary	no
+apps/desktop/src/main/three-placements.test.ts	gives the note its own register: left-ruled, not centred	yes
+apps/desktop/src/main/three-placements.test.ts	leaves the boundary marker centred, because it IS a boundary	yes
 apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	yes
 apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	yes
 apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	yes
@@ -6612,7 +6612,7 @@ apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	shows the
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	is found by the words a person types for it	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is known by its route	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	yes
-apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
+apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes
 apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	is off until turned on, with From anywhere chosen for when it is	yes

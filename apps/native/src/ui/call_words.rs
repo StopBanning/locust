@@ -118,11 +118,7 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
                     );
                 }
                 if piece.last {
-                    view = view.child(
-                        text(format!("Call ended · {duration}"))
-                            .font(type_::LABEL)
-                            .color(p.muted),
-                    );
+                    view = view.child(crate::messages::thread_marker(&format!("Call ended · {duration}"), &format!("call-ended-{id}"), p));
                 }
             }
             if piece.last

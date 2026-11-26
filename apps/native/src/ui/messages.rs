@@ -40,20 +40,42 @@ pub(super) fn cold_start_note(s: &State, items: &[ledger::Item], meta: &ledger::
     if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id || !locust_core::sent_again::a_turn_before_is_shown(items) {
         return None;
     }
+    Some(thread_note(COLD_START_NOTE, p).key(format!("cold-start-note-{}", meta.mission_id)))
+}
+
+/// Electron's `.lc-thread__note` (shell.css): a note about the turn you are about to read stands in the reading
+/// register, left-ruled and left-aligned (border-left 2px `--lc-border-button`, padding 2px 0 2px 10px, at most 640
+/// wide, `--lc-text-description` in muted), never centred like a boundary.
+pub(crate) fn thread_note(words: &str, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    Some(
-        row()
-            .w_full()
-            .wrap()
-            .child(text(COLD_START_NOTE).font(l.ty.label).color(l.c("text-muted")).wrap())
-            .key(format!("cold-start-note-{}", meta.mission_id)),
-    )
+    row()
+        .max_w(640.0)
+        .py(2.0)
+        .pl(10.0)
+        .border_sides([0.0, 0.0, 0.0, 2.0], l.c("border-button"))
+        .border_layout()
+        .role("note")
+        .child(text(words.to_owned()).font(l.ty.body).color(l.c("text-muted")).wrap())
+}
+
+/// Electron's `.lc-thread__marker lc-mono` (shell.css): a boundary between turns, centred across the column in
+/// muted mono capitals, tracked (`--lc-text-mono-label`, `--lc-tracking-label`, `text-transform: uppercase`). The
+/// words stay as said in the element's label; only the drawing is in capitals. The row is keyed `key`, its words
+/// `<key>-words`.
+pub(crate) fn thread_marker(words: &str, key: &str, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    row()
+        .w_full()
+        .justify_center()
+        .key(key.to_owned())
+        .label(words.to_owned())
+        .child(text(words.to_uppercase()).key(format!("{key}-words")).font(l.ty.label).color(l.c("text-muted")))
 }
 
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
-        messages = messages.child(text(format!("Started {label}")).key("mission-started").font(type_::LABEL).color(p.muted));
+        messages = messages.child(thread_marker(&format!("Started {label}"), "mission-started", p));
     }
     if let Some(pane) = &s.ledger {
         let mut ids: Vec<_> = pane.snapshot.turn_metas.iter().map(|meta| meta.mission_id.clone()).collect();
@@ -68,7 +90,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         }
     }
     if s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.first()).is_some_and(|turn| turn.started_by_voice) {
-        messages = messages.child(text("Started from a voice call").key("started-from-a-voice-call").font(type_::LABEL).color(p.muted));
+        messages = messages.child(thread_marker("Started from a voice call", "started-from-a-voice-call", p));
     }
     use locust_core::call_log::Place;
     let calls = crate::call_words::pieces(s);
@@ -1401,9 +1423,10 @@ mod tests {
         let items = [ledger::Item::User("read status.ts".into())];
         let mut s = composition_state(None, false);
         s.ledger.as_mut().unwrap().snapshot.started_label = Some("Sep 2, 11:25 PM".into());
-        assert!(thread_text(&items, &mut s).contains("Started Sep 2, 11:25 PM"));
+        // A boundary marker, drawn in mono capitals (shell.css `.lc-thread__marker`).
+        assert!(thread_text(&items, &mut s).contains("STARTED SEP 2, 11:25 PM"));
         s.ledger.as_mut().unwrap().snapshot.started_label = None;
-        assert!(!thread_text(&items, &mut s).contains("Started "));
+        assert!(!thread_text(&items, &mut s).contains("STARTED "));
     }
 
     /// the-live-line-says-which-plan-step.test.ts, drawn: the open call in words and the plan's step, on the line a

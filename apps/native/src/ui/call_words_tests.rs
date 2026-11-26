@@ -126,7 +126,7 @@ fn saved_call_folds_and_places_its_words_around_the_turn() {
     click(&mut rt, "call-words-call_1");
     let drawn = words(&rt);
     assert!(drawn.contains("Hide"));
-    assert!(drawn.contains("Call ended · 1:43"));
+    assert!(drawn.contains("CALL ENDED · 1:43"));
     let before = drawn.find("Let me check.").unwrap();
     let turn = drawn.find("Turn m_asked.").unwrap();
     let after = drawn.find("It is cardamom.").unwrap();
@@ -137,7 +137,7 @@ fn saved_call_folds_and_places_its_words_around_the_turn() {
 #[test]
 fn the_newest_turn_does_not_replace_the_original_origin() {
     for origin in [&[false, true][..], &[false, true, true][..]] {
-        assert!(!words(&thread(state(origin))).contains("Started from a voice call"));
+        assert!(!words(&thread(state(origin))).contains("STARTED FROM A VOICE CALL"));
     }
 }
 
@@ -145,7 +145,7 @@ fn the_newest_turn_does_not_replace_the_original_origin() {
 #[test]
 fn the_first_turn_marks_a_voice_conversation() {
     for origin in [&[true][..], &[true, false][..], &[true, false, true][..]] {
-        assert!(words(&thread(state(origin))).contains("Started from a voice call"));
+        assert!(words(&thread(state(origin))).contains("STARTED FROM A VOICE CALL"));
     }
 }
 
@@ -153,7 +153,7 @@ fn the_first_turn_marks_a_voice_conversation() {
 #[test]
 fn a_conversation_without_voice_has_no_voice_marker() {
     for origin in [&[false][..], &[false, false][..]] {
-        assert!(!words(&thread(state(origin))).contains("Started from"));
+        assert!(!words(&thread(state(origin))).contains("STARTED FROM"));
     }
 }
 
@@ -213,7 +213,7 @@ fn the_summary_remains_visible_when_the_words_are_folded() {
     assert!(words(&rt).contains("From the call · 2 to-dos"));
     click(&mut rt, "call-words-call_1");
     let drawn = words(&rt);
-    assert!(drawn.find("Call ended").unwrap() < drawn.find("From the call").unwrap());
+    assert!(drawn.find("CALL ENDED").unwrap() < drawn.find("From the call").unwrap());
 }
 
 // case: sums up: one to-do in another conversation is said, one whose turn is right above is not repeated
