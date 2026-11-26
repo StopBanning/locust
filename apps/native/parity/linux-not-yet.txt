@@ -1,0 +1,38 @@
+# Tests that fail on Linux, and are not run there by scripts/linux-tests.sh (CI job linux-tests in native.yml).
+# One test name per line, as `cargo test -- --list` prints it; a `#` comment above each group says why.
+# This list may only shrink: a test comes off when it passes on Linux, never goes on to make a run green.
+# How each was found, with its failure's first lines: notes/LINUX-NOTES.md (26 Nov 2026).
+
+# Mac only by design: fold_nfkd decomposes accents with NSString on macOS only, so "Zoë" never folds to "zoe" here.
+chat_apps::tests::reads_a_name_and_a_colon_or_a_comma_or_an_at_in_any_case_and_without_its_accents
+chat_telegram_fmt::tests::names_each_teammate_by_a_command_telegram_allows
+
+# Mac only by design: the app says "Claude's cloud opens from here on Windows and macOS so far".
+claude_cloud_panel::claude_cloud_panel_rows_tests::a_follow_up_on_this_computer_runs_claude_code_for_its_receipt
+
+# Fails here as root only: mode 000/555 does not stop root, and the cloud containers run as root (they pass as nobody).
+checkpoints::tests::unreadable_paths_are_skipped_not_fatal
+edit_earlier::tests::a_write_that_fails_puts_the_ones_already_written_back_as_they_were
+
+# Flaky here: passed in one of the two whole runs (files ordered by modification time; agents list read again).
+history_cache::unreadable_count_tests::counts_a_file_whose_header_is_unreadable_and_only_that_file
+ledger::fall_off_tests::still_finds_an_ancestor_off_the_end_of_the_list
+agents_section::agents_artifacts_fold_tests::the_list_is_read_again_when_which_agents_are_there_changes
+
+# Fails here, cause not known: failed both whole runs; alone it passed 2 of 5.
+history_cache::unreadable_count_tests::does_not_call_a_damaged_but_recovered_mission_unreadable_when_it_falls_off_the_page
+
+# Fails here, cause not known: the detached grandchild survives interrupt_process (0 of 5 alone; dash's /bin/sh?).
+runtime::process::tests::stop_kills_a_grandchild_the_run_started_not_just_the_process_it_launched
+
+# Fails here, cause not known: routines::save says "Teammate id is invalid" (0 of 5 alone).
+phone_section::tests::the_routines_links_reach_the_relay_through_the_phones_own_link_and_its_notice_refreshes_them
+
+# Fails here, cause not known: window tests waiting for a fake Codex time out, or "Codex stdout closed before the turn
+# completed" (scout). Alone, five times each: 0, 0, 0, 1 (a race even alone), 5 (passes alone: a race under load), 0.
+window_drive_tests::a_copy_runs_changes_are_kept_into_the_folder_or_discarded
+window_drive_tests::a_failing_check_shows_its_card_and_sends_back_to_fix
+window_drive_tests::a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubble
+window_drive_tests::a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box
+window_drive_tests::a_turn_started_outside_the_window_shows_its_card_on_the_board_and_allow_once_finishes_it
+window_drive_tests::scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root

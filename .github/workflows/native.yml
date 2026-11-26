@@ -1,5 +1,6 @@
-# The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, and a compile check on Linux
-# and Windows that is allowed to fail while the port is Mac-only, so each push shows what stops it building there.
+# The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, its tests on Linux except those
+# parity/linux-not-yet.txt names, and a compile check on Linux and Windows that is allowed to fail while the port is
+# Mac-only, so each push shows what stops it building there.
 # Runs only on pushes to exec/native or exec/native-engine (where the port is built until it merges into exec/native)
 # that touch the port, never on pull requests, one run at a time. The macOS job
 # runs on Colin's Mac mini; the rest on GitHub's runners. No secrets.
@@ -77,6 +78,23 @@ jobs:
           if cargo tree -p locust-core -e normal,build,dev | grep -i rune; then
             echo "locust-core depends on Rune"; exit 1
           fi
+
+  # Every test of both crates on Linux, except those parity/linux-not-yet.txt names (notes/LINUX-NOTES.md). Unlike
+  # `elsewhere`, a failure here fails the run: a test not on the list that fails, or a listed name that is no longer a
+  # test. The list may only shrink.
+  linux-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      # ALSA's headers for the microphone crate (cpal), xkbcommon's for the window toolkit, and the sqlite3 program the
+      # session_import tests build their Cursor store with (on GitHub's image already; named so it stays).
+      - name: Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev sqlite3
+      - name: Tests, except the listed ones
+        run: bash scripts/linux-tests.sh
 
   elsewhere:
     strategy:
