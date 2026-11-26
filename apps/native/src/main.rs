@@ -111,6 +111,9 @@ mod route_picker_tests;
 #[path = "ui/the_chip_is_the_run_tests.rs"]
 mod the_chip_is_the_run_tests;
 #[cfg(test)]
+#[path = "ui/the_chip_names_the_route_tests.rs"]
+mod the_chip_names_the_route_tests;
+#[cfg(test)]
 #[path = "ui/managed_controls_tests.rs"]
 mod managed_controls_tests;
 #[path = "ui/look_picker.rs"]
