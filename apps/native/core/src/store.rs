@@ -388,6 +388,135 @@ impl Store {
     }
 }
 
+/// Every file `Store::seeded_json` copies from Electron's folder the first time the Rust app touches it: people.rs
+/// (teammates, memories), folders.rs, routines.rs, approval_rule_store.rs, references.rs, workspace_settings.rs
+/// (appearance), session_import.rs and runtime_terminal.rs (terminal imports), folder_confirmation.rs (cautions).
+/// A file newly given to `seeded_json` belongs here too, or seeding again leaves it stale.
+pub const SEEDED_FILES: [&str; 9] = [
+    "teammates.json",
+    "memories.json",
+    "folders.json",
+    "routines.json",
+    "approval-rules.json",
+    "conversation-references.json",
+    "appearance.json",
+    "terminal-imports.json",
+    "folder-cautions.json",
+];
+
+/// What `Store::reseed_from_electron` did, file by file.
+#[derive(Debug, Default, PartialEq)]
+pub struct Reseeded {
+    /// Copied fresh from Electron's folder.
+    pub copied: Vec<String>,
+    /// The Rust copies those replaced, each now in `aside`.
+    pub moved_aside: Vec<String>,
+    /// `<root>/seeded-before-<stamp>/`, when anything was moved there.
+    pub aside: Option<PathBuf>,
+    /// Already the same as Electron's: left as they are.
+    pub unchanged: Vec<String>,
+    /// Not copied, and why; the Rust copy of each is untouched.
+    pub skipped: Vec<(String, String)>,
+}
+
+impl Store {
+    /// Seed again from Electron (Cutover 1): each of `SEEDED_FILES` that Electron's folder has, readable and JSON,
+    /// replaces the Rust copy, and the replaced copy is moved into `<root>/seeded-before-<stamp>/`, never deleted.
+    /// Every Electron file is read and checked before anything is replaced; one that cannot be read or is not JSON
+    /// leaves its Rust copy as it is. Electron's folder is only read. Refused while an engine holds this data folder,
+    /// which would write its own copies back over these.
+    pub fn reseed_from_electron(&self, stamp: &str) -> Result<Reseeded, String> {
+        use std::io::{Read, Write};
+        const LIMIT: usize = 2 * 1024 * 1024;
+        if stamp.is_empty() || !stamp.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
+            return Err("Invalid stamp for the folder the old copies go to".into());
+        }
+        std::fs::create_dir_all(&self.root).map_err(|e| e.to_string())?;
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.check(&self.root.join(crate::engine_process::LOCK)).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        // SAFETY: flock on a descriptor this function owns; it only reads the descriptor. Let go when `lock` closes.
+        if unsafe { libc::flock(std::os::fd::AsRawFd::as_raw_fd(&lock), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return Err("Locust is running on this data folder. Quit it, then seed again.".into());
+        }
+        let mut done = Reseeded::default();
+        let mut fresh = Vec::new();
+        for name in SEEDED_FILES {
+            let mut body = Vec::new();
+            let read = std::fs::File::open(self.electron.join(name))
+                .and_then(|file| file.take(LIMIT as u64 + 1).read_to_end(&mut body));
+            let why = match read {
+                Err(e) if e.kind() == io::ErrorKind::NotFound => "Electron's folder has none".to_owned(),
+                Err(e) => format!("Electron's copy could not be read ({e})"),
+                Ok(_) if body.len() > LIMIT => "Electron's copy is too large".to_owned(),
+                Ok(_) => match serde_json::from_slice::<serde_json::Value>(&body) {
+                    Ok(_) => {
+                        fresh.push((name, body));
+                        continue;
+                    }
+                    Err(e) => format!("Electron's copy is not JSON ({e})"),
+                },
+            };
+            done.skipped.push((name.to_owned(), why));
+        }
+        for (name, body) in fresh {
+            // None: already the same; Some(moved_aside): copied.
+            let outcome = (|| -> Result<Option<bool>, String> {
+                let path = self.check(&self.root.join(name)).map_err(|e| e.to_string())?;
+                let old = match std::fs::read(&path) {
+                    Ok(old) if old == body => return Ok(None),
+                    Ok(_) => true,
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => false,
+                    Err(e) => return Err(format!("the Rust copy could not be read ({e})")),
+                };
+                let tmp = format!("{name}.{}.seeding", crate::native::uuid_v4().map_err(|e| e.to_string())?);
+                let mut file = self.create_new_file_in(&self.root, &tmp).map_err(|e| e.to_string())?;
+                let written = file.write_all(&body).and_then(|()| file.sync_all());
+                let tmp = self.root.join(tmp);
+                let kept = (|| -> Result<(), String> {
+                    written.map_err(|e| e.to_string())?;
+                    if old {
+                        let aside = self
+                            .check(&self.root.join(format!("seeded-before-{stamp}")))
+                            .map_err(|e| e.to_string())?;
+                        std::fs::create_dir_all(&aside).map_err(|e| e.to_string())?;
+                        let to = aside.join(name);
+                        if to.symlink_metadata().is_ok() {
+                            return Err(format!("{} already holds one", aside.display()));
+                        }
+                        std::fs::rename(&path, &to).map_err(|e| e.to_string())?;
+                        done.aside = Some(aside);
+                    }
+                    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+                })();
+                if kept.is_err() {
+                    let _ = std::fs::remove_file(&tmp);
+                }
+                kept.map(|()| Some(old))
+            })();
+            match outcome {
+                Ok(None) => done.unchanged.push(name.to_owned()),
+                Ok(Some(moved)) => {
+                    if moved {
+                        done.moved_aside.push(name.to_owned());
+                    }
+                    done.copied.push(name.to_owned());
+                }
+                Err(why) => done.skipped.push((name.to_owned(), why)),
+            }
+        }
+        drop(lock);
+        Ok(done)
+    }
+}
+
+#[cfg(test)]
+#[path = "store_reseed_tests.rs"]
+mod reseed_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -140,6 +140,8 @@ mod keychain_note_tests;
 #[cfg(test)]
 mod engine_default_tests;
 #[cfg(test)]
+mod cutover_flags_tests;
+#[cfg(test)]
 #[path = "ui/mac_frame_tests.rs"]
 mod mac_frame_tests;
 #[path = "ui/scout_cards.rs"]
@@ -3349,6 +3351,45 @@ fn open_phone() {
     }
 }
 
+/// `--seed-from-electron` (Cutover 1), which prints and ends the process: the exit code, or None for any other start.
+fn cutover_flag(args: &[String], out: &mut dyn std::io::Write) -> Option<i32> {
+    match args.get(1).map(String::as_str) {
+        Some("--seed-from-electron") => Some(seed_from_electron(out)),
+        _ => None,
+    }
+}
+
+/// Copies Electron's current files into the Rust data folder (LOCUST_NATIVE_DATA, or the default one) again, the old
+/// copies moved aside, and says what it did.
+fn seed_from_electron(out: &mut dyn std::io::Write) -> i32 {
+    let store = match locust_core::store::Store::local() {
+        Ok(store) => store,
+        Err(why) => {
+            let _ = writeln!(out, "The Rust data folder could not be used: {why}");
+            return 1;
+        }
+    };
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let done = match store.reseed_from_electron(&stamp) {
+        Ok(done) => done,
+        Err(why) => {
+            let _ = writeln!(out, "{why}");
+            return 1;
+        }
+    };
+    let _ = writeln!(out, "Seeded {} from {}.", store.root().display(), store.electron().display());
+    let list = |names: &[String]| if names.is_empty() { "none".to_owned() } else { names.join(", ") };
+    let _ = writeln!(out, "Copied: {}", list(&done.copied));
+    if let Some(aside) = &done.aside {
+        let _ = writeln!(out, "Moved aside into {}: {}", aside.display(), list(&done.moved_aside));
+    }
+    let _ = writeln!(out, "Already the same: {}", list(&done.unchanged));
+    for (name, why) in &done.skipped {
+        let _ = writeln!(out, "Not copied: {name}: {why}");
+    }
+    0
+}
+
 fn main() {
     // The command guard hook runs before every shell command a Claude Code turn makes: answer at once, before anything
     // else this binary does at start.
@@ -3381,6 +3422,11 @@ fn main() {
         };
         locust_core::acp_agent::acp_main(&connection, std::env::args().nth(2));
         std::process::exit(0);
+    }
+    // Cutover 1: `--seed-from-electron` copies Electron's current files into the Rust data folder again, says what it
+    // did and exits.
+    if let Some(code) = cutover_flag(&std::env::args().collect::<Vec<_>>(), &mut std::io::stdout()) {
+        std::process::exit(code);
     }
     // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
     shell_path::adopt_terminal_path();

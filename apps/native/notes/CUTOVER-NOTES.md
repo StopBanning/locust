@@ -76,3 +76,37 @@ Locust is still refused with Electron's words.
 - `core/src/updates.rs:190`: `AppUpdateState::default()`'s `current_version` (a placeholder the window replaces).
 - Fixed strings that are not this app's version: `models.rs:779,992` and `runtime/codex.rs:573` send
   `clientInfo.version "0.1.0"` to agents; test-only values in `mission_export.rs` and `home_panel.rs` tests.
+
+## Row 3: seed again from Electron
+
+**What changed.** `core/src/store.rs` gains `SEEDED_FILES` (the nine files `Store::seeded_json` seeds: teammates,
+memories, folders, routines, approval rules, conversation references, appearance, terminal imports, folder cautions;
+checked against every `seeded_json(` caller in `core/src` and `src`, browser_panel's two callers read
+`teammates.json`) and `Store::reseed_from_electron(stamp)`, which returns a `Reseeded` (copied, moved aside, the
+`seeded-before-<stamp>/` folder, unchanged, skipped with the reason). Every Electron file is read (2 MiB cap) and
+parsed as JSON before anything is replaced; a file that is missing, unreadable, too large or not JSON is skipped and
+its Rust copy is left as it is. A copy that is already identical is left alone. Otherwise the fresh bytes are written
+to a temp file in the Rust folder, the old Rust copy is moved (renamed, never deleted) into
+`<root>/seeded-before-<stamp>/`, and the temp file is renamed into place. It takes the engine lock and refuses
+("Locust is running on this data folder") while an engine holds it, since a running engine would write its own copies
+back. Nothing is ever written in Electron's folder (`store.rs` `refuse` is unchanged).
+
+**Call site.** `src/main.rs`: `main` calls `cutover_flag` (before `shell_path::adopt_terminal_path`), which handles
+`--seed-from-electron` through `seed_from_electron`, which calls `Store::reseed_from_electron` on `Store::local()`
+(LOCUST_NATIVE_DATA, or the default Rust folder), prints what was copied, moved aside, unchanged and skipped, and exits
+(1 when the folder cannot be used or an engine holds it).
+
+**Tests.**
+- `core/src/store_reseed_tests.rs`: `a_fresh_copy_replaces_a_stale_one_and_the_stale_one_is_kept_aside`,
+  `an_unreadable_or_invalid_electron_file_leaves_the_rust_copy_untouched`, `electrons_folder_is_never_written`,
+  `seeding_again_is_refused_while_an_engine_holds_the_folder`.
+- `src/cutover_flags_tests.rs`: `seed_from_electron_copies_electrons_files_into_the_rust_folder_and_keeps_the_old_ones`
+  (a child copy of the test binary, with HOME and LOCUST_NATIVE_DATA set on the child alone, runs the flag),
+  `main_hands_its_arguments_to_cutover_flag_before_anything_slow`.
+
+**Breaks.** 10 of 10 caught by name.
+- `row3-core.entries` / `row3-core.out` (locust-core): 7 of 7 KILLED: the move aside turned into a delete, the JSON
+  check on a made-up body, the "already the same" test disabled, the engine-lock check disabled, the size limit
+  doubled, the temp file made in Electron's folder, and the old-copy branch disabled.
+- `row3-native.entries` / `row3-native.out` (locust-native): 3 of 3 KILLED: the call to `reseed_from_electron`
+  replaced by an empty result, the flag's match arm returning 0 without running, and `main` not calling `cutover_flag`.
