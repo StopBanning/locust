@@ -1593,6 +1593,33 @@ mod watched_pull_request {
         assert!(!rt.state.pr.watch.timer_armed());
         assert!(rt.state.pr.next_watch_at.is_none());
     }
+
+    // Lane check: PullRequestChip.tsx 0.731 -- a pull request watched before is watched again when it shows.
+    #[test]
+    fn watches_again_a_pull_request_it_watched_before_when_it_shows() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0)]);
+        assert!(!rt.state.pr.watch.watching(URL), "nothing was asked to be watched yet");
+        rt.update(|s, _| {
+            s.pr.watched_urls = vec![URL.to_owned()];
+            s.pr.watched_loaded = true;
+            s.pr.folder = None;
+            s.pr.current = None;
+            s.pr.commits.forget_sign_in();
+        });
+        pump(&mut rt, "the pull request to show again and be watched", |s| s.pr.watch.watching(URL));
+        assert!(rt.state.pr.watch.timer_armed());
+    }
+
+    // Lane check: a closed pull request leaves the window's list as a merged one does (the chip's own `Merged | Closed`).
+    #[test]
+    fn lets_a_closed_one_go_off_the_windows_list_as_a_merged_one_does() {
+        let (_dirs, mut rt, _gh) = pr_window(vec![pr_json("OPEN", 0), pr_json("CLOSED", 0)]);
+        click(&mut rt, "pr-watch-toggle");
+        idle(&mut rt);
+        assert!(rt.state.pr.watched_urls.iter().any(|u| u == URL), "watched while open");
+        tick(&mut rt);
+        assert!(!rt.state.pr.watched_urls.iter().any(|u| u == URL), "not kept on the window's list once closed");
+    }
 }
 
 #[test]

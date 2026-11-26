@@ -125,6 +125,49 @@ mod plain_http_tests {
         assert_eq!(reached.load(Ordering::SeqCst), 0, "the redirect's target was never asked");
     }
 
+    /// One local server that records the whole request it is sent (head and body) and answers 200.
+    fn hear() -> (String, Arc<std::sync::Mutex<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = format!("http://{}", listener.local_addr().unwrap());
+        let heard = Arc::new(std::sync::Mutex::new(String::new()));
+        let kept = heard.clone();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else { return };
+            stream.set_read_timeout(Some(std::time::Duration::from_millis(400))).unwrap();
+            let mut all = Vec::new();
+            let mut chunk = [0u8; 4096];
+            while let Ok(n) = stream.read(&mut chunk) {
+                if n == 0 {
+                    break;
+                }
+                all.extend_from_slice(&chunk[..n]);
+            }
+            *kept.lock().unwrap() = String::from_utf8_lossy(&all).into_owned();
+            let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        });
+        (address, heard)
+    }
+
+    #[test]
+    fn sends_its_headers_and_a_posts_body_as_given() {
+        let (url, heard) = hear();
+        let answer = PlainHttp::new()
+            .send(HttpRequest {
+                method: "POST".into(),
+                url: format!("{url}/graphql"),
+                headers: vec![("X-Locust-Probe".into(), "yes".into()), ("Content-Type".into(), "application/json".into())],
+                body: Some(br#"{"q":"1"}"#.to_vec()),
+                timeout_secs: 5,
+            })
+            .expect("an answer");
+        assert_eq!((answer.status, answer.body.as_slice()), (200, b"ok".as_slice()));
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        let request = heard.lock().unwrap().clone();
+        assert!(request.starts_with("POST /graphql HTTP/1.1"), "{request}");
+        assert!(request.to_ascii_lowercase().contains("x-locust-probe: yes"), "{request}");
+        assert!(request.ends_with(r#"{"q":"1"}"#), "{request}");
+    }
+
     #[test]
     fn reads_an_answer_and_its_failures_alike() {
         let (ok, _) = serve("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".into());

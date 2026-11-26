@@ -213,3 +213,32 @@ fn the_shelfs_own_client_hands_a_redirect_back_so_only_githubs_hosts_are_followe
     assert_eq!(got.status, 302, "the redirect comes back to the library, which allows only GitHub's own hosts");
     assert!(elsewhere.accept().is_err(), "where it pointed was never asked");
 }
+
+/// The Look button's own words.
+fn look_button(rt: &Runtime<State>) -> Option<String> {
+    rt.elements().into_iter().find(|e| e.key.as_deref() == Some("skills-look")).and_then(|e| e.text)
+}
+
+// Lane check: SkillsFromGitHub.tsx -- a tile and Look for changes put the pack's name in the box, Look reads Looking…
+// while a look is out, and a keep empties the box.
+#[test]
+fn a_tile_and_look_for_changes_name_the_pack_in_the_box_and_a_keep_empties_it() {
+    let (_t, s) = with_store();
+    let mut rt = page(s);
+    use_client(Arc::new(Pack));
+    assert_eq!(look_button(&rt).as_deref(), Some("Look"));
+    click(&mut rt, "skills-pack-mattpocock/skills");
+    assert_eq!(rt.state.skills_from_github.link.text, "mattpocock/skills", "the tile names its pack in the box");
+    assert_eq!(look_button(&rt).as_deref(), Some("Looking…"), "Look reads Looking… while a look is out");
+    settle(&mut rt);
+    assert_eq!(look_button(&rt).as_deref(), Some("Look"));
+    click(&mut rt, "skills-keep");
+    settle(&mut rt);
+    assert_eq!(rt.state.skills_from_github.link.text, "", "a keep empties the box");
+    for _ in 0..20 {
+        rt.frame(0.05);
+    }
+    click(&mut rt, "skills-again-mattpocock/skills");
+    assert_eq!(rt.state.skills_from_github.link.text, "mattpocock/skills", "Look for changes names the pack too");
+    settle(&mut rt);
+}
