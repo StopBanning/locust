@@ -8,8 +8,13 @@
 //!   engine finds the lock taken and refuses to start. A stale socket left by a crash is replaced only by the process
 //!   that holds the lock.
 //! - **Only state crosses the socket.** Windows still follow the ledger files for streaming.
-//! - **One request per connection.** One JSON line goes in and one comes out, so a half-read reply can never be
-//!   mistaken for the next one. A send is never retried here: an error says what happened, and the caller decides.
+//! - **One request at a time per connection.** One JSON line goes in and one comes out. A connection whose reply was
+//!   not read whole is closed, never used again, so a half-read reply can never be mistaken for the next one.
+//! - **Reads share a kept connection; everything else gets its own.** The window asks `running`, `waiting` and the
+//!   like many times a second, so those go over a connection the client keeps (a resting window opens no sockets and
+//!   the engine starts no threads). A read whose connection turns out closed is asked once more on a new one, which
+//!   changes nothing. A send, a stop, an answer or any other request that changes something goes over a connection of
+//!   its own and is never retried here: an error says what happened, and the caller decides.
 
 use crate::{
     approval::{Decision, Kind, Mode, Request},
@@ -37,6 +42,9 @@ pub const SOCKET: &str = "engine.sock";
 pub const LOCK: &str = "engine.lock";
 /// Long enough for a shutdown to write every turn's ending (`native::shutdown_in_background` allows 8 s).
 const REPLY_WAIT: Duration = Duration::from_secs(30);
+/// How long the engine keeps a quiet connection open: longer than a client keeps one ([`KEPT_FOR`]), so it is always the
+/// client that closes a kept connection, never the engine while a request is on its way.
+const IDLE_WAIT: Duration = Duration::from_secs(300);
 
 // ---- the wire ---------------------------------------------------------------------------------------------------
 
@@ -438,25 +446,37 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
     }
 }
 
-fn serve_one(engine: &dyn EngineApi, stream: UnixStream) {
-    let _ = stream.set_read_timeout(Some(REPLY_WAIT));
-    let mut reader = BufReader::new(&stream);
+/// One connection's requests, answered in order until the client closes it, sends an empty line, or is quiet for
+/// [`IDLE_WAIT`].
+fn serve(engine: &dyn EngineApi, stream: UnixStream) {
+    let _ = stream.set_read_timeout(Some(IDLE_WAIT));
+    let Ok(incoming) = stream.try_clone() else { return };
+    let mut reader = BufReader::new(incoming);
     let mut line = String::new();
-    if reader.read_line(&mut line).is_err() || line.trim().is_empty() {
-        return;
-    }
-    let reply = match serde_json::from_str::<Value>(&line) {
-        Ok(request) => answer(engine, &request),
-        Err(_) => json!({"error": "The engine could not read that request."}),
-    };
-    let mut out = &stream;
-    let _ = out.write_all(format!("{reply}\n").as_bytes());
-    // Decision 3's default: quitting the window stops its turns. Once their endings are written and the window told,
-    // `locust-native --engine` has nothing left to run, so it ends; the next window, Quick Ask or `--ask` starts one.
-    if EXIT_ON_SHUTDOWN.load(Ordering::Relaxed) && request_was(&line, "shut-down") {
-        std::process::exit(0);
+    loop {
+        line.clear();
+        if reader.read_line(&mut line).is_err() || line.trim().is_empty() {
+            return;
+        }
+        let reply = match serde_json::from_str::<Value>(&line) {
+            Ok(request) => answer(engine, &request),
+            Err(_) => json!({"error": "The engine could not read that request."}),
+        };
+        let mut out = &stream;
+        if out.write_all(format!("{reply}\n").as_bytes()).is_err() {
+            return;
+        }
+        // Decision 3's default: quitting the window stops its turns. Once their endings are written and the window
+        // told, `locust-native --engine` has nothing left to run, so it ends; the next window, Quick Ask or `--ask`
+        // starts one.
+        if EXIT_ON_SHUTDOWN.load(Ordering::Relaxed) && request_was(&line, "shut-down") {
+            std::process::exit(0);
+        }
     }
 }
+
+/// The connections an engine is answering, so a stopped engine closes them: none of them answers after it.
+type Open = Arc<std::sync::Mutex<std::collections::HashMap<u64, UnixStream>>>;
 
 static EXIT_ON_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -469,6 +489,10 @@ pub struct Server {
     socket: PathBuf,
     stopping: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
+    open: Open,
+    /// Connections accepted so far: what the tests count to show a resting window opens none.
+    #[cfg_attr(not(test), allow(dead_code))]
+    accepted: Arc<std::sync::atomic::AtomicUsize>,
     // Held for the server's life: dropping it lets another engine start.
     _lock: std::fs::File,
 }
@@ -503,6 +527,9 @@ impl Server {
             .map_err(|e| format!("The engine's socket could not be made private: {e}"))?;
         let stopping = Arc::new(AtomicBool::new(false));
         let stop = stopping.clone();
+        let open: Open = Arc::default();
+        let accepted = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (open_for, accepted_for) = (open.clone(), accepted.clone());
         let thread = std::thread::Builder::new()
             .name("locust-engine".into())
             .spawn(move || {
@@ -511,15 +538,20 @@ impl Server {
                         break;
                     }
                     if let Ok(stream) = stream {
-                        let engine = engine.clone();
-                        let _ = std::thread::Builder::new()
-                            .name("locust-engine-call".into())
-                            .spawn(move || serve_one(engine.as_ref(), stream));
+                        let id = accepted_for.fetch_add(1, Ordering::Relaxed) as u64;
+                        if let Ok(copy) = stream.try_clone() {
+                            crate::invariants::lock(&open_for).insert(id, copy);
+                        }
+                        let (engine, open) = (engine.clone(), open_for.clone());
+                        let _ = std::thread::Builder::new().name("locust-engine-call".into()).spawn(move || {
+                            serve(engine.as_ref(), stream);
+                            crate::invariants::lock(&open).remove(&id);
+                        });
                     }
                 }
             })
             .map_err(|e| format!("The engine could not start: {e}"))?;
-        Ok(Server { socket, stopping, thread: Some(thread), _lock: lock })
+        Ok(Server { socket, stopping, thread: Some(thread), open, accepted, _lock: lock })
     }
 
     pub fn socket(&self) -> &Path {
@@ -543,30 +575,79 @@ impl Drop for Server {
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
+        // A kept connection would otherwise go on being answered by a server that has stopped.
+        for (_, stream) in crate::invariants::lock(&self.open).drain() {
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+        }
         let _ = std::fs::remove_file(&self.socket);
     }
 }
 
 // ---- the client -------------------------------------------------------------------------------------------------
 
-/// [`EngineApi`] over the socket of an engine in another process.
 /// How a client starts the engine again when it finds it gone.
 pub type Restart = Arc<dyn Fn() -> Result<(), String> + std::marker::Send + Sync>;
 
 /// After a restart was tried, how long before another may be.
 const RESTART_PAUSE: Duration = Duration::from_secs(10);
+/// A kept connection unused this long is closed rather than used, well inside the engine's [`IDLE_WAIT`].
+const KEPT_FOR: Duration = Duration::from_secs(60);
+/// Connections kept for reads: one for the window's poll, a few more for jobs that read while it does.
+const KEPT_MAX: usize = 4;
 
+/// One connection to the engine.
+struct Line {
+    stream: UnixStream,
+    reader: BufReader<UnixStream>,
+    used: std::time::Instant,
+}
+
+impl Line {
+    fn open(stream: UnixStream) -> Result<Line, String> {
+        let _ = stream.set_read_timeout(Some(REPLY_WAIT));
+        let incoming = stream.try_clone().map_err(|e| format!("The request could not reach Locust's engine: {e}"))?;
+        Ok(Line { stream, reader: BufReader::new(incoming), used: std::time::Instant::now() })
+    }
+
+    /// One request, one reply. The error says whether the engine may have had the request.
+    fn exchange(&mut self, request: &Value) -> Result<Value, String> {
+        let mut out = &self.stream;
+        out.write_all(format!("{request}\n").as_bytes())
+            .map_err(|e| format!("The request could not reach Locust's engine: {e}"))?;
+        let mut line = String::new();
+        self.reader.read_line(&mut line).map_err(|e| format!("Locust's engine did not answer: {e}"))?;
+        self.used = std::time::Instant::now();
+        serde_json::from_str(&line).map_err(|_| "Locust's engine gave an answer that could not be read.".to_string())
+    }
+}
+
+/// Requests that only read: asked again after a lost reply, they change nothing.
+fn only_reads(request: &Value) -> bool {
+    matches!(request["op"].as_str(), Some("ping" | "running" | "running_checks" | "waiting" | "owns" | "room-notices"))
+}
+
+/// [`EngineApi`] over the socket of an engine in another process.
 pub struct Client {
     socket: PathBuf,
     shutting: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
     restart: Option<Restart>,
     last_restart: std::sync::Mutex<Option<std::time::Instant>>,
     restarted: AtomicBool,
+    /// Connections that answered a read whole, kept for the next. Taken out while used, so a long call never holds up
+    /// another caller.
+    kept: std::sync::Mutex<Vec<Line>>,
 }
 
 impl Client {
     pub fn new(socket: PathBuf) -> Self {
-        Client { socket, shutting: std::sync::Mutex::new(None), restart: None, last_restart: std::sync::Mutex::new(None), restarted: AtomicBool::new(false) }
+        Client {
+            socket,
+            shutting: std::sync::Mutex::new(None),
+            restart: None,
+            last_restart: std::sync::Mutex::new(None),
+            restarted: AtomicBool::new(false),
+            kept: std::sync::Mutex::new(Vec::new()),
+        }
     }
 
     /// A client that starts the engine again when it finds it gone (E5): at most once every ten seconds.
@@ -600,24 +681,38 @@ impl Client {
         Ok(stream)
     }
 
-    /// One request, one reply. Never retried: whether a send that failed midway started a turn is for the ledger to
-    /// say, not for a second attempt to find out.
+    /// One request, one reply. A request that changes something goes on a connection of its own and is never retried:
+    /// whether a send that failed midway started a turn is for the ledger to say, not for a second attempt to find out.
     fn call(&self, request: Value) -> Result<Value, String> {
-        let stream = self.connect()?;
-        let _ = stream.set_read_timeout(Some(REPLY_WAIT));
-        let mut out = &stream;
-        out.write_all(format!("{request}\n").as_bytes())
-            .map_err(|e| format!("The request could not reach Locust's engine: {e}"))?;
-        let mut line = String::new();
-        BufReader::new(&stream)
-            .read_line(&mut line)
-            .map_err(|e| format!("Locust's engine did not answer: {e}"))?;
-        let reply: Value =
-            serde_json::from_str(&line).map_err(|_| "Locust's engine gave an answer that could not be read.".to_string())?;
+        let reply = if only_reads(&request) { self.read(&request)? } else { Line::open(self.connect()?)?.exchange(&request)? };
         match reply.get("error").and_then(Value::as_str) {
             Some(error) => Err(error.to_owned()),
             None => Ok(reply["ok"].clone()),
         }
+    }
+
+    /// A read, on a kept connection when there is one. A kept connection the engine has closed (it stopped, or was
+    /// started again) fails the read, which is asked once more on a new connection.
+    fn read(&self, request: &Value) -> Result<Value, String> {
+        let kept = {
+            let mut kept = crate::invariants::lock(&self.kept);
+            kept.retain(|line| line.used.elapsed() < KEPT_FOR);
+            kept.pop()
+        };
+        let (mut line, reply) = match kept.map(|mut line| (line.exchange(request), line)) {
+            Some((Ok(reply), line)) => (line, reply),
+            _ => {
+                let mut line = Line::open(self.connect()?)?;
+                let reply = line.exchange(request)?;
+                (line, reply)
+            }
+        };
+        line.used = std::time::Instant::now();
+        let mut kept = crate::invariants::lock(&self.kept);
+        if kept.len() < KEPT_MAX {
+            kept.push(line);
+        }
+        Ok(reply)
     }
 }
 
@@ -781,3 +876,7 @@ fn start_engine(dir: &Path, exe: &Path) -> Result<(), String> {
 #[cfg(test)]
 #[path = "engine_process_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "engine_process_kept_tests.rs"]
+mod kept_tests;
