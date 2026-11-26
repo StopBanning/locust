@@ -113,3 +113,65 @@ fn main_hands_its_arguments_to_cutover_flag_before_anything_slow() {
         .expect("main hands its arguments to cutover_flag and exits with its code");
     assert!(handed < main.find("shell_path::adopt_terminal_path();").unwrap());
 }
+
+// ---- --check-history ---------------------------------------------------------------------------------------------
+
+fn conversation(id: &str, prompt: &str) -> String {
+    let header = serde_json::json!({"schemaVersion": 27, "recordType": "mission.created", "metadata": {
+        "missionId": id, "runId": "run_1", "prompt": prompt, "runtime": "codex", "model": "account-default",
+        "requestedRouteId": "codex", "resolvedRouteId": "codex-account:default", "cliVersion": "0.151.0",
+        "workspaceId": "ws_test", "sandbox": "read-only", "executionPolicyVersion": 1,
+        "createdAt": "2026-11-25T10:00:00.000Z"}});
+    format!("{header}\n")
+}
+
+#[test]
+fn check_history_reports_by_reason_and_writes_nothing() {
+    let dir = temp("history");
+    let mut ok = conversation("mission_ok", "Hello.");
+    ok.push_str(&format!("{}\n", serde_json::json!({"schemaVersion": 27, "recordType": "mission.event", "event": {
+        "id": "event_1", "runId": "run_1", "missionId": "mission_ok", "sequence": 1, "type": "message.delta",
+        "occurredAt": "2026-11-25T10:00:00.000Z", "sourceAdapter": "cursor", "payload": {"itemId": "msg_0",
+        "operation": "append", "text": "Hi.", "final": true, "evidence": {"redacted": true}}}})));
+    std::fs::write(dir.join("mission_ok.jsonl"), ok).unwrap();
+    std::fs::write(dir.join("mission_bad.jsonl"), "not a header\n").unwrap();
+    std::fs::write(dir.join("mission_zero.jsonl"), conversation("mission_zero", "Asked.")).unwrap();
+    let before = as_it_is(&dir);
+    let mut out = Vec::new();
+    let code = cutover_flag(&args(&["--check-history", dir.to_str().unwrap()]), &mut out);
+    let said = String::from_utf8(out).unwrap();
+    assert_eq!(code, Some(0), "{said}");
+    assert!(said.contains("Files read: 3. Read whole with turns: 1."), "{said}");
+    assert!(
+        said.contains("refused: no conversation could be read (invalid-record): 1\n  mission_bad.jsonl"),
+        "{said}"
+    );
+    assert!(said.contains("read with zero turns: only the opening prompt, no reply, tool or plan: 1\n  mission_zero.jsonl"), "{said}");
+    assert_eq!(as_it_is(&dir), before, "the check wrote in the folder it read");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_history_without_a_folder_or_with_a_missing_one_exits_1_and_says_why() {
+    let mut out = Vec::new();
+    assert_eq!(cutover_flag(&args(&["--check-history"]), &mut out), Some(1));
+    assert!(String::from_utf8_lossy(&out).contains("Say which folder"));
+    let dir = temp("history-missing");
+    let mut out = Vec::new();
+    let code = cutover_flag(&args(&["--check-history", dir.join("nope").to_str().unwrap()]), &mut out);
+    assert_eq!(code, Some(1));
+    assert!(String::from_utf8_lossy(&out).contains("could not be listed"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// By hand, over a COPY of Electron's `mission-ledger` (never the folder itself):
+/// `LOCUST_HISTORY_COPY=<copy> cargo nextest run -p locust-native --run-ignored only check_history_over_a_real_copy --no-capture`.
+#[test]
+#[ignore = "reads the folder LOCUST_HISTORY_COPY names; run by hand over a copy"]
+fn check_history_over_a_real_copy() {
+    let copy = std::env::var("LOCUST_HISTORY_COPY").expect("LOCUST_HISTORY_COPY names a copy of mission-ledger");
+    let mut out = Vec::new();
+    let code = cutover_flag(&args(&["--check-history", &copy]), &mut out);
+    println!("{}", String::from_utf8_lossy(&out));
+    assert_eq!(code, Some(0));
+}

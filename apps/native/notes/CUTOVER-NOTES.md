@@ -110,3 +110,43 @@ back. Nothing is ever written in Electron's folder (`store.rs` `refuse` is uncha
   doubled, the temp file made in Electron's folder, and the old-copy branch disabled.
 - `row3-native.entries` / `row3-native.out` (locust-native): 3 of 3 KILLED: the call to `reseed_from_electron`
   replaced by an empty result, the flag's match arm returning 0 without running, and `main` not calling `cutover_flag`.
+
+## Row 4: Colin's real history, read once, read-only
+
+**What changed.** `core/src/history_check.rs` (new): `check_history(dir)` reads every `*.jsonl` file directly in a
+folder, and in its `.trash/` when there is one, with the Rust ledger reader (`ledger::read_ledger`, then
+`read_transcript`), and sorts each by what it found: refused (the name is not a conversation id, the file could not be
+read, or `read_ledger` says `unreadable`, with the issue codes), damaged (read, but only the part before the fault:
+`truncated-tail`, `invalid-record`), or read with zero turns (nothing after the opening prompt), and the rest as read
+whole. It only opens files to read them. The reader was NOT changed.
+
+**Call site.** `src/main.rs`: `main` -> `cutover_flag` -> `--check-history <folder>` -> `check_history` (main.rs), which
+calls `locust_core::history_check::check_history` and prints the files by reason. For the real run, the same
+`cutover_flag` is reached by the `#[ignore]`d test `cutover_flags_tests::check_history_over_a_real_copy`, which takes
+the folder from `LOCUST_HISTORY_COPY`, so no second binary had to be built.
+
+**Tests.**
+- `core/src/history_check_tests.rs` (8): a whole file reports nothing; a cut-off last line and a bad record are damaged;
+  no header, an empty file and a newer schema are refused with their reasons; a bad file name; a conversation with only
+  its opening prompt; the trash is checked and says so; a missing folder is an error; the check writes nothing (every
+  file's bytes and modified time are the same after).
+- `src/cutover_flags_tests.rs`: `check_history_reports_by_reason_and_writes_nothing`,
+  `check_history_without_a_folder_or_with_a_missing_one_exits_1_and_says_why`.
+
+**Breaks.** `row4-core.entries` / `row4-core.out` (locust-core, 8 breaks) and `row4-native.entries` /
+`row4-native.out` (locust-native, 3 breaks, two of them on the call site: the flag's match arm, and the call to
+`history_check::check_history`). All 11 KILLED by name (8 of 8 core, 3 of 3 native).
+
+**The run (26 Nov 2026).**
+- Copy: `cp -c -R "$HOME/Library/Application Support/@teammate/desktop/mission-ledger" /Volumes/Files/scratch-main/history-copy-20261126`
+  (an APFS clone, 584 MB; only `mission-ledger`; 60 conversation files, 545 in its `.trash/`, plus `.writable`).
+  SHA-256 of every file in the copy before and after the run is identical
+  (`~/work/scratch/evidence/cutover-1/row4-copy-before.sha`): the check wrote nothing in it. Output:
+  `~/work/scratch/evidence/cutover-1/row4-real-run.txt`.
+- **Files read: 605 (the 60 and the 545 in the trash). Read whole with turns: 605.**
+- **Refused: none. Damaged (truncated or invalid record, unsupported schema, too large): none. Read with zero turns:
+  none.** No `.jsonl` file in the copy was skipped for its name either.
+- It took 174 s in a debug build on this Mac (the reader parses every record of 584 MB).
+- What this does not say: it checks that the ledger reader keeps every record and that each file has a header and at
+  least one thing after the prompt. It does not compare what the window would draw with Electron's drawing of the same
+  conversation, and it does not read the other state in Electron's folder.

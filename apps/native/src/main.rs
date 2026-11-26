@@ -3351,12 +3351,38 @@ fn open_phone() {
     }
 }
 
-/// `--seed-from-electron` (Cutover 1), which prints and ends the process: the exit code, or None for any other start.
+/// `--seed-from-electron` and `--check-history <folder>` (Cutover 1), which print and end the process: the exit code, or None for any other start.
 fn cutover_flag(args: &[String], out: &mut dyn std::io::Write) -> Option<i32> {
     match args.get(1).map(String::as_str) {
         Some("--seed-from-electron") => Some(seed_from_electron(out)),
+        Some("--check-history") => Some(check_history(args.get(2).map(String::as_str), out)),
         _ => None,
     }
+}
+
+/// Reads a folder of Electron's conversation files (a COPY of `mission-ledger`) with the Rust ledger reader and says,
+/// by reason, every file it refused, found damaged or read with no turns. Writes nothing; exit 1 only when the folder
+/// is missing or cannot be listed.
+fn check_history(folder: Option<&str>, out: &mut dyn std::io::Write) -> i32 {
+    let Some(folder) = folder else {
+        let _ = writeln!(out, "Say which folder: --check-history <a copy of mission-ledger>");
+        return 1;
+    };
+    let done = match locust_core::history_check::check_history(std::path::Path::new(folder)) {
+        Ok(done) => done,
+        Err(why) => {
+            let _ = writeln!(out, "{why}");
+            return 1;
+        }
+    };
+    let _ = writeln!(out, "Files read: {}. Read whole with turns: {}.", done.files(), done.read_whole);
+    for (why, names) in &done.findings {
+        let _ = writeln!(out, "{why}: {}", names.len());
+        for name in names {
+            let _ = writeln!(out, "  {name}");
+        }
+    }
+    0
 }
 
 /// Copies Electron's current files into the Rust data folder (LOCUST_NATIVE_DATA, or the default one) again, the old
