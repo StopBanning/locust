@@ -5198,14 +5198,14 @@ apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.tes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	goes tight once and stays tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	adds back what tight took, and only while tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	a new count of sections starts over rather than borrowing an old height	yes
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	leads with the team: a card per teammate, and who is working	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds the agent list to one line when every installed agent is ready	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list when an installed agent needs the person	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list on a first run while another agent could still be added	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds on a first run too, once every agent is ready	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	with a team, folds while an agent is still being checked, and says which	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says nothing of checking once every answer is in	no
-apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says where each teammate stands, beside the name, and reads it aloud with the card (0.606)	no
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	leads with the team: a card per teammate, and who is working	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds the agent list to one line when every installed agent is ready	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list when an installed agent needs the person	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list on a first run while another agent could still be added	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds on a first run too, once every agent is ready	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	with a team, folds while an agent is still being checked, and says which	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says nothing of checking once every answer is in	yes
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	says where each teammate stands, beside the name, and reads it aloud with the card (0.606)	yes
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names the version an alias runs, as the Team screen does	yes
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	names Antigravity's Flash tier by the model it runs, and guesses no version for the others	yes
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	is what Home's cards are given -- not the alias, spelled	yes

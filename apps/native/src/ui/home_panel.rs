@@ -1218,7 +1218,9 @@ fn home_agents(s: &State, p: &Palette) -> El {
     let mut marks = row().gap(6.0).center_y();
     for f in &ready {
         if let Some(mark) = crate::look::controls::agent_mark(&l, &f.id, 13.0, l.c("text-secondary")) {
-            marks = marks.child(el().child(mark).role("img").label(f.display_name.clone()).help(f.display_name.clone()));
+            // AgentMark (0.389): a thing to point at that names itself and its state, "Codex CLI. Ready · 1.0.0".
+            let said = locust_core::agent_card::mark_said(&f.display_name, &locust_core::agent_card::ready_state(f.version.as_deref()), None, chrono::Utc::now());
+            marks = marks.child(el().child(mark).role("img").label(said).help(f.display_name.clone()).key(format!("home-agents-mark-{}", f.id)));
         }
     }
     line.child(marks).child(rune::spacer()).child(
@@ -2933,6 +2935,10 @@ mod home_free_tag_tests;
 #[cfg(test)]
 #[path = "home_names_the_model_tests.rs"]
 mod home_names_the_model_tests;
+
+#[cfg(test)]
+#[path = "home_leads_with_the_team_tests.rs"]
+mod home_leads_with_the_team_tests;
 
 #[cfg(test)]
 #[path = "empty_home_team_tests.rs"]
