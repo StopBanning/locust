@@ -9,10 +9,11 @@
 
 use super::*;
 use locust_core::claude_cloud::{
-    ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudReading, ClaudeCloudSession, CloudChoice, CloudReads, CloudSendResult,
+    BranchLook, ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudReading, ClaudeCloudSession, CloudChoice, CloudReads,
+    CloudSendResult,
 };
 use locust_core::cloud_watch::{cloud_updated_label, CloudWatch, WatchStep, WatchStop};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use locust_core::store::Store;
 use std::sync::Mutex;
 
@@ -117,8 +118,10 @@ pub(crate) type MakeClaude = Arc<dyn Fn(&Store, Arc<CloudReads>) -> ClaudeCloud<
 /// What a read off the window's thread brought.
 enum Answer {
     Where { folder: String, place: CloudWhere, folders: Vec<CloudFolder>, sessions: Vec<ClaudeCloudSession>, environment: Option<String> },
-    /// A session read in its own worktree (Show what it did, Check again, or the watch).
-    Read { id: String, reading: ClaudeCloudReading },
+    /// A session read in its own worktree (Show what it did, Check again, or the watch), and its record after.
+    Read { id: String, reading: ClaudeCloudReading, kept: Option<ClaudeCloudSession> },
+    /// One folder's light looks at its sessions' branches ended: the sessions with a newer push.
+    Looked { folder: String, found: Vec<ClaudeCloudSession> },
     Applied { id: String, result: CloudSendResult },
     Sent { id: String, result: CloudSendResult },
     Home { result: CloudSendResult, known: bool },
@@ -172,7 +175,18 @@ pub(crate) struct Cloud {
     pub(crate) now_ms: u64,
     /// Codex Cloud tasks in this panel (`src/ui/cloud_tasks.rs`).
     pub(crate) codex: crate::cloud_tasks::CodexCloud,
+    /// THE CHEAP SIGNAL (Cloud view 1): folders whose branch looks are under way, one at a time each.
+    pub(crate) looking: HashSet<String>,
+    /// When the next look is due on the window's clock while the panel is open; None: at once.
+    pub(crate) next_look_ms: Option<u64>,
+    /// Whether the window had focus at the last poll; None before the first.
+    pub(crate) was_focused: Option<bool>,
 }
+
+/// How often the sessions' branches are looked at while the panel is open.
+pub(crate) const LOOK_EVERY_MS: u64 = 3 * 60_000;
+/// Only sessions started this recently are looked at.
+const LOOK_WITHIN_HOURS: i64 = 24;
 
 /// The conversation's teammate.
 fn teammate(s: &State) -> Option<&Teammate> {
@@ -271,6 +285,14 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
         changed = true;
     }
     changed |= tick_watches(s, now_ms);
+    let gained_focus = s.cloud.was_focused == Some(false) && s.window_focused;
+    s.cloud.was_focused = Some(s.window_focused);
+    if !s.cloud.open {
+        s.cloud.next_look_ms = None;
+    }
+    if gained_focus || (s.cloud.open && s.cloud.next_look_ms.is_none_or(|at| now_ms >= at)) {
+        look_at_branches(s, now_ms);
+    }
     if s.cloud.on && (teammate(s).map(|mate| mate.id.clone()) != s.cloud.on_for || !claude_picked(s)) {
         s.cloud.on = false;
         changed = true;
@@ -294,9 +316,16 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
                     s.cloud.environment_folder = Some(there);
                 }
             }
-            Answer::Read { id, reading } => {
+            Answer::Read { id, reading, kept } => {
                 if let Some(one) = s.cloud.panel.claude.iter_mut().flat_map(|side| side.sessions.iter_mut()).find(|one| one.id == id) {
-                    one.take_reading(&reading);
+                    match kept {
+                        // The record as the read left it (its reply and its branch); the row's own opening stays.
+                        Some(kept) => {
+                            let opened = one.opened_at.clone().max(kept.opened_at.clone());
+                            *one = ClaudeCloudSession { opened_at: opened, ..kept };
+                        }
+                        None => one.take_reading(&reading),
+                    }
                 }
                 if s.cloud.rows.get(&id).is_some_and(|row| row.expanded) {
                     opened(s, &id);
@@ -312,6 +341,16 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
                     }
                 }
                 row.reading = Some(reading);
+            }
+            Answer::Looked { folder, found } => {
+                s.cloud.looking.remove(&folder);
+                for kept in found {
+                    if let Some(one) = s.cloud.panel.claude.iter_mut().flat_map(|side| side.sessions.iter_mut()).find(|one| one.id == kept.id) {
+                        one.branch = kept.branch;
+                        one.pushed = kept.pushed;
+                        one.news_at = kept.news_at;
+                    }
+                }
             }
             Answer::Applied { id, result } => {
                 let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
@@ -494,7 +533,11 @@ fn read_once(s: &mut State, id: &str) {
     row.checking = true;
     row.said = None;
     let id = id.to_owned();
-    off_thread(s, move |claude| Some(Answer::Read { reading: claude.check(&id), id }));
+    off_thread(s, move |claude| {
+        let reading = claude.check(&id);
+        let kept = claude.all().into_iter().find(|one| one.id == id);
+        Some(Answer::Read { reading, kept, id })
+    });
 }
 
 /// Show what it did / Check again.
@@ -527,6 +570,54 @@ fn reply_clock(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
     } else {
         format!("{} {clock}", local.format("%a"))
     })
+}
+
+/// THE CHEAP SIGNAL (Cloud view 1): every listed session started in the last 24 hours whose branch is known gets a
+/// light look (`ClaudeCloud::look_at_branch`: git only), each folder's in turn off the window's thread, never two of
+/// one folder at once. The next is due in three minutes.
+pub(super) fn look_at_branches(s: &mut State, now_ms: u64) {
+    let Some(side) = s.cloud.panel.claude.as_ref() else { return };
+    s.cloud.next_look_ms = Some(now_ms + LOOK_EVERY_MS);
+    let since = chrono::Utc::now() - chrono::Duration::hours(LOOK_WITHIN_HOURS);
+    let mut by_folder: Vec<(String, Vec<String>)> = Vec::new();
+    for one in side.sessions.iter().filter(|one| one.branch.is_some()) {
+        let recent = chrono::DateTime::parse_from_rfc3339(&one.started_at).is_ok_and(|at| at >= since);
+        if !recent || s.cloud.looking.contains(&one.folder) {
+            continue;
+        }
+        match by_folder.iter_mut().find(|(folder, _)| *folder == one.folder) {
+            Some((_, ids)) => ids.push(one.id.clone()),
+            None => by_folder.push((one.folder.clone(), vec![one.id.clone()])),
+        }
+    }
+    for (folder, ids) in by_folder {
+        s.cloud.looking.insert(folder.clone());
+        off_thread(s, move |claude| {
+            let found = ids
+                .iter()
+                .filter_map(|id| match claude.look_at_branch(id) {
+                    BranchLook::New(session) => Some(session),
+                    _ => None,
+                })
+                .collect();
+            Some(Answer::Looked { folder, found })
+        });
+    }
+}
+
+/// "Pushed 4 min ago: <subject>", from the last light look; None before one found a push.
+pub(super) fn pushed_line(session: &ClaudeCloudSession, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
+    let pushed = session.pushed.as_ref()?;
+    let at = chrono::DateTime::parse_from_rfc3339(&pushed.at).ok()?.with_timezone(&chrono::Utc);
+    let minutes = (now - at).num_minutes();
+    let ago = if minutes < 1 {
+        "just now".to_owned()
+    } else if minutes < 60 {
+        format!("{minutes} min ago")
+    } else {
+        locust_core::home_team_state::ago_label(&pushed.at, now).unwrap_or_else(|| "just now".into())
+    };
+    Some(format!("Pushed {ago}: {}", pushed.subject))
 }
 
 /// A closed row's glance (Cloud view 1): the newest reply's first line and its time, from what the last read
@@ -712,6 +803,9 @@ fn session_row(s: &State, session: &ClaudeCloudSession, l: &crate::look::control
         && let Some(line) = glance(session, chrono::Utc::now())
     {
         el = el.child(note(line).key(key("glance")));
+    }
+    if let Some(line) = pushed_line(session, chrono::Utc::now()) {
+        el = el.child(note(line).key(key("pushed")));
     }
     if let Some(said) = &session.note {
         el = el.child(note(said.clone()));

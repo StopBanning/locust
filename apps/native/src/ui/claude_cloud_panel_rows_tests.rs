@@ -461,3 +461,179 @@ fn a_reply_learned_before_the_row_was_last_opened_is_not_new() {
     assert!(rt.find(&key("glance", ID)).is_some());
     assert!(rt.find(&key("new", ID)).is_none(), "{}", words(&rt));
 }
+
+/// Cloud view 1, row 2: git as Claude's cloud left it. A bare repository is the folder's origin (on disk: nothing
+/// reaches the network), and another clone pushes the session's branch to it, so its commits are not in the folder
+/// until fetched.
+struct Remote {
+    bare: PathBuf,
+    pusher: PathBuf,
+}
+
+impl Remote {
+    fn new(w: &World) -> Self {
+        let bare = w.root.join("origin.git");
+        let pusher = w.root.join("pusher");
+        git(&w.root, &["init", "-q", "--bare", "-b", "main", &bare.to_string_lossy()]);
+        git(&w.folder(), &["remote", "add", "origin", &bare.to_string_lossy()]);
+        git(&w.folder(), &["push", "-q", "origin", "main"]);
+        git(&w.root, &["clone", "-q", &bare.to_string_lossy(), &pusher.to_string_lossy()]);
+        git(&pusher, &["config", "user.email", "cloud@example.com"]);
+        git(&pusher, &["config", "user.name", "Cloud"]);
+        git(&pusher, &["checkout", "-q", "-b", "claude/fix-cart-total"]);
+        let remote = Self { bare, pusher };
+        remote.push("Sum prices in the cart");
+        remote
+    }
+    fn push(&self, subject: &str) {
+        std::fs::write(self.pusher.join("cart.js"), format!("// {subject}\n")).unwrap();
+        git(&self.pusher, &["commit", "-q", "-am", subject]);
+        git(&self.pusher, &["push", "-q", "origin", "claude/fix-cart-total"]);
+    }
+}
+
+/// What git was asked, and a gate that holds every `ls-remote` until it opens.
+#[derive(Default)]
+struct GitSeen {
+    ls_remote: AtomicUsize,
+    fetch: AtomicUsize,
+    held: std::sync::atomic::AtomicBool,
+}
+
+/// The window's `ClaudeCloud` with real git, counted.
+fn counting_claude(seen: &Arc<GitSeen>) -> MakeClaude {
+    let seen = seen.clone();
+    Arc::new(move |store: &Store, reads| {
+        let seen = seen.clone();
+        ClaudeCloud::new(locust_core::claude_cloud::store_path_of(store), CloudPlatform::Linux, || None)
+            .with_reads(reads)
+            .with_git(move |args: &[&str], cwd: &str, _input: Option<&str>| {
+                match args.first().copied() {
+                    Some("ls-remote") => {
+                        seen.ls_remote.fetch_add(1, Ordering::SeqCst);
+                        while seen.held.load(Ordering::SeqCst) {
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                    }
+                    Some("fetch") => {
+                        seen.fetch.fetch_add(1, Ordering::SeqCst);
+                    }
+                    _ => {}
+                }
+                let out = Command::new("git").args(args).current_dir(cwd).output().expect("git");
+                locust_core::claude_cloud::GitRan {
+                    code: out.status.code().unwrap_or(-1),
+                    stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+                    stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+                }
+            })
+    })
+}
+
+/// The known session's branch is known (a read found it), and the row was opened long ago.
+fn branch_known(s: &State) {
+    let path = locust_core::claude_cloud::store_path_of(s.data.as_ref().unwrap());
+    let mut saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    saved["sessions"][0]["branch"] = "claude/fix-cart-total".into();
+    saved["sessions"][0]["openedAt"] = "2026-01-01T00:00:00.000Z".into();
+    std::fs::write(&path, saved.to_string()).unwrap();
+}
+
+fn pushed_said(rt: &Runtime<State>) -> Option<String> {
+    rt.find(&key("pushed", ID))?;
+    words(rt).lines().find(|line| line.starts_with("Pushed ")).map(str::to_owned)
+}
+
+#[test]
+fn a_pushed_line_says_how_long_ago_and_the_subject() {
+    let now = chrono::DateTime::parse_from_rfc3339("2026-11-26T12:00:00Z").unwrap().with_timezone(&chrono::Utc);
+    let mut one = ClaudeCloudSession::default();
+    assert_eq!(super::pushed_line(&one, now), None, "no branch looked at: nothing said");
+    let at = |at: &str| locust_core::claude_cloud::Pushed { hash: "1".repeat(40), subject: "Sum prices".into(), at: at.into() };
+    one.pushed = Some(at("2026-11-26T11:56:00+00:00"));
+    assert_eq!(super::pushed_line(&one, now).as_deref(), Some("Pushed 4 min ago: Sum prices"));
+    one.pushed = Some(at("2026-11-26T11:59:40Z"));
+    assert_eq!(super::pushed_line(&one, now).as_deref(), Some("Pushed just now: Sum prices"));
+    one.pushed = Some(at("2026-11-26T09:00:00Z"));
+    assert_eq!(super::pushed_line(&one, now).as_deref(), Some("Pushed 3 hours ago: Sum prices"));
+}
+
+#[test]
+fn an_open_panel_looks_at_the_sessions_branch_every_three_minutes_and_shows_its_newest_push() {
+    let (w, mut rt) = window(true);
+    let remote = Remote::new(&w);
+    branch_known(&rt.state);
+    let seen = Arc::new(GitSeen::default());
+    rt.state.cloud.make = Some(counting_claude(&seen));
+    open_cloud(&mut rt);
+    pump(&mut rt, "the first look", |s| s.cloud.looking.is_empty() && pushed_said_in(s).is_some());
+    assert_eq!(pushed_said(&rt).as_deref(), Some("Pushed just now: Sum prices in the cart"), "{}", words(&rt));
+    assert!(rt.find(&key("new", ID)).is_some(), "a push since the row was opened is new");
+    assert_eq!((seen.ls_remote.load(Ordering::SeqCst), seen.fetch.load(Ordering::SeqCst)), (1, 1));
+    assert_eq!(w.seen.teleports.load(Ordering::SeqCst), 0, "never a teleport");
+    // Nothing more for three minutes; then a look that finds the same commit and fetches nothing.
+    let started = rt.state.cloud.now_ms;
+    pump_by(&mut rt, "170 s", 10.0, |s| s.cloud.now_ms - started >= 170_000);
+    assert_eq!(seen.ls_remote.load(Ordering::SeqCst), 1);
+    pump_by(&mut rt, "the second look", 10.0, |_| seen.ls_remote.load(Ordering::SeqCst) == 2);
+    pump(&mut rt, "the second look ended", |s| s.cloud.looking.is_empty());
+    assert_eq!(seen.fetch.load(Ordering::SeqCst), 1, "same hash: no fetch");
+    // A new push is fetched and said.
+    remote.push("Round to cents");
+    pump_by(&mut rt, "the new push", 10.0, |s| pushed_said_in(s).is_some_and(|line| line.ends_with("Round to cents")));
+    assert_eq!(seen.fetch.load(Ordering::SeqCst), 2);
+    assert!(words(&rt).contains("Pushed just now: Round to cents"), "{}", words(&rt));
+    assert!(w.stored(&rt.state).contains("Round to cents"), "kept in the record");
+    // The remote gone: the look fails, the last line stays and nothing alarming is said.
+    std::fs::rename(&remote.bare, w.root.join("moved.git")).unwrap();
+    let before = words(&rt);
+    pump_by(&mut rt, "a failed look", 10.0, |_| seen.ls_remote.load(Ordering::SeqCst) == 4);
+    pump(&mut rt, "the failed look ended", |s| s.cloud.looking.is_empty());
+    assert!(words(&rt).contains("Pushed just now: Round to cents"));
+    assert_eq!(words(&rt), before);
+    assert_eq!(w.seen.teleports.load(Ordering::SeqCst), 0);
+}
+
+fn pushed_said_in(s: &State) -> Option<String> {
+    let side = s.cloud.panel.claude.as_ref()?;
+    super::pushed_line(side.sessions.iter().find(|one| one.id == ID)?, chrono::Utc::now())
+}
+
+#[test]
+fn the_window_gaining_focus_looks_once_and_never_two_looks_of_one_folder_at_once() {
+    let (w, mut rt) = window(true);
+    let _remote = Remote::new(&w);
+    branch_known(&rt.state);
+    let seen = Arc::new(GitSeen::default());
+    seen.held.store(true, Ordering::SeqCst);
+    rt.state.cloud.make = Some(counting_claude(&seen));
+    open_cloud(&mut rt);
+    pump(&mut rt, "the first look under way", |_| seen.ls_remote.load(Ordering::SeqCst) == 1);
+    // Focus lost and gained, and three more minutes, while that look is held: no second look of the folder.
+    let focus = |rt: &mut Runtime<State>, on: bool| {
+        rt.update(move |s, _| s.window_focused = on);
+        let mut turns = 0;
+        pump(rt, "a turn", |_| {
+            turns += 1;
+            turns > 3
+        });
+    };
+    focus(&mut rt, false);
+    focus(&mut rt, true);
+    let started = rt.state.cloud.now_ms;
+    pump_by(&mut rt, "three minutes", 20.0, |s| s.cloud.now_ms - started >= 200_000);
+    assert_eq!(seen.ls_remote.load(Ordering::SeqCst), 1);
+    seen.held.store(false, Ordering::SeqCst);
+    pump(&mut rt, "the look ended", |s| s.cloud.looking.is_empty());
+    // The panel closed: no looks on the clock, one when the window gains focus.
+    click(&mut rt, "cloud-tasks-close");
+    let after = seen.ls_remote.load(Ordering::SeqCst);
+    let started = rt.state.cloud.now_ms;
+    pump_by(&mut rt, "ten minutes closed", 60.0, |s| s.cloud.now_ms - started >= 600_000);
+    assert_eq!(seen.ls_remote.load(Ordering::SeqCst), after, "closed: nothing on the clock");
+    focus(&mut rt, false);
+    focus(&mut rt, true);
+    pump(&mut rt, "the focus look", |s| seen.ls_remote.load(Ordering::SeqCst) == after + 1 && s.cloud.looking.is_empty());
+    focus(&mut rt, true);
+    assert_eq!(seen.ls_remote.load(Ordering::SeqCst), after + 1, "once per focus");
+}

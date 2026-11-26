@@ -489,3 +489,19 @@ fn on_a_mac_the_read_runs_claude_code_by_its_words_with_no_shell_between() {
     assert_eq!(runs[0].line, "");
     assert_eq!(runs[0].cwd, w.repo.text());
 }
+
+#[test]
+// case: Cloud view 1: a read keeps the session's own branch, never the worktree's made-up one, for the light look
+fn a_read_keeps_the_sessions_own_branch_in_its_record_and_one_without_a_branch_keeps_none() {
+    let w = World::new();
+    let runs = RefCell::new(Vec::new());
+    read_ok(cloud(&w, teleporting(&w, &runs, TELEPORT)).check(ID));
+    let kept = cloud(&w, teleporting(&w, &runs, TELEPORT)).all().remove(0);
+    assert_eq!(kept.branch.as_deref(), Some("claude/fix-cart-total"));
+    assert_eq!(kept.last_reply.as_deref(), Some("Fixed: **total** now sums prices."));
+    let w = World::new();
+    let drawn = "\u{25cf} Session resumed without branch: Failed to checkout branch 'claude/session-confirmation-hb9mlu'\r\n ? for shortcuts";
+    read_ok(cloud(&w, teleporting(&w, &runs, Teleport { drawn: Some(drawn), change: false, ..TELEPORT })).check(ID));
+    let kept = cloud(&w, teleporting(&w, &runs, TELEPORT)).all().remove(0);
+    assert_eq!(kept.branch, None, "{kept:?}");
+}

@@ -465,13 +465,53 @@ pub struct ClaudeCloudSession {
     pub news_at: Option<String>,
     /// When the person last opened the session's row.
     pub opened_at: Option<String>,
+    /// THE CHEAP SIGNAL (Cloud view 1): the session's own branch, as its last successful read checked it out.
+    pub branch: Option<String>,
+    /// That branch's newest commit on the folder's remote, as the last light look found it: hash, subject, time.
+    pub pushed: Option<Pushed>,
+}
+
+/// A commit the session pushed to its branch.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Pushed {
+    pub hash: String,
+    pub subject: String,
+    pub at: String,
+}
+
+/// What a light look at a session's branch found (`ClaudeCloud::look_at_branch`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BranchLook {
+    /// No branch known yet: nothing to look at.
+    NoBranch,
+    /// The same commit as last time; nothing was fetched.
+    Same,
+    /// A newer commit, kept in the record: the session as it now is.
+    New(ClaudeCloudSession),
+    /// The remote could not be asked, or the commit not read: what was kept stays.
+    Failed,
+}
+
+fn branch_name_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$").expect("branch regex"))
+}
+
+fn hash_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$").expect("hash regex"))
+}
+
+/// A branch name Locust passes to git: plain ref words, no `..`, never an option.
+fn is_branch_name(name: &str) -> bool {
+    branch_name_re().is_match(name) && !name.contains("..") && !name.ends_with('/') && !name.ends_with(".lock")
 }
 
 /// The longest first line kept of a reply.
 const GLANCE_CHARS: usize = 160;
 
 /// A reply's first line with words in it, cut to `GLANCE_CHARS`.
-pub fn first_line(text: &str) -> Option<String> {
+fn first_line(text: &str) -> Option<String> {
     let line = text.lines().map(str::trim).find(|line| !line.is_empty())?;
     if line.chars().count() <= GLANCE_CHARS {
         return Some(line.to_string());
@@ -924,6 +964,71 @@ impl<'a> ClaudeCloud<'a> {
         (diff.code == 0 && !diff.stdout.trim().is_empty()).then_some(diff.stdout)
     }
 
+    /// The branch the read's worktree has checked out: the session's own, never the worktree's made-up one.
+    fn branch_in(&self, place: &str, name: &str) -> Option<String> {
+        let head = (self.git)(&["rev-parse", "--abbrev-ref", "HEAD"], place, None);
+        let branch = head.stdout.trim();
+        (head.code == 0 && branch != "HEAD" && branch != format!("worktree-{name}") && is_branch_name(branch))
+            .then(|| branch.to_string())
+    }
+
+    /// THE CHEAP SIGNAL (Cloud view 1): the session's branch on the folder's remote, never a teleport and never a
+    /// Claude run. `git ls-remote` for its newest commit; only when that differs from the one kept, a fetch of that
+    /// one commit for its subject and time, kept in the record as news. A failure keeps what was kept.
+    pub fn look_at_branch(&self, id: &str) -> BranchLook {
+        let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
+            return BranchLook::NoBranch;
+        };
+        let Some(branch) = session.branch.clone().filter(|b| is_branch_name(b)) else {
+            return BranchLook::NoBranch;
+        };
+        let refname = format!("refs/heads/{branch}");
+        let listed = (self.git)(&["ls-remote", "--quiet", "origin", &refname], &session.folder, None);
+        if listed.code != 0 {
+            return BranchLook::Failed;
+        }
+        let Some(hash) = listed
+            .stdout
+            .lines()
+            .filter_map(|line| line.split_once('\t'))
+            .find(|(_, name)| name.trim() == refname)
+            .map(|(hash, _)| hash.trim().to_string())
+            .filter(|hash| hash_re().is_match(hash))
+        else {
+            return BranchLook::Failed;
+        };
+        if session.pushed.as_ref().is_some_and(|pushed| pushed.hash == hash) {
+            return BranchLook::Same;
+        }
+        let fetched = (self.git)(
+            &["fetch", "--quiet", "--no-tags", "--no-write-fetch-head", "origin", &refname],
+            &session.folder,
+            None,
+        );
+        if fetched.code != 0 {
+            return BranchLook::Failed;
+        }
+        let shown = (self.git)(&["log", "-1", "--format=%cI%n%s", &hash], &session.folder, None);
+        let mut lines = shown.stdout.lines();
+        let (Some(at), Some(subject)) = (lines.next().map(str::trim), lines.next().map(str::trim)) else {
+            return BranchLook::Failed;
+        };
+        if shown.code != 0 || instant(Some(at)).is_none() {
+            return BranchLook::Failed;
+        }
+        let pushed = Pushed { hash, subject: subject.chars().take(GLANCE_CHARS).collect(), at: at.to_string() };
+        let learned = (self.now)();
+        let mut now_known = None;
+        self.update_session(id, |kept| {
+            if kept.branch.as_deref() == Some(branch.as_str()) {
+                kept.pushed = Some(pushed);
+                kept.news_at = Some(learned);
+                now_known = Some(kept.clone());
+            }
+        });
+        now_known.map_or(BranchLook::Failed, BranchLook::New)
+    }
+
     /// WHAT THE SESSION DID, READ HERE (0.558): `claude --teleport <id> --worktree <name>` in a terminal nobody
     /// sees fetches the session's conversation and checks its branch out beside the folder, the folder untouched.
     /// The transcript it saved is read as an imported session is; its change is the branch against the folder's
@@ -944,14 +1049,27 @@ impl<'a> ClaudeCloud<'a> {
         under_way.insert(id.to_string(), read.clone());
         drop(under_way);
         let ends = ReadEnds { reads: &self.reads, id, read };
-        let reading = self.check_once(id);
-        self.update_session(id, |session| session.take_reading(&reading));
+        let (reading, branch) = self.check_once(id);
+        self.update_session(id, |session| {
+            session.take_reading(&reading);
+            if branch.is_some() && session.branch != branch {
+                session.branch = branch;
+                session.pushed = None;
+            }
+        });
         *ends.read.answer.lock().unwrap_or_else(|e| e.into_inner()) = Some(reading.clone());
         drop(ends);
         reading
     }
 
-    fn check_once(&self, id: &str) -> ClaudeCloudReading {
+    /// A read, and the session's own branch when the read checked it out.
+    fn check_once(&self, id: &str) -> (ClaudeCloudReading, Option<String>) {
+        let mut branch = None;
+        let reading = self.read_session(id, &mut branch);
+        (reading, branch)
+    }
+
+    fn read_session(&self, id: &str, branch: &mut Option<String>) -> ClaudeCloudReading {
         let fail = |message: &str| ClaudeCloudReading::Err { message: message.into() };
         let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
             return fail(NOT_KNOWN_ANY_MORE);
@@ -1075,6 +1193,7 @@ impl<'a> ClaudeCloud<'a> {
         let change = if said.no_branch {
             None
         } else {
+            *branch = self.branch_in(&place.to_string_lossy(), &name);
             self.change_in(&place.to_string_lossy(), &session.folder)
         };
         let too_big = change.as_ref().is_some_and(|c| c.len() > MAX_DIFF);
@@ -1580,6 +1699,12 @@ fn session_to_json(session: &ClaudeCloudSession) -> Value {
             obj.insert(key.into(), json!(value));
         }
     }
+    if let Some(branch) = &session.branch {
+        obj.insert("branch".into(), json!(branch));
+    }
+    if let Some(pushed) = &session.pushed {
+        obj.insert("pushed".into(), json!({ "hash": pushed.hash, "subject": pushed.subject, "at": pushed.at }));
+    }
     Value::Object(obj)
 }
 
@@ -1647,6 +1772,13 @@ fn session_from_json(value: &Value) -> Option<ClaudeCloudSession> {
         last_reply_at: time("lastReplyAt"),
         news_at: time("newsAt"),
         opened_at: time("openedAt"),
+        branch: obj.get("branch").and_then(Value::as_str).filter(|b| is_branch_name(b)).map(str::to_string),
+        pushed: obj.get("pushed").and_then(|pushed| {
+            let hash = pushed.get("hash")?.as_str().filter(|h| hash_re().is_match(h))?;
+            let subject = pushed.get("subject")?.as_str().filter(|s| s.chars().count() <= GLANCE_CHARS)?;
+            let at = pushed.get("at")?.as_str().filter(|at| instant(Some(at)).is_some())?;
+            Some(Pushed { hash: hash.into(), subject: subject.into(), at: at.into() })
+        }),
     })
 }
 
@@ -1689,3 +1821,7 @@ mod exec_tests;
 #[cfg(test)]
 #[path = "claude_cloud_glance_tests.rs"]
 mod glance_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_branch_tests.rs"]
+mod branch_tests;
