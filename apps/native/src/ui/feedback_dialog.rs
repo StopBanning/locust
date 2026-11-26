@@ -66,7 +66,8 @@ pub(super) fn current_facts() -> ReportFacts {
         other => other,
     };
     ReportFacts {
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: locust_core::build_info::version().into(),
+        commit: locust_core::build_info::commit().into(),
         release: String::new(),
         arch: arch.into(),
         platform: Some(platform.into()),

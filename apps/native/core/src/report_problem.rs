@@ -16,6 +16,8 @@ pub const MAX_LOG_BYTES: u64 = 512 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReportFacts {
     pub version: String,
+    /// The commit the build came from (`build_info::commit()`), or `dev`.
+    pub commit: String,
     pub release: String,
     pub arch: String,
     pub platform: Option<String>,
@@ -86,7 +88,8 @@ fn body(facts: &ReportFacts, description: &str, conversation: Option<&str>, trim
         description.to_owned(),
         String::new(),
         "---".into(),
-        format!("Locust {} on {}", facts.version, system_name(facts)),
+        // Electron's `Locust ${facts.version} on ...`, the version said with its commit as `--version` says it.
+        format!("Locust {} ({}) on {}", facts.version, facts.commit, system_name(facts)),
     ];
     if let Some(conv) = conversation.filter(|c| !c.is_empty()) {
         let suffix = if trimmed { " (its latest part)" } else { "" };
@@ -292,9 +295,9 @@ pub fn diagnostic_line(iso_timestamp: &str, label: &str, detail: &str) -> String
     format!("{iso_timestamp} {label}: {d}\n")
 }
 
-pub fn startup_detail(version: &str, platform: &str, release: &str, packaged: bool) -> String {
+pub fn startup_detail(version: &str, commit: &str, platform: &str, release: &str, packaged: bool) -> String {
     let mode = if packaged { "packaged" } else { "development" };
-    format!("Locust {version} ({platform} {release}, {mode})")
+    format!("Locust {version} ({platform} {release}, {mode}, commit {commit})")
 }
 
 #[cfg(test)]
@@ -304,6 +307,8 @@ mod tests {
     fn win_facts() -> ReportFacts {
         ReportFacts {
             version: "0.306.0".into(),
+            // The longest commit a build says (40 hex digits), so every size test below carries it.
+            commit: "8bb5e909c3f1d2a4b5c6d7e8f9a0b1c2d3e4f5a6".into(),
             release: "10.0.19045".into(),
             arch: "x64".into(),
             platform: None,
@@ -336,7 +341,8 @@ mod tests {
             .1
             .into_owned();
         assert!(body.starts_with("The plan card stayed empty."));
-        assert!(body.contains("Locust 0.306.0 on Windows 10, build 19045 (x64)"));
+        // shared/report-problem.ts: `Locust ${facts.version} on ${systemName(facts)}`, the version said with its commit.
+        assert!(body.contains("Locust 0.306.0 (8bb5e909c3f1d2a4b5c6d7e8f9a0b1c2d3e4f5a6) on Windows 10, build 19045 (x64)"), "{body}");
         assert!(body.contains("Wren (Codex): data.csv has the most lines."));
         assert!(body.contains("Nothing else was attached."));
 
@@ -401,6 +407,7 @@ mod tests {
         assert_eq!(
             system_name(&ReportFacts {
                 version: "0.593.0".into(),
+                commit: "dev".into(),
                 release: "24.1.0".into(),
                 arch: "arm64".into(),
                 platform: Some("darwin".into()),
@@ -413,6 +420,7 @@ mod tests {
     fn support_email_and_file_work_and_keep_uncut_conversation_in_file() {
         let facts = ReportFacts {
             version: "0.593.0".into(),
+            commit: "8bb5e909c3f1d2a4b5c6d7e8f9a0b1c2d3e4f5a6".into(),
             release: "10.0.26100".into(),
             arch: "x64".into(),
             platform: Some("win32".into()),
@@ -510,8 +518,12 @@ mod tests {
             "2026-09-15T10:00:00.000Z start: Locust 0.138.0\n"
         );
         assert!(diagnostic_line("2026-09-15T10:00:00.000Z", "x", "   ").contains("(no detail)"));
-        assert!(startup_detail("0.138.0", "win32", "10.0.19045", true).contains("packaged"));
-        assert!(startup_detail("0", "x", "y", false).contains("development"));
+        assert!(startup_detail("0.138.0", "dev", "win32", "10.0.19045", true).contains("packaged"));
+        assert!(startup_detail("0", "dev", "x", "y", false).contains("development"));
+        assert_eq!(
+            startup_detail("0.138.0", "1a2b3c4d", "win32", "10.0.19045", true),
+            "Locust 0.138.0 (win32 10.0.19045, packaged, commit 1a2b3c4d)"
+        );
 
         let text = conversation_text(
             &[
@@ -533,5 +545,45 @@ mod tests {
         assert!(text.contains("You: Count the lines"));
         assert!(text.contains("Wren (Codex CLI, GPT-5.6 Luna): (nothing said)"));
         assert!(text.contains("(the turn failed: The runtime did not answer in time.)"));
+    }
+
+    // A saved, emailed or sent report says which build it came from: the version and its commit, in the line
+    // `--version` prints ("0.883.0 (1a2b3c4d)"), where Electron's body says `Locust ${facts.version} on ...`.
+    #[test]
+    fn every_report_says_the_commit_it_came_from() {
+        let facts = ReportFacts {
+            version: "0.593.0".into(),
+            commit: "1a2b3c4d".into(),
+            release: "24.1.0".into(),
+            arch: "arm64".into(),
+            platform: Some("darwin".into()),
+        };
+        let report = FeedbackReport { description: "It froze.".into(), conversation: Some("You: hi".into()) };
+        let said = "Locust 0.593.0 (1a2b3c4d) on macOS (Darwin 24.1.0, arm64)";
+        assert!(report_file_text(&facts, &report).contains(said), "{}", report_file_text(&facts, &report));
+        let issue = Url::parse(&feedback_url(&facts, &report)).unwrap().query_pairs().next().unwrap().1.into_owned();
+        assert!(issue.contains(said), "{issue}");
+        let mail = support_mailto_url(&facts, &report);
+        assert!(mail.contains(&encode_uri_component(said)), "{mail}");
+        // The subject stays Electron's: the version alone.
+        assert_eq!(report_subject(&facts, "It froze."), "Locust 0.593.0: It froze.");
+        let dev = ReportFacts { commit: "dev".into(), ..facts };
+        assert!(report_file_text(&dev, &report).contains("Locust 0.593.0 (dev) on macOS"));
+    }
+
+    #[test]
+    fn the_commit_keeps_every_size_limit() {
+        let facts = win_facts();
+        assert_eq!(facts.commit.len(), 40);
+        let long: String = (0..400).map(|i| format!("line {i}: the teammate said something here")).collect::<Vec<_>>().join("\n");
+        let report = FeedbackReport { description: "Slow. ".repeat(400), conversation: Some(long.clone()) };
+        assert!(feedback_url(&facts, &report).len() <= MAX_REPORT_URL);
+        // The email's bound is kept by cutting the conversation (a description near MAX_DESCRIPTION overflows it
+        // with no commit at all, which the "did not fit" case above already shows).
+        let short = FeedbackReport { description: "Slow.".into(), conversation: Some(long) };
+        assert!(support_mailto_url(&facts, &short).len() <= MAX_MAILTO_URL);
+        let file = report_file_text(&facts, &report);
+        assert!(file.contains(&format!("Locust 0.306.0 ({})", facts.commit)));
+        assert!(!file.contains(&"Slow. ".repeat(400)), "the description is still cut at MAX_DESCRIPTION");
     }
 }

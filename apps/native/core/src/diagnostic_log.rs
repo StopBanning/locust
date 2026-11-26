@@ -12,7 +12,8 @@
 //!   could carry what a conversation held) is replaced by a sentence saying it was left out;
 //! - no keys: every detail passes through [`crate::secrets::scrub_secrets`] before it is written;
 //! - no person's folder: the home folder is written as `~`, and the first line is built from the version, the
-//!   platform, the kernel release and the build kind, never from a path, a user name or a host name;
+//!   platform, the kernel release, the build kind and the commit (hex digits or `dev`, see [`crate::build_info`]),
+//!   never from a path, a user name or a host name;
 //! - nothing leaves the machine: this module only appends to a local file (mode 0600 on unix) and has no network.
 
 use std::collections::HashSet;
@@ -192,9 +193,10 @@ fn os_release() -> String {
     "unknown".into()
 }
 
-/// The first line of every run, built from no path: the version, the platform, the kernel release and the build.
+/// The first line of every run, built from no path: the version, the platform, the kernel release, the build kind and
+/// the commit the build came from (only ever hex digits or `dev`, so it can name no one).
 pub fn startup_line_detail(version: &str, packaged: bool) -> String {
-    startup_detail(version, platform(), &os_release(), packaged)
+    startup_detail(version, crate::build_info::commit(), platform(), &os_release(), packaged)
 }
 
 /// Everything the window starts before it opens (`crashReporter.start` and `note('start', ...)` before

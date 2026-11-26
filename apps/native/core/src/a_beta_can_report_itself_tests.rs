@@ -224,6 +224,18 @@ fn the_first_line_names_build_platform_and_packaging() {
     assert!(first.contains("packaged"), "{first}");
 }
 
+// Every run's first line says which commit it was built from, so a fault in the log is tied to a build.
+#[test]
+fn the_first_line_names_the_commit() {
+    let d = dir();
+    with_hook(|| begin(&d.0, "0.138.0", true));
+    let first = log(&d.0);
+    // This build's commit: the one it was given at build time (build.rs), or dev.
+    let commit = crate::build_info::commit();
+    assert!(first.trim_end().ends_with(&format!(", packaged, commit {commit})")), "{first}");
+    assert!(commit == "dev" || commit.bytes().all(|b| b.is_ascii_hexdigit()), "commit-shaped, never a name: {commit}");
+}
+
 // case: distinguishes a development run, which reports different bugs
 #[test]
 fn a_development_run_says_so() {
