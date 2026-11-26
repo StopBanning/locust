@@ -419,3 +419,20 @@ fn a_failed_reading_costs_the_list_nothing() {
     assert!(has_gemini_flash(&listed));
     assert!(!catalog_usage_windows_in(held.usage_kept, held.usage_cache).contains_key("antigravity"));
 }
+
+// The catalog read carries every agent's own list and what is installed, not only Antigravity's: the seam that lets
+// these tests drive the read also lets them check the rest of it.
+#[test]
+fn the_catalog_read_carries_each_agents_list_and_what_is_installed() {
+    let s = CatalogSources {
+        claude: |_| Some(serde_json::json!({"models": ["sonnet"]})),
+        installed: |name| name == "copilot",
+        apple: || true,
+        ..sources(|_, _, _| None)
+    };
+    let (listed, _) = listed_within(s, Duration::from_secs(10));
+    assert_eq!(listed.claude, Some(serde_json::json!({"models": ["sonnet"]})));
+    assert!(listed.copilot, "copilot is installed");
+    assert!(!listed.muse, "muse is not");
+    assert!(listed.apple, "Apple's model answers");
+}
