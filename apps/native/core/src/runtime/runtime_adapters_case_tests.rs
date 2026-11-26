@@ -1446,3 +1446,65 @@ fn searches_no_install_root_for_a_command_it_does_not_know_on_windows() {
     let stray = format!("{LOCAL}\\OpenAI\\Codex\\bin\\abc123\\somethingelse.exe");
     assert!(roots_locate("somethingelse", &[&stray], &["abc123"], "").is_none());
 }
+
+// ---- Lane check: path-locator.ts's own lines, held where its tests do not reach -------------------------------------
+
+#[test]
+fn takes_a_dot_com_when_there_is_no_exe_and_the_exe_when_there_are_both() {
+    let env = [("PATH", "C:\\tools")];
+    let com = |c: &str| c == "C:\\tools\\codex.com";
+    let found = win_locate("codex", &env, &com, &no_dirs, &no_shim).unwrap();
+    assert_eq!((found.executable.as_str(), found.kind), ("C:\\tools\\codex.com", discovery::LaunchKind::Native));
+    let both = |c: &str| c == "C:\\tools\\codex.com" || c == "C:\\tools\\codex.exe";
+    assert_eq!(win_locate("codex", &env, &both, &no_dirs, &no_shim).unwrap().executable, "C:\\tools\\codex.exe");
+}
+
+#[test]
+fn reads_an_npm_shims_binary_whatever_case_its_extension_is_written_in() {
+    // path-locator.ts `NPM_SHIM_BINARY` ends in `/i`.
+    let cmd_shim = format!("{ROAMING}\\npm\\opencode.cmd");
+    let binary = format!("{ROAMING}\\npm\\node_modules\\opencode-ai\\bin\\OPENCODE.EXE");
+    let env = [("PATH", format!("{ROAMING}\\npm")), ("SystemRoot", "C:\\Windows".to_owned())];
+    let env: Vec<(&str, &str)> = env.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let files = |c: &str| c == cmd_shim || c == binary || c == WIN_CMD;
+    let shim = |_: &str| Some("\"%dp0%\\node_modules\\opencode-ai\\bin\\OPENCODE.EXE\"   %*\r\n".to_owned());
+    let found = win_locate("opencode", &env, &files, &no_dirs, &shim).unwrap();
+    assert_eq!((found.discovered.as_str(), found.executable.as_str(), found.kind), (cmd_shim.as_str(), binary.as_str(), discovery::LaunchKind::Native));
+}
+
+#[test]
+fn finds_claude_codes_own_installer_directory_without_path() {
+    let exe = format!("{LOCAL}\\Programs\\claude\\claude.exe");
+    let found = roots_locate("claude", &[&exe], &[], "").unwrap();
+    assert_eq!((found.executable.as_str(), found.kind), (exe.as_str(), discovery::LaunchKind::Native));
+}
+
+#[test]
+fn looks_once_in_a_path_directory_named_twice_in_two_cases_and_reads_a_quoted_one_and_a_rooted_one() {
+    let probed = std::cell::RefCell::new(Vec::<String>::new());
+    let files = |c: &str| {
+        probed.borrow_mut().push(c.to_owned());
+        false
+    };
+    assert!(win_locate("codex", &[("PATH", "C:\\Tools;c:\\tools")], &files, &no_dirs, &no_shim).is_none());
+    let looks = probed.borrow().iter().filter(|c| c.eq_ignore_ascii_case("C:\\Tools\\codex.exe")).count();
+    assert_eq!(looks, 1, "{:?}", probed.borrow());
+    // A quoted entry is its contents, and `/tools` is rooted on Windows (`win32.isAbsolute`), written `\tools`.
+    let quoted = |c: &str| c == "C:\\Program Files\\codex.exe";
+    assert_eq!(win_locate("codex", &[("PATH", "\"C:\\Program Files\"")], &quoted, &no_dirs, &no_shim).unwrap().executable, "C:\\Program Files\\codex.exe");
+    let rooted = |c: &str| c == "\\tools\\codex.exe";
+    assert_eq!(win_locate("codex", &[("PATH", "/tools")], &rooted, &no_dirs, &no_shim).unwrap().executable, "\\tools\\codex.exe");
+}
+
+#[test]
+fn runs_a_shim_through_the_cmd_and_powershell_windows_ships_before_any_a_path_directory_offers() {
+    // path-locator.ts: "one planted earlier on PATH would run the shim with this process's environment".
+    let env = [("PATH", "C:\\evil;C:\\shims"), ("SystemRoot", "C:\\Windows")];
+    let cmd_files = |c: &str| matches!(c, "C:\\shims\\tool.cmd" | "C:\\evil\\cmd.exe" | "C:\\Windows\\System32\\cmd.exe");
+    assert_eq!(win_locate("tool", &env, &cmd_files, &no_dirs, &no_shim).unwrap().executable, WIN_CMD);
+    let ps_files = |c: &str| matches!(c, "C:\\shims\\tool.ps1" | "C:\\evil\\powershell.exe") || c == WIN_POWERSHELL;
+    assert_eq!(win_locate("tool", &env, &ps_files, &no_dirs, &no_shim).unwrap().executable, WIN_POWERSHELL);
+    // `pwsh` outranks `powershell` when both are there to be found.
+    let both = |c: &str| matches!(c, "C:\\shims\\tool.ps1" | "C:\\shims\\pwsh.exe") || c == WIN_POWERSHELL;
+    assert_eq!(win_locate("tool", &env, &both, &no_dirs, &no_shim).unwrap().executable, "C:\\shims\\pwsh.exe");
+}

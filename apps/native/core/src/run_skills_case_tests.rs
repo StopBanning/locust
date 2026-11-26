@@ -255,3 +255,27 @@ fn allows_the_copied_skill_subtree_through_native_rules_without_changing_edit_or
         assert!(rules.contains(&rule), "{rule} in {rules:?}");
     }
 }
+
+// ---- Lane check: skill-discovery.ts reads the name through a YAML parser, so its escapes and quotes are YAML's -------
+
+#[test]
+fn reads_a_double_quoted_names_escapes_and_a_single_quoted_names_doubled_quote_as_yaml_does() {
+    assert_eq!(skill_name_in("---\nname: \"a\\tb\\nc\"\ndescription: x\n---\nbody\n").as_deref(), Some("a\tb\nc"));
+    assert_eq!(skill_name_in("---\nname: 'it''s here'\ndescription: x\n---\nbody\n").as_deref(), Some("it's here"));
+}
+
+#[test]
+fn a_tune_says_a_skill_costs_nothing_on_a_turn_it_does_not_fit() {
+    let prompt = crate::tune::tune_draft_prompt("Be concise.", &[], true, Some("Codex"));
+    assert!(
+        prompt.contains("This teammate runs on Codex, which loads a skill only when the work matches the skill's description, so a skill costs nothing on turns it does not fit."),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn ends_a_plain_name_at_a_comment_after_a_space_or_a_tab_and_not_at_a_hash_inside_a_word() {
+    assert_eq!(skill_name_in("---\nname: review # a comment\n---\n").as_deref(), Some("review"));
+    assert_eq!(skill_name_in("---\nname: review\t# a tab before the comment\n---\n").as_deref(), Some("review"));
+    assert_eq!(skill_name_in("---\nname: review#not-a-comment\n---\n").as_deref(), Some("review#not-a-comment"));
+}
