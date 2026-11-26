@@ -557,12 +557,6 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .grow(1.0),
                 )
                 .child(button("Close", p).on_press(|s: &mut State| s.people_panel.open = false)),
-        )
-        .child(
-            text("Native copy · seeded once from Electron; changes stay in native.")
-                .font(type_::LABEL)
-                .color(p.muted)
-                .wrap(),
         );
     if !panel.error.is_empty() {
         body = body.child(text(panel.error.clone()).color(p.red).wrap());
@@ -1093,6 +1087,8 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let model = t["route"]["model"].as_str().unwrap_or("").to_owned();
         let work = locust_core::teammate_work::teammate_work(&id, &missions, &owners, |m| m.title.clone());
         let last = work.last_run_at.and_then(ago_label);
+        // Screens.tsx `owned`: every conversation the record gives this teammate, whether or not this window has read it.
+        let runs = locust_core::teammate_work::owned_runs(&owners, &id);
         let status = crate::home_panel::teammate_status(s, &id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str(), &role);
 
         let mut head = row()
@@ -1152,11 +1148,14 @@ fn team_grid(s: &State, p: &Palette) -> El {
         );
         let mut route = row().w_full().gap(6.0).center_y();
         if !runtime.is_empty() {
-            if let Some(mark) = crate::look::controls::agent_mark(&l, &runtime, 12.0, l.c("text-secondary")) {
+            // Screens.tsx: a model of the person's own is its own name alone, with no runtime mark in front of it.
+            if !locust_core::teammate_tooltip::is_own_route(&model)
+                && let Some(mark) = crate::look::controls::agent_mark(&l, &runtime, 12.0, l.c("text-secondary"))
+            {
                 route = route.child(mark);
             }
             route = route.child(
-                text(format!("{} / {}", locust_core::carry_on::display_name(&runtime), model))
+                text(locust_core::teammate_tooltip::route_label(&runtime, &model))
                     .font(mono(11.5))
                     .color(if dropped { p.amber } else { l.c("text-secondary") })
                     .grow(1.0)
@@ -1176,7 +1175,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let stats = row()
             .w_full()
             .gap(24.0)
-            .child(stat("Runs", work.mission_count.to_string(), work.mission_count == 0))
+            .child(stat("Runs", runs.to_string(), runs == 0))
             .child(stat("Last run", last.clone().unwrap_or_else(|| "never".into()), last.is_none()));
 
         let mut card = col()
@@ -2747,3 +2746,7 @@ mod a_teammate_named_like_an_agent_tests;
 #[cfg(test)]
 #[path = "proposed_change_tests.rs"]
 mod proposed_change_tests;
+
+#[cfg(test)]
+#[path = "team_card_words_tests.rs"]
+mod team_card_words_tests;

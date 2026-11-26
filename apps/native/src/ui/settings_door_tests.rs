@@ -14,6 +14,8 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
 fn drawn(door_state: door::State) -> (String, Vec<(String, bool)>) {
     let mut state = State::default();
     state.settings_panel.door = Some(door_state);
+    // Electron's `<More>` holds the lines in the page whether or not it is open; here they are drawn once it is.
+    state.settings_panel.folds.toggle(BY_HAND_KEY);
     let mut rt = Runtime::new(state, view, (900.0, 900.0), Env::new(true, 1.0));
     rt.frame(0.0);
     let all = rt.elements();
@@ -106,6 +108,7 @@ impl Pressing {
         });
         let mut state = State::default();
         state.settings_panel.door = Some(first);
+        state.settings_panel.folds.toggle(BY_HAND_KEY);
         let mut rt = Runtime::new(state, view, (900.0, 1400.0), Env::new(true, 1.0));
         rt.frame(0.0);
         Pressing { rt, asked }
