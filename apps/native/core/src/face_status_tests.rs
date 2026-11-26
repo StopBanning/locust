@@ -291,16 +291,19 @@ fn carries_every_state_on_the_presence_dot_so_a_still_face_still_reads() {
 
 // --- status.test.ts: a teammate with no work of their own ---
 
+// case: is idle, not blocked, when something could run
 #[test]
 fn a_teammate_with_no_work_is_idle_not_blocked_when_something_could_run() {
     assert_eq!(view(StatusInputs { reach: usable_only(true), role_label: "Docs & QA", ..Default::default() }).status, TeammateStatus::Idle);
 }
 
+// case: is blocked when nothing is signed in at all
 #[test]
 fn a_teammate_with_no_work_is_blocked_when_nothing_is_signed_in_at_all() {
     assert_eq!(view(StatusInputs { reach: usable_only(false), role_label: "Docs & QA", ..Default::default() }).status, TeammateStatus::Blocked);
 }
 
+// case: is judged against the runtime its own mission is on
 #[test]
 fn a_teammate_is_judged_against_the_runtime_its_own_mission_is_on() {
     let claude = RuntimeFacts { id: "claude".into(), ..runtime() };

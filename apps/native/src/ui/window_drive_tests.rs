@@ -6799,3 +6799,29 @@ fn an_away_rows_line_is_read_from_its_own_record() {
     assert!(crate::home_panel::away_said_for(&summary, |_| None).is_empty());
     assert!(crate::home_panel::away_said_for(&summary, |_| Some(vec![])).is_empty());
 }
+
+// Lane check (26 Nov): renderer/src/status.test.ts, a model switch's effort: a recent route picked with no level chosen
+// starts on the level its runtime names as its default (effortAfterRouteChange), never on none.
+#[test]
+fn a_recent_route_picked_with_no_level_starts_on_its_runtimes_default_level() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt,"Synthetic prompt");
+    pump(&mut rt,"the first answer",answered);
+    let meta=json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"mission_recent","prompt":"x","runtime":"claude","model":"fable","createdAt":"2026-09-01T10:00:00.000Z"}});
+    std::fs::write(store.write_path("mission_recent").unwrap(),format!("{meta}\n")).unwrap();
+    rt.update(|s,_|refresh_recent(s));
+    pump(&mut rt,"the recent routes",|s|s.recent_route_keys.len()>=2);
+    click(&mut rt,"model-chip");
+    rt.update(|s,_|{
+        let levels=vec!["low".to_owned(),"medium".to_owned(),"high".to_owned()];
+        s.models.insert("tm_codec".into(),vec![
+            engine::Models{teammate:None,runtime:"codex".into(),model:None,effort:None,models:std::iter::once("synthetic-model".to_owned()).chain((0..8).map(|i|format!("other-{i}"))).map(|id|engine::Model{id:id.clone(),name:id,efforts:vec![]}).collect()},
+            engine::Models{teammate:None,runtime:"claude".into(),model:None,effort:Some("high".into()),models:vec![engine::Model{id:"fable".into(),name:"fable".into(),efforts:levels}]}
+        ]);
+    });
+    rt.frame(0.016);
+    click(&mut rt,"recent-model-claude-fable");
+    assert_eq!(rt.state.picks["tm_codec"].model,"fable");
+    assert_eq!(rt.state.picks["tm_codec"].effort.as_deref(),Some("high"));
+}

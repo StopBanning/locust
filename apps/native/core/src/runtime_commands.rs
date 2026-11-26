@@ -199,6 +199,15 @@ impl RuntimeCommands<'_> {
         Ok(listed)
     }
 
+    /// OpenCode's commands, read from a server `opencode` starts (opencode::command's for the folder; `v2` for
+    /// OpenCode 2, which lists none) and kept as Claude Code's are. On the shelf: the window's `/` menu refresh will
+    /// call it, as Electron's `refreshListedCommands('opencode')` does when the window asks for the lists.
+    pub fn learn_opencode(&self, opencode: std::process::Command, v2: bool) -> Result<Vec<CommandInfo>, String> {
+        let listed = crate::runtime::opencode_commands::read_commands(opencode, v2, crate::runtime::opencode_commands::TIMEOUT)?;
+        self.set("opencode", &listed)?;
+        Ok(listed)
+    }
+
     /// Whether a message is one of this runtime's commands, and so is sent as it is.
     pub fn is_command(&self, runtime: Option<&str>, prompt: &str) -> bool {
         let Some(name) = command_named(prompt) else {

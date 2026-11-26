@@ -632,3 +632,6 @@ mod opencode_session_ended_tests;
 #[cfg(test)]
 #[path = "opencode_error_tests.rs"]
 mod opencode_error_tests;
+#[cfg(test)]
+#[path = "opencode_events_case_tests.rs"]
+mod opencode_events_case_tests;

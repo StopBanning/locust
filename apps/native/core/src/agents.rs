@@ -542,7 +542,7 @@ fn supported_features(id: &str, help: &str) -> Vec<&'static str> {
             add("workspace-selection", scan("--workspace"));
             add("read-only-sandbox", scan("--disable-write") && scan("--disable-shell"));
         }
-        "kilo" => add("acp-stdio", re(r"(?i)\bagent[\s-]*client[\s-]*protocol\b").is_match(help)),
+        "kilo" => add("acp-stdio", re(ACP_HELP).is_match(help)),
         _ => add("json-health-check", scan("--json")),
     }
     features
@@ -605,15 +605,50 @@ pub fn discover_one(id: &str, seams: &Seams) -> Option<Found> {
     let fingerprint = seams.recall.as_ref().and_then(|r| fingerprint_of(&path, r));
     let remembered = seams.recall.as_ref().zip(fingerprint.as_ref()).and_then(|(r, fp)| r.facts.get(fp));
     let said = |text: &str| Some(Answer { exit: Some(0), stdout: text.to_owned(), stderr: String::new(), timed_out: false });
+    // discovery.ts: OpenCode's version is asked first, because its major picks how it is checked (openCodeUsesAcp).
+    // OpenCode 2 is asked only its ACP help, from no remembered help, and nothing it says is kept; a major Locust does
+    // not run is refused on the version alone; OpenCode 1, or a version that could not be read, goes on below with
+    // that one answer, so `--version` is asked once.
+    let mut asked_version: Option<Option<Answer>> = None;
+    if d.id == "opencode" {
+        let answer = match &remembered {
+            Some(f) => said(&f.version_text),
+            None => run(d.version),
+        };
+        let version = succeeded(&answer)
+            .then(|| crate::runtime::version::parse(&answer.as_ref().map(Answer::text).unwrap_or_default()))
+            .flatten();
+        if let Some(v) = version {
+            if crate::runtime::opencode::version_uses_acp(&v.version) {
+                return Some(opencode_acp(d, run(&["acp", "--help"]), v));
+            }
+            if let Some(note) = (d.unsupported)(&v) {
+                return Some(Found {
+                    id: d.id.into(),
+                    display_name: d.name.into(),
+                    installed: true,
+                    version: Some(v.version),
+                    auth: Auth::NotApplicable,
+                    ready: false,
+                    status: Probe::Unsupported,
+                    unsupported_note: Some(note),
+                    through_cli: false,
+                    checking: false,
+                });
+            }
+        }
+        asked_version = Some(answer);
+    }
     let same_command = d.models == Some(d.readiness);
     let readiness_is_version = readiness_from_version(d.id) || d.readiness == d.version;
     // All of one agent's checks at once (discoverOne's Promise.all): none needs another's output, so together they cost
     // the slowest, not the sum. A list that is also the readiness answer is asked first on its own thread, and the
     // plain readiness command only when the list did not answer.
     let (version_answer, capability_answer, _listed, readiness_answer) = std::thread::scope(|s| {
-        let version = s.spawn(|| match &remembered {
-            Some(f) => said(&f.version_text),
-            None => run(d.version),
+        let version = s.spawn(|| match (&asked_version, &remembered) {
+            (Some(asked), _) => asked.clone(),
+            (None, Some(f)) => said(&f.version_text),
+            (None, None) => run(d.version),
         });
         let capability = s.spawn(|| match &remembered {
             Some(f) => said(&f.capability_text),
@@ -715,6 +750,28 @@ pub fn discover_one(id: &str, seams: &Seams) -> Option<Found> {
         through_cli: false,
         checking: false,
     })
+}
+
+/// What an agent that speaks ACP says in its help (discovery.ts): Kilo's, and OpenCode 2's `acp --help`.
+const ACP_HELP: &str = r"(?i)\bagent[\s-]*client[\s-]*protocol\b";
+
+/// discoverOpenCodeAcp: OpenCode 2, checked by its `acp --help` alone. It is ready only when that answered, in time and
+/// with success, and names the Agent Client Protocol (on stdout or stderr); anything else is a capability it could
+/// not show. No model list or readiness check is asked (its models are the ACP session's to say), and no turn.
+fn opencode_acp(d: &Definition, help: Option<Answer>, version: crate::runtime::version::Version) -> Found {
+    let speaks = succeeded(&help) && help.as_ref().is_some_and(|a| re(ACP_HELP).is_match(&a.text()));
+    Found {
+        id: d.id.into(),
+        display_name: d.name.into(),
+        installed: true,
+        version: Some(version.version),
+        auth: Auth::NotApplicable,
+        ready: speaks,
+        status: if speaks { Probe::Ready } else { Probe::ProbeFailed },
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    }
 }
 
 /// missingCredentials: the credentials file of an agent with no free sign-in check is not there. Asked only whether
@@ -1679,3 +1736,7 @@ mod a_start_asks_only_its_runtime_tests;
 #[cfg(test)]
 #[path = "probe_sweep_tests.rs"]
 mod probe_sweep_tests;
+
+#[cfg(test)]
+#[path = "opencode_2_discovery_case_tests.rs"]
+mod opencode_2_discovery_case_tests;

@@ -31,6 +31,11 @@ pub const RECENT_ROUTE_LIMIT: usize = 4;
 /// than two recents, for a list short enough to take in at once (`ROUTE_GROUP_LIMIT + 2` rows or fewer), or for recents
 /// that are half the list or more.
 pub fn shortcut_keys(offered: &[String], recent: &[String]) -> Vec<String> {
-    let picked: Vec<_> = recent.iter().filter(|key| offered.contains(key)).take(RECENT_ROUTE_LIMIT).cloned().collect();
+    shortcut_keys_up_to(offered, recent, RECENT_ROUTE_LIMIT)
+}
+
+/// `recentRouteRows` with its `limit`: the same rules, at most `limit` shortcuts.
+pub fn shortcut_keys_up_to(offered: &[String], recent: &[String], limit: usize) -> Vec<String> {
+    let picked: Vec<_> = recent.iter().filter(|key| offered.contains(key)).take(limit).cloned().collect();
     if picked.len() < 2 || offered.len() <= ROUTE_GROUP_LIMIT + 2 || picked.len() * 2 >= offered.len() { Vec::new() } else { picked }
 }

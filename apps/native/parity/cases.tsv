@@ -1836,7 +1836,7 @@ apps/desktop/src/main/codex-mission.test.ts	lets a Cursor mission edit when aske
 apps/desktop/src/main/codex-mission.test.ts	records nothing when the chosen options cannot be turned into a command	yes
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission on Windows in its ask mode, without the sandbox Windows cannot run	no
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission where the sandbox is real, and asks for it	yes
-apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	no
+apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	yes
 apps/desktop/src/main/codex-mission.test.ts	collapses a burst of records into one durable append	yes
 apps/desktop/src/main/codex-mission.test.ts	still persists every event before any of them is emitted	yes
 apps/desktop/src/main/codex-mission.test.ts	sends a chosen model to the runtime and records it	yes
@@ -1862,7 +1862,7 @@ apps/desktop/src/main/codex-mission.test.ts	runs without the channel when it can
 apps/desktop/src/main/codex-mission.test.ts	posts a share block to the named teammate, attributed to this mission, and links it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a share addressed to someone who is not on the roster, out loud	yes
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a run that did not complete	yes
-apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	no
+apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	yes
 apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a second conversation with the same teammate, and holds a reply to a turn still running (0.551)	no
 apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	yes
@@ -1884,12 +1884,12 @@ apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply
 apps/desktop/src/main/codex-mission.test.ts	refuses the cross-runtime continuation when the record cannot be trusted	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a fresh conversation when nothing is being continued	yes
 apps/desktop/src/main/codex-mission.test.ts	calls onShared with the origin and exactly the messages it posted, after they are recorded (%j)	no
-apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	no
-apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	no
-apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	no
+apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	yes
+apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	yes
+apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	yes
 apps/desktop/src/main/codex-mission.test.ts	a relayed run carries its hop through to what it shares	no
 apps/desktop/src/main/codex-mission.test.ts	adds an observed edit row, after the terminal event, for a file no tool named	yes
-apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	no
+apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	yes
 apps/desktop/src/main/codex-mission.test.ts	does not repeat a file the runtime already named, and never looks on a read-only run	no
 apps/desktop/src/main/codex-mission.test.ts	switches Codex's plan tool on from 0.153, so its plan reaches the panel rather than the reply	yes
 apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	yes
@@ -1912,7 +1912,7 @@ apps/desktop/src/main/codex-mission.test.ts	is still said to have changed on dis
 apps/desktop/src/main/codex-mission.test.ts	says looking, briefing, reading the folder and starting, in that order, and the end writes the note	yes
 apps/desktop/src/main/codex-mission.test.ts	says the runtime is setting itself up when its start will, and times it as the start	no
 apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only start, and says so by leaving the phase out	yes
-apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
+apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	yes
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
 apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	comes back as a reading beside the models, in the words a turn’s reading uses	yes
@@ -6000,34 +6000,34 @@ apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting whil
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting before even that	yes
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Working once the runtime itself has said something	yes
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	draws its word and its quiet sentence from one fact	yes
-apps/desktop/src/renderer/src/status.test.ts	lifts the recently used routes into a group of their own, newest first	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group for a single recent route, which is the one you are on	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group when the whole list is short enough to take in at once	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group when it would be half the list or more	no
-apps/desktop/src/renderer/src/status.test.ts	never resurrects a route the runtime has stopped offering	no
-apps/desktop/src/renderer/src/status.test.ts	stops at the limit rather than repeating the whole list	no
-apps/desktop/src/renderer/src/status.test.ts	names the mode the teammate actually last ran in	no
-apps/desktop/src/renderer/src/status.test.ts	says a teammate who has never run has no mode yet, rather than inventing one	no
+apps/desktop/src/renderer/src/status.test.ts	lifts the recently used routes into a group of their own, newest first	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group for a single recent route, which is the one you are on	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group when the whole list is short enough to take in at once	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group when it would be half the list or more	yes
+apps/desktop/src/renderer/src/status.test.ts	never resurrects a route the runtime has stopped offering	yes
+apps/desktop/src/renderer/src/status.test.ts	stops at the limit rather than repeating the whole list	yes
+apps/desktop/src/renderer/src/status.test.ts	names the mode the teammate actually last ran in	yes
+apps/desktop/src/renderer/src/status.test.ts	says a teammate who has never run has no mode yet, rather than inventing one	yes
 apps/desktop/src/renderer/src/status.test.ts	keeps a run that has a mission id, settled or not	no
 apps/desktop/src/renderer/src/status.test.ts	keeps a run that is still starting, because that is how a teammate reads as working	no
 apps/desktop/src/renderer/src/status.test.ts	drops a refused send, which settled without ever being given a mission id	no
-apps/desktop/src/renderer/src/status.test.ts	never issues ACTIVE or READY for a runtime that is not ready	no
-apps/desktop/src/renderer/src/status.test.ts	marks a ready runtime active only when it is the active one	no
+apps/desktop/src/renderer/src/status.test.ts	never issues ACTIVE or READY for a runtime that is not ready	yes
+apps/desktop/src/renderer/src/status.test.ts	marks a ready runtime active only when it is the active one	yes
 apps/desktop/src/renderer/src/status.test.ts	a runtime whose last run ended on the usage limit says so instead of READY	yes
-apps/desktop/src/renderer/src/status.test.ts	never calls a half-built adapter live, even when its runtime is ready	no
-apps/desktop/src/renderer/src/status.test.ts	keeps a planned runtime non-interactive whatever discovery says	no
-apps/desktop/src/renderer/src/status.test.ts	separates sign-in from missing and from broken	no
+apps/desktop/src/renderer/src/status.test.ts	never calls a half-built adapter live, even when its runtime is ready	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps a planned runtime non-interactive whatever discovery says	yes
+apps/desktop/src/renderer/src/status.test.ts	separates sign-in from missing and from broken	yes
 apps/desktop/src/renderer/src/status.test.ts	counts only usable runtimes as connected	no
 apps/desktop/src/renderer/src/status.test.ts	does not count a runtime this build cannot actually run	no
 apps/desktop/src/renderer/src/status.test.ts	counts a runtime whose adapter is finished but unofficial	no
-apps/desktop/src/renderer/src/status.test.ts	Antigravity through its CLI carries no Experimental tag; through its app it still does (0.541)	no
+apps/desktop/src/renderer/src/status.test.ts	Antigravity through its CLI carries no Experimental tag; through its app it still does (0.541)	yes
 apps/desktop/src/renderer/src/status.test.ts	reports a blocked runtime even while a mission looks like it is running	yes
 apps/desktop/src/renderer/src/status.test.ts	puts a pending approval ahead of working	yes
 apps/desktop/src/renderer/src/status.test.ts	pulses only while working	yes
-apps/desktop/src/renderer/src/status.test.ts	distinguishes every terminal phase	no
-apps/desktop/src/renderer/src/status.test.ts	will not present a completed mission as clean when its ledger is not	no
-apps/desktop/src/renderer/src/status.test.ts	shortens a real mission id rather than inventing a counter	no
-apps/desktop/src/renderer/src/status.test.ts	labels checkpoints from their 1-based epoch	no
+apps/desktop/src/renderer/src/status.test.ts	distinguishes every terminal phase	yes
+apps/desktop/src/renderer/src/status.test.ts	will not present a completed mission as clean when its ledger is not	yes
+apps/desktop/src/renderer/src/status.test.ts	shortens a real mission id rather than inventing a counter	yes
+apps/desktop/src/renderer/src/status.test.ts	labels checkpoints from their 1-based epoch	yes
 apps/desktop/src/renderer/src/status.test.ts	treats usability as needing both the flag and the probe	yes
 apps/desktop/src/renderer/src/status.test.ts	offers a handoff only once the mission has a runId to address	no
 apps/desktop/src/renderer/src/status.test.ts	offers nothing when no mission is running	no
@@ -6035,51 +6035,51 @@ apps/desktop/src/renderer/src/status.test.ts	refuses a second switch while one i
 apps/desktop/src/renderer/src/status.test.ts	says why whenever the control cannot do its job	no
 apps/desktop/src/renderer/src/status.test.ts	decides the face from the same inputs as the label, so the two agree	yes
 apps/desktop/src/renderer/src/status.test.ts	carries every state on the presence dot, so a still face still reads	yes
-apps/desktop/src/renderer/src/status.test.ts	leaves a group that fits exactly as it is, and says nothing about it	no
-apps/desktop/src/renderer/src/status.test.ts	caps a long group and counts every row it is not showing	no
-apps/desktop/src/renderer/src/status.test.ts	keeps the runtimes below a long group reachable	no
-apps/desktop/src/renderer/src/status.test.ts	never hides the route you are on, and still shows the cap	no
-apps/desktop/src/renderer/src/status.test.ts	widens the cap while searching, and still counts what it holds back	no
-apps/desktop/src/renderer/src/status.test.ts	states the count that would go, and names everything held back	no
-apps/desktop/src/renderer/src/status.test.ts	says why nothing would go, rather than just saying nothing	no
-apps/desktop/src/renderer/src/status.test.ts	counts one mission as one	no
+apps/desktop/src/renderer/src/status.test.ts	leaves a group that fits exactly as it is, and says nothing about it	yes
+apps/desktop/src/renderer/src/status.test.ts	caps a long group and counts every row it is not showing	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps the runtimes below a long group reachable	yes
+apps/desktop/src/renderer/src/status.test.ts	never hides the route you are on, and still shows the cap	yes
+apps/desktop/src/renderer/src/status.test.ts	widens the cap while searching, and still counts what it holds back	yes
+apps/desktop/src/renderer/src/status.test.ts	states the count that would go, and names everything held back	yes
+apps/desktop/src/renderer/src/status.test.ts	says why nothing would go, rather than just saying nothing	yes
+apps/desktop/src/renderer/src/status.test.ts	counts one mission as one	yes
 apps/desktop/src/renderer/src/status.test.ts	scales to the largest unit that keeps the number short	no
 apps/desktop/src/renderer/src/status.test.ts	says unknown rather than printing nonsense	no
-apps/desktop/src/renderer/src/status.test.ts	says live only for the runtimes that can own a mission today	no
-apps/desktop/src/renderer/src/status.test.ts	does not claim a runtime the host refuses to run	no
-apps/desktop/src/renderer/src/status.test.ts	treats a runtime it has never heard of as planned, not as live	no
+apps/desktop/src/renderer/src/status.test.ts	says live only for the runtimes that can own a mission today	yes
+apps/desktop/src/renderer/src/status.test.ts	does not claim a runtime the host refuses to run	yes
+apps/desktop/src/renderer/src/status.test.ts	treats a runtime it has never heard of as planned, not as live	yes
 apps/desktop/src/renderer/src/status.test.ts	says ACTIVE only on a row that could actually run	yes
-apps/desktop/src/renderer/src/status.test.ts	does not put ACTIVE on a runtime that is not there	no
+apps/desktop/src/renderer/src/status.test.ts	does not put ACTIVE on a runtime that is not there	yes
 apps/desktop/src/renderer/src/status.test.ts	is idle, not blocked, when something could run	yes
 apps/desktop/src/renderer/src/status.test.ts	is blocked when nothing is signed in at all	yes
 apps/desktop/src/renderer/src/status.test.ts	is judged against the runtime its own mission is on	yes
-apps/desktop/src/renderer/src/status.test.ts	offers Cursor Ask and Plan on Windows too (0.485: its own ask mode holds)	no
-apps/desktop/src/renderer/src/status.test.ts	and where the sandbox exists	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the other runtimes alone on every platform	no
-apps/desktop/src/renderer/src/status.test.ts	offers Plan exactly where Ask is	no
-apps/desktop/src/renderer/src/status.test.ts	keeps per-action approvals to the runtime that can stop and ask	no
-apps/desktop/src/renderer/src/status.test.ts	lets every runtime read and edit	no
-apps/desktop/src/renderer/src/status.test.ts	names the runtime when it says no, so the menu can explain itself	no
-apps/desktop/src/renderer/src/status.test.ts	puts what this person has run first, newest first, inside its own runtime	no
-apps/desktop/src/renderer/src/status.test.ts	never moves a row out of its runtime	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the runtime order alone when nothing has been run	no
-apps/desktop/src/renderer/src/status.test.ts	puts the flagship families above the rest when nothing has been run	no
-apps/desktop/src/renderer/src/status.test.ts	still puts what this person ran above the curated list	no
-apps/desktop/src/renderer/src/status.test.ts	puts a newer flagship family above the one it replaces	no
-apps/desktop/src/renderer/src/status.test.ts	hides nothing: a model on no list is still offered	no
-apps/desktop/src/renderer/src/status.test.ts	matches the words a person can see, whatever the case	no
-apps/desktop/src/renderer/src/status.test.ts	matches an id, so one pasted from a receipt finds its mission	no
-apps/desktop/src/renderer/src/status.test.ts	shows everything when nothing was typed	no
-apps/desktop/src/renderer/src/status.test.ts	shows nothing when nothing matches, rather than everything	no
-apps/desktop/src/renderer/src/status.test.ts	collapses a three-turn exchange into one row	no
-apps/desktop/src/renderer/src/status.test.ts	names the row for what the person typed first, and opens its newest turn	no
-apps/desktop/src/renderer/src/status.test.ts	reads as running while any turn of it is running	no
+apps/desktop/src/renderer/src/status.test.ts	offers Cursor Ask and Plan on Windows too (0.485: its own ask mode holds)	yes
+apps/desktop/src/renderer/src/status.test.ts	and where the sandbox exists	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the other runtimes alone on every platform	yes
+apps/desktop/src/renderer/src/status.test.ts	offers Plan exactly where Ask is	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps per-action approvals to the runtime that can stop and ask	yes
+apps/desktop/src/renderer/src/status.test.ts	lets every runtime read and edit	yes
+apps/desktop/src/renderer/src/status.test.ts	names the runtime when it says no, so the menu can explain itself	yes
+apps/desktop/src/renderer/src/status.test.ts	puts what this person has run first, newest first, inside its own runtime	yes
+apps/desktop/src/renderer/src/status.test.ts	never moves a row out of its runtime	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the runtime order alone when nothing has been run	yes
+apps/desktop/src/renderer/src/status.test.ts	puts the flagship families above the rest when nothing has been run	yes
+apps/desktop/src/renderer/src/status.test.ts	still puts what this person ran above the curated list	yes
+apps/desktop/src/renderer/src/status.test.ts	puts a newer flagship family above the one it replaces	yes
+apps/desktop/src/renderer/src/status.test.ts	hides nothing: a model on no list is still offered	yes
+apps/desktop/src/renderer/src/status.test.ts	matches the words a person can see, whatever the case	yes
+apps/desktop/src/renderer/src/status.test.ts	matches an id, so one pasted from a receipt finds its mission	yes
+apps/desktop/src/renderer/src/status.test.ts	shows everything when nothing was typed	yes
+apps/desktop/src/renderer/src/status.test.ts	shows nothing when nothing matches, rather than everything	yes
+apps/desktop/src/renderer/src/status.test.ts	collapses a three-turn exchange into one row	yes
+apps/desktop/src/renderer/src/status.test.ts	names the row for what the person typed first, and opens its newest turn	yes
+apps/desktop/src/renderer/src/status.test.ts	reads as running while any turn of it is running	yes
 apps/desktop/src/renderer/src/status.test.ts	surfaces an integrity issue from any turn, not just the last	no
-apps/desktop/src/renderer/src/status.test.ts	leaves an ordinary single-run mission exactly as it was	no
-apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separate, in the order they were read	no
+apps/desktop/src/renderer/src/status.test.ts	leaves an ordinary single-run mission exactly as it was	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separate, in the order they were read	yes
 apps/desktop/src/renderer/src/status.test.ts	still returns a row when a hand-edited chain has no leaf	no
-apps/desktop/src/renderer/src/status.test.ts	folds the punctuation a CLI spells a model with	no
-apps/desktop/src/renderer/src/status.test.ts	uses a Custom teammate's own title, and the role name for everyone else	no
+apps/desktop/src/renderer/src/status.test.ts	folds the punctuation a CLI spells a model with	yes
+apps/desktop/src/renderer/src/status.test.ts	uses a Custom teammate's own title, and the role name for everyone else	yes
 apps/desktop/src/renderer/src/status.test.ts	turns an effort into the variant it names and sends no effort beside it	no
 apps/desktop/src/renderer/src/status.test.ts	drops an effort the variants do not name rather than refuse the run	no
 apps/desktop/src/renderer/src/status.test.ts	finds the family when the id in hand is one of its variants, not its own id	no
@@ -6087,30 +6087,30 @@ apps/desktop/src/renderer/src/status.test.ts	never sends an effort to a model th
 apps/desktop/src/renderer/src/status.test.ts	sends an OpenCode model only an effort it lists	no
 apps/desktop/src/renderer/src/status.test.ts	still sends an effort for a model the catalogue has never heard of	no
 apps/desktop/src/renderer/src/status.test.ts	sends the effort as itself where the runtime takes it as a flag	no
-apps/desktop/src/renderer/src/status.test.ts	is always offered, whatever the workspace switch says	no
-apps/desktop/src/renderer/src/status.test.ts	is offered on every runtime Locust has a handle on, Antigravity (0.540) and Muse (0.773) included	no
-apps/desktop/src/renderer/src/status.test.ts	is never the mode a route falls back to	no
-apps/desktop/src/renderer/src/status.test.ts	has its own phrase for what a run was allowed	no
-apps/desktop/src/renderer/src/status.test.ts	names the sign-in a run used in words, not by its route id	no
-apps/desktop/src/renderer/src/status.test.ts	says what it allowed, not what it was called	no
+apps/desktop/src/renderer/src/status.test.ts	is always offered, whatever the workspace switch says	yes
+apps/desktop/src/renderer/src/status.test.ts	is offered on every runtime Locust has a handle on, Antigravity (0.540) and Muse (0.773) included	yes
+apps/desktop/src/renderer/src/status.test.ts	is never the mode a route falls back to	yes
+apps/desktop/src/renderer/src/status.test.ts	has its own phrase for what a run was allowed	yes
+apps/desktop/src/renderer/src/status.test.ts	names the sign-in a run used in words, not by its route id	yes
+apps/desktop/src/renderer/src/status.test.ts	says what it allowed, not what it was called	yes
 apps/desktop/src/renderer/src/status.test.ts	follows the mission's owner, so the header and the composer agree	no
 apps/desktop/src/renderer/src/status.test.ts	prefers the run's own owner, which is what the header uses	no
 apps/desktop/src/renderer/src/status.test.ts	addresses nobody for a conversation nobody owns (0.551)	no
-apps/desktop/src/renderer/src/status.test.ts	puts the active row above flagships and everything else	no
-apps/desktop/src/renderer/src/status.test.ts	still beats a recently used row, because it is the one in use now	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the order alone when nothing is active	no
-apps/desktop/src/renderer/src/status.test.ts	prefers medium, the ordinary setting on every runtime here	no
-apps/desktop/src/renderer/src/status.test.ts	takes the middle when there is no medium	no
-apps/desktop/src/renderer/src/status.test.ts	biases upward on a two-level model, as picking medium out of five does	no
-apps/desktop/src/renderer/src/status.test.ts	has nothing to show when the model reports no levels	no
-apps/desktop/src/renderer/src/status.test.ts	carries a chosen level across a model switch that supports it	no
-apps/desktop/src/renderer/src/status.test.ts	falls back to the new model default rather than to nothing	no
-apps/desktop/src/renderer/src/status.test.ts	still shows nothing when the new model reports no levels	no
+apps/desktop/src/renderer/src/status.test.ts	puts the active row above flagships and everything else	yes
+apps/desktop/src/renderer/src/status.test.ts	still beats a recently used row, because it is the one in use now	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the order alone when nothing is active	yes
+apps/desktop/src/renderer/src/status.test.ts	prefers medium, the ordinary setting on every runtime here	yes
+apps/desktop/src/renderer/src/status.test.ts	takes the middle when there is no medium	yes
+apps/desktop/src/renderer/src/status.test.ts	biases upward on a two-level model, as picking medium out of five does	yes
+apps/desktop/src/renderer/src/status.test.ts	has nothing to show when the model reports no levels	yes
+apps/desktop/src/renderer/src/status.test.ts	carries a chosen level across a model switch that supports it	yes
+apps/desktop/src/renderer/src/status.test.ts	falls back to the new model default rather than to nothing	yes
+apps/desktop/src/renderer/src/status.test.ts	still shows nothing when the new model reports no levels	yes
 apps/desktop/src/renderer/src/status.test.ts	agree when nobody has chosen a level	no
 apps/desktop/src/renderer/src/status.test.ts	agree when someone has	no
 apps/desktop/src/renderer/src/status.test.ts	agree under swarm, which overrides both	no
 apps/desktop/src/renderer/src/status.test.ts	agree on a Cursor family, whose id already names a level	no
-apps/desktop/src/renderer/src/status.test.ts	start a new route on the level the runtime names as its default, where it names one	no
+apps/desktop/src/renderer/src/status.test.ts	start a new route on the level the runtime names as its default, where it names one	yes
 apps/desktop/src/renderer/src/status.test.ts	agree on a model with no levels: both say nothing, and nothing is sent	no
 apps/desktop/src/renderer/src/status.test.ts	never invents a level for a model the catalogue does not know	no
 apps/desktop/src/renderer/src/status.test.ts	names the runtime the first-run screen recommends, not one that is absent	no
@@ -7337,70 +7337,70 @@ packages/runtime-adapters/test/a-free-model-refused-is-never-a-sign-in.test.ts	w
 packages/runtime-adapters/test/a-helpers-calls-are-its-rows-children.test.ts	arrive as children of the helper's row, opened and closed, named as the teammate's are	yes
 packages/runtime-adapters/test/a-helpers-calls-are-its-rows-children.test.ts	leave the teammate's own items exactly as a stream without the helper's records draws them	yes
 packages/runtime-adapters/test/a-helpers-calls-are-its-rows-children.test.ts	are nothing at all in a stream where no helper ran	yes
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ends the run saying so, when the server lists it as neither busy nor answered	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	waits on while the server says it is busy, and ends as usual when it finishes	no
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ends the run saying so, when the server lists it as neither busy nor answered	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	waits on while the server says it is busy, and ends as usual when it finishes	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	asks nothing once the model has begun	yes
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a begun run and ends its records when the stream closes without idle	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	flushes paced reply text before reporting the lost stream	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	never sends a prompt after the stream was lost during session creation	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps a normal idle followed by EOF successful	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an empty stream without waiting for the dropped-start watchdog	no
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a begun run and ends its records when the stream closes without idle	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	flushes paced reply text before reporting the lost stream	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	never sends a prompt after the stream was lost during session creation	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps a normal idle followed by EOF successful	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an empty stream without waiting for the dropped-start watchdog	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps an explicit stream read error as a failure	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	preserves cancellation when EOF arrives after the person stops	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a resumed conversation when its new stream closes prematurely	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a command turn on EOF without replaying its command	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	polls busy and retry states before recovering a verified completed answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not emit already received final text twice during recovery	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not treat an older unobserved answer as this turn's completion	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not infer completion from idle with no final answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses recovery without a completed timestamp	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses recovery without a terminal stop part	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses a foreign session's completed answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not infer a resumed turn's completion from historical messages	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a session that remains busy after the stream closes	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds and aborts a status request that never answers	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a status response whose body never ends	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps cancellation while polling as cancelled	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a rejected status request	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an HTTP error from the status endpoint	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a malformed status response	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an unknown session status without guessing success	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an unreadable message response	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a message response whose body never ends	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not recover a delayed answer after the server exits	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not recover a completed message that reports an error	no
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	preserves cancellation when EOF arrives after the person stops	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a resumed conversation when its new stream closes prematurely	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a command turn on EOF without replaying its command	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	polls busy and retry states before recovering a verified completed answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not emit already received final text twice during recovery	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not treat an older unobserved answer as this turn's completion	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not infer completion from idle with no final answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses recovery without a completed timestamp	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses recovery without a terminal stop part	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	refuses a foreign session's completed answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not infer a resumed turn's completion from historical messages	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a session that remains busy after the stream closes	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds and aborts a status request that never answers	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a status response whose body never ends	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps cancellation while polling as cancelled	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a rejected status request	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an HTTP error from the status endpoint	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a malformed status response	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an unknown session status without guessing success	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an unreadable message response	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds a message response whose body never ends	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not recover a delayed answer after the server exits	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not recover a completed message that reports an error	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps polling when the prompt receipt arrives during an EOF status query	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	reuses an in-flight watchdog query when the stream closes	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	retries a failed watchdog query while its event stream remains open	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ends cancellation even when the server never answers abort	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	recovers a resumed turn by parentID even when its assistant event was lost	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	selects the current answer instead of an observed historical answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects a resumed answer with parentID %s	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	requires the current prompt receipt before recovering a resumed answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ignores a prompt receipt belonging to another session	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects a prompt whose message session conflicts with its event session	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps the first prompt receipt when later user events arrive	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not fall back to an observed first-turn answer with a mismatched parentID	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	still requires a completed answer and a terminal stop part after matching parentID	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not duplicate a resumed answer that already streamed its final text	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps polling %s beyond ten seconds and then recovers	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	stops a perpetually busy recovery at the five-minute overall boundary	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds an unresponsive poll at ten seconds even after earlier busy responses	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a hard status error after extended busy polling	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	settles a timed-out check even if the fetch implementation ignores abort	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays both disconnected tool steps in order before the final answer and completion	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not replay a tool step already settled on the live stream	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays a tool that was still running when the stream disconnected exactly once	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	orders recovered messages by creation time and then message ID instead of response order	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	orders shuffled step markers and tools by their chronological part IDs	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	uses tool timestamps to order recovered parts when their IDs are absent	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps multiple imported step boundaries in order while recovering one assistant message	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays a failed tool with its complete diagnostics before the final answer	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	excludes historical turns, foreign sessions and mismatched parts from tool replay	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	emits duplicate recovered messages and parts only once	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps distinct no-ID tool payloads beyond the old 80-character prefix and deduplicates equivalent payloads	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects the unsupported working status instead of polling it as active	no
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not settle on an earlier stop while the latest matching message is unfinished	no
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	reuses an in-flight watchdog query when the stream closes	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	retries a failed watchdog query while its event stream remains open	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ends cancellation even when the server never answers abort	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	recovers a resumed turn by parentID even when its assistant event was lost	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	selects the current answer instead of an observed historical answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects a resumed answer with parentID %s	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	requires the current prompt receipt before recovering a resumed answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	ignores a prompt receipt belonging to another session	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects a prompt whose message session conflicts with its event session	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps the first prompt receipt when later user events arrive	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not fall back to an observed first-turn answer with a mismatched parentID	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	still requires a completed answer and a terminal stop part after matching parentID	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not duplicate a resumed answer that already streamed its final text	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps polling %s beyond ten seconds and then recovers	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	stops a perpetually busy recovery at the five-minute overall boundary	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	bounds an unresponsive poll at ten seconds even after earlier busy responses	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a hard status error after extended busy polling	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	settles a timed-out check even if the fetch implementation ignores abort	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays both disconnected tool steps in order before the final answer and completion	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not replay a tool step already settled on the live stream	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays a tool that was still running when the stream disconnected exactly once	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	orders recovered messages by creation time and then message ID instead of response order	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	orders shuffled step markers and tools by their chronological part IDs	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	uses tool timestamps to order recovered parts when their IDs are absent	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps multiple imported step boundaries in order while recovering one assistant message	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	replays a failed tool with its complete diagnostics before the final answer	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	excludes historical turns, foreign sessions and mismatched parts from tool replay	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	emits duplicate recovered messages and parts only once	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps distinct no-ID tool payloads beyond the old 80-character prefix and deduplicates equivalent payloads	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects the unsupported working status instead of polling it as active	yes
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not settle on an earlier stop while the latest matching message is unfinished	yes
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	prices input, output, reasoning and both caches, each at its own rate	yes
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the dearer tier once the step's context, caches included, passes its size	yes
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the largest tier passed, and the older over-200k price where a list gives that	yes
@@ -7936,17 +7936,17 @@ packages/runtime-adapters/test/effort-choices.test.ts	still reads the bare, sing
 packages/runtime-adapters/test/effort-choices.test.ts	invents nothing when a CLI names no levels	yes
 packages/runtime-adapters/test/effort-choices.test.ts	passes the effort through as --effort	no
 packages/runtime-adapters/test/effort-choices.test.ts	sends no effort flag when none was chosen	yes
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is ready from the version and acp help, and does not list models or look for a credential file	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not ready when acp help does not name the protocol	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not installed when the command is absent	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	never keeps the session default	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	maps Ask and Plan onto ask, and Edit and Auto onto code	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	launches kilo acp and keeps a per-run environment on the command	no
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is ready from the version and acp help, and does not list models or look for a credential file	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not ready when acp help does not name the protocol	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	is not installed when the command is absent	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	never keeps the session default	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	maps Ask and Plan onto ask, and Edit and Auto onto code	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	launches kilo acp and keeps a per-run environment on the command	yes
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	prefers git.exe over a git.cmd that appears earlier on PATH	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	puts git.cmd first on the child PATH and leaves the process PATH alone	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	no
-packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	no
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	puts git.cmd first on the child PATH and leaves the process PATH alone	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	yes
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	yes
 packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	yes
 packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	yes
 packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	yes
@@ -7981,42 +7981,42 @@ packages/runtime-adapters/test/muse-events.test.ts	says so when Locust was the o
 packages/runtime-adapters/test/muse-events.test.ts	reports a cancelled run as cancelled, not failed	yes
 packages/runtime-adapters/test/muse-events.test.ts	takes a thread id from a session stream and from nothing else	yes
 packages/runtime-adapters/test/muse-events.test.ts	knows which task kinds are Muse talking to itself	yes
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	checks V2 ACP help without launching V1 probes or spending a turn	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	leaves V2 model choices to the ACP session instead of inventing CLI hints	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	keeps the V1 help, model-list readiness and free-model parsing	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	refuses future major versions without guessing either protocol	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	does not promote an unrecognized version into ACP	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	accepts ACP help printed on stderr with the spaced protocol name	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	contains a failed ACP help runner without starting a prompt	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	ignores legacy cached V2 help and never saves ACP help under a V1 cache key	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	recognizes a changed binary upgraded from V1 to V2 without reusing V1 capabilities	no
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	checks V2 ACP help without launching V1 probes or spending a turn	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	leaves V2 model choices to the ACP session instead of inventing CLI hints	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	keeps the V1 help, model-list readiness and free-model parsing	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	refuses future major versions without guessing either protocol	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	does not promote an unrecognized version into ACP	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	accepts ACP help printed on stderr with the spaced protocol name	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	contains a failed ACP help runner without starting a prompt	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	ignores legacy cached V2 help and never saves ACP help under a V1 cache key	yes
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	recognizes a changed binary upgraded from V1 to V2 without reusing V1 capabilities	yes
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	uses the executable's launch prefix and environment for the ACP help check	no
-packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	shares one exact-major selector without assigning ACP to unknown, V1 or future versions	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	passes the desktop launch environment and permission receipt through the profile	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reads effort options advertised after switching the selected model	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps OpenCode identity, launch prefix and environment on the stdio command	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	loads an ACP v1 session without recording its replayed history	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	maps permissions and successful and failed tool calls through the existing normalizer	no
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	shares one exact-major selector without assigning ACP to unknown, V1 or future versions	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	passes the desktop launch environment and permission receipt through the profile	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reads effort options advertised after switching the selected model	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps OpenCode identity, launch prefix and environment on the stdio command	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	loads an ACP v1 session without recording its replayed history	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	maps permissions and successful and failed tool calls through the existing normalizer	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	queues a second turn on the same ACP session without telemetry identity drift	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	retries a pre-prompt stdout close only after bounded startup backoff	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	exhausts capped startup retries with a structured transport failure	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	cancels during startup backoff without creating a replacement process	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds the total startup deadline even when retry backoff remains	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	never resends an admitted prompt after stdout closes during its tool call	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	retries a pre-prompt stdout close only after bounded startup backoff	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	exhausts capped startup retries with a structured transport failure	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	cancels during startup backoff without creating a replacement process	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds the total startup deadline even when retry backoff remains	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	never resends an admitted prompt after stdout closes during its tool call	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	never retries a prompt write exception after possible partial delivery	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports authentication errors without treating them as reconnectable transport loss	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	rejects unsupported ACP protocol versions without reconnecting	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	fails a refused required configuration without sending a prompt or retrying	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports authentication errors without treating them as reconnectable transport loss	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	rejects unsupported ACP protocol versions without reconnecting	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	fails a refused required configuration without sending a prompt or retrying	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses replacement when the stopped process never acknowledges exit	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	does not spawn a process for an already cancelled run	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	does not spawn a process for an already cancelled run	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds a non-finite handshake option without overflowing the inner timer	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	cleans up a spawned process when listener registration fails	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports a failed spawn once without retrying an invalid command	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports a failed spawn once without retrying an invalid command	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps queued steering and excludes abandoned session receipts on a startup retry	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	clears the startup deadline when a long-running prompt is admitted	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	clears the startup deadline when a long-running prompt is admitted	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	stops on record overflow without replacing the admitted process	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	settles a failed permission reply without an unhandled rejection or a second write	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses an unadvertised model instead of silently changing the requested route	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses an unadvertised model instead of silently changing the requested route	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds staged pre-prompt permission receipts even when the inner queue keeps draining	no
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on the server, ${sandbox}	no
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on run, ${sandbox}	no
@@ -8024,12 +8024,12 @@ packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in A
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in a worktree, beside the repository it may reach	yes
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	keeps a chat-only model's tools off, every one of them	yes
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	starts a config when there was none	no
-packages/runtime-adapters/test/opencode-commands.test.ts	never starts the V1 command server when OpenCode 2 is installed	no
-packages/runtime-adapters/test/opencode-commands.test.ts	are read from a server started in the folder, with a password and no plugins, which is then stopped	no
-packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an empty menu, when the server will not say, and the server is still stopped	no
+packages/runtime-adapters/test/opencode-commands.test.ts	never starts the V1 command server when OpenCode 2 is installed	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	are read from a server started in the folder, with a password and no plugins, which is then stopped	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an empty menu, when the server will not say, and the server is still stopped	yes
 packages/runtime-adapters/test/opencode-commands.test.ts	is named on the command line, and its arguments are the message on stdin	no
-packages/runtime-adapters/test/opencode-commands.test.ts	refuses a name no command could have	no
-packages/runtime-adapters/test/opencode-commands.test.ts	is an ordinary run when there is no command	no
+packages/runtime-adapters/test/opencode-commands.test.ts	refuses a name no command could have	yes
+packages/runtime-adapters/test/opencode-commands.test.ts	is an ordinary run when there is no command	yes
 packages/runtime-adapters/test/opencode-error.test.ts	pulls the provider's own error type out of the response body	yes
 packages/runtime-adapters/test/opencode-error.test.ts	falls back to the error's name when there is no body to read	yes
 packages/runtime-adapters/test/opencode-error.test.ts	survives a response body that is not JSON	yes
@@ -8043,64 +8043,64 @@ packages/runtime-adapters/test/opencode-error.test.ts	admits it does not know, r
 packages/runtime-adapters/test/opencode-error.test.ts	never tells anyone a run simply stopped for no reason	yes
 packages/runtime-adapters/test/opencode-error.test.ts	says what happened and what to do, not what the provider said	yes
 packages/runtime-adapters/test/opencode-error.test.ts	leaves every other provider message alone	yes
-packages/runtime-adapters/test/opencode-events.test.ts	takes the session id from the first record, not from a header record it never sends	no
-packages/runtime-adapters/test/opencode-events.test.ts	opens and closes one turn per step, so nothing is left looking unfinished	no
-packages/runtime-adapters/test/opencode-events.test.ts	delivers each text part whole, as its own final message	no
-packages/runtime-adapters/test/opencode-events.test.ts	reports each tool call as a started and a completed event under its call id	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the created file's change, built from the content it wrote	no
-packages/runtime-adapters/test/opencode-events.test.ts	adds up what every step cost, rather than reporting the last step as the total	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries a real cost when a model has one	no
-packages/runtime-adapters/test/opencode-events.test.ts	keeps the earlier session id, which is what -s takes back	no
-packages/runtime-adapters/test/opencode-events.test.ts	shows a run that could only read, and no write tool anywhere in it	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the runtime's own account of what it was not given	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a run that only talked -- which is why plan mode is not the read-only mechanism	no
-packages/runtime-adapters/test/opencode-events.test.ts	becomes a patch only when the runtime said the file did not exist	no
-packages/runtime-adapters/test/opencode-events.test.ts	counts a trailing newline as the end of the last line, not as another one	no
-packages/runtime-adapters/test/opencode-events.test.ts	treats anything but `completed` as a failure, including nothing at all	no
-packages/runtime-adapters/test/opencode-events.test.ts	names what a tool acted on, whichever field the tool used	no
-packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed only when nothing that could change anything had finished	no
-packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	no
-packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	no
+packages/runtime-adapters/test/opencode-events.test.ts	takes the session id from the first record, not from a header record it never sends	yes
+packages/runtime-adapters/test/opencode-events.test.ts	opens and closes one turn per step, so nothing is left looking unfinished	yes
+packages/runtime-adapters/test/opencode-events.test.ts	delivers each text part whole, as its own final message	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reports each tool call as a started and a completed event under its call id	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the created file's change, built from the content it wrote	yes
+packages/runtime-adapters/test/opencode-events.test.ts	adds up what every step cost, rather than reporting the last step as the total	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries a real cost when a model has one	yes
+packages/runtime-adapters/test/opencode-events.test.ts	keeps the earlier session id, which is what -s takes back	yes
+packages/runtime-adapters/test/opencode-events.test.ts	shows a run that could only read, and no write tool anywhere in it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the runtime's own account of what it was not given	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a run that only talked -- which is why plan mode is not the read-only mechanism	yes
+packages/runtime-adapters/test/opencode-events.test.ts	becomes a patch only when the runtime said the file did not exist	yes
+packages/runtime-adapters/test/opencode-events.test.ts	counts a trailing newline as the end of the last line, not as another one	yes
+packages/runtime-adapters/test/opencode-events.test.ts	treats anything but `completed` as a failure, including nothing at all	yes
+packages/runtime-adapters/test/opencode-events.test.ts	names what a tool acted on, whichever field the tool used	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed only when nothing that could change anything had finished	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	yes
 packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	yes
 packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	yes
-packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	no
-packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	no
-packages/runtime-adapters/test/opencode-events.test.ts	still puts the confined-workspace refusal first, which says more	no
-packages/runtime-adapters/test/opencode-events.test.ts	leaves an ordinary non-zero exit saying what it always said	no
-packages/runtime-adapters/test/opencode-events.test.ts	becomes a plan, four times, not four tool rows	no
-packages/runtime-adapters/test/opencode-events.test.ts	carries the steps and their advancing state	no
-packages/runtime-adapters/test/opencode-events.test.ts	invents no plan when a todo call carries no todos	no
-packages/runtime-adapters/test/opencode-events.test.ts	leaves every other tool alone	no
-packages/runtime-adapters/test/opencode-events.test.ts	reads the plan out of a captured live run, advancing step by step	no
-packages/runtime-adapters/test/opencode-events.test.ts	never gives OpenCode's note to the model as the teammate's words	no
-packages/runtime-adapters/test/opencode-events.test.ts	takes the summary back, so it is neither drawn nor the reply, and says what happened	no
-packages/runtime-adapters/test/opencode-events.test.ts	does not count the summary's stop as the run's	no
-packages/runtime-adapters/test/opencode-events.test.ts	takes nothing back from a step that called a tool, or across a step that began	no
-packages/runtime-adapters/test/opencode-events.test.ts	keeps OpenCode's summary and note out of the teammate's words, and ends on the real answer	no
-packages/runtime-adapters/test/opencode-events.test.ts	says once that the conversation was summarized	no
-packages/runtime-adapters/test/opencode-events.test.ts	ends completed on the answer, though the process exits 1	no
-packages/runtime-adapters/test/opencode-events.test.ts	still fails when the retry never reached its own stop	no
-packages/runtime-adapters/test/opencode-events.test.ts	still fails when a different error follows the recovery	no
-packages/runtime-adapters/test/opencode-events.test.ts	rides on the completion, in milliseconds	no
-packages/runtime-adapters/test/opencode-events.test.ts	is left out when the part says nothing usable	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	streams from the server's deltas, and ends as exactly the finished text	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	a step that ends before its text's finished form closes it with every word, none held back by the pace	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	names its session, so OpenCode does not spend a model call naming it	no
+packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still puts the confined-workspace refusal first, which says more	yes
+packages/runtime-adapters/test/opencode-events.test.ts	leaves an ordinary non-zero exit saying what it always said	yes
+packages/runtime-adapters/test/opencode-events.test.ts	becomes a plan, four times, not four tool rows	yes
+packages/runtime-adapters/test/opencode-events.test.ts	carries the steps and their advancing state	yes
+packages/runtime-adapters/test/opencode-events.test.ts	invents no plan when a todo call carries no todos	yes
+packages/runtime-adapters/test/opencode-events.test.ts	leaves every other tool alone	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reads the plan out of a captured live run, advancing step by step	yes
+packages/runtime-adapters/test/opencode-events.test.ts	never gives OpenCode's note to the model as the teammate's words	yes
+packages/runtime-adapters/test/opencode-events.test.ts	takes the summary back, so it is neither drawn nor the reply, and says what happened	yes
+packages/runtime-adapters/test/opencode-events.test.ts	does not count the summary's stop as the run's	yes
+packages/runtime-adapters/test/opencode-events.test.ts	takes nothing back from a step that called a tool, or across a step that began	yes
+packages/runtime-adapters/test/opencode-events.test.ts	keeps OpenCode's summary and note out of the teammate's words, and ends on the real answer	yes
+packages/runtime-adapters/test/opencode-events.test.ts	says once that the conversation was summarized	yes
+packages/runtime-adapters/test/opencode-events.test.ts	ends completed on the answer, though the process exits 1	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still fails when the retry never reached its own stop	yes
+packages/runtime-adapters/test/opencode-events.test.ts	still fails when a different error follows the recovery	yes
+packages/runtime-adapters/test/opencode-events.test.ts	rides on the completion, in milliseconds	yes
+packages/runtime-adapters/test/opencode-events.test.ts	is left out when the part says nothing usable	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	streams from the server's deltas, and ends as exactly the finished text	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	a step that ends before its text's finished form closes it with every word, none held back by the pace	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	names its session, so OpenCode does not spend a model call naming it	yes
 packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	${sandbox}: the same permission config and environment as run	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	read-only is read-only, loads no plugins; workspace-write stays in the folder; Auto may leave it	no
-packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	what OpenCode asks: Auto approves it, as run --auto did; any other mode refuses it, as run did	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	starts the server IN the teammate's folder, never where the app itself stands (0.378)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person, sends their answer back, and reads as an ordinary OpenCode run	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person a subagent's request too, marked as the subagent's, and answers it	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses what nobody is there to answer	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses in the mode's own words when it is given them (0.822)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	still says the person declined when a person answered with no reason	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	passes on why the person declined, when they said (0.374)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	sends one of OpenCode's own commands as the command, its arguments beside it, and reads the turn the same way (0.427)	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	asks for every action in its config, and never announces itself on the network	no
-packages/runtime-adapters/test/opencode-serve-run.test.ts	turns settled parts into records, and the reply's text while it is written into partial ones (0.677)	no
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	read-only is read-only, loads no plugins; workspace-write stays in the folder; Auto may leave it	yes
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	what OpenCode asks: Auto approves it, as run --auto did; any other mode refuses it, as run did	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	starts the server IN the teammate's folder, never where the app itself stands (0.378)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person, sends their answer back, and reads as an ordinary OpenCode run	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks the person a subagent's request too, marked as the subagent's, and answers it	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses what nobody is there to answer	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	refuses in the mode's own words when it is given them (0.822)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	still says the person declined when a person answered with no reason	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	passes on why the person declined, when they said (0.374)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	sends one of OpenCode's own commands as the command, its arguments beside it, and reads the turn the same way (0.427)	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	asks for every action in its config, and never announces itself on the network	yes
+packages/runtime-adapters/test/opencode-serve-run.test.ts	turns settled parts into records, and the reply's text while it is written into partial ones (0.677)	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is named, config and tool both, in every mode that asks	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent in Auto, which asks nothing	yes
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent when no bridge was registered, rather than naming a file that does not exist	yes

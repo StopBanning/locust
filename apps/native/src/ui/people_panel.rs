@@ -321,7 +321,9 @@ pub(super) fn pick_model(s: &mut State, pick: TurnPick) {
     s.people_panel.fields[3] = field(&runtime);
     s.people_panel.fields[4] = field(&pick.model);
     s.people_panel.fields[5] = field(if same { was.effort.as_deref().unwrap_or("") } else { "" });
-    s.people_panel.fields[6] = field(if locust_core::mode_facts::runs_on(&was.mode, &runtime) { &was.mode } else { "ask" });
+    // NewTeammateDialog: a mode the new route cannot run falls back to the first it offers (modesFor), else Ask.
+    let offered = locust_core::mode_facts::modes_for(&runtime, None);
+    s.people_panel.fields[6] = field(if locust_core::mode_facts::runs_on(&was.mode, &runtime) { &was.mode } else { offered.first().copied().unwrap_or("ask") });
     s.people_panel.account = pick.account.unwrap_or(was.account);
     s.people_panel.route_changed = true;
     s.people_panel.model_open = false;
@@ -2324,6 +2326,15 @@ mod renderer_model_tests {
         assert!(saved["route"].get("effort").is_none());
         assert_eq!(saved["route"]["runtime"],"claude");
         assert_eq!(saved["route"]["mode"],"ask");
+    }
+
+    /// Lane check (26 Nov): NewTeammateDialog's fallback is the first mode the new route offers (modesFor), not Ask by
+    /// name: an ACP agent runs only Approve each, so a teammate on Ask moved to one lands on Approve each.
+    #[test]
+    fn a_mode_the_new_route_cannot_run_falls_back_to_the_first_it_offers() {
+        let mut s = form(Some(own(None)),true,LEVELS);
+        pick_model(&mut s, TurnPick {model:"some-agent".into(), runtime:Some("acp".into()), effort:None, account:Some(None)});
+        assert_eq!(s.people_panel.fields[6].text,"approve-each");
     }
 
     #[test]

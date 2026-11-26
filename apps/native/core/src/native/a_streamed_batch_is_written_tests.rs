@@ -151,6 +151,7 @@ fn text_waiting_is_written_before_the_ending_and_the_last_on_flush() {
 }
 
 // case: measures frame to fifty millisecond windows on the same paced answer and keeps its first-fragment deadline
+// case: replays the same paced answer with fewer durable appends and sends while keeping every fragment
 #[test]
 fn paced_text_in_frame_and_fifty_millisecond_windows() {
     let t = Temp::new();
