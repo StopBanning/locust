@@ -933,15 +933,23 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 
         // The box, then the chips under it: the mode and the folder on the left, the model on the right (Electron's
         // `.lc-composer__box` and its footer row).
-        // The mode these turns run in: the one chosen here, else the teammate's own (Electron's composer mode).
-        let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
-        let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         let mode_runtime = s
             .picks
             .get(&teammate.id)
             .and_then(|pk| pk.runtime.as_deref())
             .or(teammate.runtime.as_deref())
             .unwrap_or("codex");
+        // The mode these turns run in, as Electron's composer is handed it (composer_mode.rs `mode_shown`): the one
+        // chosen here, else the mode the open conversation's newest turn recorded, else the teammate's own, else
+        // App.tsx's first mode; never one the route's agent cannot run.
+        let recorded_mode = s
+            .ledger
+            .as_ref()
+            .filter(|pane| pane.header.id == teammate.id)
+            .and_then(|pane| pane.snapshot.turn_metas.last())
+            .and_then(|turn| turn.mode.as_deref());
+        let mode_now = locust_core::composer_mode::mode_shown(s.composer_mode.as_deref(), recorded_mode, &teammate.runs_in, mode_runtime);
+        let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         let has_connectors = s.connectors.connectors.as_ref().is_some_and(|c| !c.is_empty());
         let mode_tip = locust_core::mode_facts::connectors_note(mode_runtime, &mode_now, has_connectors)
             .unwrap_or_else(|| "Permission mode".to_owned());

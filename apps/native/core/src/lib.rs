@@ -17,6 +17,7 @@ mod approval_patch_content_tests;
 mod status_case_tests;
 pub mod approval_record_note;
 pub mod mode_facts;
+pub mod composer_mode;
 pub mod approval_rule_store;
 pub mod approval_rules;
 pub mod attachments;
