@@ -147,6 +147,11 @@ mod tests {
 
     /// The thread with that reply as its last message: a turn `running` or not, the reply `whole` (final) or not.
     fn thread(running: bool, whole: bool) -> String {
+        thread_with(running, whole, |_| {})
+    }
+
+    /// `thread`, with the window's state changed by `tweak` after the conversation is set up.
+    fn thread_with(running: bool, whole: bool, tweak: impl FnOnce(&mut State)) -> String {
         let mut s = State::default();
         crate::scenes::ledger_scene(&mut s, false, false);
         let pane = s.ledger.as_mut().expect("a conversation");
@@ -157,6 +162,7 @@ mod tests {
         pane.snapshot.running = running;
         pane.after_tip = None;
         s.flight = None;
+        tweak(&mut s);
         let mut rt = Runtime::new(s, crate::view, (1200.0, 900.0), Env::new(true, 1.0));
         rt.frame(0.0);
         rt.frame(0.05);
@@ -183,5 +189,37 @@ mod tests {
         assert!(!arriving.contains("suggested task") && !arriving.contains("locust-next"), "{arriving}");
         assert!(thread(true, true).contains("2 suggested tasks"));
         assert!(thread(false, false).contains("2 suggested tasks"), "a turn that is over shows them whatever final says");
+    }
+
+    #[test]
+    fn offer_no_do_it_here_while_a_send_is_in_flight_or_a_card_waits_for_the_person() {
+        // NextSteps.tsx: Do it here is this conversation's next turn, so it is not offered where the conversation cannot
+        // take one now: a message already on its way, or an approval waiting for the person's answer.
+        let sending = thread_with(false, true, |s| {
+            s.flight = Some(Flight { teammate_id: "tm_wren".into(), conversation_id: None, header: None, after_tip: None, message: Some("Go on.".into()) });
+        });
+        assert!(sending.contains("2 suggested tasks") && sending.contains("Start") && !sending.contains("Do it here"), "{sending}");
+        let waiting = thread_with(false, true, |s| {
+            s.pending_approval = Some(locust_core::approval::Request {
+                approval_id: "ap_1".into(),
+                mission_id: "m1".into(),
+                runtime: "codex".into(),
+                kind: locust_core::approval::Kind::Command,
+                summary: "Run a command".into(),
+                detail: String::new(),
+                cwd: None,
+                requested_at: String::new(),
+                always_covers: None,
+                always_key: None,
+                data_sent_says: None,
+                reversible_says: None,
+                patch: None,
+                claude_input: None,
+                skippable: false,
+                answer_in: None,
+                questions: Vec::new(),
+            });
+        });
+        assert!(waiting.contains("2 suggested tasks") && waiting.contains("Start") && !waiting.contains("Do it here"), "{waiting}");
     }
 }

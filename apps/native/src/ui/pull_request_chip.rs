@@ -1126,6 +1126,26 @@ mod tests {
         assert!(!watch.timer_armed());
     }
 
+    // case: wears open, closed and not planned, its standing and title on hover (the colors, shell.css `.lc-prlink[data-issue-state]`)
+    #[test]
+    fn the_state_word_and_the_chip_take_each_states_ink_and_tint() {
+        let l = crate::look::controls::Look::new(true);
+        // shell.css: open green-text on green-tint; completed violet-text on violet-tint; not planned text-muted on chip-bg.
+        for (state, ink, tint) in [
+            (IssueLinkState::Open, "green-text", "green-tint"),
+            (IssueLinkState::ClosedCompleted, "violet-text", "violet-tint"),
+            (IssueLinkState::ClosedNotPlanned, "text-muted", "chip-bg"),
+        ] {
+            let link = issue(state);
+            let rt = render_tree(move |_| issue_link_chip(&link, &Palette::new(true)));
+            let all = rt.elements();
+            let chip = all.iter().find(|e| e.key.as_deref() == Some("issue-link-chip")).expect("the chip");
+            assert_eq!(chip.fill, l.c(tint), "{ink}: the chip's tint");
+            let said = all.iter().find(|e| e.key.as_deref() == Some("issue-link-state")).expect("the state word");
+            assert_eq!(said.text_color, Some(l.c(ink)), "{tint}: the word's ink");
+        }
+    }
+
     // case: says nothing and wears nothing when gh cannot answer
     #[test]
     fn an_issue_link_says_nothing_and_wears_nothing_when_gh_cannot_answer() {
