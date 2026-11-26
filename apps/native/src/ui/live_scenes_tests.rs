@@ -87,3 +87,79 @@ fn the_finished_transcript_shows_no_orb_and_no_live_line() {
     assert!(orbs(&rt).is_empty(), "{:?}", orbs(&rt));
     assert!(keyed(&rt, "live-step-label").is_none());
 }
+
+#[test]
+fn thinking_with_nothing_open_says_thinking_beside_the_listening_orb() {
+    let rt = window(live_thinking_scene);
+    let (orb, words, time) = live_line(&rt);
+    assert_eq!((orb, words.as_str(), time), ("listening", "Thinking…", true));
+    assert!(orbs(&rt).iter().all(|(key, ..)| key == "live-step-orb"), "no plan, so no plan orb: {:?}", orbs(&rt));
+}
+
+#[test]
+fn a_shell_command_open_says_what_it_runs_beside_the_connecting_orb() {
+    let rt = window(live_shell_scene);
+    let (orb, words, time) = live_line(&rt);
+    assert_eq!((orb, words.as_str(), time), ("connecting", "Running npm test", true));
+}
+
+#[test]
+fn a_read_open_shows_the_searching_orb() {
+    let rt = window(live_read_scene);
+    let (orb, words, time) = live_line(&rt);
+    assert_eq!(orb, "searching");
+    assert!(time && !words.is_empty(), "{words:?}");
+}
+
+#[test]
+fn a_subagent_out_shows_the_weaving_orb() {
+    let rt = window(live_subagent_scene);
+    let (orb, words, time) = live_line(&rt);
+    assert_eq!(orb, "weaving");
+    assert!(time && !words.is_empty(), "{words:?}");
+}
+
+/// Electron's `liveActionLine` for a read tool: "Reading cart.py"; for a helper: "Asking a helper: …". The Rust
+/// projection (core thread_view.rs `live_action`) has neither, so the line says "Using a tool · Read". Not this lane's
+/// file: core/src/thread_view.rs.
+#[test]
+#[ignore = "core/src/thread_view.rs live_action lacks liveActionLine's read and helper words (not Live 1's file)"]
+fn a_read_and_a_helper_say_what_they_do_in_electrons_words() {
+    assert_eq!(live_line(&window(live_read_scene)).1, "Reading cart.py");
+    assert!(live_line(&window(live_subagent_scene)).1.starts_with("Asking a helper"));
+}
+
+#[test]
+fn stopping_keeps_the_live_line_until_the_stop_lands() {
+    let rt = window(live_stopping_scene);
+    assert!(rt.state.stopping.is_pending());
+    let (orb, words, _) = live_line(&rt);
+    assert_eq!((orb, words.as_str()), ("connecting", "Running npm test"));
+}
+
+#[test]
+fn a_turn_that_hit_its_limit_runs_nothing_live() {
+    let rt = window(live_limit_scene);
+    assert!(orbs(&rt).is_empty(), "{:?}", orbs(&rt));
+    assert!(keyed(&rt, "live-step-label").is_none());
+    assert!(rt.elements().iter().any(|e| e.text.as_deref().is_some_and(|t| t.contains("usage limit"))));
+}
+
+/// Thread.tsx's limit is a red card headed "Usage limit reached" with its kind as a tag; Rust draws the raw sentence
+/// (messages.rs, Fix A / Live 2).
+#[test]
+#[ignore = "messages.rs draws the limit as a grey sentence, not Thread.tsx's card (Live 2)"]
+fn a_turn_that_hit_its_limit_shows_electrons_red_card() {
+    let rt = window(live_limit_scene);
+    assert!(rt.elements().iter().any(|e| e.text.as_deref() == Some("Usage limit reached")));
+}
+
+/// missionView.ts draws the live line from the first moment ("Starting…", the floor's `breathing` orb); the older
+/// thread draws none until the record exists (REVIEW finding 4; messages.rs, Fix A / Live 2).
+#[test]
+#[ignore = "the older thread draws no live line just after Send (messages.rs, Fix A / Live 2)"]
+fn just_after_send_the_older_thread_shows_the_live_line() {
+    let rt = window(live_after_send_scene);
+    let (orb, words, _) = live_line(&rt);
+    assert_eq!((orb, words.as_str()), ("breathing", "Starting…"));
+}
