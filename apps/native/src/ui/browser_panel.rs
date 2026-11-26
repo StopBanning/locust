@@ -7,6 +7,11 @@ pub(super) struct Panel {
     pub menu: bool,
     pub initialized: bool,
     pub profile_refresh: Option<std::time::Instant>,
+    /// The selected teammate and its folder when the browser's folder was last looked up: another one is looked up at
+    /// once, the same one again with the sign-ins list.
+    pub workspace_for: Option<(String, Option<String>)>,
+    /// How soon the last poll asked to look again ([`BUSY`] or [`RESTING`]).
+    pub look_again: Duration,
 }
 impl Default for Panel {
     fn default() -> Self {
@@ -16,6 +21,8 @@ impl Default for Panel {
             menu: false,
             initialized: false,
             profile_refresh: None,
+            workspace_for: None,
+            look_again: Duration::ZERO,
         }
     }
 }
@@ -66,9 +73,19 @@ fn command(s: &mut State, cmd: Command) {
         t.commands.push_back(cmd);
     }
 }
+/// Whether the browser's views have a window to live in: a test may say so without one.
+#[cfg(target_os = "macos")]
+fn attached() -> bool {
+    #[cfg(test)]
+    if TEST_ATTACHED.with(std::cell::Cell::get) {
+        return true;
+    }
+    crate::browser_mac::is_attached()
+}
+
 pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     #[cfg(target_os = "macos")]
-    if !crate::browser_mac::is_attached() {
+    if !attached() {
         return false;
     }
     if !s.browser.initialized {
@@ -99,8 +116,45 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
                 !crate::browser_mac::persistent_available();
         }
     }
+    s.browser.look_again = keep_up(s);
+    tx.wake_after(s.browser.look_again);
+    #[cfg(target_os = "macos")]
+    match crate::browser_mac::sync(&s.browser.host) {
+        Ok(changed) => changed,
+        Err(e) => {
+            let mut h = crate::invariants::lock(&s.browser.host);
+            let changed = h.error.as_ref() != Some(&e);
+            h.error = Some(e);
+            changed
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
     {
-        let mut h = crate::invariants::lock(&s.browser.host);
+        false
+    }
+}
+/// How soon the browser looks again: while it shows or holds tabs, often enough to follow its pages.
+const BUSY: Duration = Duration::from_millis(100);
+/// Closed with no tabs: a tab an agent opens shows within a second.
+const RESTING: Duration = Duration::from_secs(1);
+
+#[cfg(test)]
+thread_local! {
+    /// Disk lookups `keep_up` made on this thread: the sign-ins list and the folder.
+    static READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// A test's window, for `attached`.
+    static TEST_ATTACHED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Keeps the browser's folder, sign-ins list and occlusion up to date, and says when to look again.
+fn keep_up(s: &mut State) -> Duration {
+    let mut h = crate::invariants::lock(&s.browser.host);
+    // Closed with no tabs, with no sign-ins list to keep up with: no page needs the folder or the sign-ins, so a resting
+    // window reads nothing for the browser, and looks again only once a second for a tab an agent opened (speed-1).
+    if !h.open && h.tabs.is_empty() && h.profiles.is_empty() {
+        return RESTING;
+    }
+    {
         let previous = h.profiles.clone();
         h.namespace = s
             .data
@@ -112,10 +166,10 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
             || s.keyboard_sheet.open
             || s.settings_panel.open
             || s.people_panel.open;
-        if s.browser
-            .profile_refresh
-            .is_none_or(|t| t.elapsed() > Duration::from_secs(1))
-        {
+        let due = s.browser.profile_refresh.is_none_or(|t| t.elapsed() > Duration::from_secs(1));
+        if due {
+            #[cfg(test)]
+            READS.with(|n| n.set(n.get() + 1));
             let result = s
                 .data
                 .as_ref()
@@ -155,27 +209,20 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
                 h.forget(Profile(Some(id)));
             }
         }
-        h.workspace = selected_conversation(s).and_then(|(t, _)| {
-            s.data
-                .as_ref()
-                .and_then(|store| native::folder_for(t, store.electron()).ok())
-        });
-    }
-    tx.wake_after(Duration::from_millis(100));
-    #[cfg(target_os = "macos")]
-    match crate::browser_mac::sync(&s.browser.host) {
-        Ok(changed) => changed,
-        Err(e) => {
-            let mut h = crate::invariants::lock(&s.browser.host);
-            let changed = h.error.as_ref() != Some(&e);
-            h.error = Some(e);
-            changed
+        // The folder a page may read from: looked up for a newly selected teammate at once, else with the sign-ins.
+        let key = selected_conversation(s).map(|(t, _)| (t.id.clone(), t.folder.clone()));
+        if due || key != s.browser.workspace_for {
+            #[cfg(test)]
+            READS.with(|n| n.set(n.get() + 1));
+            h.workspace = selected_conversation(s).and_then(|(t, _)| {
+                s.data
+                    .as_ref()
+                    .and_then(|store| native::folder_for(t, store.electron()).ok())
+            });
+            s.browser.workspace_for = key;
         }
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        false
-    }
+    if h.open || !h.tabs.is_empty() { BUSY } else { RESTING }
 }
 pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
     let h = crate::invariants::lock(&s.browser.host);
@@ -438,3 +485,7 @@ pub(super) fn light_scene(s: &mut State) {
     scene(s);
     s.appearance = Some(false);
 }
+
+#[cfg(test)]
+#[path = "browser_rest_tests.rs"]
+mod browser_rest_tests;
