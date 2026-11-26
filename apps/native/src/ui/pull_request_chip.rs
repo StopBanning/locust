@@ -7,18 +7,19 @@ use locust_core::{
     folder_commit::{FolderCommits, RealNetwork},
     pull_requests::{
         self, ConversationPiece, FolderPullRequest, IssueLinkState, LinkWatch, LinkedIssue,
-        LinkedPullRequest, PULL_REQUEST_WATCH_MS, PullLinkAddress, PullLinkChecks, PullLinkReader,
-        PullRequestChecks, PullRequestNews, PullRequestState, conversation_pieces, is_pull_link_moving,
+        LinkedPullRequest, PullLinkAddress, PullLinkChecks, PullLinkReader, PullRequestChecks,
+        PullRequestNews, PullRequestState, PullRequestWatch, conversation_pieces, is_pull_link_moving,
         issue_link_hover, issue_link_word, now_ms, pull_link_hover, pull_link_word, pull_request_ask,
-        pull_request_line, pull_request_news,
+        pull_request_line,
     },
 };
 use rune::Icon;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
         mpsc::{Receiver, Sender, channel},
     },
     time::{Duration, Instant},
@@ -37,14 +38,21 @@ pub(super) struct PrState {
     pub commits: Arc<FolderCommits>,
     pub link_reader: Arc<PullLinkReader>,
     pub read_job: Latest<(PathBuf, Option<FolderPullRequest>)>,
-    pub watch_job: Latest<(PathBuf, Option<FolderPullRequest>)>,
+    /// Core's watch (Electron main's `createPullRequestWatch`, index.ts 3566): it keeps what is watched, compares each
+    /// look with the one before and stops on a merge. The window is its `schedule`: while `timer_armed`, it asks for a
+    /// look every `every_ms`. Its looks run `gh` off this thread (`watch_off_thread`).
+    pub watch: Arc<PullRequestWatch>,
+    /// What the watch reads: the folder whose pull request is watched, and the commits reader (kept current in `poll`).
+    pub watch_target: Arc<Mutex<(Option<PathBuf>, Arc<FolderCommits>)>>,
+    pub watch_said: Receiver<WatchSaid>,
+    /// Watch calls still running off the UI thread, so `poll` keeps coming back for what they say.
+    pub watch_out: Arc<AtomicUsize>,
     pub folder: Option<PathBuf>,
     pub current: Option<(PathBuf, Option<FolderPullRequest>)>,
     pub was_running: bool,
     pub was_focused: bool,
     pub watched_urls: Vec<String>,
     pub watched_loaded: bool,
-    pub last_watched: HashMap<String, FolderPullRequest>,
     pub next_watch_at: Option<Instant>,
     pub news: Option<PullRequestNews>,
     pub link_watch: LinkWatch<LinkedPullRequest>,
@@ -60,22 +68,53 @@ pub(super) struct PrState {
     pub opened_urls: Vec<String>,
 }
 
+/// What core's watch tells the window: a look's pull request (for the chip), or news (Electron's `onNews`).
+pub(super) enum WatchSaid {
+    Read(PathBuf, Option<FolderPullRequest>),
+    News(PullRequestNews),
+}
+
+/// Core's watch over `target`: each look reads the folder's pull request as the window last named it, and both what it
+/// read and any news come back on one channel.
+fn core_watch(target: &Arc<Mutex<(Option<PathBuf>, Arc<FolderCommits>)>>) -> (Arc<PullRequestWatch>, Receiver<WatchSaid>) {
+    let (said_tx, said_rx) = channel();
+    let (read_tx, target) = (said_tx.clone(), target.clone());
+    let watch = PullRequestWatch::new(
+        move || {
+            let (folder, commits) = target.lock().map(|t| t.clone()).ok()?;
+            let folder = folder?;
+            let pr = commits.pull_request(&folder);
+            let _ = read_tx.send(WatchSaid::Read(folder, pr.clone()));
+            pr
+        },
+        move |news| {
+            let _ = said_tx.send(WatchSaid::News(news));
+        },
+    );
+    (Arc::new(watch), said_rx)
+}
+
 impl Default for PrState {
     fn default() -> Self {
         let (link_tx, link_rx) = channel();
         let (issue_tx, issue_rx) = channel();
+        let commits = Arc::new(FolderCommits::default());
+        let watch_target = Arc::new(Mutex::new((None, commits.clone())));
+        let (watch, watch_said) = core_watch(&watch_target);
         Self {
-            commits: Arc::new(FolderCommits::default()),
+            commits,
             link_reader: Arc::new(PullLinkReader::new(Arc::new(RealNetwork))),
             read_job: Latest::default(),
-            watch_job: Latest::default(),
+            watch,
+            watch_target,
+            watch_said,
+            watch_out: Arc::new(AtomicUsize::new(0)),
             folder: None,
             current: None,
             was_running: false,
             was_focused: true,
             watched_urls: Vec::new(),
             watched_loaded: false,
-            last_watched: HashMap::new(),
             next_watch_at: None,
             news: None,
             link_watch: LinkWatch::default(),
@@ -159,34 +198,38 @@ fn start_folder_read(s: &mut State, folder: PathBuf) {
     });
 }
 
-fn start_watch_look(s: &mut State, folder: PathBuf) {
-    let commits = s.pr.commits.clone();
-    s.pr.watch_job.request(folder, move |folder| {
-        let pr = commits.pull_request(&folder);
-        (folder, pr)
+/// A call into core's watch, off the UI thread: `watch(url, true)` and `look` both run `gh`.
+fn watch_off_thread(s: &State, call: impl FnOnce(&PullRequestWatch) + Send + 'static) {
+    let (watch, out) = (s.pr.watch.clone(), s.pr.watch_out.clone());
+    out.fetch_add(1, Ordering::SeqCst);
+    std::thread::spawn(move || {
+        call(&watch);
+        out.fetch_sub(1, Ordering::SeqCst);
     });
 }
 
-/// Triggers an immediate watch look for the active folder (test seam for headless drives).
+/// One look now, as a tick of the watch's timer would ask (test seam for headless drives, Electron's `look`).
 #[cfg(test)]
 pub(super) fn watch_look_now(s: &mut State) {
-    if let Some(folder) = active_folder(s) {
-        s.pr.commits.forget_sign_in();
-        start_watch_look(s, folder);
-    }
+    s.pr.commits.forget_sign_in();
+    watch_off_thread(s, PullRequestWatch::look);
 }
 
 fn is_watched(s: &State, url: &str) -> bool {
     s.pr.watched_urls.iter().any(|u| u == url)
 }
 
+/// The window's own list (PullRequestChip.tsx `keepWatched`), and core's watch told the same.
 fn set_watched(s: &mut State, url: &str, on: bool) {
     s.pr.watched_urls.retain(|u| u != url);
     if on {
         s.pr.watched_urls.insert(0, url.to_owned());
         s.pr.watched_urls.truncate(MAX_WATCHED_URLS);
+        // The first look is the one later ones are compared with (pull-request-watch.ts `watch`).
+        let url = url.to_owned();
+        watch_off_thread(s, move |watch| watch.watch(&url, true));
     } else {
-        s.pr.last_watched.remove(url);
+        s.pr.watch.watch(url, false);
     }
     save_watched(s);
 }
@@ -206,14 +249,7 @@ fn toggle_watch(s: &mut State, tx: &mut Tx) {
     }
     let on = !is_watched(s, &pr.url);
     set_watched(s, &pr.url, on);
-    if on {
-        s.pr.last_watched.insert(pr.url.clone(), pr);
-        let wait = Duration::from_millis(PULL_REQUEST_WATCH_MS);
-        s.pr.next_watch_at = Some(Instant::now() + wait);
-        tx.wake_after(wait);
-    } else if s.pr.watched_urls.is_empty() {
-        s.pr.next_watch_at = None;
-    }
+    tx.wake_after(Duration::from_millis(50));
 }
 
 fn collect_conversation_links(s: &State) -> (Vec<PullLinkAddress>, Vec<PullLinkAddress>) {
@@ -284,10 +320,12 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     s.pr.was_running = running;
     s.pr.was_focused = s.window_focused;
 
+    if let Ok(mut target) = s.pr.watch_target.lock() {
+        *target = (folder.clone(), s.pr.commits.clone());
+    }
     if folder_changed {
         s.pr.folder = folder.clone();
         s.pr.read_job.cancel();
-        s.pr.watch_job.cancel();
         if folder.is_none() {
             s.pr.current = None;
             changed = true;
@@ -306,13 +344,10 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     {
         if let Some(pr) = &found {
             if matches!(pr.state, PullRequestState::Open | PullRequestState::Draft) {
-                if is_watched(s, &pr.url) {
-                    s.pr.last_watched.entry(pr.url.clone()).or_insert_with(|| pr.clone());
-                    if s.pr.next_watch_at.is_none() {
-                        let wait = Duration::from_millis(PULL_REQUEST_WATCH_MS);
-                        s.pr.next_watch_at = Some(Instant::now() + wait);
-                        tx.wake_after(wait);
-                    }
+                // A pull request watched before is watched again when it shows (PullRequestChip.tsx, 0.731).
+                if is_watched(s, &pr.url) && !s.pr.watch.watching(&pr.url) {
+                    let url = pr.url.clone();
+                    watch_off_thread(s, move |watch| watch.watch(&url, true));
                 }
             } else if is_watched(s, &pr.url) {
                 set_watched(s, &pr.url, false);
@@ -322,44 +357,46 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
         changed = true;
     }
 
-    if let Some(next_at) = s.pr.next_watch_at
-        && let Some(folder_path) = &folder
-        && let Some(pr) = current_pr(s)
-        && is_watched(s, &pr.url)
-        && matches!(pr.state, PullRequestState::Open | PullRequestState::Draft)
-    {
+    // The watch's timer: one while anything is watched, none otherwise (`timer_armed`); each tick is one look.
+    if s.pr.watch.timer_armed() {
+        let every = Duration::from_millis(s.pr.watch.every_ms());
         let now = Instant::now();
-        if now >= next_at && !s.pr.watch_job.is_pending() {
-            start_watch_look(s, folder_path.clone());
-            let wait = Duration::from_millis(PULL_REQUEST_WATCH_MS);
-            s.pr.next_watch_at = Some(now + wait);
-            tx.wake_after(wait);
+        let next_at = *s.pr.next_watch_at.get_or_insert(now + every);
+        if now >= next_at {
+            watch_off_thread(s, PullRequestWatch::look);
+            s.pr.next_watch_at = Some(now + every);
+            tx.wake_after(every);
         } else {
             tx.wake_after(next_at.saturating_duration_since(now));
         }
+    } else {
+        s.pr.next_watch_at = None;
     }
 
-    if let Some((watch_folder, found)) = s.pr.watch_job.take()
-        && folder.as_ref() == Some(&watch_folder)
-    {
-        if let Some(now_pr) = found {
-            if is_watched(s, &now_pr.url) {
-                if let Some(before) = s.pr.last_watched.get(&now_pr.url)
-                    && let Some(news) = pull_request_news(before, &now_pr)
-                {
-                    s.pr.news = Some(news);
+    // What the watch read and said: the chip takes the newest read; news is the banner; a merged or closed one the
+    // watch has let go is no longer on the window's list either.
+    while let Ok(said) = s.pr.watch_said.try_recv() {
+        match said {
+            WatchSaid::News(news) => s.pr.news = Some(news),
+            WatchSaid::Read(read_folder, found) => {
+                if folder.as_ref() != Some(&read_folder) {
+                    continue;
                 }
-                s.pr.last_watched.insert(now_pr.url.clone(), now_pr.clone());
-                if matches!(now_pr.state, PullRequestState::Merged | PullRequestState::Closed) {
-                    set_watched(s, &now_pr.url, false);
-                    if s.pr.watched_urls.is_empty() {
-                        s.pr.next_watch_at = None;
-                    }
+                if let Some(pr) = &found
+                    && matches!(pr.state, PullRequestState::Merged | PullRequestState::Closed)
+                    && is_watched(s, &pr.url)
+                {
+                    set_watched(s, &pr.url.clone(), false);
+                }
+                if found.is_some() {
+                    s.pr.current = Some((read_folder, found));
                 }
             }
-            s.pr.current = Some((watch_folder, Some(now_pr)));
-            changed = true;
         }
+        changed = true;
+    }
+    if s.pr.watch_out.load(Ordering::SeqCst) > 0 {
+        tx.wake_after(Duration::from_millis(50));
     }
 
     // Conversation links: read once, refresh on focus after 1 min, poll every 3 min while running.
