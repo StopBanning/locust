@@ -5,6 +5,11 @@
 use super::*;
 use locust_core::protocol_tags::{self, NextStep};
 
+/// The brief under a suggested task's title: 13 px sans on Electron's 1.45 lines (`.lc-nextstep__brief`).
+const BRIEF: rune::TextStyle = type_::BODY.lh(13.0 * 1.45);
+/// Lines of it shown before "…" (`-webkit-line-clamp: 2`).
+const BRIEF_LINES: usize = 2;
+
 fn gone_key(scope: &str, step: &NextStep) -> String {
     format!("{scope}::{}", step.title)
 }
@@ -36,9 +41,10 @@ pub(super) fn view(
         .center_y()
         .gap(8.0)
         .child(
+            // Electron: `.lc-nextsteps__count { color: var(--lc-text-secondary) }`, plain sans at the body's size.
             text(count_label)
-                .font(l.ty.label)
-                .color(l.c("text-muted"))
+                .font(type_::BODY)
+                .color(l.c("text-secondary"))
                 .grow(1.0),
         );
     // No "Start all" yet: Electron starts each task in a conversation of its own at once, and this window runs one
@@ -70,10 +76,11 @@ pub(super) fn view(
                     .wrap(),
             )
             .child(
+                // Electron's `.lc-nextstep__brief`: plain sans, secondary colour, 1.45 lines, cut at two (shell.css:7006).
                 text(step.brief.clone())
-                    .font(l.ty.label)
+                    .font(BRIEF)
                     .color(l.c("text-secondary"))
-                    .wrap(),
+                    .max_lines(BRIEF_LINES),
             );
 
         let away_btn = row()
@@ -221,5 +228,73 @@ mod tests {
             });
         });
         assert!(waiting.contains("2 suggested tasks") && waiting.contains("Start") && !waiting.contains("Do it here"), "{waiting}");
+    }
+
+    // ---- Row 5 of notes/TYPE-NOTES.md: the card's words, as Electron's stylesheet sets them -----------------------
+
+    const SHELL_CSS: &str = include_str!("../../../desktop/src/renderer/src/shell.css");
+
+    /// The declarations of one rule of shell.css, from its selector to the closing brace.
+    fn rule(selector: &str) -> &'static str {
+        let at = SHELL_CSS.find(&format!("\n{selector} {{")).unwrap_or_else(|| panic!("shell.css has no {selector}"));
+        let rest = &SHELL_CSS[at..];
+        &rest[..rest.find('}').expect("a closed rule")]
+    }
+
+    const LONG: &str = "Go through every cache the updater keeps, the AppImage one, the one for the Mac and the one the Windows build \
+        writes, and remove each that is older than the version now installed, keeping the one waiting to install, then \
+        say in the changelog which folders were touched and how much space each one gave back.";
+
+    /// The elements of the thread whose last reply carries two suggested tasks, the first with a one-line brief and the
+    /// second with `LONG`, in a window `width` wide (dark).
+    fn cards(width: f32) -> Vec<rune::ElementInfo> {
+        let mut s = State::default();
+        crate::scenes::ledger_scene(&mut s, false, false);
+        let pane = s.ledger.as_mut().expect("a conversation");
+        let reply = format!("Done.\n\n<locust-next>\nShort one :: A single line.\nLong one :: {LONG}\n</locust-next>");
+        pane.items = vec![
+            ledger::Item::User("Clean up.".into()),
+            ledger::Item::Assistant { item_id: "reply-next".into(), r#final: true, text: reply },
+        ];
+        pane.snapshot.running = false;
+        pane.after_tip = None;
+        s.flight = None;
+        let mut rt = Runtime::new(s, crate::view, (width, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.frame(0.05);
+        rt.elements().into_iter().filter(|e| !e.exiting).collect()
+    }
+
+    fn with_text<'a>(els: &'a [rune::ElementInfo], text: &str) -> &'a rune::ElementInfo {
+        els.iter().find(|e| e.text.as_deref() == Some(text)).unwrap_or_else(|| panic!("no text {text:?} on screen"))
+    }
+
+    #[test]
+    fn a_task_description_is_sans_on_1_45_lines_in_the_secondary_colour_cut_at_two_lines() {
+        // shell.css: color text-secondary, line-height 1.45, -webkit-line-clamp 2.
+        let brief = rule(".lc-nextstep__brief");
+        assert!(brief.contains("color: var(--lc-text-secondary);") && brief.contains("line-height: 1.45;") && brief.contains("-webkit-line-clamp: 2;"), "{brief}");
+        assert!(!brief.contains("font-family") && !brief.contains("letter-spacing") && !brief.contains("uppercase"), "plain sans: {brief}");
+        let secondary = crate::look::tokens(true).color("text-secondary");
+        let els = cards(560.0);
+        let short = with_text(&els, "A single line.");
+        assert_eq!(short.text_color, Some(secondary), "the secondary colour, not the mono label's muted one");
+        // 13 px text on 1.45 lines is 18.85 px a line (the mono label was 10.5 px on 13.1): one line here, two at most there.
+        let line = 13.0 * 1.45;
+        assert!((short.rect[3] - line).abs() < 0.6, "one line is {line} px tall, got {}", short.rect[3]);
+        let long = with_text(&els, LONG);
+        assert!((long.rect[3] - 2.0 * line).abs() < 1.2, "cut at two lines of {line} px, got {} px for a {}-character brief", long.rect[3], LONG.len());
+    }
+
+    #[test]
+    fn the_count_is_plain_secondary_text_not_the_spaced_mono_label() {
+        // shell.css: `.lc-nextsteps__count { color: var(--lc-text-secondary) }`, no size, family or spacing of its own.
+        let count = rule(".lc-nextsteps__count");
+        assert!(count.contains("color: var(--lc-text-secondary);") && !count.contains("font-") && !count.contains("letter-spacing") && !count.contains("uppercase"), "{count}");
+        let els = cards(560.0);
+        let head = with_text(&els, "2 suggested tasks");
+        assert_eq!(head.text_color, Some(crate::look::tokens(true).color("text-secondary")));
+        // Body text sits on the body's 1.55 lines, 13 px: 20.15 px, where the mono label's 10.5 px line was 13.1.
+        assert!((head.rect[3] - 13.0 * 1.55).abs() < 0.6, "got {} px", head.rect[3]);
     }
 }

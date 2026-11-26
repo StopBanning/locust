@@ -101,3 +101,24 @@ ends near 1856, which leaves almost no gap and wraps at 1100 px or narrower. Eve
 and the conversation scenes ends 100 px or more from its neighbour, so I expect them to hold; the sidebar rows already
 truncate with "…" at 12 px ("Review the native pr…") and would cut a character or two earlier. `kit`'s "Everything Codec does
 happens in ~/work/locust." already wraps and still would. Try it before applying, on the scenes above at 1200 and 1000 px.
+
+## Row 5: a suggested task's words
+
+Electron (`NextSteps.tsx`, shell.css:6961-7030): `.lc-nextstep__brief` is plain sans in `--lc-text-secondary`, `line-height: 1.45`,
+`display: -webkit-box; -webkit-line-clamp: 2` (cut at two lines); `.lc-nextsteps__count` is `color: var(--lc-text-secondary)` and
+nothing else, over the same words, "N suggested tasks" / "1 suggested task".
+
+- `src/ui/next_steps.rs`: the brief was `l.ty.label` (Geist Mono 10.5 px, letters spread 0.14 em) in a wrapping text. It is now
+  `BRIEF = type_::BODY.lh(13.0 * 1.45)` in the secondary colour with `.max_lines(2)` ("..." ends the second line).
+  The count was the same spaced mono label in the muted colour. It is now `type_::BODY` in the secondary colour. The words
+  "N suggested tasks" are Electron's already; what was off was the type, not the string, so that is what changed.
+- Tests (`next_steps::tests`): shell.css's brief rule carries the secondary colour, 1.45 and a clamp of 2 and none of
+  font-family, letter-spacing or uppercase; the drawn brief is `secondary` in colour, 13 x 1.45 px tall for one line, two
+  lines tall at most for a 4-line brief; the count is in the secondary colour, on 13 x 1.55 px (the body's lines), and its
+  rule in shell.css has no size, family or spacing of its own.
+- Breaks (`row5.entries`): 7 of 7 KILLED. BRIEF back to the mono label, the clamp taken off, the clamp at 3, the line height
+  at 1.25, the count back to the mono label, the brief's colour at muted, the count's colour at muted.
+- Pictures: none. No scene draws a suggested task (the cards need a reply with a `<locust-next>` block and `--scene` has none
+  with one; adding a scene is outside this lane's files), so the tests read the drawn elements instead.
+- Call sites: `BRIEF` and `BRIEF_LINES` are used in `view` in the same file (next_steps.rs, the brief's `text(..)`), which
+  `messages.rs:517` calls for every reply that carries suggested tasks.
