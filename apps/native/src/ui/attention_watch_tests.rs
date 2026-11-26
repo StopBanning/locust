@@ -18,7 +18,10 @@ fn mate(id: &str, name: &str) -> crate::Teammate {
 
 /// A window on the native engine whose team file names each turn's owner and its conversation's title.
 fn window(label: &str) -> (State, Gone) {
-    let root = std::env::temp_dir().join(format!("locust-attention-watch-{label}-{}", std::process::id()));
+    // One folder per window: the finish tests all ask for "finish", and tests of one binary run side by side.
+    static WINDOWS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = WINDOWS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let root = std::env::temp_dir().join(format!("locust-attention-watch-{label}-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("electron")).unwrap();
     let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
@@ -262,4 +265,37 @@ fn a_stop_a_rooms_or_relays_turn_one_with_no_start_time_and_a_restored_run_are_n
     assert!(finishes.is_empty() && !read, "a restored run is not told as a finish");
     // And the clean control: the same turn, run here, is gathered.
     assert_eq!(gathered(meta(Some(ago(4)), serde_json::Value::Null), talked, true).0.len(), 1);
+}
+
+// case: gathers finishes that land together into one toast, and a click opens the newest / one finish is said as itself
+// (attention.test.ts: the first finish starts the burst's one four-second timer; nothing is shown before it runs)
+#[test]
+fn a_turn_that_ends_is_gathered_once_and_said_as_itself_when_its_four_seconds_are_up() {
+    let (mut s, _gone) = window("burst");
+    let record = |id: &str| {
+        Some(native::TurnRecords {
+            path: std::path::PathBuf::new(),
+            metadata: meta(Some(ago(4)), serde_json::Value::Null),
+            events: vec![said("Moved the port to 3001.\nAll 12 tests pass."), end("run.completed", None)],
+            checkpoints: 0,
+            incomplete: false,
+        })
+        .filter(|_| id == "question")
+    };
+    let running: std::collections::HashSet<String> = ["question".to_owned()].into();
+    let mut shown = Shown::new();
+    // It is running at one look: nothing has ended.
+    poll_ended(&mut s, running, true, &mut recorder(&mut shown), &record);
+    assert!(s.finishes.is_empty());
+    // At the next it is gone: its finish is gathered, and not said yet.
+    poll_ended(&mut s, Default::default(), true, &mut recorder(&mut shown), &record);
+    assert_eq!(s.finishes, vec![("Wren finished".to_owned(), "Moved the port to 3001. · took 4 min".to_owned())]);
+    // A turn that ended is not read again at every look after.
+    poll_ended(&mut s, Default::default(), true, &mut recorder(&mut shown), &record);
+    assert_eq!(s.finishes.len(), 1, "told once");
+    let looked = std::time::Instant::now();
+    say_finishes(&mut s, looked, true, &mut recorder(&mut shown));
+    assert!(shown.is_empty(), "the toast waits for the burst's four seconds");
+    say_finishes(&mut s, looked + std::time::Duration::from_millis(locust_core::attention::FINISH_WINDOW_MS), true, &mut recorder(&mut shown));
+    assert_eq!(shown, vec![("Wren finished".to_owned(), "Moved the port to 3001. · took 4 min".to_owned(), Some("question".to_owned()))]);
 }
