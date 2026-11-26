@@ -150,3 +150,40 @@ the folder from `LOCUST_HISTORY_COPY`, so no second binary had to be built.
 - What this does not say: it checks that the ledger reader keeps every record and that each file has a header and at
   least one thing after the prompt. It does not compare what the window would draw with Electron's drawing of the same
   conversation, and it does not read the other state in Electron's folder.
+
+# Cutover 2b: a release the old app's updater installs, and the Rust app that keeps updating itself (26 Nov 2026)
+
+Rows 3 and 4 of `HANDOFF-cutover-2.md` (rows 1 and 2, the bring-over card and saved keys, are another lane's). Not
+TypeScript test rows, so recorded here. Break runs: `~/work/scratch/mut6.py`, each list and its output kept side by
+side in `~/work/scratch/evidence/cutover-2b/`.
+
+## Row 3: a release the old app's updater installs
+
+**What changed.** `scripts/bundle-mac.sh` gains `--release` (and `--out <folder>`). Release mode makes `Locust.app`
+with Electron's bundle id `com.automatedworkflow.locust` (so macOS's microphone, screen and folder permissions stay
+with the same app) and the `locust://` link claim Electron's Locust has, and packs it with `hdiutil` into
+`Locust-<version>-mac-<arm64|x64>.dmg` with `Locust.app` at its root (plus an `Applications` link for a drag-install),
+the exact shape Electron's Mac updater takes (`apps/desktop/src/main/mac-self-update.ts`, `mac-release.ts`: the newest
+release asset named `Locust-<x.y.z>-mac-<arm64|x64>.dmg`, mounted, `Locust.app` at its root, no bundle id or signature
+checked). With no argument it still makes `Locust Native.app`, `lol.locust.native.preview`, no links unless
+`LOCUST_NATIVE_LINKS=1`, no disk image. In both modes `CFBundleShortVersionString` (and `CFBundleVersion`) is the
+crate's version from `Cargo.toml` (it said `0.1.0` before), `LOCUST_BUILD_COMMIT` is handed to the build when set, and
+an unknown argument stops the script before anything is built. Nothing is uploaded.
+
+**Call site.** A script, not a function: run by hand (`scripts/bundle-mac.sh --release`) when Colin cuts a Mac release.
+
+**Tests** (`core/src/bundle_mac_tests.rs`, macOS only; a stand-in `cargo` first on PATH stands for the release build, the
+rest of the script is the real one, with the real `sips`, `iconutil`, `codesign`, `hdiutil`; the expected names and
+ids are Electron's, from `electron-builder.yml` and `mac-self-update.ts`, not read from the script):
+- `release_mode_makes_a_locust_app_with_electrons_id_and_this_crates_version_in_the_disk_image_electrons_updater_takes`:
+  the app, its plist (id, name, version, the link claim), then the image mounted read-only: the exact image name,
+  `Locust.app` at its root (only it and `Applications`), the same id and version inside.
+- `the_preview_keeps_its_own_name_and_id_takes_the_crate_version_too_and_makes_no_disk_image`.
+- `an_argument_it_does_not_know_stops_it_before_anything_is_built`.
+The first run of these (`run-a.log`, the earlier account's) failed all three: the tests had been written before the
+script's release mode. They pass against the script as it stands (3 of 3, this session).
+
+**Breaks.** `row3.entries` / `row3.out` (locust-core): 9 of 9 KILLED by name, every one by a `bundle_mac_tests` test
+(the id, the name, the version, the commit hand-over, `--release` ignored, the image name without the chip, the app
+not at the image's root, the link claim, the unknown argument). The earlier run's list was checked against the script
+first: no broken line was left in it.

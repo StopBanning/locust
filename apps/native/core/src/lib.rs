@@ -194,6 +194,8 @@ pub mod limits;
 pub mod linux_install;
 pub mod login_item;
 pub mod mac_self_update;
+#[cfg(all(test, target_os = "macos"))]
+mod bundle_mac_tests;
 pub mod mission_export;
 pub mod models;
 pub mod model_lists;
