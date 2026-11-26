@@ -6256,19 +6256,19 @@ apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	names ea
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	gives each face the dot a teammate's has for it	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	holds each long enough to be read, the whole round under half a minute	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	is a button that says which face it shows, the face under it a real teammate face	yes
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders markdown as prose, not as its source	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders anything else in its own scroll box, verbatim	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	does not interpret the file, whichever mode it is in	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers no way to hand the file to the operating system	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says why there is no open button, rather than leaving a hole	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	names the file by its own name and keeps the whole path reachable	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers to open a file it touched, not only to go find it	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	still only reveals where nothing can open it	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	counts the turns that changed it and offers each one	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says one turn in the singular	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	shows nothing at all for a file this conversation never changed	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	opens on the file, not on a turn	no
-apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	never offers to show the file as it stood	no
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders markdown as prose, not as its source	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	renders anything else in its own scroll box, verbatim	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	does not interpret the file, whichever mode it is in	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers no way to hand the file to the operating system	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says why there is no open button, rather than leaving a hole	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	names the file by its own name and keeps the whole path reachable	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	offers to open a file it touched, not only to go find it	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	still only reveals where nothing can open it	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	counts the turns that changed it and offers each one	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	says one turn in the singular	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	shows nothing at all for a file this conversation never changed	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	opens on the file, not on a turn	yes
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	never offers to show the file as it stood	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	takes a free model, the steadiest listed first (0.712), and among the unnamed the first listed	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	leaves the route alone when nothing listed is free	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	leaves the route alone before the catalogue has been read	yes
