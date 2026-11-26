@@ -1,7 +1,7 @@
 //! start_conversation with cloud true, and list_conversations with cloud chats in it, over a made-up Locust whose
 //! Claude's cloud is the test's own: what the tools ask of it, and what they refuse in words before asking.
 use super::*;
-use crate::claude_cloud::ClaudeCloudSession;
+use crate::claude_cloud::{ClaudeCloudSession, CloudSendResult};
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -15,6 +15,12 @@ struct Cloudy {
     refuses: Option<&'static str>,
     chats: Mutex<Vec<CloudChat>>,
     asked_where: Mutex<Vec<String>>,
+    /// What each follow-up said, to which chat; and Claude Code's answer to it.
+    sent: Mutex<Vec<(String, String)>>,
+    send_answer: Option<CloudSendResult>,
+    /// What a read finds, and how many reads were asked for.
+    found: Mutex<Option<CloudRead>>,
+    reads: Mutex<u32>,
 }
 
 fn teammate(id: &str, name: &str, runtime: &str) -> Teammate {
@@ -114,6 +120,14 @@ impl Locust for Cloudy {
     }
     fn cloud_chats(&self) -> Vec<CloudChat> {
         self.chats.lock().unwrap().clone()
+    }
+    fn cloud_send(&self, id: &str, message: &str) -> CloudSendResult {
+        self.sent.lock().unwrap().push((id.to_owned(), message.to_owned()));
+        self.send_answer.clone().unwrap_or(CloudSendResult::Ok)
+    }
+    fn cloud_read(&self, _: &str) -> CloudRead {
+        *self.reads.lock().unwrap() += 1;
+        self.found.lock().unwrap().clone().unwrap_or(CloudRead::Working { note: None })
     }
 }
 
@@ -320,4 +334,167 @@ fn the_tools_schema_and_description_say_what_cloud_does() {
     for words in ["cloud true", "newest pushed commit", "pushed to GitHub", "Claude teammate", "no mode or read_only", "4,000 characters"] {
         assert!(said.contains(words), "the description lacks \"{words}\"");
     }
+}
+
+// ---- follow up, read, stop -------------------------------------------------------------------------------------------
+
+const ID: &str = "cc_00000000000000000001";
+
+/// A Locust that knows one cloud chat, started by an app unless said otherwise.
+fn with_chat(from_app: bool, see_all: bool) -> Tools<Cloudy> {
+    let cloudy = Cloudy { see_all, ..cloudy() };
+    cloudy.chats.lock().unwrap().push(CloudChat { session: session(ID, "/known/cloud"), from_app });
+    Tools::new(cloudy)
+}
+
+fn send(tools: &Tools<Cloudy>, extra: Value) -> ToolResult {
+    let mut all = json!({"conversation_id": ID, "message": "Also add a test"});
+    for (k, v) in extra.as_object().into_iter().flatten() {
+        all[k] = v.clone();
+    }
+    tools.call("send_message", &all)
+}
+
+#[test]
+fn send_message_on_a_cloud_chat_sends_the_follow_up_to_the_session_through_the_engine() {
+    let tools = with_chat(true, false);
+    let r = send(&tools, json!({}));
+    assert!(!r.is_error, "{}", r.text);
+    assert_eq!(*tools.locust.sent.lock().unwrap(), vec![(ID.to_owned(), "Also add a test".to_owned())]);
+    let said = say(&r);
+    assert_eq!((said["sent"].clone(), said["cloud"].clone(), said["conversation_id"].clone()), (json!(true), json!(true), json!(ID)));
+    let structured = r.structured.as_ref().unwrap();
+    assert_eq!((structured["status"].clone(), structured["runtime"].clone(), structured["can_carry_on"].clone()), (json!("working"), json!("claude"), json!(false)));
+    assert_eq!(structured["url"], "https://claude.ai/code/session_0123456789abcdef");
+}
+
+#[test]
+fn a_follow_up_claude_code_could_not_confirm_is_passed_on_so_it_is_not_sent_twice() {
+    let unconfirmed = Tools::new(Cloudy {
+        send_answer: Some(CloudSendResult::Err { message: crate::claude_cloud::UNCONFIRMED_SEND_MESSAGE.into() }),
+        ..cloudy()
+    });
+    unconfirmed.locust.chats.lock().unwrap().push(CloudChat { session: session(ID, "/known/cloud"), from_app: true });
+    let r = send(&unconfirmed, json!({}));
+    assert!(r.is_error);
+    assert!(r.text.starts_with(crate::claude_cloud::UNCONFIRMED_SEND_MESSAGE), "{}", r.text);
+    assert!(r.text.contains("before sending it again"));
+    assert!(r.text.ends_with("Its page: https://claude.ai/code/session_0123456789abcdef"), "{}", r.text);
+    assert_eq!(unconfirmed.locust.sent.lock().unwrap().len(), 1, "asked once, never retried");
+}
+
+#[test]
+fn a_follow_up_to_a_cloud_chat_that_does_not_fit_is_refused_before_anything_is_sent() {
+    let tools = with_chat(true, false);
+    let long = send(&tools, json!({"message": "x".repeat(4001)}));
+    assert!(long.is_error && long.text.contains("will not send it cut short") && long.text.ends_with("Nothing was sent."), "{}", long.text);
+    for extra in [json!({"mode": "auto"}), json!({"folder": "/known/x"}), json!({"model": "claude-opus-5-5"}), json!({"effort": "high"}), json!({"read_only": true})] {
+        let r = send(&tools, extra);
+        assert!(r.is_error && r.text.contains("goes to the session as it is") && r.text.ends_with("Nothing was sent."), "{}", r.text);
+    }
+    assert!(send(&tools, json!({"message": ""})).is_error);
+    assert!(tools.locust.sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn an_app_reaches_only_the_cloud_chats_it_started_unless_the_person_lets_apps_see_theirs() {
+    let theirs = with_chat(false, false);
+    for r in [send(&theirs, json!({})), theirs.call("read_reply", &json!({"conversation_id": ID})), theirs.call("stop_turn", &json!({"conversation_id": ID}))] {
+        assert!(r.is_error && r.text.starts_with("That conversation could not be found"), "{}", r.text);
+    }
+    assert!(theirs.locust.sent.lock().unwrap().is_empty());
+    assert_eq!(*theirs.locust.reads.lock().unwrap(), 0);
+    let seen = with_chat(false, true);
+    assert!(!send(&seen, json!({})).is_error);
+    let unknown = send(&seen, json!({"conversation_id": "cc_00000000000000000042"}));
+    assert!(unknown.is_error && unknown.text.starts_with("That conversation could not be found"));
+    // A voice call never reaches one, whatever the person allowed.
+    let scope = std::sync::Arc::new(VoiceScope::new(PathBuf::from("/known/cloud"), Some(ID)));
+    let voice = Tools::new(Cloudy { see_all: true, ..cloudy() }).with_voice(scope);
+    voice.locust.chats.lock().unwrap().push(CloudChat { session: session(ID, "/known/cloud"), from_app: true });
+    assert!(send(&voice, json!({})).is_error);
+    assert!(voice.locust.sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn read_reply_on_a_cloud_chat_says_still_working_until_the_session_has_a_reply() {
+    let tools = with_chat(true, false);
+    let r = tools.call("read_reply", &json!({"conversation_id": ID, "wait_seconds": 20}));
+    assert!(!r.is_error, "{}", r.text);
+    assert_eq!(r.text, "Still working: waiting for Claude's cloud to answer.");
+    assert_eq!(r.structured.as_ref().unwrap()["status"], "working");
+    assert_eq!(*tools.locust.reads.lock().unwrap(), 1, "one look per read: wait_seconds does not make a cloud read loop");
+    *tools.locust.found.lock().unwrap() = Some(CloudRead::Working { note: Some("Claude Code brought it in but did not save its conversation this time.".into()) });
+    assert!(tools.call("read_reply", &json!({"conversation_id": ID})).text.ends_with("did not save its conversation this time."));
+}
+
+#[test]
+fn read_reply_on_a_cloud_chat_gives_the_answer_the_files_it_changed_and_its_page() {
+    let tools = with_chat(true, false);
+    *tools.locust.found.lock().unwrap() = Some(CloudRead::Done {
+        answer: "Fixed: total now sums prices.".into(),
+        model: Some("claude-opus-5-5".into()),
+        changed: vec![("cart.js".into(), 3, 1), ("cart.test.js".into(), 12, 0)],
+        change_too_big: false,
+        note: None,
+    });
+    let r = tools.call("read_reply", &json!({"conversation_id": ID}));
+    assert!(!r.is_error, "{}", r.text);
+    assert!(r.text.starts_with("Fixed: total now sums prices.\n\n"));
+    assert!(r.text.contains("cart.js (+3 -1), cart.test.js (+12 -0)"), "{}", r.text);
+    assert!(r.text.contains("not in your folder"));
+    assert!(r.text.ends_with("Its page: https://claude.ai/code/session_0123456789abcdef"));
+    let structured = r.structured.as_ref().unwrap();
+    assert_eq!((structured["status"].clone(), structured["model"].clone(), structured["folder"].clone()), (json!("done"), json!("claude-opus-5-5"), json!("/known/cloud")));
+    assert_eq!(structured["message"], r.text);
+    *tools.locust.found.lock().unwrap() =
+        Some(CloudRead::Done { answer: "Done.".into(), model: None, changed: vec![], change_too_big: true, note: Some("A note.".into()) });
+    let big = tools.call("read_reply", &json!({"conversation_id": ID}));
+    assert!(big.text.contains("too big to read here") && big.text.contains("Locust: A note."), "{}", big.text);
+}
+
+#[test]
+fn a_cloud_read_that_fails_says_why_and_where_to_look() {
+    let tools = with_chat(true, false);
+    *tools.locust.found.lock().unwrap() = Some(CloudRead::Failed("Locust does not know this session\u{2019}s id, so it cannot read it here. See it on claude.ai.".into()));
+    let r = tools.call("read_reply", &json!({"conversation_id": ID}));
+    assert!(r.is_error);
+    assert!(r.text.contains("cannot read it here") && r.text.ends_with("Its page: https://claude.ai/code/session_0123456789abcdef"), "{}", r.text);
+    assert_eq!(r.structured.as_ref().unwrap()["status"], "failed");
+}
+
+#[test]
+fn stop_turn_on_a_cloud_chat_says_it_cannot_be_stopped_from_here_and_gives_its_link() {
+    let tools = with_chat(true, false);
+    let r = tools.call("stop_turn", &json!({"conversation_id": ID}));
+    assert!(r.is_error);
+    assert_eq!(
+        r.text,
+        "A Claude cloud chat cannot be stopped from here: Claude Code gives Locust no way to stop a session. Stop it on claude.ai: https://claude.ai/code/session_0123456789abcdef Nothing was stopped."
+    );
+    // Without a page of its own, the list of sessions.
+    let cloudy = Cloudy { see_all: false, ..cloudy() };
+    let mut bare = session(ID, "/known/cloud");
+    bare.url = None;
+    cloudy.chats.lock().unwrap().push(CloudChat { session: bare, from_app: true });
+    assert!(Tools::new(cloudy).call("stop_turn", &json!({"conversation_id": ID})).text.contains("Stop it on claude.ai: https://claude.ai/code Nothing"));
+}
+
+#[test]
+fn a_cloud_chat_is_not_carried_on_to_another_agent_and_has_no_question_cards() {
+    let tools = with_chat(true, true);
+    let carried = tools.call("carry_on", &json!({"conversation_id": ID, "runtime": "codex"}));
+    assert!(carried.is_error && carried.text.contains("cannot be carried on") && carried.text.ends_with("Nothing was started."), "{}", carried.text);
+    let answered = tools.call("answer_question", &json!({"conversation_id": ID, "choice": 1}));
+    assert!(answered.is_error && answered.text.contains("no question cards") && answered.text.ends_with("Nothing was sent."), "{}", answered.text);
+    assert!(tools.locust.sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn the_tools_descriptions_say_what_a_cloud_chat_does_when_followed_up_read_and_stopped() {
+    let list = crate::door::tool_list();
+    let said = |name: &str| list.as_array().unwrap().iter().find(|t| t["name"] == name).unwrap()["description"].as_str().unwrap().to_owned();
+    assert!(said("send_message").contains("goes to the session itself") && said("send_message").contains("look at the session before sending again"));
+    assert!(said("read_reply").contains("up to two minutes") && said("read_reply").contains("wait_seconds is ignored"));
+    assert!(said("stop_turn").contains("cannot be stopped from here") && said("stop_turn").contains("claude.ai link"));
 }

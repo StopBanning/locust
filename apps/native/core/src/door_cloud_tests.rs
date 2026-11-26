@@ -1,8 +1,9 @@
 //! Claude's cloud through the door, on the real engine with Claude Code and git stubbed: no test runs the real `claude`
 //! or touches the network. Windows and terminals are recorded, never opened.
 use super::*;
-use crate::claude_cloud::{ClaudeLaunch, CloudPlatform, PseudoTerminalResult, PseudoTerminalRun, WindowRun};
+use crate::claude_cloud::{ClaudeLaunch, CloudPlatform, ExecOptions, ExecReply, PseudoTerminalResult, PseudoTerminalRun, WindowRun};
 use std::cell::RefCell;
+use std::process::Command;
 
 const CREATED: &str = "Created cloud session: Fix the cart\r\nhttps://claude.ai/code/session_0123456789abcdef\r\nResume with: claude --teleport session_0123456789abcdef\r\n";
 
@@ -206,5 +207,220 @@ fn the_live_door_starts_lists_and_records_through_its_own_claude_code() {
     let row = listed.as_array().unwrap().iter().find(|r| r["conversation_id"] == reply["conversation_id"]).expect("listed").clone();
     assert_eq!((row["cloud"].clone(), row["started_by"].clone(), row["teammate"].clone()), (json!(true), json!("an app"), json!("Ivy")));
     assert_eq!(row["url"], "https://claude.ai/code/session_0123456789abcdef");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+// ---- follow up and read ----------------------------------------------------------------------------------------------
+
+const SESSION: &str = "session_0123456789abcdef";
+
+fn git(cwd: &Path, args: &[&str]) {
+    let out = Command::new("git").args(args).current_dir(cwd).output().expect("git");
+    assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+}
+
+fn slug(path: &Path) -> String {
+    path.to_string_lossy().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect()
+}
+
+/// The transcript a session of one exchange has, and of two once a follow-up was answered; and one whose follow-up is
+/// not answered yet.
+fn transcript(exchanges: &[(&str, Option<&str>)]) -> String {
+    let mut lines = vec![r#"{"type":"permission-mode","permissionMode":"default","sessionId":"local"}"#.to_owned()];
+    for (n, (prompt, answer)) in exchanges.iter().enumerate() {
+        lines.push(
+            json!({"type": "user", "entrypoint": "cli", "promptSource": "sdk", "remoteSourced": true,
+                "timestamp": format!("2026-11-25T10:0{n}:01.000Z"), "message": {"role": "user", "content": prompt}})
+            .to_string(),
+        );
+        if let Some(answer) = answer {
+            lines.push(
+                json!({"type": "assistant", "entrypoint": "cli", "timestamp": format!("2026-11-25T10:0{n}:09.000Z"),
+                    "message": {"role": "assistant", "model": "claude-opus-5-5", "stop_reason": "end_turn", "content": [{"type": "text", "text": answer}]}})
+                .to_string(),
+            );
+        }
+    }
+    lines.join("\n")
+}
+
+/// A real repository with one commit, and a store that knows the session the door started from it. Claude Code
+/// never runs: the terminal the engine reads through plays what its teleport did.
+struct World {
+    repo: PathBuf,
+    home: PathBuf,
+    dir: Dir,
+}
+
+impl World {
+    fn new() -> Self {
+        let dir = Dir::new();
+        let repo = dir.0.join("repo").canonicalize().unwrap_or_else(|_| {
+            std::fs::create_dir_all(dir.0.join("repo")).unwrap();
+            dir.0.join("repo").canonicalize().unwrap()
+        });
+        git(&repo, &["init", "-q", "-b", "main"]);
+        git(&repo, &["config", "user.email", "test@example.com"]);
+        git(&repo, &["config", "user.name", "Test"]);
+        std::fs::write(repo.join("cart.js"), "export const total = (items) => items.length\n").unwrap();
+        git(&repo, &["add", "."]);
+        git(&repo, &["commit", "-q", "-m", "first"]);
+        let home = dir.0.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let sessions = json!({"sessions": [{"id": "cc_00000000000000000001", "startedAt": "2026-11-25T10:00:00.000Z",
+            "prompt": "Fix the cart total", "folder": repo.to_string_lossy(), "sessionId": SESSION,
+            "url": format!("https://claude.ai/code/{SESSION}"), "teammateId": "tm_ivy"}]});
+        std::fs::write(dir.sessions(), sessions.to_string()).unwrap();
+        // The door started it.
+        write_marks(&dir.marks(), &[Mark { id: "cc_00000000000000000001".into(), started_at: "2026-11-25T10:00:00.000Z".into(), seen: 1, pending: 0 }]).unwrap();
+        Self { repo, home, dir }
+    }
+
+    /// Claude Code, its teleport played: the worktree made on its branch, the change committed, the transcript written.
+    fn claude<'a>(&'a self, said: &'a str, teleports: &'a RefCell<u32>, sends: &'a RefCell<Vec<(Vec<String>, Option<String>)>>, receipt: &'a str) -> ClaudeCloud<'a> {
+        let name = crate::claude_cloud::reading_worktree_name("cc_00000000000000000001");
+        ClaudeCloud::new(self.dir.sessions(), CloudPlatform::Win32, launch)
+            .with_claude_home(&self.home)
+            .with_process_env(Vec::new)
+            .with_terminal(move |_run: &PseudoTerminalRun| {
+                *teleports.borrow_mut() += 1;
+                let place = self.repo.join(".claude").join("worktrees").join(&name);
+                let place_s = place.to_string_lossy().into_owned();
+                git(&self.repo, &["worktree", "add", "-q", "-b", &format!("worktree-{name}"), &place_s]);
+                git(&place, &["checkout", "-q", "-B", "claude/fix-cart-total"]);
+                std::fs::write(place.join("cart.js"), "export const total = (items) => items.reduce((sum, item) => sum + item.price, 0)\n").unwrap();
+                git(&place, &["commit", "-q", "-am", "Sum prices"]);
+                let dir = self.home.join("projects").join(slug(&place));
+                std::fs::create_dir_all(&dir).unwrap();
+                std::fs::write(dir.join("a.jsonl"), said).unwrap();
+                PseudoTerminalResult::Ok { drawn: " \u{25cf} Session resumed\r\n".into() }
+            })
+            .with_exec(move |_file: &str, args: &[String], options: &ExecOptions| {
+                sends.borrow_mut().push((args.to_vec(), options.env.get(crate::claude_cloud::TASK_VARIABLE).cloned()));
+                ExecReply { code: 0, output: receipt.into(), stdout: Some(receipt.into()) }
+            })
+    }
+}
+
+const RECEIPT: &str = r#"{"ok":true}"#;
+const ID: &str = "cc_00000000000000000001";
+
+#[test]
+fn a_follow_up_goes_to_the_session_itself_and_is_counted() {
+    let w = World::new();
+    let (teleports, sends) = (RefCell::new(0), RefCell::new(Vec::new()));
+    let claude = w.claude("", &teleports, &sends, RECEIPT);
+    assert_eq!(send_with(&claude, &w.dir.marks(), ID, "Also add a test"), CloudSendResult::Ok);
+    assert_eq!(sends.borrow().len(), 1);
+    let (args, task) = sends.borrow()[0].clone();
+    assert!(args[0].contains(&format!("-p --cloud {SESSION} --output-format json")), "{args:?}");
+    assert_eq!(task.as_deref(), Some("Also add a test"), "the words go as the task variable, never in the command line");
+    let mark = read_marks(&w.dir.marks()).remove(0);
+    assert_eq!((mark.seen, mark.pending), (1, 1));
+    // Claude Code's own refusal is passed on, and counts nothing.
+    let refused = w.claude("", &teleports, &sends, r#"{"ok":false,"error":"Session is archived"}"#);
+    assert_eq!(send_with(&refused, &w.dir.marks(), ID, "More"), CloudSendResult::Err { message: "Session is archived".into() });
+    assert_eq!(read_marks(&w.dir.marks())[0].pending, 1);
+    assert_eq!(send_with(&refused, &w.dir.marks(), "cc_00000000000000000042", "More"), CloudSendResult::Err {
+        message: "Locust does not know this session's id, so it cannot send to it. Send from claude.ai or the Claude app.".into()
+    });
+}
+
+#[test]
+fn a_read_gives_the_answer_and_the_files_the_session_changed_in_a_worktree_of_its_own() {
+    let w = World::new();
+    let (teleports, sends) = (RefCell::new(0), RefCell::new(Vec::new()));
+    let said = transcript(&[("Fix the cart total", Some("Fixed: total now sums prices."))]);
+    let claude = w.claude(&said, &teleports, &sends, RECEIPT);
+    let CloudRead::Done { answer, model, changed, change_too_big, note } = read_with(&claude, &w.dir.marks(), ID) else { panic!("not done") };
+    assert_eq!(*teleports.borrow(), 1, "one look per read");
+    assert_eq!(answer, "Fixed: total now sums prices.");
+    assert_eq!(model.as_deref(), Some("claude-opus-5-5"));
+    assert_eq!(changed, vec![("cart.js".to_owned(), 1, 1)]);
+    assert!(!change_too_big && note.is_none());
+    // Read into a worktree beside the folder; the person's folder itself is untouched.
+    assert_eq!(std::fs::read_to_string(w.repo.join("cart.js")).unwrap(), "export const total = (items) => items.length\n");
+    assert!(w.repo.join(".claude/worktrees").is_dir());
+}
+
+#[test]
+fn a_read_straight_after_a_follow_up_is_still_working_until_the_reply_to_it_is_there() {
+    let w = World::new();
+    let (teleports, sends) = (RefCell::new(0), RefCell::new(Vec::new()));
+    let first = transcript(&[("Fix the cart total", Some("Fixed."))]);
+    let claude = w.claude(&first, &teleports, &sends, RECEIPT);
+    assert!(matches!(read_with(&claude, &w.dir.marks(), ID), CloudRead::Done { .. }));
+    assert_eq!(send_with(&claude, &w.dir.marks(), ID, "Also add a test"), CloudSendResult::Ok);
+    // The session still shows the first answer only: that is not the reply to the follow-up.
+    let teleported = |said: &str| read_with(&w.claude(said, &teleports, &sends, RECEIPT), &w.dir.marks(), ID);
+    assert!(matches!(teleported(&first), CloudRead::Working { .. }), "the old answer is not the new reply");
+    // The follow-up arrived but is not answered yet.
+    let asked = transcript(&[("Fix the cart total", Some("Fixed.")), ("Also add a test", None)]);
+    assert!(matches!(teleported(&asked), CloudRead::Working { .. }));
+    // Answered: now it is the reply, and the count is settled for the next follow-up.
+    let answered = transcript(&[("Fix the cart total", Some("Fixed.")), ("Also add a test", Some("Added cart.test.js."))]);
+    let CloudRead::Done { answer, .. } = teleported(&answered) else { panic!("not done") };
+    assert_eq!(answer, "Added cart.test.js.");
+    let mark = read_marks(&w.dir.marks()).remove(0);
+    assert_eq!((mark.seen, mark.pending), (2, 0));
+}
+
+#[test]
+fn a_session_with_no_id_cannot_be_read_and_says_so() {
+    let dir = Dir::new();
+    let (ran, windows) = (RefCell::new(Vec::new()), RefCell::new(Vec::new()));
+    let claude = cloud_on(&dir, CloudPlatform::Darwin, &ran, &windows);
+    let ClaudeCloudAnswer::Ok { session } = start_with(&claude, &dir.marks(), &begin("/Users/a/app")) else { panic!("not started") };
+    let CloudRead::Failed(message) = read_with(&claude, &dir.marks(), &session.id) else { panic!("read") };
+    assert!(message.contains("does not know this session\u{2019}s id"), "{message}");
+    assert!(ran.borrow().is_empty(), "nothing was run to read it");
+}
+
+#[test]
+fn the_live_door_follows_up_reads_and_stops_through_its_own_claude_code() {
+    let root = std::env::temp_dir().join(format!("locust-door-cloud-live2-{}", crate::invariants::unique_nanos()));
+    let electron = root.join("electron");
+    std::fs::create_dir_all(root.join("work")).unwrap();
+    std::fs::create_dir_all(&electron).unwrap();
+    std::fs::write(
+        electron.join("teammates.json"),
+        json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_ivy", "name": "Ivy", "hue": "blue", "role": "Custom",
+            "createdAt": "2026-11-01T00:00:00Z", "folder": root.join("work").to_string_lossy(),
+            "route": {"runtime": "claude", "model": "claude-opus-5-5", "mode": "ask"}}]})
+        .to_string(),
+    )
+    .unwrap();
+    let store = Store::new(root.join("native"), electron).unwrap();
+    let sent: Arc<Mutex<Vec<Vec<String>>>> = Arc::default();
+    let seen = sent.clone();
+    let seams = Seams {
+        claude: Arc::new(move |store: &Store| {
+            let seen = seen.clone();
+            ClaudeCloud::new(crate::claude_cloud::store_path_of(store), CloudPlatform::Win32, launch)
+                .with_terminal(|_: &PseudoTerminalRun| PseudoTerminalResult::Ok { drawn: CREATED.into() })
+                .with_exec(move |_: &str, args: &[String], _: &ExecOptions| {
+                    seen.lock().unwrap().push(args.to_vec());
+                    ExecReply { code: 0, output: RECEIPT.into(), stdout: Some(RECEIPT.into()) }
+                })
+        }),
+        github: Arc::new(|_| FolderOnGitHub { repo: Some("locust/app".into()), branch: Some("main".into()), unpushed: Some(0), dirty: false }),
+    };
+    let _own = install(seams);
+    let tools = crate::door::tools_over_seeing(store);
+    let started = tools.call("start_conversation", &json!({"teammate": "Ivy", "message": "Fix the cart", "cloud": true}));
+    assert!(!started.is_error, "{}", started.text);
+    let id = serde_json::from_str::<Value>(&started.text).unwrap()["conversation_id"].as_str().unwrap().to_owned();
+    // The follow-up reaches Claude Code's send, for this session.
+    let followed = tools.call("send_message", &json!({"conversation_id": id, "message": "Also add a test"}));
+    assert!(!followed.is_error, "{}", followed.text);
+    assert_eq!(sent.lock().unwrap().len(), 1);
+    assert!(sent.lock().unwrap()[0][0].contains(&format!("-p --cloud {SESSION} --output-format json")));
+    // A read is the engine's own: the folder here is no git checkout, so Claude Code cannot bring the session into it.
+    let read = tools.call("read_reply", &json!({"conversation_id": id}));
+    assert!(read.is_error && read.text.contains("not a git checkout"), "{}", read.text);
+    assert!(read.text.ends_with("Its page: https://claude.ai/code/session_0123456789abcdef"));
+    // It cannot be stopped from here.
+    let stopped = tools.call("stop_turn", &json!({"conversation_id": id}));
+    assert!(stopped.is_error && stopped.text.contains("cannot be stopped from here"), "{}", stopped.text);
     let _ = std::fs::remove_dir_all(root);
 }

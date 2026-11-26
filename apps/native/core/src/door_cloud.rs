@@ -9,7 +9,8 @@
 //! run the real `claude`.
 
 use crate::claude_cloud::{
-    ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudSession, CloudChoice, CloudReads, on_this_computer,
+    ClaudeCloud, ClaudeCloudAnswer, ClaudeCloudReading, ClaudeCloudSession, CloudChoice, CloudReads, CloudSendResult,
+    on_this_computer,
 };
 use crate::cloud_tasks::{FolderOnGitHub, Ran, folder_on_github};
 use crate::store::Store;
@@ -91,11 +92,14 @@ pub struct CloudStart {
 
 // ---- what the door remembers --------------------------------------------------------------------------------------
 
-/// One session an app started, with what reads of it have seen.
+/// One session an app started, with what reads of it have seen: how many exchanges the last read found, and how many
+/// follow-ups were sent since, so a read straight after a send is never taken for its reply.
 #[derive(Debug, Clone, PartialEq)]
 struct Mark {
     id: String,
     started_at: String,
+    seen: u64,
+    pending: u64,
 }
 
 /// Where the door keeps what it started, beside the window's own `claude-cloud.json`.
@@ -112,12 +116,19 @@ fn read_marks(path: &Path) -> Vec<Mark> {
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|m| Some(Mark { id: m["id"].as_str()?.to_owned(), started_at: m["startedAt"].as_str()?.to_owned() }))
+        .filter_map(|m| {
+            Some(Mark {
+                id: m["id"].as_str()?.to_owned(),
+                started_at: m["startedAt"].as_str()?.to_owned(),
+                seen: m["seen"].as_u64().unwrap_or(0),
+                pending: m["pending"].as_u64().unwrap_or(0),
+            })
+        })
         .collect()
 }
 
 fn write_marks(path: &Path, marks: &[Mark]) -> Result<(), String> {
-    let body = json!({"started": marks.iter().map(|m| json!({"id": m.id, "startedAt": m.started_at})).collect::<Vec<_>>()});
+    let body = json!({"started": marks.iter().map(|m| json!({"id": m.id, "startedAt": m.started_at, "seen": m.seen, "pending": m.pending})).collect::<Vec<_>>()});
     let mut tmp = path.as_os_str().to_os_string();
     tmp.push(format!(".{}.tmp", crate::invariants::unique_nanos()));
     let tmp = PathBuf::from(tmp);
@@ -136,7 +147,8 @@ fn write_marks(path: &Path, marks: &[Mark]) -> Result<(), String> {
 fn remember(path: &Path, session: &ClaudeCloudSession) -> Result<(), String> {
     let _guard = crate::invariants::lock(&WRITES);
     let mut marks: Vec<Mark> = read_marks(path).into_iter().filter(|m| m.id != session.id).collect();
-    marks.insert(0, Mark { id: session.id.clone(), started_at: session.started_at.clone() });
+    // The task itself is the first exchange.
+    marks.insert(0, Mark { id: session.id.clone(), started_at: session.started_at.clone(), seen: 1, pending: 0 });
     marks.truncate(KEEP);
     write_marks(path, &marks)
 }
@@ -183,6 +195,94 @@ pub fn chats_with(claude: &ClaudeCloud<'_>, marks: &Path) -> Vec<CloudChat> {
 /// One cloud chat by its id.
 pub fn chat_with(claude: &ClaudeCloud<'_>, marks: &Path, id: &str) -> Option<CloudChat> {
     chats_with(claude, marks).into_iter().find(|c| c.session.id == id)
+}
+
+/// Change what the door remembers of one session, only while the record is of that very session.
+fn update(path: &Path, session: &ClaudeCloudSession, change: impl FnOnce(&mut Mark)) {
+    let _guard = crate::invariants::lock(&WRITES);
+    let mut marks = read_marks(path);
+    if let Some(mark) = marks.iter_mut().find(|m| m.id == session.id && m.started_at == session.started_at) {
+        change(mark);
+        let _ = write_marks(path, &marks);
+    }
+}
+
+fn mark_of(path: &Path, session: &ClaudeCloudSession) -> Option<Mark> {
+    read_marks(path).into_iter().find(|m| m.id == session.id && m.started_at == session.started_at)
+}
+
+// ---- follow up and read -------------------------------------------------------------------------------------------
+
+/// A follow-up to the session itself. Sent, it is counted, so a read finds the reply to it and not the answer before.
+pub fn send_with(claude: &ClaudeCloud<'_>, marks: &Path, id: &str, message: &str) -> CloudSendResult {
+    let sent = claude.send(id, message);
+    if sent == CloudSendResult::Ok
+        && let Some(chat) = chat_with(claude, marks, id)
+    {
+        update(marks, &chat.session, |m| m.pending += 1);
+    }
+    sent
+}
+
+/// What reading a cloud chat found.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CloudRead {
+    /// No reply yet: the session has not answered, or not the follow-up just sent.
+    Working { note: Option<String> },
+    /// The newest answer, with the files the session changed (path, added lines, removed lines).
+    Done { answer: String, model: Option<String>, changed: Vec<(String, usize, usize)>, change_too_big: bool, note: Option<String> },
+    Failed(String),
+}
+
+/// The files a unified diff touches, with the lines added and removed in each.
+fn diff_files(diff: &str) -> Vec<(String, usize, usize)> {
+    let mut files: Vec<(String, usize, usize)> = Vec::new();
+    for line in diff.lines() {
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            files.push((rest.rsplit_once(" b/").map(|(_, b)| b).unwrap_or(rest).to_owned(), 0, 0));
+        } else if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        } else if let Some(file) = files.last_mut() {
+            if line.starts_with('+') {
+                file.1 += 1;
+            } else if line.starts_with('-') {
+                file.2 += 1;
+            }
+        }
+    }
+    files
+}
+
+/// Read the session the way the window's Check does (the teleport into its own worktree beside the folder, the folder
+/// untouched): one look per call. The newest exchange's answer is the reply once the exchanges are as many as were
+/// started and sent; before that, it is still working.
+pub fn read_with(claude: &ClaudeCloud<'_>, marks: &Path, id: &str) -> CloudRead {
+    let (exchanges, diff, change_too_big, note) = match claude.check(id) {
+        ClaudeCloudReading::Ok { exchanges, diff, change_too_big, note, .. } => (exchanges, diff, change_too_big, note),
+        ClaudeCloudReading::Err { message } => return CloudRead::Failed(message),
+    };
+    let session = claude.all().into_iter().find(|s| s.id == id);
+    let mark = session.as_ref().and_then(|s| mark_of(marks, s));
+    let needed = mark.as_ref().map_or(0, |m| m.seen + m.pending);
+    // The reading keeps its newest 40 exchanges: a long session can never count past that.
+    let arrived = exchanges.len() as u64 >= needed || exchanges.len() >= 40;
+    let answered = exchanges.last().and_then(|e| e.answer.as_deref()).filter(|a| !a.trim().is_empty());
+    let (true, Some(answer)) = (arrived, answered) else {
+        return CloudRead::Working { note };
+    };
+    if let Some(session) = &session {
+        update(marks, session, |m| {
+            m.seen = exchanges.len() as u64;
+            m.pending = 0;
+        });
+    }
+    CloudRead::Done {
+        answer: answer.to_owned(),
+        model: exchanges.last().and_then(|e| e.model.clone()),
+        changed: diff.as_deref().map(diff_files).unwrap_or_default(),
+        change_too_big,
+        note,
+    }
 }
 
 /// The line a reply or a row gives for where to follow it: the session's own page, else the list of sessions.

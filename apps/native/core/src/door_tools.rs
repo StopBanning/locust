@@ -14,7 +14,8 @@
 use crate::approval::Mode;
 use crate::claude_cloud::ClaudeCloudAnswer;
 use crate::cloud_tasks::FolderOnGitHub;
-use crate::door_cloud::{CloudChat, CloudStart};
+use crate::claude_cloud::CloudSendResult;
+use crate::door_cloud::{CloudChat, CloudRead, CloudStart};
 use crate::engine::Teammate;
 use serde_json::{Value, json};
 use std::collections::HashSet;
@@ -176,6 +177,11 @@ impl Turn {
     }
 }
 
+/// A Claude cloud chat's id is Locust's own `cc_…` session id; a turn's is `mission_…`.
+fn is_cloud(id: &str) -> bool {
+    id.starts_with("cc_")
+}
+
 /// conversation-folder.ts: the folder a conversation an app (or a carry-on) started works in, when it named one.
 pub fn conversation_folder(started_by: &Value) -> Option<String> {
     if started_by["kind"] != "mcp" && started_by["kind"] != "carry-on" {
@@ -267,6 +273,18 @@ pub trait Locust: Send + Sync {
     /// Every Claude cloud chat Locust knows, newest first, each with whether an app started it.
     fn cloud_chats(&self) -> Vec<CloudChat> {
         Vec::new()
+    }
+    /// One Claude cloud chat by its id.
+    fn cloud_chat(&self, id: &str) -> Option<CloudChat> {
+        self.cloud_chats().into_iter().find(|c| c.session.id == id)
+    }
+    /// A follow-up to the cloud session itself (`ClaudeCloud::send`).
+    fn cloud_send(&self, _id: &str, _message: &str) -> CloudSendResult {
+        CloudSendResult::Err { message: "This Locust does not follow up Claude cloud chats for other apps.".into() }
+    }
+    /// What the session says, read the way the window's Check reads it (`ClaudeCloud::check`).
+    fn cloud_read(&self, _id: &str) -> CloudRead {
+        CloudRead::Failed("This Locust does not read Claude cloud chats for other apps.".into())
     }
 }
 
@@ -948,6 +966,9 @@ impl<L: Locust> Tools<L> {
                 let Some(id) = text_arg(&args["conversation_id"], 200) else {
                     return ToolResult::refused("Give a conversation id returned by start_conversation.");
                 };
+                if is_cloud(id) {
+                    return self.stop_cloud(id);
+                }
                 let Some(turn) = self.lookup(id) else {
                     return ToolResult::refused(
                         "That conversation could not be read from the local ledger. Use an id returned by this server.",
@@ -1000,6 +1021,102 @@ impl<L: Locust> Tools<L> {
                 })
             })
             .collect()
+    }
+
+    /// A cloud chat this app may use: one an app started, or any while the person lets apps see their conversations.
+    /// A voice call never reaches one.
+    fn cloud_chat_of(&self, id: &str) -> Result<CloudChat, ToolResult> {
+        let unreadable = || ToolResult::refused("That conversation could not be found. Use an id returned by this server.");
+        if self.voice.is_some() {
+            return Err(unreadable());
+        }
+        match self.locust.cloud_chat(id) {
+            Some(chat) if chat.from_app || self.locust.see_all() => Ok(chat),
+            _ => Err(unreadable()),
+        }
+    }
+
+    /// The structured answer a cloud read gives: the same keys a turn's read does, and the chat's own page.
+    fn cloud_status(&self, mut result: ToolResult, status: &str, chat: &CloudChat, model: Option<&str>) -> ToolResult {
+        result.structured = Some(json!({
+            "message": result.text, "status": status, "runtime": "claude", "model": model,
+            "folder": chat.session.folder, "url": crate::door_cloud::link_of(&chat.session),
+            "cloud": true, "can_carry_on": false
+        }));
+        result
+    }
+
+    /// stop_turn on a cloud chat: Claude Code gives Locust no way to stop a session, so it says so and where to.
+    fn stop_cloud(&self, id: &str) -> ToolResult {
+        let chat = match self.cloud_chat_of(id) {
+            Ok(c) => c,
+            Err(refused) => return refused,
+        };
+        ToolResult::refused(format!(
+            "A Claude cloud chat cannot be stopped from here: Claude Code gives Locust no way to stop a session. Stop it on claude.ai: {} Nothing was stopped.",
+            crate::door_cloud::link_of(&chat.session)
+        ))
+    }
+
+    /// send_message and read_reply on a cloud chat: the follow-up goes to the session itself; a read looks at the
+    /// session once (a fresh teleport into its own worktree, up to two minutes) and says "still working" until it has
+    /// a reply, wait_seconds notwithstanding.
+    fn cloud_send_or_read(&self, id: &str, sending: bool, args: &Value) -> ToolResult {
+        let chat = match self.cloud_chat_of(id) {
+            Ok(c) => c,
+            Err(refused) => return refused,
+        };
+        let page = crate::door_cloud::link_of(&chat.session);
+        if sending {
+            let Some(message) = text_arg(&args["message"], 8000) else {
+                return ToolResult::refused("Give a message of up to 8,000 characters. Nothing was sent.");
+            };
+            if message.chars().count() > crate::door_cloud::MESSAGE_LIMIT {
+                return ToolResult::refused(format!(
+                    "Claude's cloud takes a follow-up of up to {} characters, and Locust will not send it cut short. Nothing was sent.",
+                    crate::door_cloud::MESSAGE_LIMIT
+                ));
+            }
+            if ["mode", "folder", "model", "effort", "read_only"].iter().any(|key| !args[*key].is_null()) {
+                return ToolResult::refused(
+                    "A follow-up to a Claude cloud chat goes to the session as it is: leave mode, folder, model, effort and read_only out. Nothing was sent.",
+                );
+            }
+            return match self.locust.cloud_send(id, message) {
+                CloudSendResult::Ok => {
+                    let said = json!({"conversation_id": id, "cloud": true, "sent": true, "url": page});
+                    self.cloud_status(ToolResult::ok(said.to_string()), "working", &chat, None)
+                }
+                CloudSendResult::Err { message } => ToolResult::refused(format!("{message} Its page: {page}")),
+            };
+        }
+        match self.locust.cloud_read(id) {
+            CloudRead::Failed(message) => self.cloud_status(ToolResult::refused(format!("{message} Its page: {page}")), "failed", &chat, None),
+            CloudRead::Working { note } => {
+                let words = match note {
+                    Some(note) => format!("Still working: waiting for Claude's cloud to answer. {note}"),
+                    None => "Still working: waiting for Claude's cloud to answer.".into(),
+                };
+                self.cloud_status(ToolResult::ok(words), "working", &chat, None)
+            }
+            CloudRead::Done { answer, model, changed, change_too_big, note } => {
+                let mut words = unwrap_protocol_tags(&answer);
+                if !changed.is_empty() {
+                    let files: Vec<String> = changed.iter().map(|(path, added, removed)| format!("{path} (+{added} -{removed})")).collect();
+                    words.push_str(&format!(
+                        "\n\nIts change, read here and not in your folder (the person brings it in with Apply in Locust's cloud panel): {}.",
+                        files.join(", ")
+                    ));
+                } else if change_too_big {
+                    words.push_str("\n\nIts change is too big to read here; see it on claude.ai.");
+                }
+                if let Some(note) = note {
+                    words.push_str(&format!("\n\nLocust: {note}"));
+                }
+                words.push_str(&format!("\n\nIts page: {page}"));
+                self.cloud_status(ToolResult::ok(words), "done", &chat, model.as_deref())
+            }
+        }
     }
 
     /// start_conversation with cloud true: the task goes to Claude's cloud as the window's cloud panel sends it, from
@@ -1383,6 +1500,9 @@ impl<L: Locust> Tools<L> {
         let Some(id) = text_arg(&args["conversation_id"], 200) else {
             return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
         };
+        if is_cloud(id) {
+            return ToolResult::refused("A Claude cloud chat cannot be carried on to another agent: it works on Anthropic's machines. send_message follows it up. Nothing was started.");
+        }
         let Some(turn) = self.lookup(id) else {
             return ToolResult::refused(
                 "That conversation could not be read from the local ledger. Use an id returned by this server.",
@@ -1461,6 +1581,9 @@ impl<L: Locust> Tools<L> {
         let Some(id) = text_arg(&args["conversation_id"], 200) else {
             return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
         };
+        if is_cloud(id) {
+            return ToolResult::refused("A Claude cloud chat has no question cards. Use send_message to reply in words. Nothing was sent.");
+        }
         {
             let mut starting = self.starting.lock().unwrap_or_else(|e| e.into_inner());
             if !starting.insert(id.to_owned()) {
@@ -1540,6 +1663,9 @@ impl<L: Locust> Tools<L> {
     }
 
     fn send_or_read_claimed(&self, id: &str, sending: bool, args: &Value) -> ToolResult {
+        if is_cloud(id) {
+            return self.cloud_send_or_read(id, sending, args);
+        }
         let unreadable =
             || ToolResult::refused("That conversation could not be read from the local ledger. Use an id returned by this server.");
         let Some(mut turn) = self.lookup(id) else {
