@@ -100,6 +100,22 @@ fn a_session_the_window_started_is_listed_as_the_persons_not_an_apps() {
 }
 
 #[test]
+fn every_session_the_door_starts_in_a_row_stays_recorded_as_an_apps_newest_first() {
+    let dir = Dir::new();
+    let (ran, windows) = (RefCell::new(Vec::new()), RefCell::new(Vec::new()));
+    let claude = cloud_on(&dir, CloudPlatform::Win32, &ran, &windows);
+    let mut ids = Vec::new();
+    for n in 0..3 {
+        let ClaudeCloudAnswer::Ok { session } = start_with(&claude, &dir.marks(), &begin("C:/work/app")) else { panic!("start {n} failed") };
+        ids.push(session.id);
+    }
+    let chats = chats_with(&claude, &dir.marks());
+    assert_eq!(chats.len(), 3);
+    assert!(chats.iter().all(|c| c.from_app), "an app that started three can read and follow up all three");
+    assert_eq!(read_marks(&dir.marks()).iter().map(|m| m.id.clone()).collect::<Vec<_>>(), ids.iter().rev().cloned().collect::<Vec<_>>());
+}
+
+#[test]
 fn an_id_the_engine_counted_again_after_a_restart_is_not_taken_for_the_session_the_door_started() {
     let dir = Dir::new();
     let (ran, windows) = (RefCell::new(Vec::new()), RefCell::new(Vec::new()));

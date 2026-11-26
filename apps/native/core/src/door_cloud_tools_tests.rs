@@ -273,6 +273,19 @@ fn what_claudes_cloud_will_not_see_is_said_with_the_start() {
 }
 
 #[test]
+fn one_unpushed_commit_is_said_in_the_singular_and_a_pushed_clean_folder_says_nothing() {
+    let one = Tools::new(Cloudy { github: Some(on_github(Some(1), false)), ..Default::default() });
+    let said = say(&start(&one, json!({})));
+    assert_eq!(
+        said["warnings"][0],
+        "1 commit on this branch is not pushed, and Claude's cloud starts from the newest pushed commit, so it will not see it."
+    );
+    assert_eq!(said["warnings"].as_array().unwrap().len(), 1);
+    let pushed = Tools::new(Cloudy { github: Some(on_github(Some(0), false)), ..Default::default() });
+    assert!(say(&start(&pushed, json!({}))).get("warnings").is_none(), "nothing for Claude's cloud to miss, nothing said");
+}
+
+#[test]
 fn claude_codes_own_refusal_is_passed_on_word_for_word_with_nothing_started_said_once() {
     let said = |why| {
         let tools = Tools::new(Cloudy { refuses: Some(why), ..cloudy() });
