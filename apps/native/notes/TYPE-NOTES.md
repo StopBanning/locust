@@ -70,3 +70,34 @@ that do write 1.35 to 1.6 (1.5 the commonest, 12 of them). The toolkit's default
     the second at 667 to 677); the copy icon, which follows the last reply, +8 px lower in all. User bubbles are the same.
   - thread-rich, thread-rich-light: the status line under the thread ("Working...") is 2 px taller and sits 2 px higher.
   - home, home-light, kit, kit-light: every box is within 2 px of row 2's (no change in the positions I measured).
+
+## Row 4: sizes, a proposal (nothing applied)
+
+Counted over shell.css's 391 `font-size` rules (the numbers below are rule counts, not uses on screen):
+
+| Electron rule | Rules | Size |
+| --- | --- | --- |
+| `var(--lc-text-description)` | 293 | 13 px (tokens.css:531) |
+| `var(--lc-text-mono-caption)` | 150 | 11.5 px mono |
+| `var(--lc-text-mono-label)` | 84 | 10.5 px mono |
+| `var(--lc-text-control)` | 55 | 14 px |
+| `var(--lc-text-body)` | 35 | 13.5 px; also what `body` sets (shell.css:28), so anything with no size of its own |
+| a literal `12px` | 33 | 12 px |
+
+What each of the three should be:
+
+- **BODY: stay 13 px.** It is `--lc-text-description`, the size on 293 rules. 13.5 is only the inherited base.
+- **LABEL: 12 px to 13 px.** The 712 texts set in LABEL are what Electron writes at the description size (the sidebar
+  rows, settings descriptions, chips, card lines); 12 px is the literal on 33 rules and the token `--lc-text-ask`
+  (an ask card's own text), a minority. That makes the Rust app's commonest text one pixel smaller than Electron's,
+  the finding in the design review (1b).
+- **TITLE: 13 px to 13.5 px**, still weight 600: a card's name sets no size of its own in Electron and takes the
+  body's 13.5 px (shell.css:28; `.lc-nextstep__title` sets only weight, 500).
+
+Where 12 to 13 px would wrap: these are estimates from the row 3 pictures (13/12 is 8% wider), not a trial. In
+`settings` and `settings-light`, "A teammate's face says what it is doing, and its eyes say it too. This one shows each
+in turn; click it for the next." now ends at 1776 of 2000 viewed px and the face beside it begins about 1888: at +8% it
+ends near 1856, which leaves almost no gap and wraps at 1100 px or narrower. Every other line in `settings`, `home`
+and the conversation scenes ends 100 px or more from its neighbour, so I expect them to hold; the sidebar rows already
+truncate with "…" at 12 px ("Review the native pr…") and would cut a character or two earlier. `kit`'s "Everything Codec does
+happens in ~/work/locust." already wraps and still would. Try it before applying, on the scenes above at 1200 and 1000 px.
