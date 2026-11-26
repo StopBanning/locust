@@ -501,13 +501,16 @@ pub fn copilot_models() -> Vec<Value> {
     vec![json!({"id": "auto", "runtime": "copilot", "displayName": "Auto", "description": "Copilot picks the model your plan allows", "supportedEfforts": []})]
 }
 
+/// Muse's own default level (model-catalog.ts muse models' `defaultEffort`).
+pub const MUSE_DEFAULT_EFFORT: &str = "high";
+
 /// commands.ts MUSE_EFFORTS.
 const MUSE_EFFORTS: [&str; 8] = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 
 /// museModelsFrom: the two models measured to reach a Muse model, at its own default effort.
 pub fn muse_models() -> Vec<Value> {
     let model = |id: &str, name: &str, description: &str| {
-        json!({"id": id, "runtime": "muse", "displayName": name, "description": description, "supportedEfforts": MUSE_EFFORTS, "defaultEffort": "high"})
+        json!({"id": id, "runtime": "muse", "displayName": name, "description": description, "supportedEfforts": MUSE_EFFORTS, "defaultEffort": MUSE_DEFAULT_EFFORT})
     };
     vec![
         model("muse-wonder-1.0", "Muse Wonder 1.0", "Meta's newest, and Muse Code's default"),
@@ -1077,17 +1080,23 @@ pub fn kept_catalog(cache: &std::sync::Mutex<Option<(Instant, Vec<Value>)>>, rea
     models
 }
 
+/// The catalog `local` read last, with the moment it was read.
+static LOCAL_CATALOG: std::sync::Mutex<Option<(Instant, Vec<Value>)>> = std::sync::Mutex::new(None);
+
 /// The catalog for this computer, read once and kept ten minutes (CACHE_MS): models change on release, not hourly.
 pub fn local() -> Vec<Value> {
-    use std::sync::Mutex;
-    static CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
-    let mut models = kept_catalog(&CACHE, read_listed_checked);
+    let mut models = kept_catalog(&LOCAL_CATALOG, read_listed_checked);
     // Your own models under OpenCode and your own ACP agents, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
         models.extend(crate::acp_agents::acp_catalog(&crate::acp_agents::agents_for_store(&store)));
     }
     models
+}
+
+/// The catalog as `local` last read it, however long ago, and never read again here: empty before the first read.
+pub fn local_as_read() -> Vec<Value> {
+    crate::invariants::lock(&LOCAL_CATALOG).as_ref().map(|(_, models)| models.clone()).unwrap_or_default()
 }
 
 #[cfg(test)]

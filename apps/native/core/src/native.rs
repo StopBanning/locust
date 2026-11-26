@@ -2678,6 +2678,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     {
         job.effort = entry["route"]["effort"].as_str().map(str::to_owned);
     }
+    // App.tsx runEffortFor: the run is sent the level its chip shows (run_effort), the model's default when nobody chose.
+    job.effort = crate::run_effort::run_effort_at_start(
+        job.teammate.runtime.as_deref().unwrap_or("codex"),
+        job.model.as_deref().or(job.teammate.model.as_deref()),
+        job.effort.as_deref(),
+    );
 
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));

@@ -344,7 +344,11 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         // Composer.tsx `effortIsGenuinelyFixed`: once the catalog has answered for this model and it lists no levels,
         // the chip says "Fixed", whatever effort was stored; before it answers, nothing is claimed.
         let effort_is_fixed = current.and_then(|a| a.models.iter().find(|m| m.id == model)).is_some_and(|m| m.efforts.is_empty());
-        let effort_text = if effort_is_fixed { Some("Fixed".to_owned()) } else { effort.map(locust_core::effort_levels::effort_phrase) };
+        // The level the run is sent (run_effort, App.tsx runEffortFor): the chosen one, else the one a Cursor id names,
+        // else the model's default.
+        let levels_here = current.and_then(|a| a.models.iter().find(|m| m.id == model)).map_or(&[][..], |m| m.efforts.as_slice());
+        let shown_effort = locust_core::run_effort::run_effort(rt, model, levels_here, None, effort);
+        let effort_text = if effort_is_fixed { Some("Fixed".to_owned()) } else { shown_effort.as_deref().map(locust_core::effort_levels::effort_phrase) };
         let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
         let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
@@ -1409,8 +1413,7 @@ pub(super) fn model_picker(
             apply_model_pick(s, &key, TurnPick { model: pick_model.clone(), effort: Some(level), runtime: pick_runtime.clone(), account: pick_account.clone() }, for_team);
         });
         let shown_runtime = s.picks.get(id).and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).unwrap_or(active_runtime);
-        let runtime_default = agents.iter().find(|a| a.runtime == shown_runtime).and_then(|a| a.effort.as_deref());
-        let shown_effort = effort.map(str::to_owned).or_else(|| locust_core::effort_levels::default_effort(&levels, runtime_default));
+        let shown_effort = locust_core::run_effort::run_effort(shown_runtime, model, &levels, None, effort);
         foot = foot.child(crate::effort_slider::effort_panel(s, l, &levels, shown_effort.as_deref(), shown_runtime, pick));
     }
     // The note on a line of its own: beside four levels it ran past the card's edge.

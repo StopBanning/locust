@@ -1687,3 +1687,90 @@ fn claims_nothing_from_the_tree_when_another_writing_run_shared_the_folder() {
     finished(&solo.conversation_id);
     assert!(observed_rows(&solo.conversation_id) > 0, "{:?}", kinds(&path_of(&t, &solo.conversation_id)));
 }
+
+/// THE CHIP IS THE RUN (run_effort.rs, App.tsx runEffortFor): what a Claude teammate's command carries for its level,
+/// with `catalog` as the catalogue this process has read. The chip's side of each case is in
+/// src/ui/the_chip_is_the_run_tests.rs.
+fn claude_effort_sent(t: &Temp, catalog: Vec<Value>, model: &str, effort: Option<&str>) -> Option<String> {
+    crate::run_effort::use_catalog_on_this_thread(Some(catalog));
+    struct Forget;
+    impl Drop for Forget {
+        fn drop(&mut self) {
+            crate::run_effort::use_catalog_on_this_thread(None);
+        }
+    }
+    let _forget = Forget;
+    let _hook = hooks::install(t.store(), argv_fake(t, "claude", &claude_answers(), true));
+    let mut mine = claude_job(t, None, "Say hi.");
+    mine.teammate.model = Some(model.into());
+    mine.effort = effort.map(str::to_owned);
+    let started = send(mine).unwrap();
+    finished(&started.conversation_id);
+    let args = argv_of(t, "claude");
+    args.iter().position(|a| a == "--effort").map(|at| args[at + 1].clone())
+}
+
+fn sonnet_lists_levels() -> Vec<Value> {
+    vec![json!({"id": "sonnet", "runtime": "claude", "displayName": "Sonnet", "description": "", "supportedEfforts": ["low", "medium", "high"]})]
+}
+
+// case: agree when nobody has chosen a level
+// The run's half: status.test.ts expects `medium` for a model listing low, medium and high, and the chip says the same.
+#[test]
+fn a_teammate_with_no_level_chosen_is_sent_the_level_its_chip_shows() {
+    let t = Temp::new();
+    assert_eq!(claude_effort_sent(&t, sonnet_lists_levels(), "sonnet", None).as_deref(), Some("medium"));
+}
+
+// case: agree when someone has
+// The run's half: a level chosen is the level sent (status.test.ts `high`); the chip's half is in the window's tests.
+#[test]
+fn a_level_someone_chose_is_the_level_the_run_is_sent() {
+    let t = Temp::new();
+    assert_eq!(claude_effort_sent(&t, sonnet_lists_levels(), "sonnet", Some("high")).as_deref(), Some("high"));
+}
+
+// case: agree on a model with no levels: both say nothing, and nothing is sent
+#[test]
+fn a_model_that_lists_no_levels_is_sent_no_level_when_nobody_chose_one() {
+    let t = Temp::new();
+    let none = vec![json!({"id": "sonnet", "runtime": "claude", "displayName": "Sonnet", "description": "", "supportedEfforts": []})];
+    assert_eq!(claude_effort_sent(&t, none, "sonnet", None), None);
+}
+
+// case: agree on a Cursor family, whose id already names a level
+// The run's half: Cursor puts the level in the model's id (and refuses one beside it), so the variant started is the
+// level sent. A family standing on
+// its low variant is not run at medium (status.test.ts), and a level chosen picks its own variant.
+#[test]
+fn a_cursor_family_is_run_on_the_level_its_id_names_when_nobody_chose_one() {
+    let family = json!({"id": "grok-4.7-low", "runtime": "cursor", "displayName": "Grok 4.7", "description": "",
+        "supportedEfforts": ["low", "medium", "high"],
+        "variants": {"low": "grok-4.7-low", "medium": "grok-4.7-medium", "high": "grok-4.7-high"}});
+    struct Forget;
+    impl Drop for Forget {
+        fn drop(&mut self) {
+            crate::run_effort::use_catalog_on_this_thread(None);
+            use_cursor_catalog_on_this_thread(None);
+        }
+    }
+    let _forget = Forget;
+    crate::run_effort::use_catalog_on_this_thread(Some(vec![family.clone()]));
+    use_cursor_catalog_on_this_thread(Some(vec![family]));
+    for (chosen, started_on) in [(None, "grok-4.7-low"), (Some("high"), "grok-4.7-high")] {
+        let t = Temp::new();
+        let printed = [
+            json!({"type": "system", "subtype": "init", "session_id": "cursor-session-1", "model": "Grok 4.7", "permissionMode": "default"}),
+            json!({"type": "result", "subtype": "success", "is_error": false, "result": "ok"}),
+        ];
+        let _hook = hooks::install(t.store(), argv_fake(&t, "cursor", &printed, false));
+        let mut mine = on(&t, "cursor", "ask", "Say hi.");
+        mine.teammate.model = Some("grok-4.7-low".into());
+        mine.effort = chosen.map(str::to_owned);
+        let started = send(mine).unwrap();
+        finished(&started.conversation_id);
+        // The hook stands in for Cursor's whole command, so the model it was started on is read from the record.
+        let head = header(&path_of(&t, &started.conversation_id));
+        assert_eq!(head["model"], started_on, "{chosen:?}: {head}");
+    }
+}

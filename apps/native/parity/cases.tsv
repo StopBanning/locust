@@ -6106,13 +6106,13 @@ apps/desktop/src/renderer/src/status.test.ts	has nothing to show when the model 
 apps/desktop/src/renderer/src/status.test.ts	carries a chosen level across a model switch that supports it	yes
 apps/desktop/src/renderer/src/status.test.ts	falls back to the new model default rather than to nothing	yes
 apps/desktop/src/renderer/src/status.test.ts	still shows nothing when the new model reports no levels	yes
-apps/desktop/src/renderer/src/status.test.ts	agree when nobody has chosen a level	no
-apps/desktop/src/renderer/src/status.test.ts	agree when someone has	no
+apps/desktop/src/renderer/src/status.test.ts	agree when nobody has chosen a level	yes
+apps/desktop/src/renderer/src/status.test.ts	agree when someone has	yes
 apps/desktop/src/renderer/src/status.test.ts	agree under swarm, which overrides both	no
-apps/desktop/src/renderer/src/status.test.ts	agree on a Cursor family, whose id already names a level	no
+apps/desktop/src/renderer/src/status.test.ts	agree on a Cursor family, whose id already names a level	yes
 apps/desktop/src/renderer/src/status.test.ts	start a new route on the level the runtime names as its default, where it names one	yes
-apps/desktop/src/renderer/src/status.test.ts	agree on a model with no levels: both say nothing, and nothing is sent	no
-apps/desktop/src/renderer/src/status.test.ts	never invents a level for a model the catalogue does not know	no
+apps/desktop/src/renderer/src/status.test.ts	agree on a model with no levels: both say nothing, and nothing is sent	yes
+apps/desktop/src/renderer/src/status.test.ts	never invents a level for a model the catalogue does not know	yes
 apps/desktop/src/renderer/src/status.test.ts	names the runtime the first-run screen recommends, not one that is absent	no
 apps/desktop/src/renderer/src/status.test.ts	names nothing else when discovery has not reported at all	no
 apps/desktop/src/renderer/src/status.test.ts	still prefers a runtime that can actually run right now	no
