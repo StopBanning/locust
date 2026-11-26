@@ -2489,6 +2489,88 @@ fn holds_one_written_more_than_twelve_hours_ago_for_the_phone_to_decide_and_send
     pc.dispose();
 }
 
+/// The phone's own send, as a conversation answers it: m1 takes it, `busy` is still working, `broken` fails to start.
+struct SendAnswers(Mutex<Vec<(String, String)>>);
+
+impl PhoneCalls for SendAnswers {
+    fn state(&self) -> PhoneState {
+        PhoneState { waiting: Vec::new(), conversations: Vec::new(), scout: None }
+    }
+    fn turns(&self, _mission_id: &str) -> Option<Vec<PhoneTurn>> {
+        None
+    }
+    fn answer_card(&self, _approval_id: &str, _approve: bool) -> bool {
+        false
+    }
+    fn send(&self, mission_id: &str, text: &str) -> PhoneSent {
+        self.0.lock().unwrap().push((mission_id.to_owned(), text.to_owned()));
+        match mission_id {
+            "busy" => PhoneSent::Err { message: crate::phone_calls::STILL_WORKING.to_owned() },
+            "broken" => PhoneSent::Err { message: "Codex could not start.".to_owned() },
+            _ => PhoneSent::Ok,
+        }
+    }
+}
+
+#[test]
+// case: sends a message left while the PC was off once it is back, through the phone's own path
+// case: holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting
+fn a_note_goes_through_the_phones_own_send_once_and_one_whose_send_failed_is_held_never_sent_again() {
+    let relay = MemoryRelay::new(None);
+    let mut off = off_with_a_phone(&relay);
+    let sent_note = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "m1", "text": "  Run the tests again  ", "t": now_ms() }),
+        None,
+        "n1",
+    );
+    let busy = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "busy", "text": "Still working", "t": now_ms() }),
+        None,
+        "n2",
+    );
+    let broken = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "broken", "text": "Try it", "t": now_ms() }),
+        None,
+        "n3",
+    );
+    let calls = Arc::new(SendAnswers(Mutex::new(Vec::new())));
+    let notes = Arc::new(crate::phone_calls::PhoneNotes::new(calls.clone()));
+    let pc = make_pc(&relay, off.dir.path().clone(), calls.clone(), None, None, None, Some(notes));
+    pc.load();
+    let mut ask_n = 1;
+    let mut latest = Vec::new();
+    until(3_000, || {
+        ask_n += 1;
+        latest = off.session.my_notes(&format!("chk{ask_n}"));
+        latest.len() == 2 && latest.iter().any(|i| i.get("held").and_then(Value::as_str) == Some("failed"))
+    });
+    let states: HashMap<String, String> = latest
+        .iter()
+        .map(|item| {
+            let held = item.get("held").and_then(Value::as_str).unwrap_or("waiting");
+            (item["id"].as_str().unwrap().to_owned(), held.to_owned())
+        })
+        .collect();
+    assert!(!states.contains_key(&sent_note), "{states:?}");
+    assert_eq!(states.get(&busy).map(String::as_str), Some("waiting"));
+    assert_eq!(states.get(&broken).map(String::as_str), Some("failed"));
+    let first: Vec<(String, String)> = calls.0.lock().unwrap().clone();
+    assert!(first.contains(&("m1".to_owned(), "Run the tests again".to_owned())), "{first:?}");
+    assert_eq!(first.iter().filter(|(m, _)| m == "broken").count(), 1);
+
+    // Another note while it is on: the relay says there is news, and the held one is not sent a second time.
+    off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "m2", "text": "And this", "t": now_ms() }),
+        None,
+        "n4",
+    );
+    until(3_000, || calls.0.lock().unwrap().iter().any(|(m, _)| m == "m2"));
+    let after = calls.0.lock().unwrap().clone();
+    assert_eq!(after.iter().filter(|(m, _)| m == "broken").count(), 1, "{after:?}");
+    assert_eq!(after.iter().filter(|(m, _)| m == "m1").count(), 1, "{after:?}");
+    pc.dispose();
+}
+
 #[test]
 // case: holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting
 fn holds_with_why_one_whose_conversation_is_gone_or_that_does_not_open_and_leaves_a_busy_one_waiting()

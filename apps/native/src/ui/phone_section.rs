@@ -16,7 +16,7 @@ use locust_core::desk_host::{
     DeskHandler, DeskHelloInfo, DeskHost, DeskHostDeps, DeskSender, DeskValue, DeskWindow, desk_tell_json,
 };
 use locust_core::desk_snapshot::{DeskSnapshot, snapshot_key, snapshot_with};
-use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
+use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine, PhoneNotes};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
 use locust_core::phone_anywhere::{DeskCallbacks, HooksCallbacks, McpCallbacks};
 use locust_core::remote_mcp::{McpRelay, RemoteMcp, RemoteMcpAsk, RemoteMcpReply};
@@ -460,6 +460,8 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(now_ms);
     let engine = Arc::new(NativePhoneEngine::new(store));
     let calls = Arc::new(EnginePhoneCalls::new(engine, now.clone()));
+    // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
+    let notes = Arc::new(PhoneNotes::new(calls.clone()));
     let (tx, rx) = std::sync::mpsc::channel::<PhoneAnywhereSettings>();
     let waker = s.phone_anywhere_link.waker.clone();
     s.phone_anywhere_link.rx = Some(rx);
@@ -495,7 +497,7 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         away: None,
         hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
         desk: Some(desk),
-        notes: None,
+        notes: Some(notes),
         github_user,
         computer_name: Some(computer),
         mcp: Some(Arc::new(ServeMcp(s.phone_anywhere_link.shared.mcp.clone()))),
@@ -1589,6 +1591,7 @@ mod tests {
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         closed: Arc<std::sync::atomic::AtomicBool>,
         github_off: bool,
+        notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl locust_core::phone_anywhere::RelaySocket for FakeRelayLine {
@@ -1604,6 +1607,8 @@ mod tests {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
                 }
                 "hook-letters" => id.map(|id| serde_json::json!({ "t": "hook-letters", "id": id, "items": [], "lost": 0 })),
+                "notes" => id.map(|id| serde_json::json!({ "t": "notes", "id": id, "items": self.notes.lock().unwrap().clone() })),
+                "notes-collected" => id.map(|id| serde_json::json!({ "t": "done", "id": id })),
                 "github-open" => id.map(|id| {
                     if self.github_off {
                         serde_json::json!({ "t": "err", "id": id, "code": "github-off" })
@@ -1641,6 +1646,7 @@ mod tests {
         closed: Arc<std::sync::atomic::AtomicBool>,
         callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         github_off: bool,
+        notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl FakeRelay {
@@ -1651,6 +1657,7 @@ mod tests {
                 closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 callbacks: Arc::new(std::sync::Mutex::new(None)),
                 github_off: false,
+                notes: Arc::new(std::sync::Mutex::new(Vec::new())),
             }
         }
 
@@ -1666,6 +1673,7 @@ mod tests {
             let closed = Arc::clone(&self.closed);
             let callbacks = Arc::clone(&self.callbacks);
             let github_off = self.github_off;
+            let notes = Arc::clone(&self.notes);
             Arc::new(move |_url: &str| {
                 connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Arc::new(FakeRelayLine {
@@ -1673,6 +1681,7 @@ mod tests {
                     frames: Arc::clone(&frames),
                     closed: Arc::clone(&closed),
                     github_off,
+                    notes: Arc::clone(&notes),
                 }) as Arc<dyn locust_core::phone_anywhere::RelaySocket>)
             })
         }
@@ -1919,6 +1928,35 @@ mod tests {
         pump_until(&mut rt, "the cover down", |s| !s.elsewhere_cover.covered && told_desk(&relay, &browser, 2).len() == 1);
         let gone = told_desk(&relay, &browser, 2);
         assert_eq!(gone[0]["items"], serde_json::json!([{ "kind": "taken", "by": "computer" }]));
+    }
+
+    #[test]
+    // case: holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting
+    fn a_note_written_while_this_computer_was_off_goes_through_the_phones_own_send_and_says_why_not() {
+        use locust_core::relay_crypto::{Direction, aad_of, seal_json};
+        let (_root, store) = temp_store("notes");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let phone = pair_desk_browser(&mut rt, &relay);
+        let note = seal_json(
+            &phone.keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "note", "nid": "note-written-offline-1", "missionId": "m_not_in_locust", "text": "Run the tests again", "t": now_ms() }),
+            &aad_of(&phone.room, &phone.device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.notes.lock().unwrap().push(serde_json::json!({
+            "id": format!("{:013}-abcdefgh", now_ms()), "at": now_ms(), "device": phone.device, "n": note.n, "c": note.c
+        }));
+        relay.push_frame(serde_json::json!({ "t": "notes-changed" }));
+        // The phone's own send reads the conversation, finds none, and starts nothing: held as failed, for the phone.
+        let collected = || relay.frames.lock().unwrap().iter().find(|f| f["t"] == "notes-collected").cloned();
+        pump_until(&mut rt, "the note collected", |_| collected().is_some());
+        let said = collected().unwrap();
+        assert_eq!(said["notes"], serde_json::json!([]));
+        assert_eq!(said["held"][0]["why"], "failed");
+        assert_eq!(said["held"][0]["note"], relay.notes.lock().unwrap()[0]["id"]);
     }
 
     /// A box that keeps a key by turning it round: never the keychain.

@@ -176,6 +176,39 @@ impl PhoneCalls for EnginePhoneCalls {
     }
 }
 
+// ---- notes written on a phone while this computer was off (0.837) ------------------------------------------------
+
+/// What a note's send came to, in the words the phone link keeps (index.ts `notes.deliver`: `sent.ok ? 'sent' :
+/// sent.why`). Busy only for a send refused before anything was started (`phoneSend`'s two `why: 'busy'`), so the link
+/// tries it again later; any other failure is held for the phone to decide, since whether anything was started is not
+/// known, and a note is never sent twice.
+pub fn note_delivery_of(sent: &PhoneSent) -> crate::phone_anywhere::NoteDelivery {
+    use crate::phone_anywhere::NoteDelivery;
+    match sent {
+        PhoneSent::Ok => NoteDelivery::Sent,
+        PhoneSent::Err { message } if message == ALREADY_ON_ITS_WAY || message == STILL_WORKING => NoteDelivery::Busy,
+        PhoneSent::Err { .. } => NoteDelivery::Failed,
+    }
+}
+
+/// The phone link's `notes` (index.ts: `deliver: async (missionId, text) => { const sent = await phoneSend(missionId,
+/// text); return sent.ok ? 'sent' : sent.why }`): each note goes through the very path a message from the phone takes.
+pub struct PhoneNotes {
+    calls: Arc<dyn PhoneCalls>,
+}
+
+impl PhoneNotes {
+    pub fn new(calls: Arc<dyn PhoneCalls>) -> Self {
+        Self { calls }
+    }
+}
+
+impl crate::phone_anywhere::NotesCallbacks for PhoneNotes {
+    fn deliver(&self, mission_id: &str, text: &str) -> crate::phone_anywhere::NoteDelivery {
+        note_delivery_of(&self.calls.send(mission_id, text))
+    }
+}
+
 // ---- the engine itself -------------------------------------------------------------------------------------------
 
 /// How many recent turns the phone reads to make its conversations.
