@@ -69,6 +69,14 @@ explicitly, which is what Electron does: its send carries the window's mode.) Al
 mode picked in the previous conversation (`composer_mode` is not cleared there, as `select` clears it at main.rs:549),
 where Electron's `followRouteOf` replaces it with the opened conversation's recorded mode.
 
+**Done in the lane check (lanecheck/chip-1, 26 Nov).** main.rs `send` now hands the engine `mode_shown` with the chip's
+inputs (picked mode, the open conversation's newest recorded mode, the teammate's own, the route's runtime), and
+`open_recent` clears `composer_mode` in both its branches. Tests: window_drive_tests
+`a_conversation_with_no_teammate_recorded_in_auto_is_sent_in_auto` (the turn's `mission.created` records `auto`, not
+`ask`) and `opening_a_recent_conversation_drops_the_mode_picked_in_the_one_before`. Consequence to know: every send now
+names its mode, so a conversation whose newest turn recorded Auto is refused while Settings' Auto switch is off (the
+chip already said Auto there; row 3's App.tsx:2775-2777 difference is what would move it off Auto).
+
 ## Row 3: the rest of the composer foot, listed (none fixed here)
 
 | Rust | Electron | Electron's source |
