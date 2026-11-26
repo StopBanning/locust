@@ -303,7 +303,7 @@ fn format_workbook(book: &crate::office::Workbook) -> String {
     }
     crate::office::document_words(
         "workbook",
-        &crate::office::OfficeDocument { blocks, more: 0 },
+        &crate::office::OfficeDocument { kind: crate::office::DocumentKind::Word, blocks, more: 0 },
     )
 }
 

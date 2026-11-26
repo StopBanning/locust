@@ -28,8 +28,16 @@ pub enum DocumentBlock {
     Table { rows: Vec<Vec<String>> },
 }
 
+/// Which reader a document came from (Electron `OfficeDocument.kind`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DocumentKind {
+    Word,
+    Slides,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct OfficeDocument {
+    pub kind: DocumentKind,
     pub blocks: Vec<DocumentBlock>,
     pub more: usize,
 }
@@ -280,127 +288,381 @@ pub fn office_kind(name: &str) -> Option<&'static str> {
     }
 }
 
-/// Read a `.docx` or `.pptx` from bytes into structured blocks.
+/// Electron `shared/office-document.ts` `MAX_DOCUMENT_BLOCKS`: at most this many blocks are drawn; the rest is said.
+pub const MAX_DOCUMENT_BLOCKS: usize = 4_000;
+/// Electron `MAX_DOCUMENT_TABLE_ROWS` and `MAX_DOCUMENT_TABLE_COLUMNS`: a table keeps at most this many of each.
+pub const MAX_DOCUMENT_TABLE_ROWS: usize = 200;
+pub const MAX_DOCUMENT_TABLE_COLUMNS: usize = 20;
+/// Electron `MAX_DOCUMENT_TEXT`: a block's text past this is cut, and says so.
+pub const MAX_DOCUMENT_TEXT: usize = 4_000;
+
+const WORD: &str = "Word document";
+const SLIDES: &str = "presentation";
+
+fn regex(pattern: &str) -> regex::Regex {
+    regex::Regex::new(pattern).expect("a pattern of this file")
+}
+
+macro_rules! pattern {
+    ($text:expr) => {{
+        static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex($text));
+        &*PATTERN
+    }};
+}
+
+/// A block's text, bounded (Electron `documentText`): control characters out, long text keeps its start and says it
+/// was cut. JavaScript counts UTF-16 units, so the bound does too.
+fn document_text(text: &str) -> String {
+    let flat: String = text.chars().filter(|c| !matches!(*c as u32, 0x00..=0x08 | 0x0b | 0x0c | 0x0e..=0x1f)).collect();
+    if flat.encode_utf16().count() <= MAX_DOCUMENT_TEXT {
+        return flat;
+    }
+    let mut kept = String::new();
+    let mut units = 0;
+    for c in flat.chars() {
+        units += c.len_utf16();
+        if units > MAX_DOCUMENT_TEXT {
+            break;
+        }
+        kept.push(c);
+    }
+    format!("{kept}… (cut here)")
+}
+
+/// The five XML entities and numeric references (Electron `decodeXml`). No DTD is ever read, so nothing expands.
+fn decode_xml(text: &str) -> String {
+    pattern!(r"&(#x[0-9a-fA-F]+|#\d+|lt|gt|amp|quot|apos);")
+        .replace_all(text, |c: &regex::Captures| {
+            let name = &c[1];
+            match name {
+                "lt" => "<".to_owned(),
+                "gt" => ">".to_owned(),
+                "amp" => "&".to_owned(),
+                "quot" => "\"".to_owned(),
+                "apos" => "'".to_owned(),
+                _ => {
+                    let code = match name.strip_prefix("#x") {
+                        Some(hex) => u32::from_str_radix(hex, 16).ok(),
+                        None => name[1..].parse::<u32>().ok(),
+                    };
+                    code.filter(|c| *c > 0).and_then(char::from_u32).map_or_else(|| c[0].to_owned(), String::from)
+                }
+            }
+        })
+        .into_owned()
+}
+
+/// An attribute's value from an element's attribute text (Electron `attribute`), any namespace prefix allowed.
+fn attribute(attributes: &str, name: &str) -> Option<String> {
+    let found = regex(&format!(r#"(?:^|\s)(?:[\w-]+:)?{}="([^"]*)""#, regex::escape(name))).captures(attributes)?;
+    Some(decode_xml(&found[1]))
+}
+
+/// A zip's parts, bounded the way Electron's `zipDirectory` bounds them. `noun` is what the person calls the file.
+fn open_zip<'a>(bytes: &'a [u8], noun: &str) -> Result<zip::ZipArchive<Cursor<&'a [u8]>>, String> {
+    let zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| format!("That file is not a {noun} Locust can read."))?;
+    if zip.len() > MAX_ENTRIES {
+        return Err(format!("That {noun} is too large to show here."));
+    }
+    Ok(zip)
+}
+
+/// One part's text, or `None` when the file has no such part (Electron `partText`): a part that claims more than it may
+/// inflate to is refused before it is inflated, and one that inflates past the cap is refused too.
+fn part_text(zip: &mut zip::ZipArchive<Cursor<&[u8]>>, name: &str, noun: &str) -> Result<Option<String>, String> {
+    let Ok(mut part) = zip.by_name(name.trim_start_matches('/')) else {
+        return Ok(None);
+    };
+    if part.size() > MAX_PART_BYTES {
+        return Err(format!("That {noun} is too large to show here."));
+    }
+    let mut raw = Vec::new();
+    (&mut part)
+        .take(MAX_PART_BYTES + 1)
+        .read_to_end(&mut raw)
+        .map_err(|_| format!("That {noun} is too large or damaged to show here."))?;
+    if raw.len() as u64 > MAX_PART_BYTES {
+        return Err(format!("That {noun} is too large or damaged to show here."));
+    }
+    Ok(Some(String::from_utf8_lossy(&raw).into_owned()))
+}
+
+/// Where an element that may nest (a table in a table) closes: the index after its end tag (Electron `closingAt`).
+fn closing_at(xml: &str, tag: &str, from: usize) -> usize {
+    let pattern = regex(&format!(r"<{tag}\b[^>]*?(/)?>|</{tag}>"));
+    let mut depth = 1;
+    let mut at = from;
+    while let Some(found) = pattern.captures_at(xml, at) {
+        let whole = found.get(0).expect("a match");
+        at = whole.end();
+        if whole.as_str().starts_with("</") {
+            depth -= 1;
+            if depth == 0 {
+                return at;
+            }
+        } else if found.get(1).is_none() {
+            depth += 1;
+        }
+    }
+    xml.len()
+}
+
+/// The paragraphs (`true`) and tables (`false`) directly in a Word body or cell, in order (Electron `wordChildren`).
+fn word_children(xml: &str) -> Vec<(bool, &str)> {
+    let pattern = pattern!(r"<w:(tbl|p)\b[^>]*?(/)?>");
+    let mut children = Vec::new();
+    let mut at = 0;
+    while let Some(found) = pattern.captures_at(xml, at) {
+        let whole = found.get(0).expect("a match");
+        at = whole.end();
+        if found.get(2).is_some() {
+            continue;
+        }
+        let kind = &found[1];
+        let end = closing_at(xml, &format!("w:{kind}"), at);
+        children.push((kind == "p", &xml[whole.start()..end]));
+        at = end;
+    }
+    children
+}
+
+/// A Word paragraph's words (Electron `wordParagraphText`): its runs' text, tabs and breaks; deleted text and field
+/// codes left out. The empty run `<w:t/>` is matched first, so it never swallows the XML up to the next `</w:t>`.
+fn word_paragraph_text(paragraph: &str) -> String {
+    let runs = pattern!(r"(?s)<w:pPr\b.*?</w:pPr>").replace_all(paragraph, "");
+    let mut text = String::new();
+    for found in pattern!(r"(?s)<w:t\b[^>]*/>|<w:t\b[^>]*>(.*?)</w:t>|<w:(tab|br|cr)\b[^>]*/>").captures_iter(&runs) {
+        match found.get(2).map(|m| m.as_str()) {
+            Some("tab") => text.push('\t'),
+            Some(_) => text.push('\n'),
+            None => text.push_str(&decode_xml(found.get(1).map_or("", |m| m.as_str()))),
+        }
+    }
+    text.trim().to_owned()
+}
+
+fn word_table(table: &str) -> Vec<Vec<String>> {
+    pattern!(r"(?s)<w:tr\b.*?</w:tr>")
+        .find_iter(table)
+        .map(|row| {
+            pattern!(r"(?s)<w:tc\b.*?</w:tc>")
+                .find_iter(row.as_str())
+                .map(|cell| {
+                    let words: Vec<String> = word_children(cell.as_str())
+                        .into_iter()
+                        .filter(|(paragraph, _)| *paragraph)
+                        .map(|(_, xml)| word_paragraph_text(xml))
+                        .filter(|t| !t.is_empty())
+                        .collect();
+                    document_text(&words.join(" "))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// A table, bounded; a cut is said in the paragraph after it (Electron `tableBlocks`).
+fn table_blocks(rows: Vec<Vec<String>>) -> Vec<DocumentBlock> {
+    if rows.is_empty() {
+        return Vec::new();
+    }
+    let total = rows.len();
+    let widest = rows.iter().map(Vec::len).max().unwrap_or(0);
+    let kept = rows
+        .into_iter()
+        .take(MAX_DOCUMENT_TABLE_ROWS)
+        .map(|row| row.into_iter().take(MAX_DOCUMENT_TABLE_COLUMNS).collect())
+        .collect();
+    let mut blocks = vec![DocumentBlock::Table { rows: kept }];
+    if total > MAX_DOCUMENT_TABLE_ROWS || widest > MAX_DOCUMENT_TABLE_COLUMNS {
+        blocks.push(DocumentBlock::Paragraph {
+            text: format!(
+                "(This table has {total} rows and {widest} columns; the first {} rows and {} columns are shown.)",
+                total.min(MAX_DOCUMENT_TABLE_ROWS),
+                widest.min(MAX_DOCUMENT_TABLE_COLUMNS)
+            ),
+        });
+    }
+    blocks
+}
+
+fn bounded(kind: DocumentKind, mut blocks: Vec<DocumentBlock>) -> OfficeDocument {
+    let more = blocks.len().saturating_sub(MAX_DOCUMENT_BLOCKS);
+    blocks.truncate(MAX_DOCUMENT_BLOCKS);
+    OfficeDocument { kind, blocks, more }
+}
+
+/// A Word document's headings, paragraphs, list items and tables (Electron `readDocx`), or a sentence for the person.
+pub(crate) fn read_docx(bytes: &[u8]) -> Result<OfficeDocument, String> {
+    let mut zip = open_zip(bytes, WORD)?;
+    let Some(xml) = part_text(&mut zip, "word/document.xml", WORD)? else {
+        return Err(format!("That file is not a {WORD} Locust can read."));
+    };
+    let body = pattern!(r"(?s)<w:body\b[^>]*>(.*)</w:body>").captures(&xml).map_or("", |c| c.get(1).map_or("", |m| m.as_str()));
+    let mut blocks = Vec::new();
+    for (paragraph, child) in word_children(body) {
+        if blocks.len() > MAX_DOCUMENT_BLOCKS {
+            break;
+        }
+        if !paragraph {
+            blocks.extend(table_blocks(word_table(child)));
+            continue;
+        }
+        let text = word_paragraph_text(child);
+        if text.is_empty() {
+            continue;
+        }
+        let properties = pattern!(r"(?s)<w:pPr\b.*?</w:pPr>").find(child).map_or("", |m| m.as_str());
+        let value_of = |element: &regex::Regex| {
+            element.captures(properties).and_then(|c| attribute(c.get(1).map_or("", |m| m.as_str()), "val"))
+        };
+        let style = value_of(pattern!(r"<w:pStyle\b([^>]*?)/?>")).unwrap_or_default();
+        let outline = value_of(pattern!(r"<w:outlineLvl\b([^>]*?)/?>"));
+        let heading_level: Option<f64> = if style.eq_ignore_ascii_case("title") {
+            Some(1.0)
+        } else if let Some(digit) = pattern!(r"(?i)^heading(\d)$").captures(&style) {
+            digit[1].parse().ok()
+        } else {
+            outline.map(|o| o.trim().parse::<f64>().map_or(f64::NAN, |n| n + 1.0))
+        };
+        if let Some(level) = heading_level.filter(|l| l.is_finite()) {
+            blocks.push(DocumentBlock::Heading { level: level.clamp(1.0, 3.0) as usize, text: document_text(&text) });
+        } else if pattern!(r"<w:numPr\b").is_match(properties)
+            || pattern!(r"(?i)^List(Bullet|Number|Paragraph|Continue)\d*$").is_match(&style)
+        {
+            // A list item by its own numbering, or by its style: python-docx's "List Bullet 2" carries its bullet in
+            // the style, not the paragraph.
+            let level = value_of(pattern!(r"<w:ilvl\b([^>]*?)/?>")).unwrap_or_else(|| {
+                let last: f64 = pattern!(r"(\d)$").captures(&style).map_or(1.0, |c| c[1].parse().unwrap_or(1.0));
+                (last - 1.0).max(0.0).to_string()
+            });
+            let depth = level.trim().parse::<f64>().ok().filter(|d| d.is_finite()).map_or(0, |d| d.clamp(0.0, 4.0) as usize);
+            blocks.push(DocumentBlock::Item { depth, text: document_text(&text) });
+        } else {
+            blocks.push(DocumentBlock::Paragraph { text: document_text(&text) });
+        }
+    }
+    Ok(bounded(DocumentKind::Word, blocks))
+}
+
+/// A PowerPoint paragraph's words: runs and line breaks (Electron `slideParagraphText`).
+fn slide_paragraph_text(paragraph: &str) -> String {
+    let mut text = String::new();
+    for found in pattern!(r"(?s)<a:t\b[^>]*/>|<a:t\b[^>]*>(.*?)</a:t>|<a:br\b[^>]*/?>").captures_iter(paragraph) {
+        if found[0].starts_with("<a:t") {
+            text.push_str(&decode_xml(found.get(1).map_or("", |m| m.as_str())));
+        } else {
+            text.push(' ');
+        }
+    }
+    pattern!(r"\s+").replace_all(&text, " ").trim().to_owned()
+}
+
+/// A deck's slides, in the deck's order: each one's title, then its text and tables (Electron `readPptx`).
+pub(crate) fn read_pptx(bytes: &[u8]) -> Result<OfficeDocument, String> {
+    let mut zip = open_zip(bytes, SLIDES)?;
+    let Some(presentation) = part_text(&mut zip, "ppt/presentation.xml", SLIDES)? else {
+        return Err(format!("That file is not a {SLIDES} Locust can read."));
+    };
+    let rels = part_text(&mut zip, "ppt/_rels/presentation.xml.rels", SLIDES)?.unwrap_or_default();
+    let mut targets = std::collections::HashMap::new();
+    for found in pattern!(r"<(?:\w+:)?Relationship\b([^>]*?)/?>").captures_iter(&rels) {
+        let attributes = found.get(1).map_or("", |m| m.as_str());
+        if let (Some(id), Some(target)) = (attribute(attributes, "Id"), attribute(attributes, "Target")) {
+            let target = match target.strip_prefix('/') {
+                Some(rooted) => rooted.to_owned(),
+                None => format!("ppt/{target}"),
+            };
+            targets.insert(id, target);
+        }
+    }
+    let order: Vec<Option<String>> = pattern!(r"<p:sldId\b([^>]*?)/?>")
+        .captures_iter(&presentation)
+        .map(|found| pattern!(r#"\br:id="([^"]*)""#).captures(found.get(1).map_or("", |m| m.as_str())).map(|c| c[1].to_owned()))
+        .collect();
+    let mut blocks = Vec::new();
+    for (index, id) in order.iter().enumerate() {
+        if blocks.len() > MAX_DOCUMENT_BLOCKS {
+            break;
+        }
+        let xml = match id.as_ref().and_then(|id| targets.get(id)) {
+            Some(target) => part_text(&mut zip, target, SLIDES)?.unwrap_or_default(),
+            None => String::new(),
+        };
+        let mut title: Option<String> = None;
+        let mut inside = Vec::new();
+        for shape in pattern!(r"(?s)<p:sp\b.*?</p:sp>|<p:graphicFrame\b.*?</p:graphicFrame>").find_iter(&xml) {
+            let part = shape.as_str();
+            let paragraphs_of = |xml: &str| pattern!(r"(?s)<a:p\b.*?</a:p>").find_iter(xml).map(|p| p.as_str().to_owned()).collect::<Vec<_>>();
+            if part.starts_with("<p:graphicFrame") {
+                let rows = pattern!(r"(?s)<a:tr\b.*?</a:tr>")
+                    .find_iter(part)
+                    .map(|row| {
+                        pattern!(r"(?s)<a:tc\b.*?</a:tc>")
+                            .find_iter(row.as_str())
+                            .map(|cell| {
+                                let words: Vec<String> = paragraphs_of(cell.as_str())
+                                    .iter()
+                                    .map(|p| slide_paragraph_text(p))
+                                    .filter(|t| !t.is_empty())
+                                    .collect();
+                                document_text(&words.join(" "))
+                            })
+                            .collect()
+                    })
+                    .collect();
+                inside.extend(table_blocks(rows));
+                continue;
+            }
+            let kind = pattern!(r"<p:ph\b([^>]*?)/?>")
+                .captures(part)
+                .map(|ph| attribute(ph.get(1).map_or("", |m| m.as_str()), "type").unwrap_or_else(|| "body".to_owned()));
+            // The slide number, date and footer say nothing a reader needs.
+            if matches!(kind.as_deref(), Some("sldNum" | "dt" | "ftr")) {
+                continue;
+            }
+            let paragraphs: Vec<(String, f64)> = paragraphs_of(part)
+                .iter()
+                .map(|p| {
+                    let depth = pattern!(r"<a:pPr\b([^>]*?)/?>")
+                        .captures(p)
+                        .and_then(|c| attribute(c.get(1).map_or("", |m| m.as_str()), "lvl"))
+                        .unwrap_or_else(|| "0".to_owned());
+                    (slide_paragraph_text(p), depth.trim().parse::<f64>().unwrap_or(f64::NAN))
+                })
+                .filter(|(text, _)| !text.is_empty())
+                .collect();
+            if matches!(kind.as_deref(), Some("title" | "ctrTitle")) {
+                if title.is_none() && !paragraphs.is_empty() {
+                    title = Some(document_text(&paragraphs.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>().join(" ")));
+                }
+                continue;
+            }
+            for (text, depth) in paragraphs {
+                inside.push(if matches!(kind.as_deref(), Some("body" | "obj")) {
+                    let depth = if depth.is_finite() { depth.clamp(0.0, 4.0) as usize } else { 0 };
+                    DocumentBlock::Item { depth, text: document_text(&text) }
+                } else {
+                    DocumentBlock::Paragraph { text: document_text(&text) }
+                });
+            }
+        }
+        blocks.push(DocumentBlock::Slide { number: index + 1, title });
+        blocks.extend(inside);
+    }
+    Ok(bounded(DocumentKind::Slides, blocks))
+}
+
+/// Read a `.docx` or `.pptx` from bytes into structured blocks, the way Electron's `office-text.ts` does.
 pub fn read_office(bytes: &[u8], kind: &str) -> Result<OfficeDocument, String> {
     if bytes.len() as u64 > MAX_OFFICE_FILE_BYTES {
         return Err("That document is too large to show here.".into());
     }
-    let mut zip = zip::ZipArchive::new(Cursor::new(bytes))
-        .map_err(|_| format!("That file is not a {kind} Locust can read."))?;
-    let mut blocks = Vec::new();
-    let mut more = 0usize;
     match kind {
-        "docx" => {
-            let xml = zip_text(&mut zip, "word/document.xml")?;
-            push_docx_blocks(&xml, &mut blocks, &mut more);
-        }
-        "pptx" => {
-            let mut slide_names: Vec<String> = zip
-                .file_names()
-                .filter(|n| n.starts_with("ppt/slides/slide") && n.ends_with(".xml"))
-                .map(str::to_owned)
-                .collect();
-            slide_names.sort();
-            for (i, name) in slide_names.iter().enumerate() {
-                if blocks.len() > 400 {
-                    more += 1;
-                    continue;
-                }
-                let xml = zip_text(&mut zip, name)?;
-                let title = first_text_run(&xml);
-                blocks.push(DocumentBlock::Slide {
-                    number: i + 1,
-                    title: title.filter(|t| !t.is_empty()),
-                });
-                for para in text_runs(&xml) {
-                    if !para.trim().is_empty() {
-                        blocks.push(DocumentBlock::Paragraph { text: para });
-                    }
-                }
-            }
-        }
-        _ => return Err("Not an office document Locust reads.".into()),
+        "docx" => read_docx(bytes),
+        "pptx" => read_pptx(bytes),
+        _ => Err("Not an office document Locust reads.".into()),
     }
-    Ok(OfficeDocument { blocks, more })
-}
-
-fn zip_text(zip: &mut zip::ZipArchive<Cursor<&[u8]>>, name: &str) -> Result<String, String> {
-    let mut file = zip
-        .by_name(name)
-        .map_err(|_| "That document is damaged.".to_string())?;
-    if file.size() > 24 * 1024 * 1024 {
-        return Err("That document is too large to show here.".into());
-    }
-    let mut buf = String::new();
-    file.read_to_string(&mut buf)
-        .map_err(|_| "That document is damaged.".to_string())?;
-    Ok(buf)
-}
-
-fn push_docx_blocks(xml: &str, blocks: &mut Vec<DocumentBlock>, more: &mut usize) {
-    for para in xml.split("<w:p").skip(1) {
-        if blocks.len() > 400 {
-            *more += 1;
-            continue;
-        }
-        let text = text_runs(&format!("<w:p{para}")).join("");
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if para.contains("w:pStyle") && para.contains("Heading") {
-            let level = if para.contains("Heading1") {
-                1
-            } else if para.contains("Heading2") {
-                2
-            } else {
-                3
-            };
-            blocks.push(DocumentBlock::Heading {
-                level,
-                text: trimmed.to_owned(),
-            });
-        } else if para.contains("w:numPr") {
-            blocks.push(DocumentBlock::Item {
-                depth: 0,
-                text: trimmed.to_owned(),
-            });
-        } else {
-            blocks.push(DocumentBlock::Paragraph {
-                text: trimmed.to_owned(),
-            });
-        }
-    }
-}
-
-fn text_runs(xml: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut rest = xml;
-    while let Some(start) = rest.find("<w:t") {
-        let after = &rest[start..];
-        let Some(gt) = after.find('>') else { break };
-        let content = &after[gt + 1..];
-        let Some(end) = content.find("</w:t>") else { break };
-        out.push(content[..end].to_owned());
-        rest = &content[end + 6..];
-    }
-    // pptx uses a:t
-    if out.is_empty() {
-        rest = xml;
-        while let Some(start) = rest.find("<a:t") {
-            let after = &rest[start..];
-            let Some(gt) = after.find('>') else { break };
-            let content = &after[gt + 1..];
-            let Some(end) = content.find("</a:t>") else { break };
-            out.push(content[..end].to_owned());
-            rest = &content[end + 6..];
-        }
-    }
-    out
-}
-
-fn first_text_run(xml: &str) -> Option<String> {
-    text_runs(xml).into_iter().find(|t| !t.trim().is_empty())
 }
 
 /// A zip part may inflate to at most this (Electron `xlsx.ts` `MAX_PART_BYTES`): a zip bomb stops here, not in memory.
@@ -791,6 +1053,10 @@ fn office_files(folder: &Path) -> Vec<String> {
 mod a_workbook_is_read_for_its_cells_tests;
 
 #[cfg(test)]
+#[path = "an_office_file_is_read_for_its_words_tests.rs"]
+mod an_office_file_is_read_for_its_words_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -818,6 +1084,7 @@ mod tests {
                 },
             ],
             more: 2,
+            kind: DocumentKind::Word,
         };
         let words = document_words("Brief.docx", &doc);
         assert!(words.starts_with("Words of Brief.docx, read by Locust."));

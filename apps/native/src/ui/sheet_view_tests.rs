@@ -314,3 +314,18 @@ fn a_csv_sheet_is_named_for_its_file() {
     let rt = opened(&dir.0, "empty.csv");
     assert!(texts(&rt).iter().any(|t| t == "empty.csv is empty."), "{:?}", texts(&rt));
 }
+
+// A Word document and a deck open in the viewer as their words (Electron `office-text.ts` read by the text channel,
+// written as `documentWords` writes them), from the fixtures Electron's own test reads.
+#[test]
+fn a_word_document_and_a_deck_open_as_their_words() {
+    let dir = temp("office");
+    std::fs::write(dir.0.join("report.docx"), include_bytes!("../../../desktop/test/documents/report-python-docx.docx")).unwrap();
+    std::fs::write(dir.0.join("deck.pptx"), include_bytes!("../../../desktop/test/documents/deck-python-pptx.pptx")).unwrap();
+    let words = |path: &str| opened(&dir.0, path).state.file_view.clone().map(|(_, body)| body);
+    let report = words("report.docx").expect("opened").expect("read");
+    assert!(report.starts_with("Words of report.docx, read by Locust."), "{report}");
+    assert!(report.contains("# Quarterly Report") && report.contains("  - One of them in support"), "{report}");
+    let deck = words("deck.pptx").expect("opened").expect("read");
+    assert!(deck.contains("## Slide 1: Launch Plan") && deck.contains("| Users | 1,200 |"), "{deck}");
+}
