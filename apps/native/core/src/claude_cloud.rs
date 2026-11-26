@@ -765,6 +765,12 @@ impl<'a> ClaudeCloud<'a> {
             .collect()
     }
 
+    /// Every session sent from any folder, newest first: what the door's list_conversations shows (`list` is one
+    /// folder's).
+    pub fn all(&self) -> Vec<ClaudeCloudSession> {
+        self.read_sessions()
+    }
+
     /// `claude --teleport <id>` in the session's folder. Claude Code refuses a folder with changes in it, so this
     /// says so first rather than opening a window that only refuses.
     pub fn home(&self, id: &str) -> CloudSendResult {

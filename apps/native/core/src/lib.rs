@@ -158,6 +158,7 @@ pub mod disk_observation;
 pub mod cli_client;
 pub mod cli_sessions;
 pub mod door;
+pub mod door_cloud;
 pub mod door_tools;
 pub mod door_routines;
 pub mod edit_check;
