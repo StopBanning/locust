@@ -557,6 +557,13 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
         }
         rows = rows.child(card);
     }
+    // ActivityCard.tsx `revealNotice`: a Show the host refused says why under the rows, in the host's words; a Show that
+    // works needs none (the file manager comes to the front). Only a refusal one of these rows asked for is theirs.
+    if let Some((err_scope, err)) = &s.handed_file_refusal
+        && files.iter().any(|entry| *err_scope == format!("{scope}/{}", entry.key))
+    {
+        rows = rows.child(text(err.clone()).font(type_::LABEL).color(p.amber).key(format!("{err_scope}/notice")).w_full().wrap_anywhere());
+    }
     rows
 }
 

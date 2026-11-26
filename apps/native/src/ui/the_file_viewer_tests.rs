@@ -4,7 +4,8 @@
 //! verbatim in its own scroll box, interprets nothing, and offers no way to hand the file to the system: Show it in
 //! the file manager and Save a copy, and the register saying why there is no open button. The thread's file rows
 //! (`activity_drawers::activity_item`) offer to open a file a turn touched where a viewer can (a conversation with a
-//! folder), and only reveal where nothing can. The versions of a file across turns are the Changes panel's strip
+//! folder), and only reveal where nothing can; a Show the host refused says why under the rows (ActivityCard.tsx
+//! `revealNotice`), and a Show that works says nothing. The versions of a file across turns are the Changes panel's strip
 //! (`changes_panel::version_strip`): see `file_versions_strip_tests.rs` for those five cases.
 //! Expected words are Electron's (FileViewer.tsx, ActivityCard.tsx and the test).
 use super::*;
@@ -125,12 +126,17 @@ thread_local! {
 
 /// An edit of docs/report.md drawn as the thread draws it, in a conversation with `folder` (a viewer beside it) or none.
 fn fold(folder: Option<&str>) -> rune::Runtime<State> {
+    fold_of(folder, PATCH)
+}
+
+/// An edit, its change `patch`, drawn as the thread draws it, in a conversation with `folder` or none.
+fn fold_of(folder: Option<&str>, patch: &str) -> rune::Runtime<State> {
     let item = ledger::Item::Tool {
         name: "edit".into(),
         summary: String::new(),
         detail: Box::new(ledger::ToolDetail {
             id: "c1".into(),
-            patch: Some(locust_core::activity_entries::Patch { text: PATCH.into(), added: 1, removed: 0, truncated: false }),
+            patch: Some(locust_core::activity_entries::Patch { text: patch.into(), added: 1, removed: 0, truncated: false }),
             ..Default::default()
         }),
         status: ledger::Status::Done,
@@ -183,4 +189,45 @@ fn says_a_refusal_it_gave_for_its_own_file_and_not_another_scopes() {
     };
     assert!(said_with("file-reader").contains("Locust will not show a file outside the folder."));
     assert!(!said_with("conv/t1/file/0").contains("Locust will not show a file outside the folder."), "a refusal on a thread's file row is not the viewer's");
+}
+
+// Lane check: Electron's fold says why the host refused a Show (ActivityCard.tsx `revealNotice`, drawn under the rows as
+// `lc-filerow__notice`, in the words index.ts's WORKSPACE_REVEAL_CHANNEL answers with); a Show that works says nothing.
+
+/// The element keyed `key`, pressed.
+fn press<T: 'static>(rt: &mut rune::Runtime<T>, key: &str) {
+    let (x, y) = rt.find(key).expect("drawn");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.016);
+}
+
+#[test]
+fn says_why_the_host_would_not_show_a_file_under_the_rows() {
+    // A file outside the conversation's folder that no teammate wrote or handed over: the host refuses to show it.
+    let outside = "--- /elsewhere/notes.md\n+++ /elsewhere/notes.md\n@@ -1 +1,2 @@\n first line\n+second line";
+    let mut rt = fold_of(Some("/work"), outside);
+    let reveal = keys(&rt).into_iter().find(|k| k.ends_with("/reveal")).expect("a Show control");
+    assert!(!keys(&rt).iter().any(|k| k.ends_with("/notice")), "nothing is said before a Show is refused");
+    press(&mut rt, &reveal);
+    let electron = "That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will not open it.";
+    assert!(said(&rt).contains(electron), "{}", said(&rt));
+    // Under the rows, keyed by the row that asked.
+    let row = reveal.trim_end_matches("/reveal");
+    assert!(keys(&rt).iter().any(|k| *k == format!("{row}/notice")), "{:?}", keys(&rt));
+}
+
+#[test]
+fn says_only_a_refusal_one_of_its_own_rows_asked_for() {
+    let said_with = |scope: &str| {
+        let mut rt = fold(Some("/work"));
+        rt.update(|s, _| s.handed_file_refusal = Some((scope.to_owned(), "That file is not there. The teammate named it but did not write it.".into())));
+        rt.frame(0.016);
+        said(&rt)
+    };
+    // The row's own key is its fold scope and its entry key (`conv/c1/file/0`), as its Show control is keyed.
+    let row = keys(&fold(Some("/work"))).into_iter().find(|k| k.ends_with("/reveal")).expect("a Show control").trim_end_matches("/reveal").to_owned();
+    assert!(said_with(&row).contains("That file is not there. The teammate named it but did not write it."));
+    assert!(!said_with("file-reader").contains("That file is not there."), "the viewer's refusal is not the fold's");
+    assert!(!said_with("conv/c2/file/0").contains("That file is not there."), "another fold's row's refusal is not this one's");
 }
