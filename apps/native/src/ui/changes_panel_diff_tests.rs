@@ -311,3 +311,61 @@ fn an_activity_drawers_cut_change_says_what_the_runtime_counted_in_all() {
     let said = texts(&rt);
     assert!(said.iter().any(|t| t.ends_with("the runtime counted +300 −40 in all")), "{said:?}");
 }
+
+// ---- the other places DiffView is drawn (DiffView.tsx's foot: Copy, and what the runtime counted in all) ----
+
+fn copy_buttons(rt: &rune::Runtime<State>) -> usize {
+    rt.elements().iter().filter(|e| e.label.as_deref().is_some_and(|l| l.starts_with("Copy"))).count()
+}
+
+#[test]
+fn the_approval_card_offers_copy_of_the_new_code_at_the_foot_of_a_change_and_none_for_a_deleted_file() {
+    // DiffView.tsx: `after !== undefined && <CopyButton ...>`; afterText has nothing for a file that is gone.
+    let changed = approval_with("--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n", false, 1, 1);
+    assert_eq!(copy_buttons(&changed), 1, "{:?}", texts(&changed));
+    let deleted = approval_with("--- a/x\n+++ /dev/null\n@@ -1 +0,0 @@\n-a\n", false, 0, 1);
+    assert_eq!(copy_buttons(&deleted), 0, "{:?}", texts(&deleted));
+}
+
+/// A new file's activity row, opened and set to "Show the change" (`as_change`), its patch cut with the runtime
+/// having counted +300 −40 across the whole change.
+fn new_file_shown_as_its_change(path: &str) -> Vec<String> {
+    let item = locust_core::ledger::Item::Tool {
+        name: "write".into(),
+        summary: "x".into(),
+        detail: Box::new(locust_core::ledger::ToolDetail {
+            id: "t1".into(),
+            finished: true,
+            observed_edit: true,
+            patch: Some(locust_core::activity_entries::Patch {
+                text: format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1 @@\n+hello\n"),
+                added: 300,
+                removed: 40,
+                truncated: true,
+            }),
+            ..Default::default()
+        }),
+        status: locust_core::ledger::Status::Done,
+    };
+    DRAWN_ITEMS.with(|items| *items.borrow_mut() = vec![item]);
+    let mut rt = drawn_with(|s, _| DRAWN_ITEMS.with(|items| crate::activity_drawers::activity_group(&items.borrow(), &Palette::new(true), s, "conv")));
+    rt.update(|s, _| {
+        s.activity_open.insert("conv/group/t1".into(), true);
+        s.activity_open.insert("conv/t1/file/0".into(), true);
+        s.activity_open.insert("conv/t1/file/0/as-change".into(), true);
+    });
+    rt.frame(0.016);
+    texts(&rt)
+}
+
+#[test]
+fn a_new_documents_change_in_the_activity_drawer_says_what_the_runtime_counted_in_all() {
+    let said = new_file_shown_as_its_change("notes.md");
+    assert!(said.iter().any(|t| t.ends_with("the runtime counted +300 −40 in all")), "{said:?}");
+}
+
+#[test]
+fn a_new_pages_change_in_the_activity_drawer_says_what_the_runtime_counted_in_all() {
+    let said = new_file_shown_as_its_change("index.html");
+    assert!(said.iter().any(|t| t.ends_with("the runtime counted +300 −40 in all")), "{said:?}");
+}
