@@ -79,7 +79,7 @@ rather than behaviour. The milestones above stay; the work towards them now runs
 | B. Carry a day | Checks generated from the TypeScript (every agent's command, every event stream, ledger views); the door served by Rust; hand-over and carry-on; every agent in every mode with the command guard as a hook; models and limits; notifications and the folder picker; then the native engine by default | Colin works a day in it with Electron quit |
 | C. Look like Locust | rune-kit's components, Locust's colours, type, icons, logo, agent marks and faces; picture pairs against Electron | Each main screen matches its Electron picture |
 | D. The rest of the map | The remaining rows, with overlapping features simplified in Electron first | No row missing |
-| E. Ship | Windows and Linux, the updater, moving the data folder, the switch | M7 |
+| E. Ship | Mac first (Colin, 23 Nov): the updater, re-seeding his data folder (Colin, 25 Nov), the switch on his Mac; Windows and Linux stay on Electron until then and move after (`later-platform` rows) | M7 |
 
 Known gaps the review found, now in the rows: OpenCode's command guard is still the JavaScript plugin; Claude Code has
 no skill or reference folders, forks or connectors; there is no notification on the native

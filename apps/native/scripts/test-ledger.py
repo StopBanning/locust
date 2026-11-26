@@ -8,7 +8,8 @@ PATH is an Electron checkout (default: $LOCUST_ELECTRON_CHECKOUT, else the repos
 are *.test.ts, *.test.tsx and *.test.mjs under apps/ and packages/, leaving out node_modules, dist, out and this app.
 
 Columns: file, round (the notes file that names it), status, rust (the Rust tests that carry it), note.
-Status: carried (every assertion has a Rust test), partial (some do), does-not-apply (the note says why), waiting
+Status: carried (every assertion has a Rust test), partial (some do), does-not-apply (the note says why),
+later-platform (Windows or Linux behaviour, ported when those platforms move off Electron; Mac first, 23 Nov), waiting
 (not ported yet). A file is carried only where its note plainly says so.
 """
 
@@ -19,7 +20,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 LEDGER = HERE / "parity" / "tests.tsv"
 FIELDS = ["file", "round", "status", "rust", "note"]
-STATUSES = ("carried", "partial", "does-not-apply", "waiting")
+STATUSES = ("carried", "partial", "does-not-apply", "later-platform", "waiting")
 SKIP = {"node_modules", "dist", "out"}
 SUFFIXES = (".test.ts", ".test.tsx", ".test.mjs")
 
@@ -57,6 +58,8 @@ def read_ledger():
             bad.append(f"tests.tsv:{n}: status must be one of {', '.join(STATUSES)}")
         if row["status"] == "does-not-apply" and not row["note"]:
             bad.append(f"tests.tsv:{n}: say why {row['file']} does not apply")
+        if row["status"] == "later-platform" and not row["note"]:
+            bad.append(f"tests.tsv:{n}: say which platform {row['file']} waits for")
         if row["status"] == "carried" and not row["rust"]:
             bad.append(f"tests.tsv:{n}: name the Rust tests that carry {row['file']}")
         if row["file"] in rows:
