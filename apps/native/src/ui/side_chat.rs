@@ -376,25 +376,28 @@ fn apply_waiting_approvals(side: &mut SideChatState, raw_waiting: Vec<Request>) 
     false
 }
 
+/// What the side chat's header icon is called and says on hover: Electron's "Ask on the side" (App.tsx `headerActions`,
+/// SideChat.tsx `aria-label`) and what the panel says it asks (SideChat.tsx `{model} · a copy of this conversation`).
+const ASK_ON_THE_SIDE: &str = "Ask on the side";
+const ASK_ON_THE_SIDE_TIP: &str = "Ask on the side · a copy of this conversation";
+
 pub(super) fn header_button(s: &State, p: &Palette) -> Option<El> {
     if !can_open_for_state(s) {
         return None;
     }
+    Some(side_icon(s.side_chat.is_some(), p))
+}
+
+/// The header's own icon button (`.lc-headicon`, as Changes, Browser and More actions are drawn beside it): the
+/// muted glyph on nothing, the header's hover wash under the pointer, pressed while the side chat is open, and its
+/// words in the tooltip rather than on its face.
+fn side_icon(active: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    let active = s.side_chat.is_some();
-    Some(
-        el().key("ask-on-side-button")
-            .px(10.0)
-            .py(5.0)
-            .radius(l.t.px("radius-control"))
-            .fill(if active { l.c("bg-selected") } else { l.c("bg-control") })
-            .border(1.0, l.c("border-strong"))
-            .hover(l.c("bg-selected"))
-            .child(text("Ask on the side").font(l.ty.label).color(l.c("text-primary")))
-            .role("button")
-            .label("Ask on the side")
-            .on_press_tx(|s: &mut State, tx| open_from_state(s, tx)),
-    )
+    crate::look::controls::head_toggle(&crate::look::icons::MESSAGE, ASK_ON_THE_SIDE, ASK_ON_THE_SIDE_TIP, active, None)
+        .on_press_tx(|s: &mut State, tx| open_from_state(s, tx))
+        .build(l.k)
+        .key("ask-on-side-button")
+        .checked(active)
 }
 
 pub(super) fn selection_ask_chip(s: &State, p: &Palette) -> Option<El> {
@@ -773,6 +776,95 @@ mod tests {
         let texts = elems.iter().filter_map(|e| e.text.clone()).collect();
         let labels = elems.iter().map(|e| e.label.clone()).collect();
         (texts, labels)
+    }
+
+    fn info(rt: &Runtime<State>, key: &str) -> rune::ElementInfo {
+        rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).unwrap_or_else(|| panic!("no {key}"))
+    }
+
+    /// A Claude Code teammate's conversation is shown: a runtime that can copy its session, and a turn to copy.
+    fn forkable() -> State {
+        let mut s = State::default();
+        let mut teammate = sample_side("completed", Vec::new()).teammate;
+        teammate.id = "tm_codec".into();
+        s.teammates = vec![teammate];
+        s.selected = 0;
+        s.conversations.insert("tm_codec".into(), Conversation { conversation_id: Some("m_1".into()), turns: Vec::new() });
+        s
+    }
+
+    /// The side chat's header button beside the Browser toggle, another of the header's icons, as thread_view.rs
+    /// lays out the header's actions.
+    fn header_pair() -> Runtime<State> {
+        let mut rt = Runtime::new(
+            forkable(),
+            |s, _| {
+                let p = Palette::new(true);
+                rune::row().pt(40.0).px(40.0).gap(4.0).child(crate::browser_panel::toggle(s, &p)).children(header_button(s, &p))
+            },
+            (400.0, 200.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt
+    }
+
+    /// `frame` takes the clock: forty frames from `from` seconds, long enough for a hover to finish washing in.
+    fn settle(rt: &mut Runtime<State>, from: f64) {
+        for i in 0..40 {
+            rt.frame(from + f64::from(i) * 0.016);
+        }
+    }
+
+    // App.tsx: offered only where the conversation's runtime can copy its session and there is a turn to copy.
+    #[test]
+    fn ask_on_the_side_is_offered_only_for_a_conversation_it_can_copy() {
+        let p = Palette::new(true);
+        assert!(header_button(&forkable(), &p).is_some());
+        assert!(header_button(&State::default(), &p).is_none());
+    }
+
+    // App.tsx header `.lc-headicon` + SideChat.tsx: "Ask on the side" is a header icon, its words on hover.
+    #[test]
+    fn ask_on_the_side_is_a_keyed_header_icon_named_and_tipped_in_electrons_words() {
+        let rt = header_pair();
+        let button = info(&rt, "ask-on-side-button");
+        assert_eq!(button.role, "button");
+        assert_eq!(button.label.as_deref(), Some("Ask on the side"));
+        assert_eq!(button.help.as_deref(), Some("Ask on the side · a copy of this conversation"));
+        let words: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+        assert!(!words.iter().any(|w| w == "Ask on the side"), "its words are in the tooltip, not on its face: {words:?}");
+        let browser = info(&rt, "browser-toggle");
+        assert_eq!((button.rect[2], button.rect[3]), (browser.rect[2], browser.rect[3]), "the same size as the header's other icons");
+    }
+
+    // shell.css `.lc-headicon { background: transparent }` and `.lc-headicon:hover:not(:disabled) { background:
+    // var(--lc-hover-surface) }`: nothing under it at rest, the header's wash under the pointer, as its neighbours.
+    // (Rune lists an element's resting fill and how far its hover has come, not the wash's colour, so the wash is
+    // judged as the Browser icon's: the same resting fill, corners and size, and the same hover reached.)
+    #[test]
+    fn ask_on_the_side_takes_the_headers_hover_wash() {
+        let mut rt = header_pair();
+        let rest = info(&rt, "ask-on-side-button");
+        assert_eq!(rest.fill.a, 0.0, "transparent at rest, as `.lc-headicon`");
+        assert_eq!(rest.hover, 0.0);
+        let (x, y) = rt.find("ask-on-side-button").unwrap();
+        rt.pointer_move(x, y);
+        settle(&mut rt, 0.1);
+        let hovered = info(&rt, "ask-on-side-button");
+        assert!(hovered.hover > 0.99, "it has a hover state: {}", hovered.hover);
+
+        let (bx, by) = rt.find("browser-toggle").unwrap();
+        rt.pointer_move(bx, by);
+        settle(&mut rt, 0.1);
+        let browser = info(&rt, "browser-toggle");
+        assert!(browser.hover > 0.99);
+        assert!(info(&rt, "ask-on-side-button").hover < 0.01, "the wash leaves with the pointer");
+        assert_eq!(
+            (hovered.fill, hovered.radius, hovered.rect[2], hovered.rect[3]),
+            (browser.fill, browser.radius, browser.rect[2], browser.rect[3]),
+            "drawn as the Browser icon beside it"
+        );
     }
 
     // a-part-of-a-reply-can-be-asked-about.test.tsx
