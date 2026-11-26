@@ -52,7 +52,8 @@ pub fn account_phrase(runtime: &str, model: &str, resolved_route_id: &str) -> St
     if model.to_ascii_lowercase().ends_with("-free") {
         return "none — a free model".into();
     }
-    format!("your {} sign-in", runtime_display_name(runtime))
+    // runtimeDisplayName (shared/runtimes.ts): the agent's full name, "Codex CLI", not the inspector's short one.
+    format!("your {} sign-in", crate::carry_on::display_name(runtime))
 }
 
 /// Exact port of `apps/desktop/src/renderer/src/status.ts` `shortMissionId`.

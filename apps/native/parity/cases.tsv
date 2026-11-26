@@ -1836,7 +1836,7 @@ apps/desktop/src/main/codex-mission.test.ts	lets a Cursor mission edit when aske
 apps/desktop/src/main/codex-mission.test.ts	records nothing when the chosen options cannot be turned into a command	yes
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission on Windows in its ask mode, without the sandbox Windows cannot run	no
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission where the sandbox is real, and asks for it	yes
-apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	no
+apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	yes
 apps/desktop/src/main/codex-mission.test.ts	collapses a burst of records into one durable append	yes
 apps/desktop/src/main/codex-mission.test.ts	still persists every event before any of them is emitted	yes
 apps/desktop/src/main/codex-mission.test.ts	sends a chosen model to the runtime and records it	yes
@@ -1862,7 +1862,7 @@ apps/desktop/src/main/codex-mission.test.ts	runs without the channel when it can
 apps/desktop/src/main/codex-mission.test.ts	posts a share block to the named teammate, attributed to this mission, and links it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a share addressed to someone who is not on the roster, out loud	yes
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a run that did not complete	yes
-apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	no
+apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	yes
 apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a second conversation with the same teammate, and holds a reply to a turn still running (0.551)	no
 apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	yes
@@ -1884,12 +1884,12 @@ apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply
 apps/desktop/src/main/codex-mission.test.ts	refuses the cross-runtime continuation when the record cannot be trusted	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a fresh conversation when nothing is being continued	yes
 apps/desktop/src/main/codex-mission.test.ts	calls onShared with the origin and exactly the messages it posted, after they are recorded (%j)	no
-apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	no
-apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	no
-apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	no
+apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	yes
+apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	yes
+apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	yes
 apps/desktop/src/main/codex-mission.test.ts	a relayed run carries its hop through to what it shares	no
 apps/desktop/src/main/codex-mission.test.ts	adds an observed edit row, after the terminal event, for a file no tool named	yes
-apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	no
+apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	yes
 apps/desktop/src/main/codex-mission.test.ts	does not repeat a file the runtime already named, and never looks on a read-only run	no
 apps/desktop/src/main/codex-mission.test.ts	switches Codex's plan tool on from 0.153, so its plan reaches the panel rather than the reply	yes
 apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	yes
@@ -1912,7 +1912,7 @@ apps/desktop/src/main/codex-mission.test.ts	is still said to have changed on dis
 apps/desktop/src/main/codex-mission.test.ts	says looking, briefing, reading the folder and starting, in that order, and the end writes the note	yes
 apps/desktop/src/main/codex-mission.test.ts	says the runtime is setting itself up when its start will, and times it as the start	no
 apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only start, and says so by leaving the phase out	yes
-apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
+apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	yes
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
 apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	comes back as a reading beside the models, in the words a turn’s reading uses	yes
@@ -6000,34 +6000,34 @@ apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting whil
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting before even that	yes
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Working once the runtime itself has said something	yes
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	draws its word and its quiet sentence from one fact	yes
-apps/desktop/src/renderer/src/status.test.ts	lifts the recently used routes into a group of their own, newest first	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group for a single recent route, which is the one you are on	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group when the whole list is short enough to take in at once	no
-apps/desktop/src/renderer/src/status.test.ts	withholds the group when it would be half the list or more	no
-apps/desktop/src/renderer/src/status.test.ts	never resurrects a route the runtime has stopped offering	no
-apps/desktop/src/renderer/src/status.test.ts	stops at the limit rather than repeating the whole list	no
-apps/desktop/src/renderer/src/status.test.ts	names the mode the teammate actually last ran in	no
-apps/desktop/src/renderer/src/status.test.ts	says a teammate who has never run has no mode yet, rather than inventing one	no
+apps/desktop/src/renderer/src/status.test.ts	lifts the recently used routes into a group of their own, newest first	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group for a single recent route, which is the one you are on	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group when the whole list is short enough to take in at once	yes
+apps/desktop/src/renderer/src/status.test.ts	withholds the group when it would be half the list or more	yes
+apps/desktop/src/renderer/src/status.test.ts	never resurrects a route the runtime has stopped offering	yes
+apps/desktop/src/renderer/src/status.test.ts	stops at the limit rather than repeating the whole list	yes
+apps/desktop/src/renderer/src/status.test.ts	names the mode the teammate actually last ran in	yes
+apps/desktop/src/renderer/src/status.test.ts	says a teammate who has never run has no mode yet, rather than inventing one	yes
 apps/desktop/src/renderer/src/status.test.ts	keeps a run that has a mission id, settled or not	no
 apps/desktop/src/renderer/src/status.test.ts	keeps a run that is still starting, because that is how a teammate reads as working	no
 apps/desktop/src/renderer/src/status.test.ts	drops a refused send, which settled without ever being given a mission id	no
-apps/desktop/src/renderer/src/status.test.ts	never issues ACTIVE or READY for a runtime that is not ready	no
-apps/desktop/src/renderer/src/status.test.ts	marks a ready runtime active only when it is the active one	no
+apps/desktop/src/renderer/src/status.test.ts	never issues ACTIVE or READY for a runtime that is not ready	yes
+apps/desktop/src/renderer/src/status.test.ts	marks a ready runtime active only when it is the active one	yes
 apps/desktop/src/renderer/src/status.test.ts	a runtime whose last run ended on the usage limit says so instead of READY	yes
-apps/desktop/src/renderer/src/status.test.ts	never calls a half-built adapter live, even when its runtime is ready	no
-apps/desktop/src/renderer/src/status.test.ts	keeps a planned runtime non-interactive whatever discovery says	no
-apps/desktop/src/renderer/src/status.test.ts	separates sign-in from missing and from broken	no
+apps/desktop/src/renderer/src/status.test.ts	never calls a half-built adapter live, even when its runtime is ready	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps a planned runtime non-interactive whatever discovery says	yes
+apps/desktop/src/renderer/src/status.test.ts	separates sign-in from missing and from broken	yes
 apps/desktop/src/renderer/src/status.test.ts	counts only usable runtimes as connected	no
 apps/desktop/src/renderer/src/status.test.ts	does not count a runtime this build cannot actually run	no
 apps/desktop/src/renderer/src/status.test.ts	counts a runtime whose adapter is finished but unofficial	no
-apps/desktop/src/renderer/src/status.test.ts	Antigravity through its CLI carries no Experimental tag; through its app it still does (0.541)	no
+apps/desktop/src/renderer/src/status.test.ts	Antigravity through its CLI carries no Experimental tag; through its app it still does (0.541)	yes
 apps/desktop/src/renderer/src/status.test.ts	reports a blocked runtime even while a mission looks like it is running	yes
 apps/desktop/src/renderer/src/status.test.ts	puts a pending approval ahead of working	yes
 apps/desktop/src/renderer/src/status.test.ts	pulses only while working	yes
-apps/desktop/src/renderer/src/status.test.ts	distinguishes every terminal phase	no
-apps/desktop/src/renderer/src/status.test.ts	will not present a completed mission as clean when its ledger is not	no
-apps/desktop/src/renderer/src/status.test.ts	shortens a real mission id rather than inventing a counter	no
-apps/desktop/src/renderer/src/status.test.ts	labels checkpoints from their 1-based epoch	no
+apps/desktop/src/renderer/src/status.test.ts	distinguishes every terminal phase	yes
+apps/desktop/src/renderer/src/status.test.ts	will not present a completed mission as clean when its ledger is not	yes
+apps/desktop/src/renderer/src/status.test.ts	shortens a real mission id rather than inventing a counter	yes
+apps/desktop/src/renderer/src/status.test.ts	labels checkpoints from their 1-based epoch	yes
 apps/desktop/src/renderer/src/status.test.ts	treats usability as needing both the flag and the probe	yes
 apps/desktop/src/renderer/src/status.test.ts	offers a handoff only once the mission has a runId to address	no
 apps/desktop/src/renderer/src/status.test.ts	offers nothing when no mission is running	no
@@ -6035,51 +6035,51 @@ apps/desktop/src/renderer/src/status.test.ts	refuses a second switch while one i
 apps/desktop/src/renderer/src/status.test.ts	says why whenever the control cannot do its job	no
 apps/desktop/src/renderer/src/status.test.ts	decides the face from the same inputs as the label, so the two agree	yes
 apps/desktop/src/renderer/src/status.test.ts	carries every state on the presence dot, so a still face still reads	yes
-apps/desktop/src/renderer/src/status.test.ts	leaves a group that fits exactly as it is, and says nothing about it	no
-apps/desktop/src/renderer/src/status.test.ts	caps a long group and counts every row it is not showing	no
-apps/desktop/src/renderer/src/status.test.ts	keeps the runtimes below a long group reachable	no
-apps/desktop/src/renderer/src/status.test.ts	never hides the route you are on, and still shows the cap	no
-apps/desktop/src/renderer/src/status.test.ts	widens the cap while searching, and still counts what it holds back	no
-apps/desktop/src/renderer/src/status.test.ts	states the count that would go, and names everything held back	no
-apps/desktop/src/renderer/src/status.test.ts	says why nothing would go, rather than just saying nothing	no
-apps/desktop/src/renderer/src/status.test.ts	counts one mission as one	no
+apps/desktop/src/renderer/src/status.test.ts	leaves a group that fits exactly as it is, and says nothing about it	yes
+apps/desktop/src/renderer/src/status.test.ts	caps a long group and counts every row it is not showing	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps the runtimes below a long group reachable	yes
+apps/desktop/src/renderer/src/status.test.ts	never hides the route you are on, and still shows the cap	yes
+apps/desktop/src/renderer/src/status.test.ts	widens the cap while searching, and still counts what it holds back	yes
+apps/desktop/src/renderer/src/status.test.ts	states the count that would go, and names everything held back	yes
+apps/desktop/src/renderer/src/status.test.ts	says why nothing would go, rather than just saying nothing	yes
+apps/desktop/src/renderer/src/status.test.ts	counts one mission as one	yes
 apps/desktop/src/renderer/src/status.test.ts	scales to the largest unit that keeps the number short	no
 apps/desktop/src/renderer/src/status.test.ts	says unknown rather than printing nonsense	no
-apps/desktop/src/renderer/src/status.test.ts	says live only for the runtimes that can own a mission today	no
-apps/desktop/src/renderer/src/status.test.ts	does not claim a runtime the host refuses to run	no
-apps/desktop/src/renderer/src/status.test.ts	treats a runtime it has never heard of as planned, not as live	no
+apps/desktop/src/renderer/src/status.test.ts	says live only for the runtimes that can own a mission today	yes
+apps/desktop/src/renderer/src/status.test.ts	does not claim a runtime the host refuses to run	yes
+apps/desktop/src/renderer/src/status.test.ts	treats a runtime it has never heard of as planned, not as live	yes
 apps/desktop/src/renderer/src/status.test.ts	says ACTIVE only on a row that could actually run	yes
-apps/desktop/src/renderer/src/status.test.ts	does not put ACTIVE on a runtime that is not there	no
+apps/desktop/src/renderer/src/status.test.ts	does not put ACTIVE on a runtime that is not there	yes
 apps/desktop/src/renderer/src/status.test.ts	is idle, not blocked, when something could run	yes
 apps/desktop/src/renderer/src/status.test.ts	is blocked when nothing is signed in at all	yes
 apps/desktop/src/renderer/src/status.test.ts	is judged against the runtime its own mission is on	yes
-apps/desktop/src/renderer/src/status.test.ts	offers Cursor Ask and Plan on Windows too (0.485: its own ask mode holds)	no
-apps/desktop/src/renderer/src/status.test.ts	and where the sandbox exists	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the other runtimes alone on every platform	no
-apps/desktop/src/renderer/src/status.test.ts	offers Plan exactly where Ask is	no
-apps/desktop/src/renderer/src/status.test.ts	keeps per-action approvals to the runtime that can stop and ask	no
-apps/desktop/src/renderer/src/status.test.ts	lets every runtime read and edit	no
-apps/desktop/src/renderer/src/status.test.ts	names the runtime when it says no, so the menu can explain itself	no
-apps/desktop/src/renderer/src/status.test.ts	puts what this person has run first, newest first, inside its own runtime	no
-apps/desktop/src/renderer/src/status.test.ts	never moves a row out of its runtime	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the runtime order alone when nothing has been run	no
-apps/desktop/src/renderer/src/status.test.ts	puts the flagship families above the rest when nothing has been run	no
-apps/desktop/src/renderer/src/status.test.ts	still puts what this person ran above the curated list	no
-apps/desktop/src/renderer/src/status.test.ts	puts a newer flagship family above the one it replaces	no
-apps/desktop/src/renderer/src/status.test.ts	hides nothing: a model on no list is still offered	no
-apps/desktop/src/renderer/src/status.test.ts	matches the words a person can see, whatever the case	no
-apps/desktop/src/renderer/src/status.test.ts	matches an id, so one pasted from a receipt finds its mission	no
-apps/desktop/src/renderer/src/status.test.ts	shows everything when nothing was typed	no
-apps/desktop/src/renderer/src/status.test.ts	shows nothing when nothing matches, rather than everything	no
-apps/desktop/src/renderer/src/status.test.ts	collapses a three-turn exchange into one row	no
-apps/desktop/src/renderer/src/status.test.ts	names the row for what the person typed first, and opens its newest turn	no
-apps/desktop/src/renderer/src/status.test.ts	reads as running while any turn of it is running	no
+apps/desktop/src/renderer/src/status.test.ts	offers Cursor Ask and Plan on Windows too (0.485: its own ask mode holds)	yes
+apps/desktop/src/renderer/src/status.test.ts	and where the sandbox exists	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the other runtimes alone on every platform	yes
+apps/desktop/src/renderer/src/status.test.ts	offers Plan exactly where Ask is	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps per-action approvals to the runtime that can stop and ask	yes
+apps/desktop/src/renderer/src/status.test.ts	lets every runtime read and edit	yes
+apps/desktop/src/renderer/src/status.test.ts	names the runtime when it says no, so the menu can explain itself	yes
+apps/desktop/src/renderer/src/status.test.ts	puts what this person has run first, newest first, inside its own runtime	yes
+apps/desktop/src/renderer/src/status.test.ts	never moves a row out of its runtime	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the runtime order alone when nothing has been run	yes
+apps/desktop/src/renderer/src/status.test.ts	puts the flagship families above the rest when nothing has been run	yes
+apps/desktop/src/renderer/src/status.test.ts	still puts what this person ran above the curated list	yes
+apps/desktop/src/renderer/src/status.test.ts	puts a newer flagship family above the one it replaces	yes
+apps/desktop/src/renderer/src/status.test.ts	hides nothing: a model on no list is still offered	yes
+apps/desktop/src/renderer/src/status.test.ts	matches the words a person can see, whatever the case	yes
+apps/desktop/src/renderer/src/status.test.ts	matches an id, so one pasted from a receipt finds its mission	yes
+apps/desktop/src/renderer/src/status.test.ts	shows everything when nothing was typed	yes
+apps/desktop/src/renderer/src/status.test.ts	shows nothing when nothing matches, rather than everything	yes
+apps/desktop/src/renderer/src/status.test.ts	collapses a three-turn exchange into one row	yes
+apps/desktop/src/renderer/src/status.test.ts	names the row for what the person typed first, and opens its newest turn	yes
+apps/desktop/src/renderer/src/status.test.ts	reads as running while any turn of it is running	yes
 apps/desktop/src/renderer/src/status.test.ts	surfaces an integrity issue from any turn, not just the last	no
-apps/desktop/src/renderer/src/status.test.ts	leaves an ordinary single-run mission exactly as it was	no
-apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separate, in the order they were read	no
+apps/desktop/src/renderer/src/status.test.ts	leaves an ordinary single-run mission exactly as it was	yes
+apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separate, in the order they were read	yes
 apps/desktop/src/renderer/src/status.test.ts	still returns a row when a hand-edited chain has no leaf	no
-apps/desktop/src/renderer/src/status.test.ts	folds the punctuation a CLI spells a model with	no
-apps/desktop/src/renderer/src/status.test.ts	uses a Custom teammate's own title, and the role name for everyone else	no
+apps/desktop/src/renderer/src/status.test.ts	folds the punctuation a CLI spells a model with	yes
+apps/desktop/src/renderer/src/status.test.ts	uses a Custom teammate's own title, and the role name for everyone else	yes
 apps/desktop/src/renderer/src/status.test.ts	turns an effort into the variant it names and sends no effort beside it	no
 apps/desktop/src/renderer/src/status.test.ts	drops an effort the variants do not name rather than refuse the run	no
 apps/desktop/src/renderer/src/status.test.ts	finds the family when the id in hand is one of its variants, not its own id	no
@@ -6087,30 +6087,30 @@ apps/desktop/src/renderer/src/status.test.ts	never sends an effort to a model th
 apps/desktop/src/renderer/src/status.test.ts	sends an OpenCode model only an effort it lists	no
 apps/desktop/src/renderer/src/status.test.ts	still sends an effort for a model the catalogue has never heard of	no
 apps/desktop/src/renderer/src/status.test.ts	sends the effort as itself where the runtime takes it as a flag	no
-apps/desktop/src/renderer/src/status.test.ts	is always offered, whatever the workspace switch says	no
-apps/desktop/src/renderer/src/status.test.ts	is offered on every runtime Locust has a handle on, Antigravity (0.540) and Muse (0.773) included	no
-apps/desktop/src/renderer/src/status.test.ts	is never the mode a route falls back to	no
-apps/desktop/src/renderer/src/status.test.ts	has its own phrase for what a run was allowed	no
-apps/desktop/src/renderer/src/status.test.ts	names the sign-in a run used in words, not by its route id	no
-apps/desktop/src/renderer/src/status.test.ts	says what it allowed, not what it was called	no
+apps/desktop/src/renderer/src/status.test.ts	is always offered, whatever the workspace switch says	yes
+apps/desktop/src/renderer/src/status.test.ts	is offered on every runtime Locust has a handle on, Antigravity (0.540) and Muse (0.773) included	yes
+apps/desktop/src/renderer/src/status.test.ts	is never the mode a route falls back to	yes
+apps/desktop/src/renderer/src/status.test.ts	has its own phrase for what a run was allowed	yes
+apps/desktop/src/renderer/src/status.test.ts	names the sign-in a run used in words, not by its route id	yes
+apps/desktop/src/renderer/src/status.test.ts	says what it allowed, not what it was called	yes
 apps/desktop/src/renderer/src/status.test.ts	follows the mission's owner, so the header and the composer agree	no
 apps/desktop/src/renderer/src/status.test.ts	prefers the run's own owner, which is what the header uses	no
 apps/desktop/src/renderer/src/status.test.ts	addresses nobody for a conversation nobody owns (0.551)	no
-apps/desktop/src/renderer/src/status.test.ts	puts the active row above flagships and everything else	no
-apps/desktop/src/renderer/src/status.test.ts	still beats a recently used row, because it is the one in use now	no
-apps/desktop/src/renderer/src/status.test.ts	leaves the order alone when nothing is active	no
-apps/desktop/src/renderer/src/status.test.ts	prefers medium, the ordinary setting on every runtime here	no
-apps/desktop/src/renderer/src/status.test.ts	takes the middle when there is no medium	no
-apps/desktop/src/renderer/src/status.test.ts	biases upward on a two-level model, as picking medium out of five does	no
-apps/desktop/src/renderer/src/status.test.ts	has nothing to show when the model reports no levels	no
-apps/desktop/src/renderer/src/status.test.ts	carries a chosen level across a model switch that supports it	no
-apps/desktop/src/renderer/src/status.test.ts	falls back to the new model default rather than to nothing	no
-apps/desktop/src/renderer/src/status.test.ts	still shows nothing when the new model reports no levels	no
+apps/desktop/src/renderer/src/status.test.ts	puts the active row above flagships and everything else	yes
+apps/desktop/src/renderer/src/status.test.ts	still beats a recently used row, because it is the one in use now	yes
+apps/desktop/src/renderer/src/status.test.ts	leaves the order alone when nothing is active	yes
+apps/desktop/src/renderer/src/status.test.ts	prefers medium, the ordinary setting on every runtime here	yes
+apps/desktop/src/renderer/src/status.test.ts	takes the middle when there is no medium	yes
+apps/desktop/src/renderer/src/status.test.ts	biases upward on a two-level model, as picking medium out of five does	yes
+apps/desktop/src/renderer/src/status.test.ts	has nothing to show when the model reports no levels	yes
+apps/desktop/src/renderer/src/status.test.ts	carries a chosen level across a model switch that supports it	yes
+apps/desktop/src/renderer/src/status.test.ts	falls back to the new model default rather than to nothing	yes
+apps/desktop/src/renderer/src/status.test.ts	still shows nothing when the new model reports no levels	yes
 apps/desktop/src/renderer/src/status.test.ts	agree when nobody has chosen a level	no
 apps/desktop/src/renderer/src/status.test.ts	agree when someone has	no
 apps/desktop/src/renderer/src/status.test.ts	agree under swarm, which overrides both	no
 apps/desktop/src/renderer/src/status.test.ts	agree on a Cursor family, whose id already names a level	no
-apps/desktop/src/renderer/src/status.test.ts	start a new route on the level the runtime names as its default, where it names one	no
+apps/desktop/src/renderer/src/status.test.ts	start a new route on the level the runtime names as its default, where it names one	yes
 apps/desktop/src/renderer/src/status.test.ts	agree on a model with no levels: both say nothing, and nothing is sent	no
 apps/desktop/src/renderer/src/status.test.ts	never invents a level for a model the catalogue does not know	no
 apps/desktop/src/renderer/src/status.test.ts	names the runtime the first-run screen recommends, not one that is absent	no

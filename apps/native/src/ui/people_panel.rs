@@ -321,7 +321,9 @@ pub(super) fn pick_model(s: &mut State, pick: TurnPick) {
     s.people_panel.fields[3] = field(&runtime);
     s.people_panel.fields[4] = field(&pick.model);
     s.people_panel.fields[5] = field(if same { was.effort.as_deref().unwrap_or("") } else { "" });
-    s.people_panel.fields[6] = field(if locust_core::mode_facts::runs_on(&was.mode, &runtime) { &was.mode } else { "ask" });
+    // NewTeammateDialog: a mode the new route cannot run falls back to the first it offers (modesFor), else Ask.
+    let offered = locust_core::mode_facts::modes_for(&runtime, None);
+    s.people_panel.fields[6] = field(if locust_core::mode_facts::runs_on(&was.mode, &runtime) { &was.mode } else { offered.first().copied().unwrap_or("ask") });
     s.people_panel.account = pick.account.unwrap_or(was.account);
     s.people_panel.route_changed = true;
     s.people_panel.model_open = false;
