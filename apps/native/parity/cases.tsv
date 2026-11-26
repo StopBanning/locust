@@ -1875,9 +1875,9 @@ apps/desktop/src/main/codex-mission.test.ts	continues a conversation whose earli
 apps/desktop/src/main/codex-mission.test.ts	picks up the session a turn stopped before naming its own was resuming (0.496)	yes
 apps/desktop/src/main/codex-mission.test.ts	starts again from an edited message cold, never in the session that holds the turns set aside (0.498)	yes
 apps/desktop/src/main/codex-mission.test.ts	sends again as the same words, not as an earlier turn quoted back (0.496)	yes
-apps/desktop/src/main/codex-mission.test.ts	runs in the teammateu2019s own branch, as theirs, under their one-run guard	no
+apps/desktop/src/main/codex-mission.test.ts	runs in the teammateu2019s own branch, as theirs, under their one-run guard	yes
 apps/desktop/src/main/codex-mission.test.ts	records a resume on another runtime as a route switch, not a follow-up	yes
-apps/desktop/src/main/codex-mission.test.ts	and on the same runtime, as a follow-up still	no
+apps/desktop/src/main/codex-mission.test.ts	and on the same runtime, as a follow-up still	yes
 apps/desktop/src/main/codex-mission.test.ts	A2.11: carries the conversationu2019s earlier turns into the switch, oldest first, and stops at a loop	yes
 apps/desktop/src/main/codex-mission.test.ts	continues another runtimeu2019s conversation from a checkpoint, with the reply as the latest word	yes
 apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply on the same runtime	yes

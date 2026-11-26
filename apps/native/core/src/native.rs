@@ -1920,6 +1920,8 @@ pub fn requested_mode(value: Option<&str>) -> Mode {
 
 /// main/carry-on.ts `carry` with an app's extras (0.882): picking up a turn Locust closed under (on its own agent too),
 /// or moving a finished conversation to another agent with a message (or appending a message to a stopped carry-on).
+/// On its own agent, a turn Locust's quit cut short whose card offers Resume is resumed from its checkpoint
+/// (codex-mission.ts `resume`, `resume_from_checkpoint`).
 pub fn carry_with(
     mission: &str,
     runtime: &str,
@@ -1941,14 +1943,20 @@ pub fn carry_with(
     }
     .as_str()
     .to_owned();
-    let decision = crate::carry_on::carry_decision(
-        crate::carry_on::phase_of(&prior.events),
-        &prior.events,
-        &from,
-        runtime,
-        &mode,
-        also,
-    )?;
+    // The card's Resume (ResumeCard.tsx): the turn's own agent and nothing to add, where the record offers it.
+    let resuming = also.message.is_none() && runtime == from && resume_offered(&prior);
+    let decision = if resuming {
+        None
+    } else {
+        Some(crate::carry_on::carry_decision(
+            crate::carry_on::phase_of(&prior.events),
+            &prior.events,
+            &from,
+            runtime,
+            &mode,
+            also,
+        )?)
+    };
     let owner = crate::people::owner_of(&store, mission).ok_or("This conversation no longer has a teammate, so it cannot be carried on.")?;
     let mut teammate = roster_in(&store)?
         .into_iter()
@@ -1960,6 +1968,13 @@ pub fn carry_with(
         folder = Some(crate::door::check_folder(&store, &was).map_err(|why| format!("This conversation worked in {was}: {why}"))?);
     }
     crate::invariants::lock(&CARRIED).push(mission.to_owned());
+    let Some(decision) = decision else {
+        let started = resume_from_checkpoint(&store, mission, &prior, teammate, folder.clone(), &mode, model);
+        if started.is_err() {
+            crate::invariants::lock(&CARRIED).retain(|m| m != mission);
+        }
+        return started.map(|id| (id, folder.map(|f| f.to_string_lossy().into_owned()), mode));
+    };
     teammate.model = model.map(str::to_owned);
     teammate.account = None;
     let mut started_by = json!({"kind": "carry-on", "from": from});
@@ -1990,6 +2005,85 @@ pub fn carry_with(
             Err(why)
         }
     }
+}
+
+/// recovery.ts `resumeOffer`, read from the turn's own record as the card reads it: a turn Locust's quit cut short (or
+/// that stopped with no ending) whose newest checkpoint the record can vouch for.
+fn resume_offered(prior: &TurnRecords) -> bool {
+    matches!(ledger::read_transcript(&prior.path).recovery, Some(crate::recovery::Offer::Resume { .. }))
+}
+
+/// codex-mission.ts `resume`, on the agent the turn ran on: the turn is reconciled again ("manual"), and its next turn
+/// continues the conversation as a follow-up, handed the brief composed from that checkpoint (what was done, what never
+/// reported back and must be verified, how it ended), never the cut-short prompt again as if nothing had happened.
+/// Returns the new turn's id.
+fn resume_from_checkpoint(
+    store: &Store,
+    mission: &str,
+    prior: &TurnRecords,
+    mut teammate: Teammate,
+    folder: Option<PathBuf>,
+    mode: &str,
+    model: Option<&str>,
+) -> Result<String, String> {
+    if owns(mission) {
+        return Err("That mission is still running, so there is nothing to resume.".into());
+    }
+    // A later turn already continues it: a resume would answer the wrong turn.
+    if real_tip(mission).ok().as_deref() != Some(mission) {
+        return Err("A later turn continues this conversation, so this one is not resumed.".into());
+    }
+    let from = prior.metadata["runtime"].as_str().unwrap_or_default();
+    let epoch = prior.checkpoints as u64 + 1;
+    let checkpoint = crate::carry_on::reconcile(&prior.metadata, &prior.events, prior.incomplete, "manual", epoch, &crate::ledger_write::now());
+    if checkpoint["resumeSafety"] == "unsafe" {
+        return Err(format!("This mission cannot be resumed: {}", checkpoint["safetyReason"].as_str().unwrap_or_default()));
+    }
+    let original = prior.metadata["prompt"].as_str().unwrap_or_default();
+    // A long task goes by file (long-task-file.ts, 0.513), into the project the conversation worked in.
+    let task_file = crate::door_tools::conversation_folder(&prior.metadata["startedBy"])
+        .map(PathBuf::from)
+        .or_else(|| workspace_folder(store.electron()))
+        .and_then(|project| crate::carry_on::long_task_file(original, &project, mission));
+    let briefing = crate::carry_on::compose_handoff_brief(
+        original,
+        &checkpoint,
+        crate::carry_on::display_name(from),
+        None,
+        &[],
+        crate::carry_on::how_turn_ended(&prior.events),
+        &[],
+        task_file.as_deref(),
+    )
+    .ok_or("The original request is too long to carry into a resumed run.")?;
+    let prompt = match &task_file {
+        Some(file) => crate::attachments::with_attachments(&briefing.prompt, std::slice::from_ref(file)),
+        None => briefing.prompt,
+    };
+    // Native writes only its own ledgers; Electron's are read.
+    if store.ledger_dir().is_ok_and(|dir| prior.path.starts_with(dir)) {
+        crate::ledger_write::append_checkpoint(&prior.path, &checkpoint)
+            .map_err(|_| "The mission could not be reconciled, so nothing was resumed.".to_string())?;
+    }
+    // The route it ran on: its model and its account, so the follow-up resumes that session.
+    let account = prior.metadata["resolvedRouteId"].as_str().and_then(crate::agent_accounts::account_from_route).map(str::to_owned);
+    let model = model
+        .map(str::to_owned)
+        .or_else(|| prior.metadata["model"].as_str().filter(|m| !m.is_empty() && *m != "account-default").map(str::to_owned));
+    teammate.model = model.clone();
+    teammate.account = account.clone();
+    let job = Send { teammate, conversation: Some(mission.to_owned()), prompt, model, effort: None };
+    let origin = Origin {
+        mode: Some(requested_mode(Some(mode))),
+        folder,
+        started_by: Some(json!({"kind": "resume", "epoch": epoch})),
+        runtime: Some(from.to_owned()),
+        account: Some(account),
+        ..Default::default()
+    };
+    send_from(job, origin)
+        .and_then(|s| real_tip(&s.conversation_id))
+        .map_err(|why| format!("The mission could not be resumed. {why}"))
 }
 
 /// main/carry-on.ts onRunEnded: when the person picked an agent in Settings and turned on Without asking, a turn
