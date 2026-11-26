@@ -1,8 +1,11 @@
 //! A Mac Locust updates itself (Electron `main/mac-self-update.ts`).
 //!
-//! Safety rule: The Rust app has no release feed of its own yet, so the default seams never fetch from the network,
-//! mount a real disk image, or touch `/Applications`. Every network fetch, download, command run and swap script launch
-//! goes through `MacUpdaterOptions` seams that tests provide.
+//! `MacUpdater` does every outside thing through `MacUpdaterOptions` seams: the releases list, the download, the commands
+//! that open the disk image and copy its app, the swap script's launch and the quit. Unit tests provide stand-ins;
+//! `this_mac` fills them with the real ones (`download_release`, `run_command`, `start_swap`), and it is itself reached
+//! only once the self-update switch is on with a feed set (`updates::this_copys_update_service`). The end-to-end test
+//! is `mac_self_update_live_tests.rs`: a file server on this machine, a temp app, nothing from the network or in
+//! `/Applications`.
 
 use crate::updates::{
     CheckForUpdatesResult, EventListener, EventPayload, NO_FEED_MESSAGE, UpdateInfo, UpdaterLike,
@@ -506,10 +509,97 @@ impl UpdaterLike for MacUpdater {
     }
 }
 
+/// Set only in test builds: where Locust's downloads address (`updates::DOWNLOADS`) is served from instead, so a test can
+/// serve a release's disk image from this machine. A release build has no such seam and fetches only what the release
+/// says.
+#[cfg(test)]
+const TEST_DOWNLOADS: &str = "LOCUST_TEST_SELF_UPDATE_DOWNLOADS";
+
+/// The address to fetch for a release's disk image: the release's own, except in a test build with `TEST_DOWNLOADS` set.
+fn fetch_address(url: &str) -> String {
+    #[cfg(test)]
+    if let (Ok(base), Some(rest)) = (std::env::var(TEST_DOWNLOADS), url.strip_prefix(crate::updates::DOWNLOADS)) {
+        return format!("{}/{rest}", base.trim_end_matches('/'));
+    }
+    url.to_owned()
+}
+
+/// Downloads `url` to `to`, saying the percent each time it changes (`download` in `createMacUpdater`): not through a
+/// browser, so macOS does not mark the file quarantined. A refusal says what answered; a download that stops half way
+/// leaves no file. The check against the release's size and digest is `MacUpdater::prepare`'s.
+fn download_release(url: &str, to: &Path, on_percent: &dyn Fn(u8)) -> Result<(), String> {
+    use std::io::{Read, Write};
+    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(30 * 60)).build();
+    let response = match agent.get(&fetch_address(url)).call() {
+        Ok(response) => response,
+        Err(ureq::Error::Status(code, _)) => return Err(format!("The download answered {code}.")),
+        Err(other) => return Err(other.to_string()),
+    };
+    let total: u64 = response.header("content-length").and_then(|n| n.parse().ok()).unwrap_or(0);
+    let mut reader = response.into_reader();
+    let mut out = std::fs::File::create(to).map_err(|e| e.to_string())?;
+    let copied = (|| -> Result<(), String> {
+        let (mut received, mut said, mut chunk) = (0u64, None, vec![0u8; 64 * 1024]);
+        loop {
+            let n = reader.read(&mut chunk).map_err(|e| e.to_string())?;
+            if n == 0 {
+                return out.flush().map_err(|e| e.to_string());
+            }
+            out.write_all(&chunk[..n]).map_err(|e| e.to_string())?;
+            received += n as u64;
+            let percent = if total > 0 { (received.saturating_mul(100) / total).min(100) as u8 } else { 0 };
+            if said != Some(percent) {
+                said = Some(percent);
+                on_percent(percent);
+            }
+        }
+    })();
+    if copied.is_err() {
+        drop(out);
+        let _ = std::fs::remove_file(to);
+    }
+    copied
+}
+
+/// Runs a command and says how it ended and what it printed (`runCommand` in `main/mac-self-update.ts`): the disk image
+/// attached and detached, its app copied, the quarantine mark removed. A command that cannot start has no code.
+fn run_command(command: &str, args: &[&str]) -> CommandOutput {
+    use std::process::{Command, Stdio};
+    match Command::new(command).args(args).stdin(Stdio::null()).output() {
+        Ok(done) => CommandOutput {
+            code: done.status.code(),
+            output: format!("{}{}", String::from_utf8_lossy(&done.stdout), String::from_utf8_lossy(&done.stderr)),
+        },
+        Err(error) => CommandOutput { code: None, output: error.to_string() },
+    }
+}
+
+/// Starts the swap script apart from the app: its own process group, no terminal, so the app quitting does not take it
+/// down (`spawn('/bin/sh', [script, ...args], { detached: true, stdio: 'ignore' })` in `main/mac-self-update.ts`).
+fn start_swap(script: &Path, args: &[String]) {
+    use std::os::unix::process::CommandExt;
+    use std::process::{Command, Stdio};
+    let started = Command::new("/bin/sh")
+        .arg(script)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn();
+    if let Ok(mut child) = started {
+        // Reaped once it ends, so a copy that is still running does not keep a finished swap as a zombie.
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+    }
+}
+
 /// The self-updater for this copy, reading `feed`, when it runs from a `Locust.app` it can replace; None otherwise.
-/// Only `updates::app_updater` asks for it, and only once the self-update switch is on with a feed set. It reads the
-/// releases list and nothing more: download, disk-image and swap seams stay unset, so it never downloads or replaces
-/// anything (each refuses with `NO_FEED_MESSAGE`).
+/// Only `updates::app_updater` asks for it (via `updates::this_copys_update_service`), and only once the self-update
+/// switch is on with a feed set. Every seam is the real one: the releases list from `feed`, the disk image from the
+/// release's own address, `hdiutil`/`ditto`/`xattr` for the image, the swap script started apart from the app, and the
+/// quit, which ends this process once the swap is handed over (the service has already flushed what it keeps).
 pub fn this_mac(feed: &str, current_version: &str) -> Option<MacUpdater> {
     let exec = std::env::current_exe().ok()?;
     let bundle = mac_self_update_target(&exec.to_string_lossy(), |folder| {
@@ -526,12 +616,12 @@ pub fn this_mac(feed: &str, current_version: &str) -> Option<MacUpdater> {
         arch: if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }.to_owned(),
         bundle: PathBuf::from(bundle),
         cache_folder,
-        quit: Arc::new(|| {}),
+        quit: Arc::new(|| std::process::exit(0)),
         pid: Some(std::process::id()),
         fetch_releases: Some(fetch),
-        download: None,
-        run: None,
-        start_swap: None,
+        download: Some(Arc::new(|url, to, on_percent| download_release(url, to, on_percent))),
+        run: Some(Arc::new(|command, args| run_command(command, args))),
+        start_swap: Some(Arc::new(|script, args| start_swap(script, args))),
         test_image: None,
         relaunch: Vec::new(),
     }))
@@ -1129,3 +1219,7 @@ mod discard_installed_images_tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "mac_self_update_live_tests.rs"]
+mod live_tests;

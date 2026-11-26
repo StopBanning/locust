@@ -187,3 +187,46 @@ script's release mode. They pass against the script as it stands (3 of 3, this s
 (the id, the name, the version, the commit hand-over, `--release` ignored, the image name without the chip, the app
 not at the image's root, the link claim, the unknown argument). The earlier run's list was checked against the script
 first: no broken line was left in it.
+
+## Row 4: the Rust app keeps updating itself
+
+**What changed.** `core/src/mac_self_update.rs`: `this_mac` (the self-updater for this copy) now fills every seam with the
+real one, where it used to leave download, disk-image commands and swap unset (so a switched copy could only look).
+Electron's `main/mac-self-update.ts` is the model for each:
+- `download_release` (`createMacUpdater`'s `download`): GETs the release's address, writes the file in 64 KB steps, says
+  the percent each time it changes, `The download answered <code>.` on a refusal, and removes a half-written file if
+  the body stops short. `MacUpdater::prepare` still checks size and SHA-256 against the release afterwards, as before.
+- `run_command` (`runCommand`): runs `hdiutil`, `ditto`, `xattr`; returns the exit code (None if it cannot start or is
+  killed by a signal) and stdout+stderr.
+- `start_swap`: starts `/bin/sh <script> <pid> <app> <staged>` in its own process group with no stdio, so the app
+  quitting does not take the swap down (Electron's `detached: true, stdio: 'ignore'`).
+- the quit seam is `std::process::exit(0)`: once the update service has flushed (`updates.rs` `request_quit` then
+  `quit_and_install`) and the swap is handed over, the app ends so the script's wait for its pid finishes.
+- Test builds only: `fetch_address` sends Locust's downloads address (`updates::DOWNLOADS`) to the server named by
+  `LOCUST_TEST_SELF_UPDATE_DOWNLOADS`. A release build has no such seam. The module doc's old "never fetches" safety
+  rule is replaced by what is true now: still behind the self-update switch and feed (`LOCUST_NATIVE_SELF_UPDATE=1` and
+  `LOCUST_NATIVE_UPDATE_FEED`), which stay off by default.
+
+**Call sites** (outside tests). `download_release` `mac_self_update.rs:622`, `run_command` `:623`, `start_swap` `:624`,
+all inside `this_mac` (`:603`), which is called by `updates::this_copys_update_service` (`updates.rs:532`) through
+`app_updater`. Honest gap: nothing in the window or `main.rs` calls `this_copys_update_service` yet, so the switch has
+no reader in the running app; that wiring is not in this lane's files (and the switch stays off).
+
+**Tests** (`core/src/mac_self_update_live_tests.rs`, macOS only, declared at the end of `mac_self_update.rs` as
+`live_tests`; a file server on 127.0.0.1 in the test process; no network, nothing in `/Applications`):
+- `the_app_downloads_a_newer_locust_from_its_feed_swaps_it_in_after_it_quits_and_opens_it`: a copy of the test binary
+  inside a temp `Locust.app` runs as the app: `this_mac` finds its bundle, reads the releases list from the local
+  server, downloads a real `hdiutil`-made image (100%), checks it against the stated size and SHA-256, attaches it,
+  `ditto`s its `Locust.app` beside the running one, `quit_and_install` ends the process with success, the swap script
+  (real, detached) puts the new app in the old one's place, removes the staged copy and `.replaced`, and calls `open`
+  (a stand-in on PATH that writes down what it was asked to open). The download stayed in the app's own data folder
+  (`LOCUST_NATIVE_DATA`, a temp folder).
+- `the_real_download_writes_every_byte_and_counts_up_to_100`, `a_download_that_is_not_there_says_what_answered_and_leaves_no_file`,
+  `a_download_that_stops_half_way_says_so_and_leaves_no_half_file`, `the_real_run_says_how_a_command_ended_and_what_it_said`,
+  `the_swap_runs_apart_from_the_app_with_its_arguments_so_the_app_quitting_does_not_take_it_down` (its process group is
+  not the app's).
+
+**Breaks.** `row4.entries` / `row4.out` (locust-core): 11 of 11 KILLED by name. The three seams in `this_mac`, each
+`None`d (`download`, `run`, `start_swap`), and the quit made a no-op, are killed by the end-to-end test: that is the call
+site's proof. The rest are killed by the unit-level live tests: the percent arithmetic, a short write, the refusal's
+status code, the half-file clean-up, the process group, the arguments handed to the swap, and the exit code.
