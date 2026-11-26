@@ -87,4 +87,53 @@ mod tests {
             assert_eq!(commit_of(given), "dev", "{given:?}");
         }
     }
+
+    /// What `build.rs` tells cargo about the commit, run as cargo runs it: the script compiled and started with the
+    /// environment cargo gives it (OUT_DIR, the target, `LOCUST_BUILD_COMMIT`), its lines read. A target that is not macOS
+    /// returns before the Swift helper, so this builds nothing else.
+    fn build_script_says(commit: Option<&str>) -> Vec<String> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let dir = std::env::temp_dir().join(format!("locust-build-script-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = dir.join("build-script");
+        let built = std::process::Command::new(std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into()))
+            .args(["--edition", "2024", "--crate-name", "build_script", "-o"])
+            .arg(&program)
+            .arg(root.join("build.rs"))
+            .output()
+            .unwrap();
+        assert!(built.status.success(), "{}", String::from_utf8_lossy(&built.stderr));
+        let mut run = std::process::Command::new(&program);
+        run.current_dir(root).env("OUT_DIR", &dir).env("CARGO_CFG_TARGET_OS", "linux").env_remove("LOCUST_BUILD_COMMIT");
+        if let Some(commit) = commit {
+            run.env("LOCUST_BUILD_COMMIT", commit);
+        }
+        let out = run.output().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).lines().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn the_build_script_passes_the_commit_it_was_given_to_the_crate_and_rebuilds_when_it_changes() {
+        let said = build_script_says(Some("1a2b3c4d"));
+        assert!(said.contains(&"cargo::rustc-env=LOCUST_BUILD_COMMIT=1a2b3c4d".to_owned()), "{said:?}");
+        assert!(said.contains(&"cargo::rerun-if-env-changed=LOCUST_BUILD_COMMIT".to_owned()), "{said:?}");
+        // A value that runs on into a second line is never a second instruction to cargo.
+        let sneaky = build_script_says(Some("1a2b3c4d\ncargo::rustc-cfg=apple_helper"));
+        assert!(sneaky.contains(&"cargo::rustc-env=LOCUST_BUILD_COMMIT=1a2b3c4d".to_owned()), "{sneaky:?}");
+        assert!(!sneaky.iter().any(|line| line.contains("rustc-cfg=apple_helper")), "{sneaky:?}");
+        // Given nothing, a build says dev.
+        let none = build_script_says(None);
+        assert!(none.contains(&"cargo::rustc-env=LOCUST_BUILD_COMMIT=dev".to_owned()), "{none:?}");
+    }
+
+    // A commit is 4 to 40 hex digits (the short form git prints is 7; four is the least `git rev-parse --short=4` gives).
+    #[test]
+    fn four_hex_digits_are_a_commit_and_three_are_not() {
+        assert_eq!(commit_of("1a2b"), "1a2b");
+        assert_eq!(commit_of("1a2"), "dev");
+        assert_eq!(commit_of(&"f".repeat(40)), "f".repeat(40));
+        assert_eq!(commit_of(&"f".repeat(41)), "dev");
+    }
 }
