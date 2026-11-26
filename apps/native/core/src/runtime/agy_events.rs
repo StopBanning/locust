@@ -350,10 +350,13 @@ impl AgyNormalizer {
         {
             REFUSED_SENTENCE.into()
         } else if !err.is_empty() {
-            format!(
-                "Antigravity could not run it: {}",
-                err.lines().next().unwrap_or(&err)
-            )
+            // A provider's JSON is said as its sentence, before any runtime prefix (agy-events.ts).
+            let said = crate::provider_error::provider_error_sentence(&err, Some("antigravity"));
+            if said != err {
+                said
+            } else {
+                format!("Antigravity could not run it: {}", err.lines().next().unwrap_or(&err))
+            }
         } else {
             format!(
                 "Antigravity ended {}{}.",

@@ -355,6 +355,8 @@ pub struct ClaudeNormalizer {
     saw_result: bool,
     terminal_failure: Option<String>,
     terminal_failure_kind: Option<String>,
+    /// The failed result's record, kept on the run's failure (claude-events.ts terminalFailureEvidence).
+    terminal_failure_evidence: Option<Value>,
     synthetic_error: Option<String>,
     completed_usage: Option<Value>,
     resolved_model: Option<String>,
@@ -502,6 +504,9 @@ impl ClaudeNormalizer {
                 "runtimeTerminal": "failed",
                 "process": self.process(false, false)
             });
+            if let Some(evidence) = &self.terminal_failure_evidence {
+                p["evidence"] = evidence.clone();
+            }
             if let Some(t) = &self.thread {
                 p["runtimeThreadId"] = json!(t);
             }
@@ -1368,6 +1373,7 @@ impl ClaudeNormalizer {
                 if t.is_empty() { subtype } else { t }
             };
             if is_error || (!subtype.is_empty() && subtype != "success") {
+                self.terminal_failure_evidence = Some(evidence.clone());
                 let said = s(parsed, "result");
                 if self.synthetic_error.as_deref() == Some("authentication_failed")
                     || said.starts_with("Not logged in")
@@ -1389,7 +1395,8 @@ impl ClaudeNormalizer {
                     } else {
                         said.into()
                     };
-                    self.terminal_failure = Some(text(&msg, 16384));
+                    // A provider's JSON is said as a sentence; the record stays the evidence.
+                    self.terminal_failure = Some(text(&crate::provider_error::provider_error_sentence(&msg, Some("claude")), 16384));
                 }
             }
             let denials = parsed["permission_denials"]

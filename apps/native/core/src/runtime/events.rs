@@ -523,7 +523,9 @@ impl Normalizer {
             }
             "error" | "turn/failed" => {
                 // codexSaid: a conversation Codex has open elsewhere is said in one sentence (0.835).
-                let message = &codex_said(p["error"]["message"].as_str().unwrap_or("The runtime reported an error."));
+                // A provider's JSON is said as a sentence first (app-server-events.ts); the notification stays the evidence.
+                let raw_message = p["error"]["message"].as_str().unwrap_or("The runtime reported an error.");
+                let message = &codex_said(&crate::provider_error::provider_error_sentence(raw_message, Some("codex")));
                 if p["willRetry"] == true {
                     return vec![self.diagnostic(method, message)];
                 }
@@ -547,7 +549,9 @@ impl Normalizer {
                     ));
                 }
                 self.ended = true;
-                out.push(self.event("run.failed",json!({"kind":kind,"message":text(message,16384),"runtimeThreadId":self.thread,"runtimeTerminal":"failed","process":self.process(false,false)})));
+                let mut failed_evidence = evidence.clone();
+                failed_evidence["raw"] = evidence_raw(&p["error"]).0;
+                out.push(self.event("run.failed",json!({"kind":kind,"message":text(message,16384),"evidence":failed_evidence,"runtimeThreadId":self.thread,"runtimeTerminal":"failed","process":self.process(false,false)})));
                 return out;
             }
             "account/rateLimits/updated" => {
