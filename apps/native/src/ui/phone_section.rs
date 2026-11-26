@@ -11,6 +11,7 @@ use locust_core::phone_anywhere::{
     DEFAULT_RELAY, PHONE_ANYWHERE_FILE, PairedDeviceView, PhoneAnywhere, PhoneAnywhereOptions,
     PhoneAnywhereSettings, RelayConnector,
 };
+use locust_core::chat_http::WsClient;
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
 use std::sync::{Arc, OnceLock};
@@ -64,6 +65,9 @@ pub(crate) struct PhoneAnywhereLink {
     github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
     computer_name: Option<String>,
     open_browser: Option<Arc<dyn Fn(&str) + Send + Sync>>,
+    /// A test's WebSocket client under the real line to the relay, in place of NSURLSession's.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    ws_client: Option<Arc<dyn WsClient>>,
 }
 
 impl PhoneAnywhereLink {
@@ -81,6 +85,12 @@ impl PhoneAnywhereLink {
         self.connector = Some(connector);
         self.relay_url = Some(relay_url.into());
         self.github_user = github_user;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_ws_client(&mut self, client: Arc<dyn WsClient>, relay_url: impl Into<String>) {
+        self.ws_client = Some(client);
+        self.relay_url = Some(relay_url.into());
     }
 
     #[cfg(test)]
@@ -141,6 +151,32 @@ fn relay_url_from_env() -> String {
     DEFAULT_RELAY.to_owned()
 }
 
+/// The line to Locust's relay when no stand-in is set (Electron's `webRelaySocket`): on macOS NSURLSession's WebSocket,
+/// the client the chat apps use.
+fn default_connector(link: &PhoneAnywhereLink) -> RelayConnector {
+    #[cfg(target_os = "macos")]
+    if let Some(client) = mac_ws_client(link) {
+        return locust_core::relay_socket::relay_connector(client);
+    }
+    let _ = link;
+    Arc::new(|_url: &str| Err(RELAY_LATER.to_owned()))
+}
+
+/// The relay's line on this platform comes later; until then From anywhere stays connecting.
+const RELAY_LATER: &str = "Locust\u{2019}s relay cannot be reached from this platform yet. It comes later.";
+
+/// A test never reaches the network: without a client of its own it has none.
+#[cfg(target_os = "macos")]
+fn mac_ws_client(link: &PhoneAnywhereLink) -> Option<Arc<dyn WsClient>> {
+    if let Some(client) = link.ws_client.clone() {
+        return Some(client);
+    }
+    if cfg!(test) {
+        return None;
+    }
+    Some(Arc::new(locust_core::chat_http::mac::MacUrlSessionClient::new()))
+}
+
 fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let store = s.data.clone().or_else(locust_core::native::store)?;
     let dir = store.root().to_path_buf();
@@ -151,9 +187,7 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let waker = s.phone_anywhere_link.waker.clone();
     s.phone_anywhere_link.rx = Some(rx);
     let relay_override = s.phone_anywhere_link.relay_url.clone();
-    let connect = s.phone_anywhere_link.connector.clone().unwrap_or_else(|| {
-        Arc::new(|_url: &str| Err("Relay WebSocket transport is not available yet.".to_owned()))
-    });
+    let connect = s.phone_anywhere_link.connector.clone().unwrap_or_else(|| default_connector(&s.phone_anywhere_link));
     let github_user = s.phone_anywhere_link.github_user.clone();
     let computer_override = s.phone_anywhere_link.computer_name.clone();
     Some(PhoneAnywhere::new(PhoneAnywhereOptions {
@@ -1384,12 +1418,20 @@ mod tests {
         store: locust_core::store::Store,
         relay: &FakeRelay,
     ) -> rune::Runtime<State> {
+        let connector = relay.connector();
+        headless_window(store, move |link| link.set_test_relay(connector, "https://relay.test", None))
+    }
+
+    fn headless_window(
+        store: locust_core::store::Store,
+        link: impl FnOnce(&mut PhoneAnywhereLink),
+    ) -> rune::Runtime<State> {
         let mut s = State::default();
         s.engine = Some(Kind::Native);
         s.data = Some(store);
         s.settings_panel.open = true;
         s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
-        s.phone_anywhere_link.set_test_relay(relay.connector(), "https://relay.test", None);
+        link(&mut s.phone_anywhere_link);
         let mut rt = rune::Runtime::new(
             s,
             |s, _| section(s, &Palette::new(true)),
@@ -1421,6 +1463,64 @@ mod tests {
             rt.frame(0.05);
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
+    }
+
+    /// NSURLSession's place, taken by a client that connects nowhere: it answers the PC's auth as the relay does.
+    #[cfg(target_os = "macos")]
+    #[derive(Default)]
+    struct FakeWs {
+        urls: std::sync::Mutex<Vec<String>>,
+        auths: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    #[cfg(target_os = "macos")]
+    struct FakeWsLine {
+        heard: Arc<dyn locust_core::chat_http::WsCallbacks>,
+        auths: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    #[cfg(target_os = "macos")]
+    impl locust_core::chat_http::WsConnection for FakeWsLine {
+        fn send_text(&self, text: &str) -> Result<(), String> {
+            let frame: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
+            if frame["t"] == "auth" && frame["as"] == "pc" {
+                self.auths.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let heard = self.heard.clone();
+                std::thread::spawn(move || heard.on_message(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] }).to_string()));
+            }
+            Ok(())
+        }
+        fn close(&self, _code: u16, _reason: &str) {}
+    }
+
+    #[cfg(target_os = "macos")]
+    impl WsClient for FakeWs {
+        fn connect(
+            &self,
+            url: &str,
+            heard: Arc<dyn locust_core::chat_http::WsCallbacks>,
+        ) -> Result<Arc<dyn locust_core::chat_http::WsConnection>, String> {
+            self.urls.lock().unwrap().push(url.to_owned());
+            Ok(Arc::new(FakeWsLine { heard, auths: self.auths.clone() }))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn on_a_mac_from_anywhere_reaches_the_relay_over_its_websocket_and_says_it_is_connected() {
+        let (_root, store) = temp_store("websocket");
+        let ws = Arc::new(FakeWs::default());
+        let client: Arc<dyn WsClient> = ws.clone();
+        let mut rt = headless_window(store, move |link| link.set_test_ws_client(client, "https://relay.test"));
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected over the WebSocket", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+        let room = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::room).unwrap().1;
+        assert_eq!(ws.urls.lock().unwrap().as_slice(), [format!("wss://relay.test/v1/room/{room}")]);
+        assert_eq!(ws.auths.load(std::sync::atomic::Ordering::SeqCst), 1);
+        let text = all_text(&rt.elements());
+        assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
     }
 
     #[test]

@@ -238,6 +238,7 @@ pub mod ran_on;
 pub mod recovery;
 pub mod references;
 pub mod relay;
+pub mod relay_socket;
 pub mod report_problem;
 pub mod diagnostic_log;
 pub mod room_exchange;
