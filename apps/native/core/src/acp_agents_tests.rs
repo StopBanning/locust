@@ -376,3 +376,26 @@ fn may_do_only_what_it_asks_and_the_person_approves_and_costs_something_unless_i
     assert!(!is_free_route("acp", Some("acp_goose::gpt-5")));
     assert!(!is_free_route("acp", Some("acp_goose")));
 }
+
+// Not an Electron case: Electron keeps one profile. Native reads Electron's list while it has none of its own
+// (`agents_for_store`), so the first change it makes starts from that list, and Electron's file is never written.
+#[test]
+fn reads_electrons_list_until_it_has_its_own_and_the_first_change_keeps_what_electron_had() {
+    let dir = TempDir::new("fallback");
+    let (native, electron) = (dir.0.join("native"), dir.0.join("electron"));
+    std::fs::create_dir_all(&electron).unwrap();
+    let saved = json!({"agents": [
+        {"id": "acp_goose", "name": "Goose", "commandLine": "goose acp"},
+        {"id": "acp_qwen", "name": "Qwen", "commandLine": "qwen --acp"}
+    ]});
+    let electron_file = electron.join(ACP_AGENTS_FILE);
+    std::fs::write(&electron_file, saved.to_string()).unwrap();
+    let agents = AcpAgentsStore::new(native.clone(), |_| None).with_fallback(electron.clone());
+    let names = |list: Vec<AcpAgent>| list.into_iter().map(|a| a.name).collect::<Vec<_>>();
+    assert_eq!(names(agents.list().unwrap()), vec!["Goose", "Qwen"]);
+    assert_eq!(agents.resolve("acp_goose").unwrap_err(), "Locust could not find goose. Install it, or check it opens in a new terminal, then test again.");
+    assert_eq!(names(agents.remove("acp_qwen").unwrap()), vec!["Goose"]);
+    assert_eq!(names(read_saved_agents(&native)), vec!["Goose"], "the native file starts from Electron's list");
+    assert_eq!(std::fs::read_to_string(&electron_file).unwrap(), saved.to_string(), "Electron's file is never written");
+    assert_eq!(names(agents.list().unwrap()), vec!["Goose"], "native's own file is read once it has one");
+}

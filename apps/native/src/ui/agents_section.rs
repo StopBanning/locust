@@ -219,6 +219,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         None => false,
     };
     changed |= read_late_answers(s);
+    changed |= crate::settings_panel::own_agents_section::poll(s);
     read_artifacts(s);
     if let Some(found) = s.settings_panel.artifacts_job.take() {
         s.settings_panel.artifacts = found;
