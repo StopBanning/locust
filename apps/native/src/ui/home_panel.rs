@@ -566,7 +566,18 @@ fn cover_status(s: &State) -> Option<String> {
 }
 
 /// Seconds on the cover's own clock: from the first time Home asked, so every reading shares one origin.
+#[cfg(test)]
+thread_local! {
+    /// A test's frozen cover clock: the age a test sets is the age the next frame draws, however long the machine
+    /// takes to get there (the lockup read 0.39 at "age 0" under a full gate's load).
+    pub(super) static COVER_CLOCK: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
 fn cover_now() -> f64 {
+    #[cfg(test)]
+    if let Some(frozen) = COVER_CLOCK.with(std::cell::Cell::get) {
+        return frozen;
+    }
     static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     EPOCH.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
 }

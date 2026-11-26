@@ -110,6 +110,9 @@ pub mod hooks {
     /// While set, a turn whose end is recorded is held before the engine lets go of it, as its disk observation and
     /// share can hold it (the-next-turn-is-not-refused-while-the-last-winds-down).
     pub static HOLD_WIND_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    /// The turns that have reached that hold: every record their end writes before the wind-down is on disk, so a
+    /// test reading their ledger now reads what the window will keep reading.
+    pub static AT_WIND_DOWN: Mutex<Vec<String>> = Mutex::new(Vec::new());
     /// Fired once when `record_disk_observation` is about to take the after-snapshot (`qa-0365-concurrency.test.ts`).
     pub static ON_AFTER_DISK: Mutex<Option<Box<dyn FnOnce() + std::marker::Send>>> = Mutex::new(None);
     /// What a start's readiness is asked through while a test holds the engine. None: the fake stands in for the
@@ -3732,8 +3735,13 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation,
             // and the relay may hand off posted messages or return unanswered questions.
             #[cfg(any(test, feature = "test-hooks"))]
-            while hooks::HOLD_WIND_DOWN.load(Ordering::Relaxed) {
-                std::thread::sleep(Duration::from_millis(5));
+            {
+                if hooks::HOLD_WIND_DOWN.load(Ordering::Relaxed) {
+                    crate::invariants::lock(&hooks::AT_WIND_DOWN).push(memory_id.clone());
+                }
+                while hooks::HOLD_WIND_DOWN.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
             }
             drop(memory_completion);
             if !posted_relayed.is_empty()

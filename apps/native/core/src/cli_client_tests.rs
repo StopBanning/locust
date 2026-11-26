@@ -233,7 +233,9 @@ fn has_an_absolute_deadline_even_when_a_server_never_finishes_its_reply() {
     let began = Instant::now();
     let late = app.client.teammates().unwrap_err();
     assert!(late.0.contains("time") || late.0.contains("interrupted"), "{late}");
-    assert!(began.elapsed() < Duration::from_secs(3), "the deadline held: {:?}", began.elapsed());
+    // Well under the client's own 15 s default, so it is this call's 50 ms that ended it; 3 s was too tight for a
+    // machine under a full gate's load (3.3 s seen, 25 Nov), and a server that never finishes would hang forever.
+    assert!(began.elapsed() < Duration::from_secs(10), "the deadline held: {:?}", began.elapsed());
     assert_eq!(app.requests().len(), 1);
 }
 

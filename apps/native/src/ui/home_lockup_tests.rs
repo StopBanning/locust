@@ -31,8 +31,11 @@ pub(super) fn settle(rt: &mut Runtime<State>) {
 
 /// Puts the lighting `age` seconds in on the cover's clock, and draws it.
 pub(super) fn at_age(rt: &mut Runtime<State>, kind: Lighting, age: f64) {
+    // Freeze the cover clock here, so the frames below draw exactly this age.
+    let now = cover_now();
+    super::COVER_CLOCK.with(|clock| clock.set(Some(now)));
     rt.update(|s, _| {
-        s.home.cover_lit_at = Some(cover_now() - age);
+        s.home.cover_lit_at = Some(now - age);
         s.home.cover_lighting_kind = Some(kind);
     });
     rt.frame(0.0);

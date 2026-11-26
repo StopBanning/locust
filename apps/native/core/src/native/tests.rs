@@ -2627,17 +2627,18 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
     let first = send(job(&t, None, "Ask Pip about docs port")).unwrap();
     // 1.6 s alone; under four agents' builds it ran past 6 s (14 Nov). The wait is on the relay's own state.
     let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
+    // Only that the relay happened: Pip's hub exists and Codec's conversation moved on to its follow-up. Waiting here
+    // for nobody to be active also waited for that follow-up to finish, under this shorter deadline, and under load it
+    // read "stuck" while the follow-up was still running (25 Nov, two lanes); the waits below wait for its answer.
     while Instant::now() < deadline {
-        if crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
-            && crate::people::hub_of(&store, "tm_pip").is_some()
+        if crate::people::hub_of(&store, "tm_pip").is_some()
             && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str())
         {
             break;
         }
         std::thread::sleep(Duration::from_millis(10));
     }
-    if !( crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
-        && crate::people::hub_of(&store, "tm_pip").is_some()
+    if !( crate::people::hub_of(&store, "tm_pip").is_some()
         && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str()) )
     {
         // Read under each lock into a value first: a panic while a lock guard is alive poisons it for the engine.

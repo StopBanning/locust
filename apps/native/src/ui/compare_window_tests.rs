@@ -1343,6 +1343,12 @@ fn compare_view_terminal_receipt_beats_the_engines_still_live_answer() {
     });
     let ids = compare_column_ids(&rt.state);
     assert!(ids.iter().all(|id| locust_core::engine_api::api().owns(id)));
+    // Every record a column's end writes (its share links, its checks) lands before its wind-down: read the receipts
+    // only once both have reached it, or the second reading sees a later record and a later duration than the first.
+    pump(&mut rt, "both columns at their wind-down", |_| {
+        let held = locust_core::invariants::lock(&native::hooks::AT_WIND_DOWN).clone();
+        ids.iter().all(|id| held.contains(id))
+    });
     let id = rt.state.compare.active_id.clone().unwrap();
     reopen_recorded_compare(&mut rt, id.clone());
     let before = rt.state.compare.snapshots.clone();
