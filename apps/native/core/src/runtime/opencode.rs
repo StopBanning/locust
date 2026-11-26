@@ -113,6 +113,8 @@ pub struct OpenCode {
     begin_check: Option<Duration>,
     #[cfg(test)]
     cancel_grace: Option<Duration>,
+    #[cfg(test)]
+    startup_budget: Option<Duration>,
 }
 /// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
 pub fn uses_acp(c: &Command) -> bool {
@@ -145,6 +147,8 @@ impl OpenCode {
             begin_check: None,
             #[cfg(test)]
             cancel_grace: None,
+            #[cfg(test)]
+            startup_budget: None,
         })
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -169,13 +173,23 @@ impl OpenCode {
         self.cancel_grace = Some(d);
         self
     }
+    /// OpenCode 2's whole ACP startup budget, 60 s in the app (opencode-acp-run.ts `startupBudget`).
+    #[cfg(test)]
+    pub fn with_startup_budget(mut self, d: Duration) -> Self {
+        self.startup_budget = Some(d);
+        self
+    }
     fn cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed) || crate::run_cli::interrupted()
     }
     fn failure(&mut self, message: &str, code: &str, attempts: usize, stage: &str) {
         let mut normal = AcpNormalizer::default();
         normal.started_at = crate::ledger_write::now();
-        self.queued.push_back(normal.event("adapter.diagnostic",json!({"level":"error","code":format!("opencode.{code}"),"message":super::events::text(message,16384),"terminal":false,"stage":stage,"attempts":attempts})));
+        // A run the person stopped is cancelled, not failed: Electron settles no failure for it
+        // (opencode-acp-run.ts `finish`: `code === undefined || cancelled ? undefined`).
+        if !self.cancelled() {
+            self.queued.push_back(normal.event("adapter.diagnostic",json!({"level":"error","code":format!("opencode.{code}"),"message":super::events::text(message,16384),"terminal":false,"stage":stage,"attempts":attempts})));
+        }
         self.queued
             .extend(normal.finish("", Value::Null, self.cancelled(), Some(message), false));
     }
@@ -227,7 +241,10 @@ impl Runtime for OpenCode {
             self.driver = Some(Driver::Serve(Box::new(serve)));
             return Ok(());
         }
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let budget = Duration::from_secs(60);
+        #[cfg(test)]
+        let budget = self.startup_budget.unwrap_or(budget);
+        let deadline = Instant::now() + budget;
         let mut attempts = 0;
         loop {
             if self.cancelled() {
@@ -374,3 +391,7 @@ mod opencode_2_acp_tests;
 #[cfg(test)]
 #[path = "opencode_busy_storage_tests.rs"]
 mod opencode_busy_storage_tests;
+
+#[cfg(test)]
+#[path = "opencode_acp_profile_tests.rs"]
+mod opencode_acp_profile_tests;

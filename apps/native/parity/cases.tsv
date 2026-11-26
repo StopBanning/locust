@@ -7992,31 +7992,31 @@ packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	recognizes a changed binary upgraded from V1 to V2 without reusing V1 capabilities	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	uses the executable's launch prefix and environment for the ACP help check	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	shares one exact-major selector without assigning ACP to unknown, V1 or future versions	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	passes the desktop launch environment and permission receipt through the profile	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reads effort options advertised after switching the selected model	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps OpenCode identity, launch prefix and environment on the stdio command	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	loads an ACP v1 session without recording its replayed history	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	maps permissions and successful and failed tool calls through the existing normalizer	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	passes the desktop launch environment and permission receipt through the profile	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reads effort options advertised after switching the selected model	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps OpenCode identity, launch prefix and environment on the stdio command	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	loads an ACP v1 session without recording its replayed history	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	maps permissions and successful and failed tool calls through the existing normalizer	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	queues a second turn on the same ACP session without telemetry identity drift	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	retries a pre-prompt stdout close only after bounded startup backoff	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	exhausts capped startup retries with a structured transport failure	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	cancels during startup backoff without creating a replacement process	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds the total startup deadline even when retry backoff remains	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	never resends an admitted prompt after stdout closes during its tool call	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	retries a pre-prompt stdout close only after bounded startup backoff	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	exhausts capped startup retries with a structured transport failure	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	cancels during startup backoff without creating a replacement process	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds the total startup deadline even when retry backoff remains	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	never resends an admitted prompt after stdout closes during its tool call	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	never retries a prompt write exception after possible partial delivery	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports authentication errors without treating them as reconnectable transport loss	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	rejects unsupported ACP protocol versions without reconnecting	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	fails a refused required configuration without sending a prompt or retrying	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports authentication errors without treating them as reconnectable transport loss	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	rejects unsupported ACP protocol versions without reconnecting	yes
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	fails a refused required configuration without sending a prompt or retrying	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses replacement when the stopped process never acknowledges exit	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	does not spawn a process for an already cancelled run	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	does not spawn a process for an already cancelled run	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds a non-finite handshake option without overflowing the inner timer	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	cleans up a spawned process when listener registration fails	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports a failed spawn once without retrying an invalid command	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	reports a failed spawn once without retrying an invalid command	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	keeps queued steering and excludes abandoned session receipts on a startup retry	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	clears the startup deadline when a long-running prompt is admitted	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	clears the startup deadline when a long-running prompt is admitted	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	stops on record overflow without replacing the admitted process	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	settles a failed permission reply without an unhandled rejection or a second write	no
-packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses an unadvertised model instead of silently changing the requested route	no
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses an unadvertised model instead of silently changing the requested route	yes
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds staged pre-prompt permission receipts even when the inner queue keeps draining	no
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on the server, ${sandbox}	no
 packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on run, ${sandbox}	no
