@@ -271,3 +271,17 @@ fn engine_phone_calls_passes_teammate_names_into_conversations_and_turns() {
     assert_eq!(turns[0].agent, "Mira");
     assert_eq!(turns[1].agent, "Mira");
 }
+
+// A note's send comes to what index.ts's `deliver` says: `sent.ok ? 'sent' : sent.why`, and phoneSend's two `why: 'busy'`
+// are "That message is already on its way." and "This conversation is still working. Send when it finishes.".
+#[test]
+fn a_notes_send_is_busy_only_for_the_two_refusals_made_before_anything_started() {
+    use crate::phone_anywhere::NoteDelivery;
+    assert_eq!(note_delivery_of(&PhoneSent::Ok), NoteDelivery::Sent);
+    for busy in ["That message is already on its way.", "This conversation is still working. Send when it finishes."] {
+        assert_eq!(note_delivery_of(&PhoneSent::Err { message: busy.to_owned() }), NoteDelivery::Busy, "{busy}");
+    }
+    for failed in ["Codex could not start.", CANNOT_READ] {
+        assert_eq!(note_delivery_of(&PhoneSent::Err { message: failed.to_owned() }), NoteDelivery::Failed, "{failed}");
+    }
+}
