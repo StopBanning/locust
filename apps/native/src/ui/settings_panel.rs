@@ -1387,6 +1387,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         p,
                         check_command.as_deref(),
                     ));
+                } else if heading == help_section::HEADING {
+                    body = body.child(help_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -2630,3 +2632,6 @@ mod voice_call_disclosure_tests {
 
 #[path = "own_agents_section.rs"]
 pub(crate) mod own_agents_section;
+
+#[path = "help_section.rs"]
+pub(crate) mod help_section;
