@@ -2217,7 +2217,8 @@ impl NativeRelayHost {
 impl crate::relay::RelayHost for NativeRelayHost {
     fn enabled(&self) -> bool {
         let Some(store) = store() else { return true };
-        crate::workspace_settings::load(&store).map(|s| s.relay).unwrap_or(true)
+        // A settings file that cannot be read is off (relay.ts onShared: `enabled()` throwing reads as false).
+        crate::workspace_settings::load(&store).map(|s| s.relay).unwrap_or(false)
     }
 
     fn exchange_of(&self, mission_id: &str) -> Option<String> {
@@ -2238,6 +2239,13 @@ impl crate::relay::RelayHost for NativeRelayHost {
     fn peer_context_for(&self, teammate_id: &str) -> Option<crate::relay::PeerRosterEntry> {
         let store = store()?;
         crate::people::peer_roster_entry(&store, teammate_id)
+    }
+
+    /// A roster that cannot be read says why, rather than reading as "no longer on the roster" (relay.ts onShared).
+    fn peer_context_read(&self, teammate_id: &str) -> Result<Option<crate::relay::PeerRosterEntry>, String> {
+        let Some(store) = store() else { return Ok(None) };
+        crate::people::team(&store)?;
+        Ok(crate::people::peer_roster_entry(&store, teammate_id))
     }
 
     fn final_reply_of(&self, mission_id: &str) -> Option<String> {

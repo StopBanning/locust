@@ -2476,6 +2476,23 @@ fn named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly() {
     assert_eq!(claude_logged["CLAUDE_CODE_OAUTH_TOKEN"].as_str(), Some(""));
 }
 
+// case: treats an unreadable setting as off
+#[test]
+fn relay_reads_an_unreadable_setting_as_off_and_an_unreadable_roster_as_a_reason() {
+    use crate::relay::RelayHost;
+    let t = Temp::new();
+    let store = t.store();
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let _g = hooks::install(store.clone(), None);
+    assert!(super::NativeRelayHost.enabled());
+    assert_eq!(super::NativeRelayHost.peer_context_read("tm_booty"), Ok(None));
+    fs::write(store.root().join("teammates.json"), "{ not the teammates file").unwrap();
+    assert!(!super::NativeRelayHost.enabled());
+    assert!(super::NativeRelayHost.peer_context_read("tm_booty").is_err());
+}
+
 #[test]
 fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread() {
     let t = Temp::new();

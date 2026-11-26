@@ -587,7 +587,7 @@ fn starts_no_reply_on_a_plan_that_is_used_up_and_says_so_where_the_share_was_mad
 }
 
 /// The Rust host answers a plan check with a reason or nothing: a check that could not be made is nothing
-/// (`native.rs` `out_of_plan` reads `usage_ledger::limited_runtimes`, which leaves out what it cannot read).
+/// (`native.rs` `out_of_plan` reads `limits::limited_runtimes`, which leaves out what it cannot read).
 #[test]
 fn a_plan_that_can_take_the_run_is_started_as_before_and_a_check_that_fails_never_blocks_it() {
     let fine = harness(|s| s.out_of_plan = None);
@@ -596,11 +596,10 @@ fn a_plan_that_can_take_the_run_is_started_as_before_and_a_check_that_fails_neve
     assert_eq!(st(&fine).out_of_plan_asked.len(), 1);
     let dir = std::env::temp_dir().join(format!("locust-relay-plan-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(dir.join("native-ledger")).unwrap();
-    std::fs::write(dir.join("native-ledger").join("mission_broken.jsonl"), "{ not a ledger\n").unwrap();
-    let store = crate::store::Store::at(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("mission_broken.jsonl"), "{ not a ledger\n").unwrap();
     let broken = harness(|s| {
-        s.out_of_plan = crate::usage_ledger::limited_runtimes(&store).get("claude").cloned();
+        s.out_of_plan = crate::limits::limited_runtimes_in_dir(&dir, 0).get("claude").cloned();
     });
     broken.on_shared(&sharing(), &[ask(&booty())]);
     assert_eq!(starts(&broken).len(), 1);
