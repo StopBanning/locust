@@ -256,6 +256,11 @@ pub(super) fn send_blocked_now(s: &State) -> Option<&'static str> {
 }
 
 pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
+    // The allow card is the decision: no menu while it waits (Composer.tsx's `commandAsk`).
+    if s.own_commands.ask.is_some() {
+        return Vec::new();
+    }
+    let yours = crate::own_commands_ui::menu_rows(s);
     if s.scene_popup == ComposerScenePopup::Slash {
         return composer::matching_commands(
             "",
@@ -265,9 +270,19 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
                 issues: false,
                 tune: !s.teammates.is_empty(),
                 setup: true,
+                own_commands: &yours,
                 runtime_commands: &[],
             }),
         );
+    }
+    // `/name the rest` is still that command (Composer.tsx `typedOwn`): Enter fills the box with the rest as its
+    // arguments.
+    let names: Vec<&str> = yours.iter().map(|c| c.name.as_str()).collect();
+    if let Some((name, _)) = locust_core::own_commands::arguments_of_own_command(&s.draft.text, &names) {
+        let with_args: Vec<_> = yours.iter().filter(|c| c.name.to_lowercase() == name.to_lowercase()).cloned().collect();
+        if !with_args.is_empty() {
+            return with_args;
+        }
     }
     let Some(query) = composer::slash_query(&s.draft.text) else {
         return Vec::new();
@@ -283,6 +298,7 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
         issues: crate::issue_list::offered(s),
         tune: !s.teammates.is_empty(),
         setup: true,
+        own_commands: &yours,
         runtime_commands: &theirs,
     });
     composer::matching_commands(&query, &available)
@@ -379,6 +395,13 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
             s.draft.clear();
             crate::tune_teammate::open_from_composer(s);
         }
+        // The person's own command fills the box with its prompt (Composer.tsx `ownCommandChoice`). Nothing is sent.
+        composer::SlashAction::Own(source) => {
+            let args = locust_core::own_commands::arguments_of_own_command(&s.draft.text, &[command.name.as_str()])
+                .map(|(_, args)| args)
+                .unwrap_or_default();
+            crate::own_commands_ui::choose(s, &command.name, *source, &args);
+        }
         // The runtime's own command: `/name ` in the box, where its arguments go; sending it sends the command.
         composer::SlashAction::Runtime => {
             s.draft.replace_text(format!("/{} ", command.name));
@@ -433,6 +456,17 @@ pub(super) fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
 }
 
 pub(super) fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    // The allow card is the decision (Composer.tsx): Enter must not send the command's name, and Escape is Not now.
+    if s.own_commands.ask.is_some() {
+        match event.key {
+            Key::Escape => {
+                crate::own_commands_ui::not_now(s);
+                return true;
+            }
+            Key::Enter if !event.mods.shift => return true,
+            _ => return false,
+        }
+    }
     if s.draft.text.starts_with('!') && event.key == Key::Escape {
         s.draft.replace_text(own_command::leave_command_mode(&s.draft.text));
         return true;
@@ -578,7 +612,8 @@ pub(super) fn cycle_mode(s: &mut State) {
 }
 
 pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
-    if s.demo {
+    // Nothing goes while the allow card waits (Composer.tsx `submit`'s `commandAsk !== undefined`).
+    if s.demo || s.own_commands.ask.is_some() {
         return;
     }
     if s.terminal.catchup.is_pending() {

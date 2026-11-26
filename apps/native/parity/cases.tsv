@@ -3555,7 +3555,7 @@ apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	says it did not report when the turn ended with it still out	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows the person's command, its output and its exit code, and Stop only while it runs	yes
-apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	asks before a project command runs, and choosing one fills the box instead of sending	no
+apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	asks before a project command runs, and choosing one fills the box instead of sending	yes
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	averages the points met over the runs the judge scored, and counts the runs that met every one	no
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	keeps each runtime in its own unit: dollars, premium requests, tokens, or in your plan	yes
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	charts score against cost when at least two models were priced in dollars, a free one at $0	no
@@ -6629,7 +6629,7 @@ apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	reads a command 
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	gives $1 and $2 the words, quotes grouping, and the last the rest	yes
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	finds a bang block and the arguments typed after a command name	yes
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	treats a leading bang as command mode, and Escape takes the mark off	yes
-apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	chooses a command by filling the box	no
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	chooses a command by filling the box	yes
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	runs one command in the terminal panel shell	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 200 lines and says how many were left out	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 32 KB when one line is longer than that	yes

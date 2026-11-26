@@ -62,7 +62,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Separate conversation drafts while switching within window | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | @ file attachment and teammate tagging | `renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts` | **done** | yes | no | yes |
-| Runtime/custom slash commands and setup/usage commands | `renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts` | **done** | yes | no | yes |
+| Runtime/custom slash commands and setup/usage commands | `renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts` | **partial** — the person's own Markdown commands are read from <profile>/commands and <folder>/.locust/commands and offered in the / menu, filled into the box, a folder's ! lines asked first (core/src/own_commands.rs, src/ui/own_commands_ui.rs, 26 Nov); Settings > Chat's Your commands section (ChatCommands.tsx: the two lists and Open folder) is not drawn yet | yes | no | yes |
 | Paste/drop files, images and PDF attachment previews | `renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts` | **done** | yes | no | yes |
 | Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **done** | yes | no | yes |
 | Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
@@ -279,7 +279,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 15 | 10 | 0 | 25 | 25 | 3 |
-| 2 | Composer & Input | 11 | 3 | 0 | 14 | 14 | 2 |
+| 2 | Composer & Input | 10 | 4 | 0 | 14 | 14 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 9 | 5 | 0 | 14 | 14 | 0 |
 | 4 | Runtimes, Routing & Fallback | 5 | 6 | 0 | 11 | 11 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 3 | 1 | 6 | 5 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **71** | **78** | **4** | **153** | **149** | **15** |
+| | **TOTAL** | **70** | **79** | **4** | **153** | **149** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

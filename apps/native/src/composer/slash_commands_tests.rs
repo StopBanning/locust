@@ -6,7 +6,7 @@ use super::*;
 const ALL_MODES: [&str; 5] = ["ask", "plan", "accept-edits", "approve-each", "auto"];
 
 fn input<'a>(modes: &'a [&'a str], running: bool) -> AvailableInput<'a> {
-    AvailableInput { modes, running, issues: false, tune: false, setup: false, runtime_commands: &[] }
+    AvailableInput { modes, running, issues: false, tune: false, setup: false, own_commands: &[], runtime_commands: &[] }
 }
 fn names(commands: &[SlashCommand]) -> Vec<String> {
     commands.iter().map(|c| c.name.clone()).collect()

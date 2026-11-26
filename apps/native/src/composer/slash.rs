@@ -10,6 +10,8 @@ pub enum SlashAction {
     Setup,
     /// One of the runtime's own commands (0.426): written into the box, to be sent as the message.
     Runtime,
+    /// One of the person's own commands: the expanded prompt is written into the box, and nothing is sent.
+    Own(locust_core::own_commands::Source),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -115,6 +117,9 @@ pub struct AvailableInput<'a> {
     pub issues: bool,
     pub tune: bool,
     pub setup: bool,
+    /// The person's own commands (`own_slash_commands`): after Locust's, before a runtime's long list, so `/` shows
+    /// them; a name Locust already uses stays Locust's.
+    pub own_commands: &'a [SlashCommand],
     pub runtime_commands: &'a [SlashCommand],
 }
 
@@ -139,10 +144,33 @@ pub fn available_commands(input: AvailableInput<'_>) -> Vec<SlashCommand> {
             _ => true,
         })
         .collect();
+    out.extend(input.own_commands.iter().filter(|c| !own.contains(&c.name.to_lowercase())).cloned());
     if !input.running {
         out.extend(theirs);
     }
     out
+}
+
+/// The person's own commands as menu rows (Composer.tsx `ownRows`): under "Your commands" or "This folder", with the
+/// file's description, else Electron's words for where it is.
+pub fn own_slash_commands(listed: &[locust_core::own_commands::StoredCommand]) -> Vec<SlashCommand> {
+    use locust_core::own_commands::Source;
+    listed
+        .iter()
+        .map(|command| {
+            let project = command.source == Source::Project;
+            SlashCommand {
+                name: command.name.clone(),
+                detail: command.description.clone().unwrap_or_else(|| {
+                    if project { "A command in this folder." } else { "A command of yours." }.to_owned()
+                }),
+                action: SlashAction::Own(command.source),
+                group: Some(if project { "This folder" } else { "Your commands" }.to_owned()),
+                hint: None,
+                weighted: false,
+            }
+        })
+        .collect()
 }
 
 /// A runtime's own commands as menu rows (0.426), under the runtime's name (`runtimeSlashCommands`). Choosing one
@@ -188,6 +216,7 @@ mod tests {
             issues: false,
             tune: false,
             setup: true,
+            own_commands: &[],
             runtime_commands: &[],
         });
         assert!(!idle.iter().any(|c| c.name == "stop"));
@@ -197,6 +226,7 @@ mod tests {
             issues: false,
             tune: false,
             setup: true,
+            own_commands: &[],
             runtime_commands: &[],
         });
         assert!(busy.iter().any(|c| c.name == "stop"));
