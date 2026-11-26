@@ -525,6 +525,11 @@ pub trait RelayHost: Send + Sync {
         None
     }
     fn peer_context_for(&self, teammate_id: &str) -> Option<PeerRosterEntry>;
+    /// The roster entry, or why the roster could not be read (`peerContextFor` throwing): a share is
+    /// relayed through this, so a failed read is said in the thread rather than read as "not on the roster".
+    fn peer_context_read(&self, teammate_id: &str) -> Result<Option<PeerRosterEntry>, String> {
+        Ok(self.peer_context_for(teammate_id))
+    }
     fn final_reply_of(&self, _mission_id: &str) -> Option<String> {
         None
     }
@@ -1436,16 +1441,32 @@ impl<H: RelayHost> Relay<H> {
                 RelayDecision::Start { hop: h } => h,
             };
 
-            let Some(recipient) = self.host.peer_context_for(&recipient_id) else {
-                let mut st = self.state.lock().unwrap();
-                st.release(Some(&root));
-                self.notify(
-                    &mission.run_id,
-                    &mission.mission_id,
-                    format!("{} is no longer on the roster; nothing was started.", message.to_name),
-                    RelayNoticeLevel::Warning,
-                );
-                continue;
+            let recipient = match self.host.peer_context_read(&recipient_id) {
+                Ok(Some(recipient)) => recipient,
+                Ok(None) => {
+                    self.state.lock().unwrap().release(Some(&root));
+                    self.notify(
+                        &mission.run_id,
+                        &mission.mission_id,
+                        format!("{} is no longer on the roster; nothing was started.", message.to_name),
+                        RelayNoticeLevel::Warning,
+                    );
+                    continue;
+                }
+                // Whatever failed between the decision and the start, the thread says so (relay.ts onShared's catch).
+                Err(why) => {
+                    self.state.lock().unwrap().release(Some(&root));
+                    self.notify(
+                        &mission.run_id,
+                        &mission.mission_id,
+                        format!(
+                            "{} could not reply on their own: {why} The message waits for their next run.",
+                            message.to_name
+                        ),
+                        RelayNoticeLevel::Warning,
+                    );
+                    continue;
+                }
             };
 
             let briefed_before = earlier_relayed.iter().any(|id| id == &recipient_id);
@@ -2001,6 +2022,10 @@ pub fn exchange_across(roots: &[&str], missions: &[ExchangeMission]) -> Option<E
 #[cfg(test)]
 #[path = "relay_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "relay_case_tests.rs"]
+mod case_tests;
 
 #[cfg(test)]
 #[path = "run_cost_tests.rs"]
