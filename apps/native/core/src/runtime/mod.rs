@@ -101,6 +101,8 @@ mod claude_background_calls_tests;
 #[cfg(test)]
 mod claude_thinking_tests;
 #[cfg(test)]
+mod the_steps_show_what_the_runtimes_show_tests;
+#[cfg(test)]
 mod claude_helper_children_tests;
 #[cfg(test)]
 mod codex_config_warning_tests;

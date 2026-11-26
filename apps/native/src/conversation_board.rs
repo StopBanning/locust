@@ -287,6 +287,7 @@ mod tests {
 
     #[test]
     fn puts_live_run_in_working_and_others_in_done() {
+        // case: puts a live run in Working and every other phase in Done
         let board = conversation_board(
             &[
                 SidebarMission {
@@ -344,6 +345,7 @@ mod tests {
 
     #[test]
     fn orders_column_newest_first() {
+        // case: orders a column newest first
         let board = conversation_board(
             &[
                 SidebarMission {
@@ -375,6 +377,7 @@ mod tests {
 
     #[test]
     fn leaves_room_and_trashed_out() {
+        // case: leaves a room and a trashed conversation out
         let rooms = [BoardRoom {
             room_id: "room_release".into(),
             mission_ids: vec!["room-answer".into()],
@@ -411,6 +414,7 @@ mod tests {
 
     #[test]
     fn lists_sub_conversation_once_with_parent() {
+        // case: lists a sub-conversation once, with the conversation it sits under
         let board = conversation_board(
             &[
                 SidebarMission {
@@ -440,6 +444,7 @@ mod tests {
 
     #[test]
     fn draws_nothing_when_quiet_done_only() {
+        // case: draws nothing when nobody is working and nothing waits
         assert!(
             conversation_board(
                 &[row("finished", "completed"), row("broke", "failed")],
@@ -462,6 +467,7 @@ mod tests {
 
     #[test]
     fn needs_you_and_to_look_at_columns() {
+        // case: puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at
         let at = |hour: u32| format!("2026-10-04T0{hour}:00:00.000Z");
         let facts = ConversationBoardFacts {
             needs_you: ["asks".into()].into_iter().collect(),
@@ -513,6 +519,48 @@ mod tests {
                 ("done", vec!["old"]),
             ]
         );
+    }
+
+    #[test]
+    fn lands_each_conversation_in_the_column_the_sidebar_mark_already_gives_that_row() {
+        let rows = vec![
+            row("live", "running"),
+            row("finished", "completed"),
+            row("broke", "failed"),
+            SidebarMission { integrity_issue_count: 2, ..row("torn", "completed") },
+        ];
+        let board = conversation_board(&rows, &[], &HashSet::new(), &ConversationBoardFacts::default());
+        let column_of: HashMap<String, &'static str> =
+            ids_in(&board).into_iter().map(|(id, key, _)| (id, key)).collect();
+        for entry in &rows {
+            let running = conversation_is_running(entry);
+            let mark = crate::missions_screen::mission_phase_view(&entry.phase, entry.integrity_issue_count > 0);
+            assert_eq!(running, mark.tag == "RUNNING", "{}", entry.mission_id);
+            assert_eq!(
+                column_of.get(&entry.mission_id).copied(),
+                Some(if running { "working" } else { "done" }),
+                "{}",
+                entry.mission_id
+            );
+        }
+    }
+
+    #[test]
+    fn a_finish_to_look_at_keeps_the_board_up_on_its_own_one_looked_at_since_does_not_control() {
+        let ended = row("ended", "completed");
+        let facts = |needs: &[&str], look: &[&str]| ConversationBoardFacts {
+            needs_you: needs.iter().map(|id| (*id).to_owned()).collect(),
+            to_look_at: look.iter().map(|id| (*id).to_owned()).collect(),
+        };
+        let keys = conversation_board(std::slice::from_ref(&ended), &[], &HashSet::new(), &facts(&[], &["ended"]))
+            .map(|sections| sections.iter().map(|s| s.key.as_str()).collect::<Vec<_>>());
+        assert_eq!(keys, Some(vec!["to-look-at"]));
+        assert!(
+            conversation_board(std::slice::from_ref(&ended), &[], &HashSet::new(), &facts(&[], &["someone-else"]))
+                .is_none()
+        );
+        assert_eq!(conversation_column(&ended, &facts(&["ended"], &[])).as_str(), "needs-you");
+        assert_eq!(conversation_column(&ended, &facts(&[], &[])).as_str(), "done");
     }
 
     #[test]
