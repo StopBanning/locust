@@ -1810,9 +1810,9 @@ apps/desktop/src/main/codex-mission.test.ts	persists a transport failure and dow
 apps/desktop/src/main/codex-mission.test.ts	rejects a second start while the first is still resolving discovery	no
 apps/desktop/src/main/codex-mission.test.ts	refuses Locust's fix of a turn once another turn continues it, and lets a person's own reply through	no
 apps/desktop/src/main/codex-mission.test.ts	drains in-flight work on dispose, latches the service closed, and keeps interrupt reusable	no
-apps/desktop/src/main/codex-mission.test.ts	checkpoints the mission it cut short, after that run has finished settling	no
-apps/desktop/src/main/codex-mission.test.ts	does not checkpoint when no mission was running	no
-apps/desktop/src/main/codex-mission.test.ts	still shuts down when the checkpoint write fails	no
+apps/desktop/src/main/codex-mission.test.ts	checkpoints the mission it cut short, after that run has finished settling	yes
+apps/desktop/src/main/codex-mission.test.ts	does not checkpoint when no mission was running	yes
+apps/desktop/src/main/codex-mission.test.ts	still shuts down when the checkpoint write fails	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate whose own branch could not be made, whoever started it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate at the monthly limit, whoever started it, before anything is recorded (%j)	yes
 apps/desktop/src/main/codex-mission.test.ts	lets the run start when the limit cannot be checked, and says why in the log	yes
@@ -1875,9 +1875,9 @@ apps/desktop/src/main/codex-mission.test.ts	continues a conversation whose earli
 apps/desktop/src/main/codex-mission.test.ts	picks up the session a turn stopped before naming its own was resuming (0.496)	yes
 apps/desktop/src/main/codex-mission.test.ts	starts again from an edited message cold, never in the session that holds the turns set aside (0.498)	yes
 apps/desktop/src/main/codex-mission.test.ts	sends again as the same words, not as an earlier turn quoted back (0.496)	yes
-apps/desktop/src/main/codex-mission.test.ts	runs in the teammateu2019s own branch, as theirs, under their one-run guard	no
+apps/desktop/src/main/codex-mission.test.ts	runs in the teammateu2019s own branch, as theirs, under their one-run guard	yes
 apps/desktop/src/main/codex-mission.test.ts	records a resume on another runtime as a route switch, not a follow-up	yes
-apps/desktop/src/main/codex-mission.test.ts	and on the same runtime, as a follow-up still	no
+apps/desktop/src/main/codex-mission.test.ts	and on the same runtime, as a follow-up still	yes
 apps/desktop/src/main/codex-mission.test.ts	A2.11: carries the conversationu2019s earlier turns into the switch, oldest first, and stops at a loop	yes
 apps/desktop/src/main/codex-mission.test.ts	continues another runtimeu2019s conversation from a checkpoint, with the reply as the latest word	yes
 apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply on the same runtime	yes
