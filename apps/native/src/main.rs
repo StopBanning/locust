@@ -362,7 +362,7 @@ mod starters;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;
-use rune::tok::type_;
+use crate::look::type_;
 use rune::{
     Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, ImageCache, Key, KeyEvent, Latest,
     ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,
@@ -3755,6 +3755,7 @@ fn main() {
     })
     .maximized(placement.maximized)
     .window_options(window_glass::window_options(std::env::consts::OS))
+    .font_smoothing(crate::look::type_::SMOOTHING)
     .chrome(WINDOW_CHROME)
     .on_close(on_close)
     .on_open_url(link_open::opened)
