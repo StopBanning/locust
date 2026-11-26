@@ -175,3 +175,38 @@ fn check_history_over_a_real_copy() {
     println!("{}", String::from_utf8_lossy(&out));
     assert_eq!(code, Some(0));
 }
+
+// ---- --version ---------------------------------------------------------------------------------------------------
+
+/// The commit this build was given in the shell that built it (LOCUST_BUILD_COMMIT), or "dev" when it was given none.
+fn this_builds_commit() -> &'static str {
+    option_env!("LOCUST_BUILD_COMMIT").map(str::trim).filter(|c| !c.is_empty()).unwrap_or("dev")
+}
+
+// The words are the lane's: "0.883.0 (1a2b3c4d)", or "0.883.0 (dev)" for a build given no commit.
+#[test]
+fn version_prints_the_version_and_the_commit_and_exits_0() {
+    let mut out = Vec::new();
+    let code = cutover_flag(&args(&["--version"]), &mut out);
+    assert_eq!(code, Some(0));
+    let said = String::from_utf8(out).unwrap();
+    assert_eq!(said, format!("{} ({})\n", env!("CARGO_PKG_VERSION"), this_builds_commit()));
+    // The window's own version (row 1's), not the notes' newest heading.
+    assert!(!said.starts_with("0.1.0 "), "{said}");
+}
+
+#[test]
+fn version_is_answered_before_anything_slow() {
+    let main = include_str!("main.rs");
+    let body = &main[main.find("\nfn main() {").expect("fn main")..];
+    let flag = body.find("cutover_flag(&std::env::args()").expect("main hands its flags to cutover_flag");
+    for slow in ["shell_path::adopt_terminal_path()", "Store::local()", "diagnostic_log::begin(", "App::new(AppSpec"] {
+        let at = body.find(slow).unwrap_or_else(|| panic!("main has {slow}"));
+        assert!(flag < at, "--version is answered before {slow}");
+    }
+    // And it is only a print: cutover_flag's arm reads no folder and starts nothing.
+    let arms = &main[main.find("fn cutover_flag(").unwrap()..];
+    let arm = &arms[arms.find("Some(\"--version\")").expect("a --version arm")..];
+    let arm = &arm[..arm.find('\n').unwrap()];
+    assert!(arm.contains("build_info::line()"), "{arm}");
+}

@@ -231,3 +231,32 @@ fn the_deleted_list_is_in_memory_only() {
     }
 }
 
+
+// ---- a report says which build it came from ----
+
+/// The commit this build was given in the shell that built it (LOCUST_BUILD_COMMIT), or "dev" when it was given none.
+fn this_builds_commit() -> &'static str {
+    option_env!("LOCUST_BUILD_COMMIT").map(str::trim).filter(|c| !c.is_empty()).unwrap_or("dev")
+}
+
+// shared/report-problem.ts's body line, `Locust ${facts.version} on ${systemName(facts)}`, with the version said as
+// `--version` says it: "0.883.0 (dev)". Saved, emailed and sent alike.
+#[test]
+fn a_saved_or_sent_report_says_the_version_and_the_commit() {
+    let said = format!("Locust {} ({}) on ", env!("CARGO_PKG_VERSION"), this_builds_commit());
+    let mut s = State::default();
+    s.feedback_dialog.suppress_os_open = true;
+    s.feedback_dialog.description.text = "The plan card stayed empty.".into();
+    let mut rt = Runtime::new(s, |_, _| rune::col(), (400.0, 300.0), Env::new(true, 1.0));
+    rt.update(|s, tx| save_file(s, tx));
+    let Some(FeedbackSent::File(file)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("saved") };
+    assert!(file.contains(&said), "{file}");
+    rt.update(|s, _| send_issue(s));
+    let Some(FeedbackSent::Issue(url)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("sent") };
+    let body = url::Url::parse(&url).unwrap().query_pairs().next().unwrap().1.into_owned();
+    assert!(body.contains(&said), "{body}");
+    rt.update(|s, _| send_email(s));
+    let Some(FeedbackSent::Email(mail)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("emailed") };
+    let commit_part = format!("({})%20on%20", this_builds_commit());
+    assert!(mail.contains(&commit_part), "{mail}");
+}

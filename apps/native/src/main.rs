@@ -3358,6 +3358,8 @@ fn cutover_flag(args: &[String], out: &mut dyn std::io::Write) -> Option<i32> {
     match args.get(1).map(String::as_str) {
         Some("--seed-from-electron") => Some(seed_from_electron(out)),
         Some("--check-history") => Some(check_history(args.get(2).map(String::as_str), out)),
+        // Which build this is, "0.883.0 (1a2b3c4d)" or "0.883.0 (dev)": a print and nothing else.
+        Some("--version") => Some(writeln!(out, "{}", locust_core::build_info::line()).map_or(1, |()| 0)),
         _ => None,
     }
 }
@@ -3452,7 +3454,7 @@ fn main() {
         std::process::exit(0);
     }
     // Cutover 1: `--seed-from-electron` copies Electron's current files into the Rust data folder again, says what it
-    // did and exits.
+    // did and exits. `--version` says which build this is and exits, before anything slow.
     if let Some(code) = cutover_flag(&std::env::args().collect::<Vec<_>>(), &mut std::io::stdout()) {
         std::process::exit(code);
     }
@@ -3585,7 +3587,7 @@ fn main() {
     // The record a tester can send back (diagnostic_log.rs): the panic hook, the run's first line and the watch on a
     // window that stops answering, all before the window opens, since a crash at startup is one worth catching.
     if !headless && let Some(store) = locust_core::native::store() {
-        locust_core::diagnostic_log::begin(store.root(), env!("CARGO_PKG_VERSION"), !cfg!(debug_assertions));
+        locust_core::diagnostic_log::begin(store.root(), locust_core::build_info::version(), !cfg!(debug_assertions));
     }
     let placement = if headless {
         locust_core::window_bounds::OpeningPlacement {
