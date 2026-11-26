@@ -33,6 +33,8 @@ pub const LINK_ON_THIS_COMPUTER: &str = "The link is shown only in Locust on you
 pub const CANNOT_ENCRYPT: &str = "This computer cannot encrypt the link password, so no link was made. Nothing was sent to the relay.";
 pub const MISSING_RELAY: &str = "Turn on Your phone, from anywhere in Settings > Phone, then come back here.";
 pub const CANNOT_READ: &str = "The kept links could not be read. Nothing was changed.";
+/// index.ts's `syncHooks`: the line it writes to locust-errors.log when a sync of the called links fails.
+pub const SYNC_FAILED: &str = "The called links could not be collected. They will be tried again when the relay connects.";
 pub const CANNOT_ENCRYPT_WRITE: &str = "The link password could not be encrypted. No link was made.";
 
 pub fn is_hook_id(id: &str) -> bool {
@@ -689,6 +691,16 @@ impl RoutineHooks {
     pub fn state(&self, id: &str, replace: bool) -> Result<RoutineHookState, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         self.state_inner(&mut inner, id, replace)
+    }
+
+    /// index.ts's `syncHooks`: a sync, and when it fails, Electron's `note('routine', ...)` line in the log a tester
+    /// sends back (`log_root`'s locust-errors.log). Nothing is said in the panel, as Electron's says nothing: a relay that
+    /// refuses a link is not a failed sync (the link is asked again on the next), and the editor's own read of the link
+    /// says what the relay has not confirmed.
+    pub fn sync_or_note(&self, log_root: &Path) {
+        if self.sync().is_err() {
+            crate::diagnostic_log::note(log_root, "routine", SYNC_FAILED);
+        }
     }
 
     pub fn sync(&self) -> Result<(), String> {
