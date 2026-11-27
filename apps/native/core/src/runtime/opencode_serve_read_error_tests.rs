@@ -99,3 +99,33 @@ fn a_stream_read_error_keeps_its_reason_and_the_reply_already_read() {
         "there is only one terminal event"
     );
 }
+
+// Lane check of B40: the reader sends its last item before it marks the stream ended, so a watchdog that finds the
+// stream ended must read that item first. A read error still waiting is the run's failure, not a clean EOF, and
+// starts no recovery; with nothing waiting, a closed stream does start one.
+#[test]
+fn an_error_still_queued_when_the_stream_ends_is_the_failure_and_starts_no_recovery() {
+    let mut serve = Serve::new(Command::new("opencode"), Arc::new(AtomicBool::new(false)));
+    serve.session = SESSION.into();
+    serve.prompted = true;
+    let (tx, rx) = event_channel();
+    serve.rx = Some(rx);
+    tx.send(Err(io::Error::other(FAILURE))).unwrap();
+    serve.stream_ended.store(true, Ordering::Release);
+    assert!(!serve.begin_eof_recovery(), "a queued read error was taken for a clean end of the stream");
+    assert!(serve.ended, "the queued read error was never read");
+    assert!(serve.recovery.is_none(), "a read failure began EOF recovery");
+    let end = serve.queued.back().expect("the run settled");
+    assert_eq!(end.kind, "run.failed");
+    assert_eq!(end.payload["message"], FAILURE, "{}", end.payload);
+
+    let mut clean = Serve::new(Command::new("opencode"), Arc::new(AtomicBool::new(false)));
+    clean.session = SESSION.into();
+    clean.prompted = true;
+    let (tx, rx) = event_channel();
+    clean.rx = Some(rx);
+    drop(tx);
+    clean.stream_ended.store(true, Ordering::Release);
+    assert!(clean.begin_eof_recovery(), "a clean end of the stream began no recovery");
+    assert!(!clean.ended && clean.recovery.is_some());
+}
