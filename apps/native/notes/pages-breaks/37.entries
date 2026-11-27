@@ -1,0 +1,7 @@
+src/ui/room_screen.rs|||    let how_many = if count == 0 { "none yet".to_owned() } else ==>     let how_many = if count == 0 { "no rooms".to_owned() } else
+src/ui/room_screen.rs|||    root = root.child(screen_header(l, "Rooms", rooms_meta(s.rooms.rooms.len()))); ==>     root = root.child(screen_header(l, "Rooms", String::new()));
+src/ui/room_screen.rs|||    let mut chips = row().key("room-create-members").w_full().gap(4.0).flex_wrap() ==>     let mut chips = col().key("room-create-members").w_full().gap(4.0)
+src/ui/room_screen.rs|||.key(format!("room-create-tick-{}", tm.id)) ==> .key(format!("room-create-tick-off-{}", tm.id))
+src/ui/room_screen.rs|||    if s.rooms.rooms.is_empty() && !s.teammates.is_empty() { ==>     if !s.teammates.is_empty() {
+src/ui/room_screen.rs|||    if let Some(reason) = &blocked { ==>     if let Some(reason) = &room_full_note(picked) {
+src/ui/room_screen.rs|||            .child(text(tm.name.clone()).font(l.ty.body).color(l.c(ink))); ==>             .child(col().child(text(tm.name.clone()).font(l.ty.body).color(l.c(ink))).child(text(tm.role.clone()).font(l.ty.label).color(l.c(ink))));

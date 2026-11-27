@@ -1,0 +1,7 @@
+src/ui/room_screen.rs|||    let mut body = col().key("rooms-column").w_full().max_w(ROOMS_COLUMN).self_center().gap(24.0).mt(40.0); ==>     let mut body = col().key("rooms-column").w_full().gap(24.0).mt(40.0);
+src/ui/room_screen.rs|||pub const ROOMS_COLUMN: f32 = 620.0; ==> pub const ROOMS_COLUMN: f32 = 760.0;
+src/ui/room_screen.rs|||.max_w(ROOMS_COLUMN).self_center().gap(24.0).mt(40.0); ==> .max_w(ROOMS_COLUMN).self_start().gap(24.0).mt(40.0);
+src/ui/room_screen.rs|||.self_center().gap(24.0).mt(40.0); ==> .self_center().gap(24.0).mt(8.0);
+src/ui/routines_panel.rs|||    let mut shelf = col().gap(8.0).w_full().max_w(EMPTY_SHELF_COLUMN).self_center().key("routines-empty").child( ==>     let mut shelf = col().gap(8.0).w_full().key("routines-empty").child(
+src/ui/routines_panel.rs|||.max_w(EMPTY_SHELF_COLUMN).self_center().key("routines-empty") ==> .max_w(EMPTY_SHELF_COLUMN).key("routines-empty")
+src/ui/routines_panel.rs|||pub const EMPTY_SHELF_COLUMN: f32 = 680.0; ==> pub const EMPTY_SHELF_COLUMN: f32 = 2000.0;
