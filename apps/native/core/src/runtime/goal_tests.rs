@@ -95,3 +95,30 @@ fn a_goal_takes_its_thread_from_the_notice_when_the_goal_leaves_it_out() {
     let Some(GoalEvent::Updated(read)) = from_notification("thread/goal/updated", &updated(goal)) else { panic!("not read") };
     assert_eq!(read.thread_id, "thread_9");
 }
+
+#[test]
+fn a_set_never_sends_a_status_the_protocol_does_not_name() {
+    // Codex 0.172.0's ThreadGoalStatus has six words and no "unknown": a status Locust read but could not name is left
+    // out of thread/goal/set rather than sent back as a word the server would refuse. A named one is sent as itself.
+    let unknown = GoalSet { objective: Some("Keep it green".into()), status: Some(GoalStatus::Unknown), token_budget: None };
+    let params = set_params("thread_9", &unknown);
+    assert!(params.get("status").is_none(), "{params}");
+    assert_eq!(params["objective"], "Keep it green");
+    let paused = GoalSet { objective: None, status: Some(GoalStatus::Paused), token_budget: None };
+    assert_eq!(set_params("thread_9", &paused)["status"], "paused");
+}
+
+#[test]
+fn a_reply_about_another_thread_or_missing_a_required_count_is_not_read_as_the_goal() {
+    // Lane check of the dot's Goals fixes: a thread/goal/set or get reply must name the thread asked about and carry the
+    // 0.172.0 ThreadGoal's required counts (tokensUsed, timeUsedSeconds); otherwise it is a broken reply, not a goal.
+    assert!(ThreadGoal::parse_reply(&kept_green(), "thread_9").is_some(), "the full goal on the asked thread reads");
+    let mut other = kept_green();
+    other["threadId"] = json!("thread_8");
+    assert!(ThreadGoal::parse_reply(&other, "thread_9").is_none(), "another thread's goal is not this one's");
+    for missing in ["tokensUsed", "timeUsedSeconds"] {
+        let mut goal = kept_green();
+        goal.as_object_mut().unwrap().remove(missing);
+        assert!(ThreadGoal::parse_reply(&goal, "thread_9").is_none(), "a reply without {missing} is broken");
+    }
+}
