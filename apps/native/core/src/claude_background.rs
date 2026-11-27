@@ -548,6 +548,81 @@ pub trait BackgroundHost {
     }
 }
 
+/// The start-time receipt check used by Electron's createSpendRefusal. Call after the
+/// route check: reaching a teammate's limit and launching without receipts are different refusals.
+pub(crate) fn launch_spend_refusal(
+    store: &crate::store::Store,
+    policy: &crate::org_policy::PolicyState,
+    teammate_id: Option<&str>,
+) -> Option<String> {
+    use crate::{org_policy, spend, usage_ledger};
+
+    let managed = policy.policy.contains_key("monthlyLimitUsd");
+    if teammate_id.is_none() && !managed {
+        return None;
+    }
+    let unreadable = || {
+        if managed {
+            org_policy::policy_refusal(
+                policy,
+                "monthlyLimitUsd",
+                "The monthly spending limit could not be checked. Ask your administrator to restore access to the spending record.",
+            )
+        } else {
+            "The teammate's monthly spending limit could not be checked. Nothing was started.".into()
+        }
+    };
+    let roster = if teammate_id.is_some() {
+        match crate::people::team(store) {
+            Ok(roster) => roster,
+            Err(_) => return Some(unreadable()),
+        }
+    } else {
+        serde_json::Value::Null
+    };
+    let teammate = teammate_id.and_then(|id| {
+        roster["teammates"]
+            .as_array()?
+            .iter()
+            .find(|entry| entry["teammateId"] == id)
+    });
+    let personal = teammate
+        .and_then(|entry| entry["monthlyLimitUsd"].as_f64())
+        .filter(|limit| spend::is_monthly_limit(*limit));
+    let limit = org_policy::monthly_limit(Some(policy), personal)?;
+    let now = chrono::Local::now();
+    let Some(month) = spend::month_of(&now.to_rfc3339()) else {
+        return Some(unreadable());
+    };
+    let turns = if managed {
+        usage_ledger::usage_turns_readable(store)
+    } else {
+        usage_ledger::usage_turns(store)
+    };
+    let Ok(turns) = turns else {
+        return Some(unreadable());
+    };
+    let owner = teammate.and_then(|entry| entry["teammateId"].as_str());
+    let spent = spend::spent_by(&turns, &month, |conversation| {
+        owner.is_none_or(|id| roster["missionOwners"][conversation] == id)
+    });
+    if !spend::limit_reached(Some(&spent), limit) {
+        return None;
+    }
+    let name = teammate
+        .and_then(|entry| entry["name"].as_str())
+        .unwrap_or("Locust");
+    if managed {
+        Some(org_policy::policy_refusal(
+            policy,
+            "monthlyLimitUsd",
+            &format!("{name} has reached this month's effective limit of {limit:.2} USD. It starts again next month."),
+        ))
+    } else {
+        Some(spend::limit_refusal(name, Some(&spent), limit, now))
+    }
+}
+
 /// Manages `claude-background.json`, watches live runs, and brings finished runs back into their conversation.
 pub struct BackgroundRuns<H: BackgroundHost> {
     file: PathBuf,
@@ -622,7 +697,37 @@ impl<H: BackgroundHost> BackgroundRuns<H> {
         self.load().clone()
     }
 
-    pub fn start(&mut self, request: StartBackgroundRequest) -> StartBackgroundOutcome {
+    pub fn start(&mut self, mut request: StartBackgroundRequest) -> StartBackgroundOutcome {
+        let refuse = |message| StartBackgroundOutcome::Refused { message, needs_trust: false };
+        // Check the authority this launch actually gets, not a renderer's label.
+        let mode = match background_permission_mode(request.sandbox, request.ask_each) {
+            "plan" => "plan",
+            "default" => "approve-each",
+            "acceptEdits" => "accept-edits",
+            _ => "auto",
+        };
+        // Use the same plain-model validation as Claude Cloud. An invalid choice
+        // selects the account default; it is not an allowed named model.
+        let choice = crate::claude_cloud::CloudChoice { model: request.model.take(), ..Default::default() };
+        let args = match crate::claude_cloud::choice_args(Some(&choice)) {
+            Ok(args) => args,
+            Err(message) => return refuse(message),
+        };
+        request.model = args.get(1).cloned();
+        let policy = crate::org_policy::current();
+        if let Some(message) = crate::org_policy::unmetered_refusal(
+            Some(&policy), "claude", request.model.as_deref(), mode, false, request.account.is_some(),
+        ) {
+            return refuse(message);
+        }
+        if let Some(teammate) = request.teammate_id.as_deref() {
+            let Some(store) = crate::native::store().filter(|store| self.file.parent() == Some(store.root())) else {
+                return refuse("The teammate's spending limit could not be checked. Nothing was started.".into());
+            };
+            if let Some(message) = launch_spend_refusal(&store, &policy, Some(teammate)) {
+                return refuse(message);
+            }
+        }
         let resume_session_id = request
             .conversation
             .as_deref()
@@ -1706,3 +1811,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "claude_background_policy_tests.rs"]
+mod claude_background_policy_tests;

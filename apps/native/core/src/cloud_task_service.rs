@@ -49,6 +49,7 @@ pub enum CloudApplyResult {
 
 pub struct CloudTaskService<'a> {
     file: PathBuf,
+    store: Option<crate::store::Store>,
     codex: Box<dyn Fn(&[&str], &Path) -> Result<Ran, String> + 'a>,
     git: Box<dyn Fn(&[&str], &Path) -> Result<Ran, String> + 'a>,
     ready: Box<dyn Fn() -> bool + 'a>,
@@ -90,8 +91,10 @@ pub fn on_this_computer(store: &crate::store::Store) -> CloudTaskService<'static
             String::from_utf8_lossy(&out.stderr),
         ))
     };
-    CloudTaskService::from_runners(store_path_of(store), codex, git)
-        .with_ready(|| crate::runtime::discovery::find().is_ok())
+    let mut service = CloudTaskService::from_runners(store_path_of(store), codex, git)
+        .with_ready(|| crate::runtime::discovery::find().is_ok());
+    service.store = Some(store.clone());
+    service
 }
 
 impl<'a> CloudTaskService<'a> {
@@ -114,6 +117,7 @@ impl<'a> CloudTaskService<'a> {
     ) -> Self {
         Self {
             file: file.into(),
+            store: None,
             codex: Box::new(codex),
             git: Box::new(git),
             ready: Box::new(|| true),
@@ -192,6 +196,20 @@ impl<'a> CloudTaskService<'a> {
     }
 
     pub fn start(&self, input: CloudStartInput) -> CloudStartResult {
+        let policy = crate::org_policy::current();
+        // Like Electron's CLOUD_START_CHANNEL, check the model this launch actually uses. The cloud
+        // chooses its own model; a picked local model cannot satisfy a restricted model policy.
+        if let Some(message) =
+            crate::org_policy::unmetered_refusal(Some(&policy), "codex", None, "auto", true, false)
+        {
+            return CloudStartResult::Err { message };
+        }
+        if let Some(store) = &self.store
+            && let Some(message) =
+                crate::claude_background::launch_spend_refusal(store, &policy, input.teammate_id.as_deref())
+        {
+            return CloudStartResult::Err { message };
+        }
         let prompt = input.prompt.trim().to_string();
         if prompt.is_empty() {
             return CloudStartResult::Err {
@@ -448,3 +466,7 @@ fn task_from_json(value: &Value) -> Option<CloudTask> {
 #[cfg(test)]
 #[path = "cloud_task_service_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cloud_task_service_policy_tests.rs"]
+mod policy_tests;

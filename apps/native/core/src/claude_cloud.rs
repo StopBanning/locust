@@ -493,6 +493,14 @@ pub enum ClaudeCloudAnswer {
     Err { message: String },
 }
 
+type SpendRefusal<'a> = dyn Fn(&crate::org_policy::PolicyState, Option<&str>) -> Option<String> + 'a;
+
+/// Claude Cloud does not return spending receipts or enforce a lower permission mode.
+/// Match Electron's unmetered policy guard before any of its launch paths.
+fn launch_refusal(policy: &crate::org_policy::PolicyState, model: Option<&str>) -> Option<String> {
+    crate::org_policy::unmetered_refusal(Some(policy), "claude", model, "auto", true, false)
+}
+
 pub struct ClaudeCloud<'a> {
     store_path: PathBuf,
     platform: CloudPlatform,
@@ -500,6 +508,7 @@ pub struct ClaudeCloud<'a> {
     exec: Option<Box<dyn Fn(&str, &[String], &ExecOptions) -> ExecReply + 'a>>,
     terminal: Option<Box<dyn Fn(&PseudoTerminalRun) -> PseudoTerminalResult + 'a>>,
     run_window: Option<Box<dyn Fn(&WindowRun) -> Result<(), String> + 'a>>,
+    spend_refusal: Option<Box<SpendRefusal<'a>>>,
     git_changes: Box<dyn Fn(&str) -> Option<usize> + 'a>,
     git: Box<dyn Fn(&[&str], &str, Option<&str>) -> GitRan + 'a>,
     claude_home: PathBuf,
@@ -525,6 +534,7 @@ impl<'a> ClaudeCloud<'a> {
             exec: None,
             terminal: None,
             run_window: None,
+            spend_refusal: None,
             git_changes: Box::new(git_changes_in),
             git: Box::new(git_run),
             claude_home: default_claude_home(),
@@ -774,6 +784,9 @@ impl<'a> ClaudeCloud<'a> {
     /// `claude --teleport <id>` in the session's folder. Claude Code refuses a folder with changes in it, so this
     /// says so first rather than opening a window that only refuses.
     pub fn home(&self, id: &str) -> CloudSendResult {
+        if let Some(message) = launch_refusal(&crate::org_policy::current(), None) {
+            return CloudSendResult::Err { message };
+        }
         let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
             return CloudSendResult::Err {
                 message: NOT_KNOWN_ANY_MORE.into(),
@@ -873,6 +886,10 @@ impl<'a> ClaudeCloud<'a> {
     /// commit, kept until Apply or Forget. Every check is a fresh teleport; nothing polls.
     /// Overlapping checks of one session share one teleport; once it ends, the next check starts afresh.
     pub fn check(&self, id: &str) -> ClaudeCloudReading {
+        // Reading launches a hidden Claude terminal; reject before joining a read or touching Git.
+        if let Some(message) = launch_refusal(&crate::org_policy::current(), None) {
+            return ClaudeCloudReading::Err { message };
+        }
         let mut under_way = self.reads.under_way.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(read) = under_way.get(id).cloned() {
             drop(under_way);
@@ -1134,12 +1151,22 @@ impl<'a> ClaudeCloud<'a> {
                 message: "Describe the task first. Nothing was sent.".into(),
             };
         }
-        if let Some(env) = choice.and_then(|c| c.environment.as_deref())
-            && !is_cloud_environment_id(env)
-        {
-            return ClaudeCloudAnswer::Err {
-                message: "Use an environment ID beginning ccpool_ with 1 to 80 letters, digits, underscores or hyphens, or leave it empty. Nothing was sent.".into(),
-            };
+        // Use the validated argument that the terminal would really receive.
+        // An absent or rejected choice would otherwise run on the account default.
+        let args = match choice_args(choice) {
+            Ok(args) => args,
+            Err(message) => return ClaudeCloudAnswer::Err { message: format!("{message} Nothing was sent.") },
+        };
+        let model = match args.as_slice() {
+            [flag, model, ..] if flag == "--model" => Some(model.as_str()),
+            _ => None,
+        };
+        let policy = crate::org_policy::current();
+        if let Some(message) = launch_refusal(&policy, model) {
+            return ClaudeCloudAnswer::Err { message };
+        }
+        if let Some(message) = self.spend_refusal.as_ref().and_then(|check| check(&policy, teammate_id)) {
+            return ClaudeCloudAnswer::Err { message };
         }
         let _ = self.remember_environment(folder, choice.and_then(|c| c.environment.as_deref()));
         let unseen = self.start_unseen(folder, &task, choice);
@@ -1199,6 +1226,9 @@ impl<'a> ClaudeCloud<'a> {
 
     /// A follow-up to the session itself: `claude -p --cloud <id> --output-format json "..."`.
     pub fn send(&self, id: &str, message: &str) -> CloudSendResult {
+        if let Some(message) = launch_refusal(&crate::org_policy::current(), None) {
+            return CloudSendResult::Err { message };
+        }
         let sessions = self.read_sessions();
         let Some(session) = sessions.into_iter().find(|s| s.id == id) else {
             return CloudSendResult::Err {
@@ -1362,7 +1392,12 @@ pub(crate) fn on_this_computer_with(
         CloudPlatform::Linux
     };
     let windows = store.clone();
-    ClaudeCloud::new(store_path_of(store), platform, discover)
+    let spending = store.clone();
+    let mut cloud = ClaudeCloud::new(store_path_of(store), platform, discover);
+    cloud.spend_refusal = Some(Box::new(move |policy, teammate_id| {
+        crate::claude_background::launch_spend_refusal(&spending, policy, teammate_id)
+    }));
+    cloud
     .with_reads(reads)
     .with_exec(run_exec)
     .with_terminal(run_in_pseudo_terminal)
@@ -1585,3 +1620,7 @@ mod task_tests;
 #[cfg(test)]
 #[path = "claude_cloud_exec_tests.rs"]
 mod exec_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_policy_tests.rs"]
+mod policy_tests;

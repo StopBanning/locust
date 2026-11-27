@@ -267,10 +267,10 @@ pub fn feature_refusal(state: Option<&PolicyState>, setting: &str) -> Option<Str
         "otherApps" => "Access from other AI apps, the locust command and editors is off.",
         "phone" => "Phone pairing is off.",
         "chatApps" => "Teammates in chat apps are off.",
-        "cloud" => "Cloud computers and cloud sessions are off.",
+        "cloud" => "Cloud computers and cloud tasks are off.",
         "terminal" => "The terminal panel is off.",
         "browser" => "The browser panel is off.",
-        "accounts" => "Added accounts are off.",
+        "accounts" => "Added agent accounts are off.",
         _ => "This is off.",
     };
     Some(policy_refusal(state, setting, name))
