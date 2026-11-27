@@ -700,7 +700,7 @@ impl Runtime for Codex {
         }
         // A new thread holds no standing goal; a reopened one asks after the goal it holds, before its turn, so what
         // the turn says of it reads as a change or not. A Codex without goals, or one that says no, leaves the turn be.
-        self.normal.goal_known = turn.resume.is_none();
+        self.normal.begin_goal_tracking(turn.resume.is_some());
         if turn.resume.is_some() && !self.fork {
             let _ = self.ask_goal(super::goal::GoalAsk::Get);
         }

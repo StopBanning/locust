@@ -337,3 +337,117 @@ fn a_reopened_thread_on_a_codex_without_goals_goes_on_with_its_turn() {
     assert_eq!(events.last().unwrap().kind, "run.completed");
     assert!(goal_codes(&events).is_empty());
 }
+
+// The v0.172.0 ThreadGoalUpdatedNotification has a nullable turnId.
+// The resume/fork snapshot has no turn, unlike a change from the new turn.
+fn snapshot_notice(goal: Option<Value>) -> Value {
+    match goal {
+        Some(goal) => json!({"send": {"jsonrpc": "2.0", "method": "thread/goal/updated",
+            "params": {"threadId": "thread_9", "turnId": null, "goal": goal}}}),
+        None => cleared_notice(),
+    }
+}
+
+fn live_goal_notice(goal: Value) -> Value {
+    json!({"send": {"jsonrpc": "2.0", "method": "thread/goal/updated",
+        "params": {"threadId": "thread_9", "turnId": "turn_1", "goal": goal}}})
+}
+
+fn live_turn_start() -> Value {
+    json!({"send": {"jsonrpc": "2.0", "method": "turn/started",
+        "params": {"threadId": "thread_9", "turn": {"id": "turn_1", "status": "inProgress"}}}})
+}
+
+fn check_resumed_snapshot(had_goal: bool, notice_before_get: bool, stale_notice: bool) {
+    let initial = had_goal.then(|| kept_green("active"));
+    let mut snapshot = initial.clone();
+    if stale_notice {
+        let older = snapshot.as_mut().unwrap();
+        older["objective"] = json!("An earlier goal");
+        older["updatedAt"] = json!(1764200001);
+    }
+    let snapshot = snapshot_notice(snapshot);
+    let changed = kept_green(if had_goal { "paused" } else { "active" });
+    let mut resume = vec![json!({"result": {"thread": {"id": "thread_9"}}})];
+    let mut start = vec![json!({"result": {"turn": {"id": "turn_1"}}}), live_turn_start()];
+    if notice_before_get {
+        resume.push(snapshot);
+    } else {
+        // Deliberately after both the Get reply and the turn/start reply.
+        start.push(snapshot);
+    }
+    start.extend([live_goal_notice(changed), turn_ends()]);
+    let (mut codex, told) = stand_in(json!({
+        "thread/resume": resume,
+        "thread/goal/get": [{"result": {"goal": initial}}],
+        "turn/start": start,
+    }));
+    codex.start(&resumed_turn()).unwrap();
+    let asked = told.asked();
+    let at = |method: &str| asked.iter().position(|m| m == method).expect(method);
+    assert!(at("thread/resume") < at("thread/goal/get") && at("thread/goal/get") < at("turn/start"));
+    assert_eq!(codex.standing_goal().map(|g| (g.objective.as_str(), g.status)),
+        had_goal.then_some(("Keep the test suite green", GoalStatus::Active)));
+    let events = to_the_end(&mut codex);
+    assert_eq!(goal_codes(&events), [if had_goal { "codex.goal_status" } else { "codex.goal_set" }]);
+    assert_eq!(codex.standing_goal().unwrap().status, if had_goal { GoalStatus::Paused } else { GoalStatus::Active });
+}
+
+#[test]
+fn resume_goal_snapshot_before_get_is_not_a_change() {
+    check_resumed_snapshot(true, true, false);
+}
+
+#[test]
+fn resume_goal_snapshot_after_get_is_not_a_change() {
+    check_resumed_snapshot(true, false, false);
+}
+
+#[test]
+fn resume_empty_snapshot_before_get_is_not_a_clear() {
+    check_resumed_snapshot(false, true, false);
+}
+
+#[test]
+fn resume_empty_snapshot_after_get_is_not_a_clear() {
+    check_resumed_snapshot(false, false, false);
+}
+
+#[test]
+fn a_stale_resume_snapshot_never_replaces_get_or_writes_a_change() {
+    check_resumed_snapshot(true, true, true);
+    check_resumed_snapshot(true, false, true);
+}
+
+#[test]
+fn a_forked_goal_snapshot_is_not_a_change_but_later_clear_is() {
+    let (codex, told) = stand_in(json!({
+        "thread/fork": [
+            {"result": {"thread": {"id": "thread_9"}}},
+            snapshot_notice(Some(kept_green("active"))),
+        ],
+        "turn/start": [
+            {"result": {"turn": {"id": "turn_1"}}},
+            live_turn_start(), cleared_notice(), turn_ends(),
+        ],
+    }));
+    let mut codex = codex.with_fork(true);
+    codex.start(&resumed_turn()).unwrap();
+    assert!(!told.asked().iter().any(|m| m == "thread/goal/get"));
+    assert_eq!(codex.standing_goal().map(|g| g.status), Some(GoalStatus::Active));
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_cleared"]);
+    assert!(codex.standing_goal().is_none());
+}
+
+#[test]
+fn a_fork_without_a_snapshot_records_the_first_live_goal_change() {
+    let (codex, _told) = stand_in(json!({
+        "turn/start": [
+            {"result": {"turn": {"id": "turn_1"}}},
+            live_turn_start(), live_goal_notice(kept_green("active")), cleared_notice(), turn_ends(),
+        ],
+    }));
+    let mut codex = codex.with_fork(true);
+    codex.start(&resumed_turn()).unwrap();
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_set", "codex.goal_cleared"]);
+}
