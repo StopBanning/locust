@@ -465,6 +465,25 @@ fn edited_while_running(r: &Value) -> bool {
     matches!(r["execution"]["status"].as_str(), Some("running" | "dispatching"))
 }
 
+/// What a later run uses (RoutineDialog.tsx:267, 0.493), said instead of a rule about read-only: the model the teammate
+/// last worked on -- this one, until they have worked on one -- and always the mode it is saved with.
+fn runs_on(name: &str, has_route: bool, mode: Option<&str>) -> String {
+    let until = if has_route { "" } else { " (this one, until they have worked on one)" };
+    let always = mode.map_or(String::new(), |mode| format!(", and always {mode}"));
+    format!("Each run uses the model {name} last worked on{until}{always}.")
+}
+
+/// RoutineDialog's title: Edit routine for a saved one, New routine for one written from nothing, else Save as routine.
+fn editor_title(entry: &Value) -> &'static str {
+    if entry["routineId"].as_str().is_some_and(|id| !id.is_empty()) {
+        "Edit routine"
+    } else if entry["learnedFrom"].as_array().is_none_or(Vec::is_empty) {
+        "New routine"
+    } else {
+        "Save as routine"
+    }
+}
+
 fn runner_choice(s: &State, p: &Palette) -> El {
     let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
     let named = s.teammates.iter().find(|t| t.id == owner);
@@ -474,7 +493,9 @@ fn runner_choice(s: &State, p: &Palette) -> El {
             Some(mode) => format!("{who}, in {mode}."),
             None => who,
         };
-        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
+        let runs_it = text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
+        let Some(named) = named else { return runs_it };
+        return col().gap(2.0).child(runs_it).child(text(runs_on(&named.name, named.runtime.is_some(), shown_mode(s))).key("routine-runs-on").font(type_::LABEL).color(p.secondary).wrap());
     }
     let mut choice = col().gap(6.0)
         .child(text("Who runs it").font(type_::LABEL).color(p.secondary))
@@ -517,6 +538,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     }
     if !panel.fields.is_empty() {
         let refusal = save_refusal(s);
+        body = body.child(text(editor_title(&panel.entry)).key("routine-editor-title").font(type_::LABEL).color(p.text));
         body = body.child(runner_choice(s, p));
         if let Some(reason) = &refusal {
             body = body.child(text(reason.clone()).key("routine-save-refusal").font(type_::LABEL).color(p.secondary).wrap());
@@ -2531,6 +2553,32 @@ mod renderer_unowned_tests {
             let (note, shown) = editing(execution.clone());
             assert!(note.is_none() && !shown.contains("That run keeps the steps"), "{execution}: {shown}");
         }
+    }
+    // case: says the model and the mode it runs in, not a rule about read-only
+    // Carried: the title, RoutineDialog.tsx:267's "Each run uses the model Wren last worked on, and always Edit.", and
+    // no read-only rule. Not carried: ' on Cursor / Grok 4.7' inside "Wren runs it, in Edit." (RoutineDialog.tsx:255),
+    // because routine_card_and_editor_tests.rs:118 and :144 pin "Codec runs it, in Edit." for a Codec with a route.
+    #[test]
+    fn says_the_model_and_the_mode_it_runs_in_not_a_rule_about_read_only() {
+        let wren = |route: Value| {
+            let mut s = State::default();
+            let mut mate = json!({"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-09-01T00:00:00.000Z"});
+            if !route.is_null() {
+                mate["route"] = route;
+            }
+            s.teammates = native::parse_roster(&json!({"schemaVersion":1,"teammates":[mate]}).to_string()).unwrap();
+            edit(&mut s, json!({"routineId":"rt_todo","name":"Todo page chain","steps":["Write a todo page."],"teammateId":"tm_wren",
+                "route":{"runtime":"cursor","model":"grok-4.7-high","mode":"accept-edits"}}));
+            runtime(s)
+        };
+        let rt = wren(json!({"runtime":"cursor","model":"grok-4.7-high","mode":"accept-edits"}));
+        let key = |rt: &rune::Runtime<State>, key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text);
+        assert_eq!(key(&rt, "routine-editor-title").as_deref(), Some("Edit routine"));
+        assert_eq!(key(&rt, "routine-runs-on").as_deref(), Some("Each run uses the model Wren last worked on, and always Edit."), "{}", words(&rt));
+        assert!(!words(&rt).contains("stays read-only"), "{}", words(&rt));
+        // A teammate who has worked on no model yet (`teammate.route === undefined`).
+        let rt = wren(Value::Null);
+        assert_eq!(key(&rt, "routine-runs-on").as_deref(), Some("Each run uses the model Wren last worked on (this one, until they have worked on one), and always Edit."));
     }
     #[test]
     fn asks_who_will_run_it() {
