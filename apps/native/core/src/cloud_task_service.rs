@@ -11,7 +11,8 @@ use regex::Regex;
 use serde_json::{Value, json};
 
 use crate::cloud_tasks::{
-    CloudEnvironment, CloudState, CloudStatus, CloudTask, FolderOnGitHub, Ran, StartAnswer,
+    CloudEnvironment, CloudStartProblem, CloudState, CloudStatus, CloudTask, FolderOnGitHub, Ran,
+    StartAnswer,
     environment_of, folder_on_github, leaving_no_log, refusal_for, start_answer, status_answer,
 };
 
@@ -38,7 +39,9 @@ pub struct CloudStartInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CloudStartResult {
     Ok { task: CloudTask, notes: Vec<String> },
-    Err { message: String },
+    /// `no_environment` (27 Nov): the repository Codex Cloud has no environment for, so the window can say so where
+    /// the person picks Cloud, before the next send (Electron `CloudStartResult.noEnvironment`).
+    Err { message: String, no_environment: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -196,6 +199,7 @@ impl<'a> CloudTaskService<'a> {
         if prompt.is_empty() {
             return CloudStartResult::Err {
                 message: "Say what the cloud task should do.".into(),
+                no_environment: None,
             };
         }
         let folder_path = Path::new(&input.folder);
@@ -203,6 +207,7 @@ impl<'a> CloudTaskService<'a> {
         let Some(repo) = where_gh.repo else {
             return CloudStartResult::Err {
                 message: "A cloud task works on a GitHub repository, and this folder has none. Push it to GitHub first, or send it here instead.".into(),
+                no_environment: None,
             };
         };
 
@@ -238,8 +243,13 @@ impl<'a> CloudTaskService<'a> {
         let (task_id, url) = match start_answer(&ran, &repo) {
             StartAnswer::Ok { task_id, url } => (task_id, url),
             StartAnswer::Err(problem) => {
+                let no_environment = match &problem {
+                    CloudStartProblem::NoEnvironment { repo } => Some(repo.clone()),
+                    CloudStartProblem::Other { .. } => None,
+                };
                 return CloudStartResult::Err {
                     message: refusal_for(&problem),
+                    no_environment,
                 };
             }
         };
