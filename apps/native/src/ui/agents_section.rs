@@ -454,14 +454,21 @@ fn start(s: &mut State, job: Job) {
 /// The service's answers and its clock: the first look 45 s after launch, then each hour (a look goes to the network only
 /// when six hours have passed). Memory only; every read, process and install is in a job.
 fn poll_updates(s: &mut State) -> bool {
-    if !s.agent_updates.decided {
+    let decided_now = !s.agent_updates.decided;
+    if decided_now {
         s.agent_updates.decided = true;
         if may_update() {
             s.agent_updates.service = make_service(s);
         }
         s.agent_updates.held_here = s.agent_updates.service.is_none();
     }
-    let Some(service) = s.agent_updates.service.clone() else { return false };
+    let Some(service) = s.agent_updates.service.clone() else {
+        // A visible Settings section needs to repaint; other pages will draw the held note when opened.
+        return decided_now
+            && s.settings_panel.open
+            && s.settings_panel.page == crate::settings_pages::SettingsPageId::from_str("runtimes")
+            && s.settings_panel.agents.is_some();
+    };
     let mut changed = false;
     if let Some(state) = s.agent_updates_job.take() {
         s.agent_updates.read = true;
@@ -1439,3 +1446,7 @@ mod tests {
 #[cfg(test)]
 #[path = "agents_vendor_return_tests.rs"]
 mod agents_vendor_return_tests;
+
+#[cfg(test)]
+#[path = "agents_first_hour_updates_tests.rs"]
+mod agents_first_hour_updates_tests;
