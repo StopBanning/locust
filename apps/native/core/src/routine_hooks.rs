@@ -293,6 +293,7 @@ struct Inner {
 /// Manages private routine link hooks, encrypted persistence, batch folding, and relay sync.
 pub struct RoutineHooks {
     options: Options,
+    diagnostic_root: Option<PathBuf>,
     inner: Mutex<Inner>,
 }
 
@@ -300,8 +301,15 @@ impl RoutineHooks {
     pub fn new(options: Options) -> Self {
         Self {
             options,
+            diagnostic_root: None,
             inner: Mutex::new(Inner { saved: Saved::default(), loaded: false, unusable: BTreeSet::new() }),
         }
+    }
+
+    /// The live host's relay refresh calls `sync` directly, without a window or runner update.
+    pub(crate) fn with_sync_diagnostics(mut self, root: PathBuf) -> Self {
+        self.diagnostic_root = Some(root);
+        self
     }
 
     fn now_ms(&self) -> i64 {
@@ -698,12 +706,24 @@ impl RoutineHooks {
     /// refuses a link is not a failed sync (the link is asked again on the next), and the editor's own read of the link
     /// says what the relay has not confirmed.
     pub fn sync_or_note(&self, log_root: &Path) {
-        if self.sync().is_err() {
-            crate::diagnostic_log::note(log_root, "routine", SYNC_FAILED);
-        }
+        let _ = self.sync_and_note(Some(log_root));
     }
 
     pub fn sync(&self) -> Result<(), String> {
+        self.sync_and_note(self.diagnostic_root.as_deref())
+    }
+
+    fn sync_and_note(&self, log_root: Option<&Path>) -> Result<(), String> {
+        let result = self.sync_inner();
+        if result.is_err()
+            && let Some(log_root) = log_root
+        {
+            crate::diagnostic_log::note(log_root, "routine", SYNC_FAILED);
+        }
+        result
+    }
+
+    fn sync_inner(&self) -> Result<(), String> {
         let should_tick = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             let routines = (self.options.routines)()?;
@@ -946,3 +966,7 @@ impl RoutineHooks {
 #[cfg(test)]
 #[path = "routine_hooks_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routine_hook_browser_tests.rs"]
+mod browser_tests;
