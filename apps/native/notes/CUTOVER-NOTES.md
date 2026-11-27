@@ -150,3 +150,201 @@ the folder from `LOCUST_HISTORY_COPY`, so no second binary had to be built.
 - What this does not say: it checks that the ledger reader keeps every record and that each file has a header and at
   least one thing after the prompt. It does not compare what the window would draw with Electron's drawing of the same
   conversation, and it does not read the other state in Electron's folder.
+
+# Cutover 2b: a release the old app's updater installs, and the Rust app that keeps updating itself (26 Nov 2026)
+
+Rows 3 and 4 of `HANDOFF-cutover-2.md` (rows 1 and 2, the bring-over card and saved keys, are another lane's). Not
+TypeScript test rows, so recorded here. Break runs: `~/work/scratch/mut6.py`, each list and its output kept side by
+side in `~/work/scratch/evidence/cutover-2b/`.
+
+## Row 3: a release the old app's updater installs
+
+**What changed.** `scripts/bundle-mac.sh` gains `--release` (and `--out <folder>`). Release mode makes `Locust.app`
+with Electron's bundle id `com.automatedworkflow.locust` (so macOS's microphone, screen and folder permissions stay
+with the same app) and the `locust://` link claim Electron's Locust has, and packs it with `hdiutil` into
+`Locust-<version>-mac-<arm64|x64>.dmg` with `Locust.app` at its root (plus an `Applications` link for a drag-install),
+the exact shape Electron's Mac updater takes (`apps/desktop/src/main/mac-self-update.ts`, `mac-release.ts`: the newest
+release asset named `Locust-<x.y.z>-mac-<arm64|x64>.dmg`, mounted, `Locust.app` at its root, no bundle id or signature
+checked). With no argument it still makes `Locust Native.app`, `lol.locust.native.preview`, no links unless
+`LOCUST_NATIVE_LINKS=1`, no disk image. In both modes `CFBundleShortVersionString` (and `CFBundleVersion`) is the
+crate's version from `Cargo.toml` (it said `0.1.0` before), `LOCUST_BUILD_COMMIT` is handed to the build when set, and
+an unknown argument stops the script before anything is built. Nothing is uploaded.
+
+**Call site.** A script, not a function: run by hand (`scripts/bundle-mac.sh --release`) when Colin cuts a Mac release.
+
+**Tests** (`core/src/bundle_mac_tests.rs`, macOS only; a stand-in `cargo` first on PATH stands for the release build, the
+rest of the script is the real one, with the real `sips`, `iconutil`, `codesign`, `hdiutil`; the expected names and
+ids are Electron's, from `electron-builder.yml` and `mac-self-update.ts`, not read from the script):
+- `release_mode_makes_a_locust_app_with_electrons_id_and_this_crates_version_in_the_disk_image_electrons_updater_takes`:
+  the app, its plist (id, name, version, the link claim), then the image mounted read-only: the exact image name,
+  `Locust.app` at its root (only it and `Applications`), the same id and version inside.
+- `the_preview_keeps_its_own_name_and_id_takes_the_crate_version_too_and_makes_no_disk_image`.
+- `an_argument_it_does_not_know_stops_it_before_anything_is_built`.
+The first run of these (`run-a.log`, the earlier account's) failed all three: the tests had been written before the
+script's release mode. They pass against the script as it stands (3 of 3, this session).
+
+**Breaks.** `row3.entries` / `row3.out` (locust-core): 9 of 9 KILLED by name, every one by a `bundle_mac_tests` test
+(the id, the name, the version, the commit hand-over, `--release` ignored, the image name without the chip, the app
+not at the image's root, the link claim, the unknown argument). The earlier run's list was checked against the script
+first: no broken line was left in it.
+
+**The DMG dry run (26 Nov 2026, after row 4, a9b1d69b).** `LOCUST_BUILD_COMMIT=a9b1d69b scripts/bundle-mac.sh --release --out
+~/work/scratch/cutover-2b-dmg` (the script's own release build, 12 min 48 s cold) made `Locust.app`
+(0.883.0, `com.automatedworkflow.locust`, 66 MB) and `Locust-0.883.0-mac-arm64.dmg` (28 MB). Then Electron's updater
+path, by hand, on a temp folder only (`~/work/scratch/evidence/cutover-2b/dmg-dry-run.sh`, output
+`dmg-dry-run.txt`): `hdiutil attach -nobrowse -readonly -noautoopen -mountpoint` the image (the image root holds
+`Locust.app` and `Applications`), `ditto` its `Locust.app` beside a stand-in app as `.Locust-update.app`, `xattr -dr
+com.apple.quarantine`, detach, then `SWAP_SCRIPT` from `mac-self-update.ts` verbatim with a dead pid and a stand-in
+`open` that writes down what it was asked to open. Result: the stand-in app was replaced by the new one
+(`opened:` the swapped app, nothing left beside it), its plist says id `com.automatedworkflow.locust`, version 0.883.0,
+name `Locust`, `codesign --verify --deep --strict` is ok, the binary is arm64 Mach-O, and the swapped app, started as
+`locust-native --check-history <empty temp folder>` with `LOCUST_NATIVE_DATA` in a temp folder, exited 0 ("Files read:
+0"). Not done: the window itself was not opened (a headless start only), and Electron's own updater was not run
+against the image (that would be its installed copy in /Applications). Two things seen on the way. The mount point must be in the system temp folder (`hdiutil attach -mountpoint` under
+`~/work/scratch` answered "Permission denied"; Electron's own `mkdtemp(tmpdir())` is fine). And the script's first
+run of the image step stopped with exit 1 and no message: `hdiutil create` answered "No space left on device" when the
+image's destination was on the big drive (`~/work/scratch` is `/Volumes/Files/work-scratch`, 89 GB free; the same call
+into the system temp folder works), and `-quiet` hid it. Fixed in the script: the image is made in the system temp folder
+and moved into place, and a failure says what hdiutil said and leaves no image
+(`a_disk_image_that_cannot_be_made_stops_it_saying_why_and_leaves_no_image`, a stand-in `hdiutil` that fails;
+`row3b.entries` / `row3b.out`: 4 of 4 KILLED, three by that test and the move by the release test). The numbers above
+are from the rerun after the fix (the DMG rebuilt detached, to the big drive, exit 0, and the dry run repeated).
+
+## Row 4: Colin's real history, read once, read-only
+
+**What changed.** `core/src/history_check.rs` (new): `check_history(dir)` reads every `*.jsonl` file directly in a
+folder, and in its `.trash/` when there is one, with the Rust ledger reader (`ledger::read_ledger`, then
+`read_transcript`), and sorts each by what it found: refused (the name is not a conversation id, the file could not be
+read, or `read_ledger` says `unreadable`, with the issue codes), damaged (read, but only the part before the fault:
+`truncated-tail`, `invalid-record`), or read with zero turns (nothing after the opening prompt), and the rest as read
+whole. It only opens files to read them. The reader was NOT changed.
+
+**Call site.** `src/main.rs`: `main` -> `cutover_flag` -> `--check-history <folder>` -> `check_history` (main.rs), which
+calls `locust_core::history_check::check_history` and prints the files by reason. For the real run, the same
+`cutover_flag` is reached by the `#[ignore]`d test `cutover_flags_tests::check_history_over_a_real_copy`, which takes
+the folder from `LOCUST_HISTORY_COPY`, so no second binary had to be built.
+
+**Tests.**
+- `core/src/history_check_tests.rs` (8): a whole file reports nothing; a cut-off last line and a bad record are damaged;
+  no header, an empty file and a newer schema are refused with their reasons; a bad file name; a conversation with only
+  its opening prompt; the trash is checked and says so; a missing folder is an error; the check writes nothing (every
+  file's bytes and modified time are the same after).
+- `src/cutover_flags_tests.rs`: `check_history_reports_by_reason_and_writes_nothing`,
+  `check_history_without_a_folder_or_with_a_missing_one_exits_1_and_says_why`.
+
+**Breaks.** `row4-core.entries` / `row4-core.out` (locust-core, 8 breaks) and `row4-native.entries` /
+`row4-native.out` (locust-native, 3 breaks, two of them on the call site: the flag's match arm, and the call to
+`history_check::check_history`). All 11 KILLED by name (8 of 8 core, 3 of 3 native).
+
+**The run (26 Nov 2026).**
+- Copy: `cp -c -R "$HOME/Library/Application Support/@teammate/desktop/mission-ledger" /Volumes/Files/scratch-main/history-copy-20261126`
+  (an APFS clone, 584 MB; only `mission-ledger`; 60 conversation files, 545 in its `.trash/`, plus `.writable`).
+  SHA-256 of every file in the copy before and after the run is identical
+  (`~/work/scratch/evidence/cutover-1/row4-copy-before.sha`): the check wrote nothing in it. Output:
+  `~/work/scratch/evidence/cutover-1/row4-real-run.txt`.
+- **Files read: 605 (the 60 and the 545 in the trash). Read whole with turns: 605.**
+- **Refused: none. Damaged (truncated or invalid record, unsupported schema, too large): none. Read with zero turns:
+  none.** No `.jsonl` file in the copy was skipped for its name either.
+- It took 174 s in a debug build on this Mac (the reader parses every record of 584 MB).
+- What this does not say: it checks that the ledger reader keeps every record and that each file has a header and at
+  least one thing after the prompt. It does not compare what the window would draw with Electron's drawing of the same
+  conversation, and it does not read the other state in Electron's folder.
+
+# Cutover 2b: a release the old app's updater installs, and the Rust app that keeps updating itself (26 Nov 2026)
+
+Rows 3 and 4 of `HANDOFF-cutover-2.md` (rows 1 and 2, the bring-over card and saved keys, are another lane's). Not
+TypeScript test rows, so recorded here. Break runs: `~/work/scratch/mut6.py`, each list and its output kept side by
+side in `~/work/scratch/evidence/cutover-2b/`.
+
+## Row 3: a release the old app's updater installs
+
+**What changed.** `scripts/bundle-mac.sh` gains `--release` (and `--out <folder>`). Release mode makes `Locust.app`
+with Electron's bundle id `com.automatedworkflow.locust` (so macOS's microphone, screen and folder permissions stay
+with the same app) and the `locust://` link claim Electron's Locust has, and packs it with `hdiutil` into
+`Locust-<version>-mac-<arm64|x64>.dmg` with `Locust.app` at its root (plus an `Applications` link for a drag-install),
+the exact shape Electron's Mac updater takes (`apps/desktop/src/main/mac-self-update.ts`, `mac-release.ts`: the newest
+release asset named `Locust-<x.y.z>-mac-<arm64|x64>.dmg`, mounted, `Locust.app` at its root, no bundle id or signature
+checked). With no argument it still makes `Locust Native.app`, `lol.locust.native.preview`, no links unless
+`LOCUST_NATIVE_LINKS=1`, no disk image. In both modes `CFBundleShortVersionString` (and `CFBundleVersion`) is the
+crate's version from `Cargo.toml` (it said `0.1.0` before), `LOCUST_BUILD_COMMIT` is handed to the build when set, and
+an unknown argument stops the script before anything is built. Nothing is uploaded.
+
+**Call site.** A script, not a function: run by hand (`scripts/bundle-mac.sh --release`) when Colin cuts a Mac release.
+
+**Tests** (`core/src/bundle_mac_tests.rs`, macOS only; a stand-in `cargo` first on PATH stands for the release build, the
+rest of the script is the real one, with the real `sips`, `iconutil`, `codesign`, `hdiutil`; the expected names and
+ids are Electron's, from `electron-builder.yml` and `mac-self-update.ts`, not read from the script):
+- `release_mode_makes_a_locust_app_with_electrons_id_and_this_crates_version_in_the_disk_image_electrons_updater_takes`:
+  the app, its plist (id, name, version, the link claim), then the image mounted read-only: the exact image name,
+  `Locust.app` at its root (only it and `Applications`), the same id and version inside.
+- `the_preview_keeps_its_own_name_and_id_takes_the_crate_version_too_and_makes_no_disk_image`.
+- `an_argument_it_does_not_know_stops_it_before_anything_is_built`.
+The first run of these (`run-a.log`, the earlier account's) failed all three: the tests had been written before the
+script's release mode. They pass against the script as it stands (3 of 3, this session).
+
+**Breaks.** `row3.entries` / `row3.out` (locust-core): 9 of 9 KILLED by name, every one by a `bundle_mac_tests` test
+(the id, the name, the version, the commit hand-over, `--release` ignored, the image name without the chip, the app
+not at the image's root, the link claim, the unknown argument). The earlier run's list was checked against the script
+first: no broken line was left in it.
+
+**The DMG dry run (26 Nov 2026, after row 4, a9b1d69b).** `LOCUST_BUILD_COMMIT=a9b1d69b scripts/bundle-mac.sh --release --out
+~/work/scratch/cutover-2b-dmg` (the script's own release build, 12 min 48 s cold) made `Locust.app`
+(0.883.0, `com.automatedworkflow.locust`, 66 MB) and `Locust-0.883.0-mac-arm64.dmg` (28 MB). Then Electron's updater
+path, by hand, on a temp folder only (`~/work/scratch/evidence/cutover-2b/dmg-dry-run.sh`, output
+`dmg-dry-run.txt`): `hdiutil attach -nobrowse -readonly -noautoopen -mountpoint` the image (the image root holds
+`Locust.app` and `Applications`), `ditto` its `Locust.app` beside a stand-in app as `.Locust-update.app`, `xattr -dr
+com.apple.quarantine`, detach, then `SWAP_SCRIPT` from `mac-self-update.ts` verbatim with a dead pid and a stand-in
+`open` that writes down what it was asked to open. Result: the stand-in app was replaced by the new one
+(`opened:` the swapped app, nothing left beside it), its plist says id `com.automatedworkflow.locust`, version 0.883.0,
+name `Locust`, `codesign --verify --deep --strict` is ok, the binary is arm64 Mach-O, and the swapped app, started as
+`locust-native --check-history <empty temp folder>` with `LOCUST_NATIVE_DATA` in a temp folder, exited 0 ("Files read:
+0"). Not done: the window itself was not opened (a headless start only), and Electron's own updater was not run
+against the image (that would be its installed copy in /Applications). Two things seen on the way: the mount point
+must be in the system temp folder (`hdiutil attach -mountpoint` under `~/work/scratch` answered "Permission denied";
+Electron's own `mkdtemp(tmpdir())` is fine), and the first, backgrounded run of the script printed the app line and
+then exited 1 with no message before the image step; a foreground rerun of the same script made the image. Not
+explained (the image step is `hdiutil create -quiet`, whose errors are hidden): worth a look before the release run
+is automated.
+
+## Row 4: the Rust app keeps updating itself
+
+**What changed.** `core/src/mac_self_update.rs`: `this_mac` (the self-updater for this copy) now fills every seam with the
+real one, where it used to leave download, disk-image commands and swap unset (so a switched copy could only look).
+Electron's `main/mac-self-update.ts` is the model for each:
+- `download_release` (`createMacUpdater`'s `download`): GETs the release's address, writes the file in 64 KB steps, says
+  the percent each time it changes, `The download answered <code>.` on a refusal, and removes a half-written file if
+  the body stops short. `MacUpdater::prepare` still checks size and SHA-256 against the release afterwards, as before.
+- `run_command` (`runCommand`): runs `hdiutil`, `ditto`, `xattr`; returns the exit code (None if it cannot start or is
+  killed by a signal) and stdout+stderr.
+- `start_swap`: starts `/bin/sh <script> <pid> <app> <staged>` in its own process group with no stdio, so the app
+  quitting does not take the swap down (Electron's `detached: true, stdio: 'ignore'`).
+- the quit seam is `std::process::exit(0)`: once the update service has flushed (`updates.rs` `request_quit` then
+  `quit_and_install`) and the swap is handed over, the app ends so the script's wait for its pid finishes.
+- Test builds only: `fetch_address` sends Locust's downloads address (`updates::DOWNLOADS`) to the server named by
+  `LOCUST_TEST_SELF_UPDATE_DOWNLOADS`. A release build has no such seam. The module doc's old "never fetches" safety
+  rule is replaced by what is true now: still behind the self-update switch and feed (`LOCUST_NATIVE_SELF_UPDATE=1` and
+  `LOCUST_NATIVE_UPDATE_FEED`), which stay off by default.
+
+**Call sites** (outside tests). `download_release` `mac_self_update.rs:622`, `run_command` `:623`, `start_swap` `:624`,
+all inside `this_mac` (`:603`), which is called by `updates::this_copys_update_service` (`updates.rs:532`) through
+`app_updater`. Honest gap: nothing in the window or `main.rs` calls `this_copys_update_service` yet, so the switch has
+no reader in the running app; that wiring is not in this lane's files (and the switch stays off).
+
+**Tests** (`core/src/mac_self_update_live_tests.rs`, macOS only, declared at the end of `mac_self_update.rs` as
+`live_tests`; a file server on 127.0.0.1 in the test process; no network, nothing in `/Applications`):
+- `the_app_downloads_a_newer_locust_from_its_feed_swaps_it_in_after_it_quits_and_opens_it`: a copy of the test binary
+  inside a temp `Locust.app` runs as the app: `this_mac` finds its bundle, reads the releases list from the local
+  server, downloads a real `hdiutil`-made image (100%), checks it against the stated size and SHA-256, attaches it,
+  `ditto`s its `Locust.app` beside the running one, `quit_and_install` ends the process with success, the swap script
+  (real, detached) puts the new app in the old one's place, removes the staged copy and `.replaced`, and calls `open`
+  (a stand-in on PATH that writes down what it was asked to open). The download stayed in the app's own data folder
+  (`LOCUST_NATIVE_DATA`, a temp folder).
+- `the_real_download_writes_every_byte_and_counts_up_to_100`, `a_download_that_is_not_there_says_what_answered_and_leaves_no_file`,
+  `a_download_that_stops_half_way_says_so_and_leaves_no_half_file`, `the_real_run_says_how_a_command_ended_and_what_it_said`,
+  `the_swap_runs_apart_from_the_app_with_its_arguments_so_the_app_quitting_does_not_take_it_down` (its process group is
+  not the app's).
+
+**Breaks.** `row4.entries` / `row4.out` (locust-core): 11 of 11 KILLED by name. The three seams in `this_mac`, each
+`None`d (`download`, `run`, `start_swap`), and the quit made a no-op, are killed by the end-to-end test: that is the call
+site's proof. The rest are killed by the unit-level live tests: the percent arithmetic, a short write, the refusal's
+status code, the half-file clean-up, the process group, the arguments handed to the swap, and the exit code.
