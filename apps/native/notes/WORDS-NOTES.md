@@ -60,6 +60,34 @@ prefixes they quoted are gone).
 
 Tests: `src/ui/settings_switch_more_tests.rs` (11), drawn through the whole Settings window.
 
+## Row 2: "Runs 167 · Last run never"
+
+Electron Screens.tsx:691 counts **Runs** from the team record's `missionOwners` (every conversation it gives the
+teammate); Screens.tsx:795 takes **Last run** from `teammateWork(...).lastRunAt`, the newest of the *recovered
+missions* that teammate owns. Rust copied both: `people_panel::team_grid` counted `teammate_work::owned_runs` and took
+`teammate_work(..).last_run_at` from `s.ledger_summaries`, the conversation list.
+
+Why the two disagree: the conversation list is not every record. `ledger::list_recent` / `history_cache` skip Scout's
+looks (`started_by_kind == "scout"`) and side chats (`side`), drop panel runs, and stop at `MAX_LISTED_MISSIONS`. Scout
+looks every 10 minutes, so its card reaches "Runs 167" with not one of them listed: Last run "never". The same for any
+teammate whose runs are all side chats, or whose conversations are older than the list's cap. And where a time could
+not be read, `ago_label` gave None and the card said "never" where Electron says "unknown".
+
+Fix (Rust only), `core/src/teammate_work.rs`:
+
+- `recorded_last_runs(owners, dirs)`: for every conversation `missionOwners` gives a teammate, the time its record
+  `<id>.jsonl` was last written, in native's ledger folder and Electron's; the newest per teammate. File times only, read
+  once when the Team screen loads (`people_panel::reload` keeps them in `people_panel.last_runs`), never per frame. Ids
+  that are not file names (`ledger::safe_id`) are skipped.
+- `last_run(listed, recorded)`: the later of the listed conversations' newest and the records'.
+- `last_run_words(runs, at, ago)`: how long ago; "never" only for a teammate with no runs; "unknown" for a time that
+  cannot be read, or for runs whose records are gone (trashed), so a card with runs never says "never".
+
+**Electron has the same bug** (Screens.tsx:691 vs :795, `teammateWork.ts:60` reads `theirs[0]?.lastUpdatedAt` from the
+recovered missions only). Not fixed there, as the brief says.
+
+Tests: `core/src/teammate_last_run_tests.rs` (6), `src/ui/team_last_run_tests.rs` (3, the Team screen over a real store).
+
 ## Breaks
 
 Each break in `notes/words-breaks/*.entries` (`path|||old ==> new`, from apps/native) was applied alone, the tests run,

@@ -1,0 +1,8 @@
+# Row 2: a card with runs never says "Last run never". Format: path|||old ==> new (paths from apps/native).
+src/ui/people_panel.rs|||        let last_at = locust_core::teammate_work::last_run(work.last_run_at, panel.last_runs.get(&id).map(String::as_str)); ==>         let last_at = work.last_run_at;
+src/ui/people_panel.rs|||            s.people_panel.last_runs = recorded_last_runs(&team, s.data.as_ref()); ==>             s.people_panel.last_runs = Default::default();
+src/ui/people_panel.rs|||    let dirs: Vec<std::path::PathBuf> = [store.ledger_dir().ok(), Some(store.electron().join("mission-ledger"))].into_iter().flatten().collect(); ==>     let dirs: Vec<std::path::PathBuf> = [store.ledger_dir().ok()].into_iter().flatten().collect();
+core/src/teammate_work.rs|||        (Some(a), Some(b)) => Some(if at(b) > at(a) { b } else { a }), ==>         (Some(a), Some(_b)) => Some(a),
+core/src/teammate_work.rs|||        None => "unknown".into(), ==>         None => "never".into(),
+core/src/teammate_work.rs|||            if at > *kept { ==>             if at < *kept {
+core/src/teammate_work.rs|||        if !crate::ledger::safe_id(mission) { ==>         if mission.is_empty() {

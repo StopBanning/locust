@@ -45,6 +45,9 @@ pub(super) struct Panel {
     /// dismissed; and whether it points at something waiting, so it goes once nothing waits (0.372).
     pub memory_notice: Option<String>,
     pub memory_notice_waits: bool,
+    /// When each teammate last ran, read from the records the team's `missionOwners` names when the screen loads
+    /// (`teammate_work::recorded_last_runs`), listed as a conversation or not: a card's Runs counts them all.
+    pub last_runs: std::collections::HashMap<String, String>,
 }
 fn field(value: &str) -> TextEdit {
     let mut edit = TextEdit::default();
@@ -166,6 +169,7 @@ fn reload(s: &mut State) {
         Ok((team, memories, rules)) => {
             s.people_panel.memory_mode = team["settings"]["memoryMode"].as_str().unwrap_or(crate::workspace_settings::DEFAULT_MEMORY_MODE).to_owned();
             s.people_panel.note = field(team["settings"]["aboutYou"].as_str().unwrap_or(""));
+            s.people_panel.last_runs = recorded_last_runs(&team, s.data.as_ref());
             s.people_panel.team = team;
             s.people_panel.changed_since = changed_in_folder(&memories, s.home.folder_path.as_deref());
             s.people_panel.memories = memories;
@@ -174,6 +178,18 @@ fn reload(s: &mut State) {
         }
         Err(e) => s.people_panel.error = e,
     }
+}
+/// When each teammate last ran, from the records in both ledger folders `store` reads (native's own and Electron's).
+fn recorded_last_runs(team: &Value, store: Option<&locust_core::store::Store>) -> std::collections::HashMap<String, String> {
+    let Some(store) = store else { return Default::default() };
+    let owners: std::collections::HashMap<String, String> = team["missionOwners"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(mission, owner)| Some((mission.clone(), owner.as_str()?.to_owned())))
+        .collect();
+    let dirs: Vec<std::path::PathBuf> = [store.ledger_dir().ok(), Some(store.electron().join("mission-ledger"))].into_iter().flatten().collect();
+    locust_core::teammate_work::recorded_last_runs(&owners, &dirs)
 }
 /// Which kept memories name a file in `folder` that changed after they were written (memory_file::changed_since).
 fn changed_in_folder(memories: &Value, folder: Option<&str>) -> std::collections::HashMap<String, Vec<String>> {
@@ -1086,9 +1102,12 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let runtime = t["route"]["runtime"].as_str().unwrap_or("").to_owned();
         let model = t["route"]["model"].as_str().unwrap_or("").to_owned();
         let work = locust_core::teammate_work::teammate_work(&id, &missions, &owners, |m| m.title.clone());
-        let last = work.last_run_at.and_then(ago_label);
         // Screens.tsx `owned`: every conversation the record gives this teammate, whether or not this window has read it.
         let runs = locust_core::teammate_work::owned_runs(&owners, &id);
+        // Its last run from the same records Runs counts, not only the conversations listed (Words 1, row 2).
+        let last_at = locust_core::teammate_work::last_run(work.last_run_at, panel.last_runs.get(&id).map(String::as_str));
+        let last = locust_core::teammate_work::last_run_words(runs, last_at, ago_label);
+        let last_quiet = last_at.and_then(ago_label).is_none();
         let status = crate::home_panel::teammate_status(s, &id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str(), &role);
 
         let mut head = row()
@@ -1176,7 +1195,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
             .w_full()
             .gap(24.0)
             .child(stat("Runs", runs.to_string(), runs == 0))
-            .child(stat("Last run", last.clone().unwrap_or_else(|| "never".into()), last.is_none()));
+            .child(stat("Last run", last, last_quiet));
 
         let mut card = col()
             .key(format!("team-card-{id}"))
@@ -2750,3 +2769,7 @@ mod proposed_change_tests;
 #[cfg(test)]
 #[path = "team_card_words_tests.rs"]
 mod team_card_words_tests;
+
+#[cfg(test)]
+#[path = "team_last_run_tests.rs"]
+mod team_last_run_tests;
