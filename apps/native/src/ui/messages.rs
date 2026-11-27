@@ -150,6 +150,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     // One face per run of speech, Copy once under the turn's last reply (Thread.tsx continuesSpeech, lastSpeech).
     let said = |i: usize| matches!(&items[i], ledger::Item::Assistant { text, .. } if !locust_core::protocol_tags::shown_text(text).is_empty());
     let last_speech = locust_core::speech_runs::last_speech(items, turn_running(s), said);
+    // Each older turn's last reply keeps a Copy under the pointer (REVIEW-ui-changes-2026-11-26.md change 8; Thread.tsx
+    // :324-345 gives every turn's last reply one): the last said reply before each of the person's later words.
+    let turn_ends: std::collections::HashSet<usize> = (0..items.len())
+        .filter(|&at| matches!(items[at], ledger::Item::User(_)))
+        .filter_map(|at| (0..at).rev().take_while(|&i| !matches!(items[i], ledger::Item::User(_))).find(|&i| said(i)))
+        .collect();
     let pieces = locust_core::steps_fold::thread_pieces(items, turn_running(s));
     let drawn_alone: std::collections::HashSet<usize> =
         pieces.iter().filter_map(|piece| if let locust_core::steps_fold::Piece::Item(i) = piece { Some(*i) } else { None }).collect();
@@ -434,7 +440,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply_in_thread(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p));
+                        .child(reply_actions::with_hover_copy(
+                            reply_actions::reply_in_thread(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p),
+                            s, &shown, turn_ends.contains(&index) && last_speech != Some(index), p,
+                        ));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
@@ -588,14 +597,18 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
             .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
-        let words = match (&live.action, live.register.as_str()) {
+        // PRESSING STOP SAYS SO AT ONCE (REVIEW-ui-changes-2026-11-26.md change 7, Colin's yes 26 Nov). Electron only dims
+        // the Stop button (Composer.tsx:2315-2333) and its live line goes on saying what it was doing, orb turning, until
+        // the agent answers, which can take seconds; here the line says "Stopping…" and stands still until it does.
+        let stopping = s.stopping.is_pending();
+        let words = if stopping { "Stopping\u{2026}".to_owned() } else { match (&live.action, live.register.as_str()) {
             // What the step under way is doing, in words: "Running npm test", the plan's "Step 2" (live-step `action`).
             (Some(action), _) => action.clone(),
             (None, "connector") => format!("Using a connector · {}", live.label),
             (None, "tool") => format!("Using a tool · {}", live.label),
             // The live word, with its one ellipsis (sweepText): "Working…".
             (None, _) => locust_core::thread_view::sweep_text(&live.label),
-        };
+        } };
         let headline = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
         // Beside the browser the column is ~418px (the-thread-beside-the-browser-keeps-its-parts-whole, 0.867): the
         // words give way to their ellipsis, and the plan's "step 2 of 3" and the time stay whole after them
@@ -609,7 +622,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ).map(|orb| orb.mr(6.0)))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
-            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get())
+            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
                 .key("live-step-label").shrink().truncate().help(headline));
         if let Some(step) = &live.detail {
             line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));

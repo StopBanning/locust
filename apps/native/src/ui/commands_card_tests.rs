@@ -1,7 +1,6 @@
 //! Electron's `a-commands-card-says-unknown-once.test.tsx` (both cases) and `a-commands-card-says-what-it-is-for.test.tsx`
 //! (3 of 5 cases, plus `command_plain::plain_command`'s `careful` flag), drawn headless through `approval_card`.
-//! Not checked in Rust: `approval_card.rs` draws `In short:` in `p.text` rather than amber when `careful` is true
-//! (`plain_action` returns `Option<String>`), and Electron's `phone-page.ts` is not in native.
+//! Not checked in Rust: Electron's `phone-page.ts` is not in native.
 use super::*;
 use locust_core::approval::{Kind, Request};
 use locust_core::command_plain::plain_command;
@@ -34,15 +33,44 @@ fn drawn(req: Request) -> String {
     state.pending_approval = Some(req);
     let mut rt = Runtime::new(state, view, (800.0, 600.0), Env::new(true, 1.0));
     rt.frame(0.0);
-    rt.elements().into_iter().filter_map(|n| n.text).collect::<Vec<_>>().join("\n")
+    receipt_words(&rt.elements())
+}
+
+/// The card as words: each receipt row as its label says it ("In short: ..."), the way a screen reader reads Electron's
+/// `<dt>`/`<dd>` pair, and every other text as drawn.
+fn receipt_words(els: &[rune::ElementInfo]) -> String {
+    let row = |e: &rune::ElementInfo| e.key.as_deref().is_some_and(|k| k.starts_with("approval-row-"));
+    let in_row = |mut i: usize| {
+        while let Some(up) = els[i].parent {
+            if row(&els[up]) {
+                return true;
+            }
+            i = up;
+        }
+        false
+    };
+    els.iter()
+        .enumerate()
+        .filter_map(|(i, e)| if row(e) { e.label.clone() } else if in_row(i) { None } else { e.text.clone() })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// REVIEW-ui-changes-2026-11-26.md change 5: "Show Effects only when something is known or risky." An ordinary command
+/// about which nothing is known draws no Effects row at all; a careful one keeps the single "Unknown…" row.
+#[test]
+fn draw_no_effects_row_when_nothing_is_known_and_nothing_is_risky() {
+    let said = drawn(asked("touch hello.txt"));
+    assert!(!said.contains("Effects:"), "{said}");
+    assert!(!said.contains("Data sent:"));
+    assert!(!said.contains("Reversible:"));
+    assert!(!said.contains("Unknown"), "{said}");
 }
 
 #[test]
-fn are_one_row_when_locust_can_tell_nothing_about_them() {
-    let said = drawn(asked("echo LOCUST-ACP-OK > approved.txt"));
+fn keep_the_one_unknown_row_for_a_careful_command() {
+    let said = drawn(asked("rm -rf build"));
     assert!(said.contains("Effects: Unknown. Locust cannot tell what a command sends or undo what it does; it can do anything the sandbox allows."), "{said}");
-    assert!(!said.contains("Data sent:"));
-    assert!(!said.contains("Reversible:"));
     assert_eq!(said.matches("Unknown").count(), 1);
 }
 
@@ -101,7 +129,6 @@ fn has_no_such_row_for_a_command_it_cannot_read_all_of_or_for_a_file_change() {
 // case: is amber on the card as a reach is
 #[test]
 fn is_amber_on_the_card_as_a_reach_is() {
-    let p = Palette::new(true);
     let draw_els = |req: Request| {
         let mut state = State::default();
         state.pending_approval = Some(req);
@@ -111,8 +138,10 @@ fn is_amber_on_the_card_as_a_reach_is() {
     };
 
     let forced = draw_els(asked("git push --force origin main"));
+    // `.lc-receipt dd.lc-approval__plain[data-careful]`: amber text; otherwise the receipt's own secondary.
+    let l = crate::look::controls::Look::new(true);
     let plain_careful = forced.iter().find(|e| e.key.as_deref() == Some("approval-plain")).expect("approval-plain");
-    assert_eq!(plain_careful.text_color, Some(p.amber));
+    assert_eq!(plain_careful.text_color, Some(l.c("amber-text")));
 
     let reach_els = draw_els(asked("shutdown /r /t 0"));
     let reach = reach_els.iter().find(|e| e.key.as_deref() == Some("approval-reach")).expect("approval-reach");
@@ -120,8 +149,8 @@ fn is_amber_on_the_card_as_a_reach_is() {
 
     let status = draw_els(asked("git status"));
     let plain_safe = status.iter().find(|e| e.key.as_deref() == Some("approval-plain")).expect("approval-plain");
-    assert_eq!(plain_safe.text_color, Some(p.text));
-    assert_ne!(plain_safe.text_color, Some(p.amber));
+    assert_eq!(plain_safe.text_color, Some(l.c("text-secondary")));
+    assert_ne!(plain_safe.text_color, Some(l.c("amber-text")));
 }
 
 // case: goes to the phone with the command itself

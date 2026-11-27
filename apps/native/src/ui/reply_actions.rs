@@ -333,6 +333,22 @@ pub(super) struct StatusChange {
 
 /// A press on a status chip: where the thread has a box it opens the other statuses under that reply (a second press
 /// closes them); anywhere else the chip is the plain chip it was.
+/// COPY UNDER EVERY TURN'S LAST REPLY, NOT ONLY THE NEWEST (REVIEW-ui-changes-2026-11-26.md change 8, Colin's yes 26
+/// Nov). The newest reply shows its Copy at rest, quietly (`reply_in_thread`); an older turn's last reply keeps
+/// Electron's: hidden until the pointer is on the reply (shell.css:23083-23105, `.lc-agentline__copy` at opacity 0,
+/// shown on `.lc-agentline:hover`), hanging just under it out of flow as `.lc-agentline__tools` does, so it adds no
+/// height to the thread. Once pressed, "Copied" stays in sight (`[aria-label^='Copied']`).
+pub(super) fn with_hover_copy(reply: El, s: &State, body: &str, older_turn_end: bool, p: &Palette) -> El {
+    if !older_turn_end {
+        return reply;
+    }
+    let feedback = s.copy_feedback.as_ref();
+    let settled = copy_label(feedback, body, Instant::now()) != "Copy";
+    let button = copy_button(feedback, body.into(), p).key(format!("reply-copy-hover/{}", body_key(body)));
+    let button = if settled { button } else { button.group_opacity(0.0, 1.0) };
+    reply.hover_group().child(button.pin(None, None, Some(0.0), Some(-24.0)))
+}
+
 pub(super) fn status_pressed(s: &mut State, url: &str, can_draft: bool, reply: u64) {
     let Some((tone, item)) = crate::markdown_prep::status_of_link(url) else { return };
     if !can_draft {
@@ -1208,7 +1224,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
     out.child(
         row()
             .justify_end()
-            .child(copy_button(s.copy_feedback.as_ref(), body.into(), p)),
+            .child(copy_button(s.copy_feedback.as_ref(), body.into(), p).key(format!("reply-copy/{chip_reply}"))),
     )
 }
 
@@ -1522,3 +1538,7 @@ mod inline_math_tests;
 #[cfg(test)]
 #[path = "settled_text_tests.rs"]
 mod settled_text_tests;
+
+#[cfg(test)]
+#[path = "reply_copy_tests.rs"]
+mod reply_copy_tests;

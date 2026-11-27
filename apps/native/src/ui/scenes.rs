@@ -738,6 +738,7 @@ pub(super) fn native_scene(s: &mut State, live: bool) {
             tip: Some("synthetic-ledger".into()),
             before: None,
         });
+        live_streaming(s);
     }
 }
 
@@ -754,6 +755,7 @@ pub(super) fn ledger_transcript_scene(s: &mut State) {
 
 pub(super) fn ledger_live_scene(s: &mut State) {
     ledger_scene(s, true, false);
+    live_streaming(s);
 }
 
 pub(super) fn ledger_transcript_light_scene(s: &mut State) {
@@ -762,6 +764,35 @@ pub(super) fn ledger_transcript_light_scene(s: &mut State) {
 
 pub(super) fn ledger_live_light_scene(s: &mut State) {
     ledger_scene(s, true, true);
+    live_streaming(s);
+}
+
+/// One runtime event as the ledger records it, for a scene's live line.
+pub(super) fn live_event(kind: &str, payload: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({ "type": kind, "occurredAt": "2026-11-26T12:00:00.000Z", "payload": payload })
+}
+
+/// The live line a running turn shows, read from the runtime's own events by the same projection the real reader
+/// uses (`thread_view::live_line_in`, ledger.rs), the turn started `ago` seconds back so its clock reads as a turn's
+/// does. A scene that set `running` without this draws no live line, so no orb: the gap Big Brother's audit found in
+/// `ledger-live` and `native-live` (REVIEW-visual-live-rust-2026-11-26.md, finding 3).
+pub(super) fn live_from(s: &mut State, events: &[serde_json::Value], ago: i64) {
+    let started = (chrono::Utc::now() - chrono::Duration::seconds(ago)).to_rfc3339();
+    if let Some(pane) = s.ledger.as_mut() {
+        pane.snapshot.live = locust_core::thread_view::live_line_in(events, true, &started, false, None, false);
+    }
+}
+
+/// `ledger_scene`'s live turn as the runtime reported it: the plan on its second step and the answer still arriving.
+fn live_streaming(s: &mut State) {
+    live_from(s, &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("plan.updated", serde_json::json!({ "plan": { "plan": [
+            { "step": "Read the input", "status": "completed" },
+            { "step": "Summarize the result", "status": "in_progress" },
+        ] } })),
+        live_event("message.delta", serde_json::json!({ "itemId": "synthetic-answer", "final": false })),
+    ], 23);
 }
 
 // --- P4 conversation organization scenes ---
@@ -1223,5 +1254,115 @@ pub(super) fn reviews_save_scene(s: &mut State) {
 
 pub(super) fn reviews_live_scene(s: &mut State) {
     ledger_scene(s, true, false);
-    s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&[], true, &chrono::Utc::now().to_rfc3339(), false);
+    live_from(s, &[], 0);
 }
+
+// --- A running turn, state by state (Live 1, REVIEW-visual-live-rust-2026-11-26.md "What I could not render") ---
+//
+// Each scene is one moment of a real turn, built from the runtime events that moment would have recorded: the items
+// come from the ledger's own reader (`Transcript::apply`) and the live line from the live projection
+// (`thread_view::live_line_in`), so a scene draws what the app would draw for that turn, not a hand-made picture.
+
+/// A turn running `events` after the person said `prompt`, read the way a ledger of them is read.
+fn live_turn(s: &mut State, prompt: &str, events: &[serde_json::Value], ago: i64) {
+    ledger_scene(s, true, false);
+    let mut transcript = ledger::Transcript::default();
+    transcript.apply(events.iter().enumerate().map(|(n, e)| {
+        let mut e = e.clone();
+        e["sequence"] = n.into();
+        serde_json::json!({ "event": e })
+    }).collect());
+    if let Some(pane) = s.ledger.as_mut() {
+        pane.items = vec![ledger::Item::User(prompt.into())];
+        pane.items.extend(transcript.items);
+        pane.snapshot.items = pane.items.clone();
+    }
+    live_from(s, events, ago);
+}
+
+/// Thinking, with nothing open yet: the model reasoning before its first call.
+pub(super) fn live_thinking_scene(s: &mut State) {
+    live_turn(s, "Why does total() return the wrong amount?", &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("step.started", serde_json::json!({ "itemId": "thought", "stepKind": "reasoning", "itemType": "reasoning" })),
+    ], 4);
+}
+
+/// A shell command open: the tests running.
+pub(super) fn live_shell_scene(s: &mut State) {
+    live_turn(s, "Run the tests and tell me what fails.", &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("tool.started", serde_json::json!({ "itemId": "command", "name": "Bash", "toolKind": "tool_use", "command": "npm test" })),
+    ], 9);
+}
+
+/// A read open: a file being read.
+pub(super) fn live_read_scene(s: &mut State) {
+    live_turn(s, "Read the cart and explain total().", &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("tool.started", serde_json::json!({ "itemId": "read", "name": "Read", "toolKind": "tool_use", "command": "src/cart.py" })),
+    ], 6);
+}
+
+/// A subagent out: a helper sent off to review.
+pub(super) fn live_subagent_scene(s: &mut State) {
+    live_turn(s, "Have a helper review the migration.", &[
+        live_event("run.started", serde_json::json!({})),
+        live_event("tool.started", serde_json::json!({ "itemId": "helper", "name": "Task", "toolKind": "tool_use", "command": "Review the migration" })),
+    ], 31);
+}
+
+/// Stopping: the person pressed Stop on a running command and the stop has not landed yet (Composer.tsx
+/// `cancelling`: the square stays, its beam still).
+pub(super) fn live_stopping_scene(s: &mut State) {
+    live_shell_scene(s);
+    s.own_turn = Some(OwnTurn { conversation: "synthetic-ledger".into(), tip: Some("synthetic-ledger".into()), before: None });
+    // A stop that never answers, so the scene holds the moment between the press and its landing.
+    s.stopping.request("synthetic-ledger".to_owned(), |id| {
+        std::thread::sleep(std::time::Duration::from_secs(3600));
+        (id, Ok(String::new()))
+    });
+}
+
+/// A turn that hit its usage limit: what the runtime said, then the limit, and nothing running.
+pub(super) fn live_limit_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    if let Some(pane) = s.ledger.as_mut() {
+        pane.items = vec![
+            ledger::Item::User("Fix the failing test in tests/test_cart.py.".into()),
+            ledger::Item::Assistant { item_id: "said".into(), text: "I'll start with the test file.".into(), r#final: true },
+            ledger::Item::Limit { kind: "usage-limit".into(), text: "You've hit your usage limit · resets 2026-11-26T01:30:00.000Z".into() },
+        ];
+        pane.snapshot.items = pane.items.clone();
+        pane.snapshot.running = false;
+        pane.snapshot.failed = true;
+        pane.snapshot.live = None;
+    }
+    s.flight = None;
+    s.status = "Ready".into();
+    s.status_tone = StatusTone::Muted;
+}
+
+/// The first moment after Send in a conversation whose record does not exist yet: the older thread, with this
+/// window's send in flight (REVIEW finding 4).
+pub(super) fn live_after_send_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    if let Some(conversation) = s.conversations.get_mut("codec") {
+        conversation.conversation_id = Some("after-send".into());
+    }
+    s.flight = Some(Flight {
+        teammate_id: "codec".into(),
+        conversation_id: Some("after-send".into()),
+        header: s.teammates.first().cloned(),
+        after_tip: None,
+        message: None,
+    });
+    s.own_turn = Some(OwnTurn { conversation: "after-send".into(), tip: Some("after-send".into()), before: None });
+    s.draft.replace_text("");
+    s.status = "Codec: Working…".into();
+    s.status_tone = StatusTone::Green;
+}
+
+#[cfg(test)]
+#[path = "live_scenes_tests.rs"]
+mod live_scenes_tests;
