@@ -25,6 +25,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[path = "noticed_rows.rs"]
+mod noticed_rows;
+
 #[derive(Clone, Debug)]
 pub(super) enum ActionOutcome {
     State(ScoutState),
@@ -463,22 +466,37 @@ pub(super) fn load_log(s: &mut State) {
 }
 
 pub(super) fn dismiss_card(s: &mut State, card_id: String, how: Option<ScoutOutcome>) {
-    s.scout.post_edits.remove(&card_id);
-    s.scout.post_busy.remove(&card_id);
-    s.scout.post_errors.remove(&card_id);
-    if s.scout
-        .composer_card
-        .as_ref()
-        .is_some_and(|(cid, _, _)| cid == &card_id)
-    {
-        s.scout.composer_card = None;
+    dismiss_cards(s, vec![card_id], how);
+}
+
+/// Dismiss several notices in one go (a row that folded repeats dismisses all of them): one job, so the last answer
+/// is the state, not whichever job finished last.
+pub(super) fn dismiss_cards(s: &mut State, card_ids: Vec<String>, how: Option<ScoutOutcome>) {
+    for card_id in &card_ids {
+        s.scout.post_edits.remove(card_id);
+        s.scout.post_busy.remove(card_id);
+        s.scout.post_errors.remove(card_id);
+        if s.scout
+            .composer_card
+            .as_ref()
+            .is_some_and(|(cid, _, _)| cid == card_id)
+        {
+            s.scout.composer_card = None;
+        }
     }
     if let Some(host) = ensure_host(s) {
         s.scout.action_job.request((), move |()| {
-            ActionOutcome::State(host.scout.dismiss(&card_id, how))
+            let mut state = None;
+            for card_id in &card_ids {
+                state = Some(host.scout.dismiss(card_id, how));
+            }
+            match state {
+                Some(state) => ActionOutcome::State(state),
+                None => ActionOutcome::State(host.scout.state()),
+            }
         });
     } else if let Some(st) = &mut s.scout.state {
-        st.cards.retain(|c| c.card_id != card_id);
+        st.cards.retain(|c| !card_ids.contains(&c.card_id));
     }
 }
 
@@ -1182,7 +1200,10 @@ pub(super) fn home_section(s: &State, l: &Look) -> Option<El> {
         return None;
     }
     let now_ms = effective_now_ms(s);
-    if st.cards.is_empty() {
+    // A limit notice is gone once that limit has reset, and repeats are one row (`noticed_rows`).
+    let now = chrono::DateTime::from_timestamp_millis(now_ms).unwrap_or_else(chrono::Utc::now);
+    let ordered = noticed_rows::ordered(&st.cards, now);
+    if ordered.is_empty() {
         if on_team(s, st) {
             return None;
         }
@@ -1220,8 +1241,8 @@ pub(super) fn home_section(s: &State, l: &Look) -> Option<El> {
         );
     }
 
-    let (shown, total) = view::visible_cards(
-        &st.cards,
+    let (shown, total) = noticed_rows::visible(
+        noticed_rows::entries(&ordered, now),
         s.scout.show_all,
         s.scout.focus_card_id.as_deref(),
     );
@@ -1278,9 +1299,12 @@ pub(super) fn home_section(s: &State, l: &Look) -> Option<El> {
     }
 
     let mut list = col().w_full().gap(10.0);
-    for card in shown {
-        let focused = s.scout.focus_card_id.as_deref() == Some(card.card_id.as_str());
-        list = list.child(render_card(card, focused, now_ms, &s.scout, l));
+    for entry in shown {
+        let focused = s.scout.focus_card_id.as_deref().is_some_and(|id| entry.holds(id));
+        list = list.child(match entry {
+            noticed_rows::Entry::Card(card) => render_card(card, focused, now_ms, &s.scout, l),
+            noticed_rows::Entry::Row(notice) => noticed_rows::row_view(&notice, focused, now_ms, l),
+        });
     }
     Some(sec.child(list))
 }
@@ -1664,7 +1688,10 @@ pub(super) mod tests {
         let soon_pos = all.find("PR #7 failing").unwrap();
         assert!(now_pos < soon_pos, "Now urgency must render before Soon");
         assert!(all.contains("Needs you"));
-        assert!(all.contains("Noticed"));
+        // Review change 4 (docs/REVIEW-ui-changes-2026-11-26.md): a plain notice is a row now, with no "Noticed" title
+        // under the "Scout noticed" heading it sits beneath (Electron's `ScoutCards.tsx:116-117`).
+        assert!(!all.lines().any(|line| line == "Noticed"), "{all}");
+        assert!(rt.find("scout-row-title-soon-1").is_some(), "the plain notice is a row");
         assert!(all.contains("Drafted for Lin"));
         assert!(all.contains("Use the small token table."));
     }
