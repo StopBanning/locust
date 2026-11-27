@@ -68,6 +68,8 @@ pub struct VisualCold {
     pub group_opacity: Option<[f32; 2]>,
     /// Text or icon colour while the nearest ancestor group is hovered.
     pub group_color: Option<Color>,
+    /// `El::hover_border`: the border colour not showing now, and whether the hovered one is.
+    pub(crate) hover_border: Option<HoverBorder>,
     /// `El::hover_alone`: while the pointer is on this element, the hover tracks of the
     /// elements it sits inside stay off.
     pub hover_alone: bool,
@@ -134,6 +136,7 @@ impl Empty for VisualCold {
         hover_within: None,
         group_opacity: None,
         group_color: None,
+        hover_border: None,
         hover_alone: false,
         hover_focus: false,
         hover_share: None,
@@ -192,10 +195,46 @@ pub struct Visual {
     pub(crate) cold: Cold<VisualCold>,
 }
 
+/// `El::hover_border` on a node: `Visual::border` is what draws, and `other` the colour that
+/// draws on the other side of hover. An `El` is never `lit`; a node is while its hover track
+/// heads to 1.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct HoverBorder {
+    pub other: Color,
+    pub lit: bool,
+}
+
 impl Visual {
     #[inline]
     pub(crate) fn cold_mut(&mut self) -> &mut VisualCold {
         &mut self.cold
+    }
+
+    /// Hover drives something on it: a hover colour, a hover group or a hover border.
+    #[inline]
+    pub(crate) fn hover_track(&self) -> bool {
+        self.hover.a > 0.0 || self.hover_group || self.hover_border.is_some()
+    }
+
+    /// The rest border and the hover one, whichever is drawing now.
+    pub(crate) fn border_pair(&self) -> (Color, Option<Color>) {
+        match self.hover_border {
+            Some(h) if h.lit => (h.other, Some(self.border)),
+            Some(h) => (self.border, Some(h.other)),
+            None => (self.border, None),
+        }
+    }
+
+    /// Draws the hover border (`lit`) or the rest one. True when that changed `border`.
+    pub(crate) fn light_border(&mut self, lit: bool) -> bool {
+        let Some(h) = self.hover_border else { return false };
+        if h.lit == lit {
+            return false;
+        }
+        let shown = self.border;
+        self.border = h.other;
+        self.cold_mut().hover_border = Some(HoverBorder { other: shown, lit });
+        h.other != shown
     }
 }
 

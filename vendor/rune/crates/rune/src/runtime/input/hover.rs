@@ -308,7 +308,7 @@ impl<S: 'static> Runtime<S> {
     /// `shared`: the `hover_group_shared` keys the pointer is over.
     fn hover_flip(&self, i: usize, captured: Option<&str>, alone: Option<usize>, shared: &[Rc<str>]) -> Option<Flip> {
         let n = &self.nodes[i];
-        if !(n.vis.hover.a > 0.0 || n.vis.hover_group) || self.is_exiting(n.id) { return None; }
+        if !n.vis.hover_track() || self.is_exiting(n.id) { return None; }
         let inside = self.pointer.is_some_and(|(x, y)| self.node_contains(i, x, y))
             || n.vis.hover_share.as_ref().is_some_and(|k| shared.contains(k))
             || (n.vis.hover_focus && self.keyboard_focus && self.focus_within(i));
@@ -330,6 +330,21 @@ impl<S: 'static> Runtime<S> {
         Some(Flip { i, id: n.id, on, anim, changed, now: !on && !allowed })
     }
 
+    /// `El::hover_border`: node `i` draws its hover border (`on`) or its rest one, moving there
+    /// from the colour it draws now on the hover track's curve, or at once when `land`.
+    fn light_border(&mut self, i: usize, id: NodeId, on: bool, anim: Anim, land: bool) {
+        let Some(n) = self.nodes.get(i).filter(|n| n.id == id && n.vis.hover_border.is_some()) else { return };
+        let from = self.color(id, P_BORDER, n.vis.border);
+        if !self.nodes[i].vis.light_border(on) { return; }
+        let to = self.nodes[i].vis.border;
+        if land || self.nodes[i].vis.border_width <= 0.0 {
+            self.scene.set(id, P_BORDER, to);
+        } else {
+            if !self.scene.store().is_animating(id, P_BORDER) { self.scene.set(id, P_BORDER, from); }
+            self.scene.animate(id, P_BORDER, to, anim);
+        }
+    }
+
     /// Retargets the hover, press and press-scale tracks. `held` is the hold `refresh_hover`
     /// just decided; without it (a commit's pass) this decides it.
     pub(super) fn update_interaction(&mut self, held: Option<bool>) -> bool {
@@ -347,7 +362,7 @@ impl<S: 'static> Runtime<S> {
         for i in 0..self.nodes.len() {
             let n = &self.nodes[i];
             let press_scale = n.handlers.get().and_then(|h| h.press_scale);
-            if n.vis.hover.a <= 0.0 && !n.vis.hover_group && n.vis.press.a <= 0.0 && press_scale.is_none() { continue; }
+            if !n.vis.hover_track() && n.vis.press.a <= 0.0 && press_scale.is_none() { continue; }
             if self.is_exiting(n.id) { continue; }
             match self.hover_flip(i, captured, alone, &shared) {
                 Some(f) if f.changed => flips.push(f),
@@ -395,11 +410,13 @@ impl<S: 'static> Runtime<S> {
         for f in flips.drain(..) {
             if held && !f.now { continue; }
             if paint_tracks::ready_from_rest(&mut self.scene, f.id, P_HOVER, 0.0, f.on as u8 as f32) {
-                if unseen.get_or_insert_with(|| self.drew_nothing()).get(f.i).copied().unwrap_or(false) {
+                let land = unseen.get_or_insert_with(|| self.drew_nothing()).get(f.i).copied().unwrap_or(false);
+                if land {
                     self.scene.set(f.id, P_HOVER, f.on as u8 as f32);
                 } else {
                     self.scene.animate(f.id, P_HOVER, f.on as u8 as f32, f.anim);
                 }
+                self.light_border(f.i, f.id, f.on, f.anim, land);
             }
             changed = true;
         }

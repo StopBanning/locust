@@ -188,7 +188,7 @@ fn same_visual_cold(a: &crate::el::VisualCold, b: &crate::el::VisualCold) -> boo
         surface, surface_place, border_bottom, border_sides, border_layout, border_dash, border_dash_phase, shadows, blur_motion,
         clip, clip_radius, clip_corners, cutout, icon, icon_inked, icon_one_color, gradient, radial, outline, shape,
         pixels, pixels_fit, effect, backdrop_blur, hover_motion, hover_within,
-        group_opacity, group_color, hover_alone, hover_share, hover_focus, icon_turn, cache_key, offset_motion, scale_motion,
+        group_opacity, group_color, hover_border: _, hover_alone, hover_share, hover_focus, icon_turn, cache_key, offset_motion, scale_motion,
         origin, rotate_motion, child_exit, enter_delay, motion_intent, instant_motion, clip_to_content, flight_crop,
         hold_landing,
     } = b;
@@ -232,7 +232,9 @@ pub(super) fn same_visual(a: &Visual, b: &Visual) -> bool {
         rotate, mark, hit, continuous_corners, blend, hover_group, cache, raise,
         no_pixel_snap, ride_trailing, cold,
     } = b;
-    a.fill == *fill && a.border == *border && a.hover == *hover && a.press == *press
+    // `border` and `hover_border` swap while a hover border is lit: compare what they hold.
+    let _ = border;
+    a.fill == *fill && a.border_pair() == b.border_pair() && a.hover == *hover && a.press == *press
         && a.radius == *radius && a.offset == *offset && a.border_width == *border_width
         && a.opacity == *opacity && a.paint_alpha == *paint_alpha && a.layer_opacity == *layer_opacity && a.blur == *blur
         && a.rotate == *rotate && a.mark == *mark && a.hit == *hit

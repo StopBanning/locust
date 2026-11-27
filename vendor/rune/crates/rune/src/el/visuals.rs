@@ -288,6 +288,15 @@ impl El {
         self.vis.hover = c;
         self
     }
+    /// The border's colour while hovered, as CSS `:hover { border-color: … }` sets it: the
+    /// border lifts on the same curves as [`Self::hover`] ([`Self::hover_motion`], else the
+    /// nearest [`Self::hover_motion_within`], else landing at once and fading out over 0.1 s)
+    /// and wherever its hover track goes (not while inert, behind a modal or under a
+    /// [`Self::hover_alone`] child). Colours the [`Self::border`]; it needs one with a width.
+    pub fn hover_border(mut self, c: Color) -> Self {
+        self.vis.cold_mut().hover_border = Some(crate::el::visual::HoverBorder { other: c, lit: false });
+        self
+    }
     /// Overlay drawn over the fill while pressed.
     pub fn press(mut self, c: Color) -> Self {
         self.vis.press = c;

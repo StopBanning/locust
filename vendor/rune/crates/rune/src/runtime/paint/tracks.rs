@@ -217,6 +217,8 @@ impl<S: 'static> Runtime<S> {
             && (self.aspect_snap.is_empty() || !self.aspect_snap.contains(&n.id))
             && !parent_virtual.is_some_and(crate::el::virtual_list::VirtualList::replaced_view)
             && memo_reuse::same_visual(&n.vis, &o.vis)
+            // A fresh node draws its rest border until apply lights it (`El::hover_border`).
+            && n.vis.border == o.vis.border
             && text_color(n) == text_color(o)
             && n.text.as_ref().is_none_or(|t| {
                 t.reveal < 0.0 || self.reveals.get(&n.id).is_some_and(|r| r.words.is_empty() && r.len == t.content.len())
