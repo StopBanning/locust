@@ -234,13 +234,11 @@ fn burst_codex_short() {
 }
 
 #[test]
-#[ignore = "FAULT: ACP stops at its bound saying \"ACP notification queue overflow; run stopped\", not Electron's sentence (SOAK-NOTES row 2)"]
 fn burst_acp_short() {
     acp(N, Reader::Held).unwrap();
 }
 
 #[test]
-#[ignore = "FAULT: OpenCode 1 stops at its bound saying \"OpenCode output overflow\", not Electron's sentence (SOAK-NOTES row 2)"]
 fn burst_opencode_serve_short() {
     opencode(N, Reader::Held).unwrap();
 }
@@ -248,7 +246,7 @@ fn burst_opencode_serve_short() {
 // ---- long form: every reader, held and slow, past the bound and under it, three times -----------------------------
 
 #[test]
-#[ignore = "long form (every reader x held/slow x past/under its bound x 3); fails on the ACP and OpenCode faults above"]
+#[ignore = "long form (every reader x held/slow x past/under its bound x 3): cargo test -p locust-core bursts_long -- --ignored --nocapture"]
 fn bursts_long() {
     let mut lines = Vec::new();
     let mut faults = Vec::new();

@@ -97,6 +97,11 @@ leave a gap in its record. Sending it again usually works." Every run past 20,00
 output overflow" (runtime/opencode_serve.rs:975, `next_event` sees the overflow flag first); slow, the same burst ends
 with Electron's sentence. One overflow, two wordings, depending on who notices first. 3 of 3 held runs.
 
+**2a and 2b fixed (Soak fixes 1):** ACP says Electron's sentence (`acp::OVERFLOW_MESSAGE`, acp-run.ts `lose`) and still
+marks the output limit; OpenCode 1 ends on `opencode_events::OUTPUT_LIMIT_MESSAGE` whoever notices the overflow first,
+with the server's tail kept in the process's stderr, not the message. `burst_acp_short` and `burst_opencode_serve_short`
+run in the suite.
+
 ### Fault 2c: ACP and OpenCode 1 read a long answer in time that grows with its square
 
 `bursts_scale_long` (ignored, failing). Held reader, a burst under the bound, milliseconds in the engine's `next_event`:

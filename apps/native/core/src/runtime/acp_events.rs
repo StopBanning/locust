@@ -367,7 +367,7 @@ impl AcpNormalizer {
         let mut out = vec![];
         self.close_thought(&mut out);
         self.close_message(&mut out);
-        let process = json!({"exitCode":if failure.is_none() && !cancelled {json!(0)} else {Value::Null},"signal":null,"stderr":failure.map(|f|text(f,16384)).unwrap_or_default(),"stderrTruncated":false,"recordCount":self.records,"cancelled":cancelled,"inputDeliveryFailed":false,"outputLimitExceeded":failure.is_some_and(|s|s.contains("overflow") || s.contains("exceeds 8 MiB")),"oversizedRecordsDropped":0,"forcedTerminationAttempted":false,"terminationUnconfirmed":false,"startedAt":self.started_at,"finishedAt":crate::ledger_write::now()});
+        let process = json!({"exitCode":if failure.is_none() && !cancelled {json!(0)} else {Value::Null},"signal":null,"stderr":failure.map(|f|text(f,16384)).unwrap_or_default(),"stderrTruncated":false,"recordCount":self.records,"cancelled":cancelled,"inputDeliveryFailed":false,"outputLimitExceeded":failure.is_some_and(output_limit),"oversizedRecordsDropped":0,"forcedTerminationAttempted":false,"terminationUnconfirmed":false,"startedAt":self.started_at,"finishedAt":crate::ledger_write::now()});
         let mut p = json!({"process":process});
         if let Some(thread) = &self.thread {
             p["runtimeThreadId"] = json!(thread);
@@ -417,6 +417,11 @@ impl AcpNormalizer {
         out.push(self.event(terminal, p));
         out
     }
+}
+/// A failure the host made by stopping a run whose output outran it (acp-run.ts `outputLimitExceeded`): the queue's
+/// overflow, said in Electron's words (`acp::OVERFLOW_MESSAGE`), or a record past 8 MiB.
+fn output_limit(failure: &str) -> bool {
+    failure == super::acp::OVERFLOW_MESSAGE || failure.contains("overflow") || failure.contains("exceeds 8 MiB")
 }
 /// A failure that says the CLI is not signed in (acp-events.ts `SIGNED_OUT`:
 /// `/authenticat|not (?:logged|signed) in|\blog ?in\b|\bsign ?in\b/i`), read from lowercased words.
@@ -593,3 +598,22 @@ pub fn patch_of(content: &Value) -> Option<Value> {
 #[cfg(test)]
 #[path = "line_diff_case_tests.rs"]
 mod line_diff_case_tests;
+
+#[cfg(test)]
+mod overflow_words_tests {
+    use super::*;
+
+    /// SOAK-NOTES row 2a: a run the host stopped for outrunning the queue ends in Electron's sentence and is marked as
+    /// the output limit, as acp-run.ts records it.
+    #[test]
+    fn a_queue_overflow_ends_in_electrons_sentence_marked_as_the_output_limit() {
+        let mut normal = AcpNormalizer::default();
+        let out = normal.finish("end_turn", Value::Null, false, Some(super::super::acp::OVERFLOW_MESSAGE), false);
+        let last = out.last().unwrap();
+        assert_eq!(last.kind, "run.failed");
+        assert_eq!(last.payload["message"], super::super::acp::OVERFLOW_MESSAGE);
+        assert_eq!(last.payload["process"]["outputLimitExceeded"], true, "{:?}", last.payload);
+        let other = AcpNormalizer::default().finish("end_turn", Value::Null, false, Some("The agent exited."), false);
+        assert_eq!(other.last().unwrap().payload["process"]["outputLimitExceeded"], false);
+    }
+}

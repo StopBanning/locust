@@ -80,6 +80,8 @@ impl ErrorFacts {
     }
 }
 /// The line the thread draws for a compaction (OPENCODE_COMPACTED): never the summary or the note to the model.
+/// Said when the host stopped a run whose output outran it (opencode-events.ts, opencode-serve-run.ts `lose`).
+pub const OUTPUT_LIMIT_MESSAGE: &str = "OpenCode sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.";
 pub const COMPACTED: &str = "The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary.";
 /// One step's counts, as `step_finish` reports them.
 #[derive(Debug, Clone, Copy, Default)]
@@ -520,7 +522,7 @@ impl Normalizer {
                     }
                 )
             } else if output_limit {
-                "OpenCode sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.".into()
+                OUTPUT_LIMIT_MESSAGE.into()
             } else if let Some(f) = &self.error {
                 f.sentence(self.free)
             } else if self.saw_stop {

@@ -300,7 +300,9 @@ impl Serve {
         ));
         if let Some(e) = self.queued.back_mut() {
             e.payload["process"]["terminationUnconfirmed"] = json!(!confirmed);
-            if reason.is_some() && e.kind == "run.failed" && self.normal.base.records == 0 {
+            // A reason given before any record is the run's account, unless the host stopped it for overflowing: then the
+            // sentence opencode-events.ts puts first stands, with no server words after it.
+            if reason.is_some() && e.kind == "run.failed" && self.normal.base.records == 0 && !self.overflow.load(Ordering::Relaxed) {
                 e.payload["message"] = json!(super::events::text(&why, 16384));
             }
         }
@@ -972,7 +974,8 @@ impl Runtime for Serve {
                 .is_some_and(|p| p.overflow.load(Ordering::Relaxed))
         {
             self.overflow.store(true, Ordering::Relaxed);
-            self.finish(Some("OpenCode output overflow"));
+            // opencode-serve-run.ts `lose`: Electron's sentence, whoever notices the overflow first (SOAK-NOTES row 2b).
+            self.finish(Some(super::opencode_events::OUTPUT_LIMIT_MESSAGE));
             return Ok(self.queued.pop_front());
         }
         let refused = crate::invariants::lock(&self.refused).take();
@@ -1205,5 +1208,34 @@ mod own_price_wire_tests {
         let done = serve.normal.finish(false, Some(0), "", false);
         let usd = done.last().unwrap().payload["usage"]["usd"].as_f64().unwrap();
         assert!((usd - 0.06).abs() < 1e-9, "got {usd}, expected 0.06 (tiered price)");
+    }
+}
+
+#[cfg(test)]
+mod overflow_words_tests {
+    use super::*;
+
+    /// SOAK-NOTES row 2b: an overflow the engine notices before any record is read (it was busy while the burst came)
+    /// ends in Electron's sentence, as it does when the reader noticed first, never in words of its own nor with the
+    /// server's last words after it. Those go to the process's stderr after the sentence, as opencode-serve-run.ts's
+    /// `finish` keeps `why` and the server's tail.
+    #[test]
+    fn an_overflow_seen_before_any_record_says_electrons_sentence() {
+        let said = super::super::opencode_events::OUTPUT_LIMIT_MESSAGE;
+        let mut serve = Serve::new(Command::new("opencode"), Arc::new(AtomicBool::new(false)));
+        let server = Process::spawn(Command::new("sh").args(["-c", "echo server log >&2; exec sleep 30"])).unwrap();
+        let tail = server.stderr.clone();
+        crate::load_waits::wait_for("the server's stderr", || crate::invariants::lock(&tail).contains("server log"));
+        serve.process = Some(server);
+        serve.overflow.store(true, Ordering::Relaxed);
+        let mut last = None;
+        while let Some(e) = serve.next_event().unwrap() {
+            last = Some(e);
+        }
+        let last = last.expect("the run ends");
+        assert_eq!(last.kind, "run.failed", "{:?}", last.payload);
+        assert_eq!(last.payload["message"], said);
+        assert_eq!(last.payload["process"]["stderr"], format!("{said}\nserver log"));
+        assert_eq!(last.payload["process"]["outputLimitExceeded"], true, "{:?}", last.payload);
     }
 }
