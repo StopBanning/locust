@@ -712,7 +712,24 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
 
 pub(super) fn queue_phase(s: &State) -> &'static str {
     if let Some(pane) = &s.ledger {
-        return pane.worker.as_ref().map_or("running", |w| w.tip_phase());
+        // The worker is moved out of the pane during a poll. The selected thread's
+        // last accepted snapshot, not the worker's presence, says how its tip ended.
+        if pane.snapshot.running || pane.after_tip.is_some() || pane.loading {
+            return "running";
+        }
+        if pane.snapshot.interrupted {
+            return "interrupted";
+        }
+        if pane.snapshot.failed {
+            return "failed";
+        }
+        match &pane.snapshot.run_end {
+            Some(ledger::RunEnd::Completed) => return "completed",
+            Some(ledger::RunEnd::Failed { .. }) => return "failed",
+            Some(ledger::RunEnd::Cancelled) => return "cancelled",
+            None => {}
+        }
+        return pane.worker.as_ref().map_or("unknown", |w| w.tip_phase());
     }
     if matches!(s.status_tone, StatusTone::Red) {
         "failed"
@@ -786,3 +803,7 @@ mod mode_cycle_tests;
 #[cfg(test)]
 #[path = "composer_counts_tests.rs"]
 mod composer_counts_tests;
+
+#[cfg(test)]
+#[path = "queued_conversation_owner_tests.rs"]
+mod queued_conversation_owner_tests;
