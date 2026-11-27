@@ -171,3 +171,26 @@ fn a_routines_actions_are_boxed_at_the_rows_far_end() {
         .fold(f32::MAX, f32::min);
     assert!(first > card[0] + card[2] / 2.0, "no action at the left: first at {first}, card {card:?}");
 }
+
+#[test]
+fn an_empty_shelf_is_one_680_column_in_the_middle() {
+    // shell.css:26122-26133: `.lc-empty:has(> .lc-savable) { width: 100%; max-width: 680px; margin: 0 auto }`, read from
+    // its left edge: the sentence and the templates share it.
+    let rt = window(empty_shelf_state());
+    let (page, column) = (rect(&rt, "routines-body"), rect(&rt, "routines-empty"));
+    assert_eq!(column[2], 680.0, "{column:?}");
+    let (left, right) = (column[0] - page[0], page[0] + page[2] - (column[0] + column[2]));
+    assert!((left - right).abs() <= 1.0 && left > 24.0, "centred: {left} | {right}");
+    let (head, list) = (rect(&rt, "routines-templates-head"), rect(&rt, "routine-templates"));
+    assert!((head[0] - column[0]).abs() <= 0.5 && (list[0] - column[0]).abs() <= 0.5, "one left edge: {head:?} {list:?} {column:?}");
+    assert!(list[0] + list[2] <= column[0] + column[2] + 0.5);
+}
+
+#[test]
+fn the_list_of_routines_spans_the_page() {
+    // `.lc-automations > .lc-routinelist` (shell.css:17583): the list keeps 24 either side, no measure.
+    let rt = window(one_routine_state());
+    let (page, card) = (rect(&rt, "routines-body"), rect(&rt, "routine-rt_review"));
+    assert!(card[2] > 680.0, "{card:?}");
+    assert!((card[0] - (page[0] + 24.0)).abs() <= 0.5, "{card:?} in {page:?}");
+}

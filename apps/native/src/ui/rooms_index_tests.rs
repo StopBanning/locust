@@ -198,3 +198,31 @@ fn with_no_teammates_it_says_make_one_first_and_draws_no_card() {
     assert!(rt.find("room-create-card").is_none());
     assert!(rt.find("rooms-none-yet").is_none());
 }
+
+#[test]
+fn the_rooms_page_is_one_620_column_in_the_middle() {
+    // shell.css:26105-26118: `.lc-screen__scroll:has(.lc-roomform) > .lc-settings__section { width: 100%; max-width:
+    // 620px; margin-left: auto; margin-right: auto }` and 40 above the first section.
+    let rt = window(rooms_screen(vec![room("r1", "Release", &["codec"])]));
+    let (page, column, header) = (rect(&rt, "rooms-body"), rect(&rt, "rooms-column"), rect(&rt, "rooms-header"));
+    assert_eq!(column[2], 620.0, "{column:?}");
+    let (left, right) = (column[0] - page[0], page[0] + page[2] - (column[0] + column[2]));
+    assert!((left - right).abs() <= 1.0 && left > 24.0, "centred: {left} | {right}");
+    assert!(column[1] - (header[1] + header[3]) >= 40.0, "room above the first section: {column:?}");
+    // The sections and the card keep to it: nothing reaches past the column.
+    for key in ["rooms-yours", "rooms-new", "room-create-card"] {
+        let r = rect(&rt, key);
+        assert!(r[0] >= column[0] - 0.5 && r[0] + r[2] <= column[0] + column[2] + 0.5, "{key} {r:?} in {column:?}");
+    }
+}
+
+#[test]
+fn a_narrow_window_gives_the_column_its_width() {
+    // `width: 100%; max-width: 620px`: narrower than that, the column is the page's width.
+    let mut rt = Runtime::new(rooms_screen(Vec::new()), crate::view, (900.0, 900.0), Env::new(true, 1.0));
+    for _ in 0..4 {
+        rt.frame(0.016);
+    }
+    let (page, column) = (rect(&rt, "rooms-body"), rect(&rt, "rooms-column"));
+    assert!(column[2] <= crate::room_screen::ROOMS_COLUMN && column[2] <= page[2] - 48.0 + 0.5, "{column:?} in {page:?}");
+}

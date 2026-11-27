@@ -981,11 +981,15 @@ fn routines_header(s: &State, p: &Palette) -> El {
         .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
         // Called what every control on it already calls the object (routines-shelf.test.tsx): Save as routine,
         // Edit routine, routineRunSummary.
-        .child(text("Routines").key("routines-heading").font(rune::TextStyle::new(20.0, 650.0).tracking(-0.3)).color(l.c("text-primary")))
-        .child(text(shelf_meta(&s.routines.file)).key("routines-meta").font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")))
+        .child(text("Routines").key("routines-heading").font(crate::conversation_board::SCREEN_TITLE).color(l.c("text-primary")))
+        .child(text(shelf_meta(&s.routines.file)).key("routines-meta").font(crate::conversation_board::SCREEN_META).color(l.c("text-muted")))
         .child(el().grow(1.0))
         .child(actions)
 }
+
+/// The empty shelf's reading column (shell.css:26122-26133 `max-width: 680px; margin: 0 auto`). The list of routines is
+/// not in one: `.lc-automations > .lc-routinelist` spans the page with 24 either side.
+pub const EMPTY_SHELF_COLUMN: f32 = 680.0;
 
 /// The header's count (AutomationsScreen meta): "none saved", or how many, how many go on a schedule, and how many of
 /// those are paused -- a paused one is not going on its own, so it is counted apart.
@@ -1006,7 +1010,8 @@ fn shelf_meta(file: &Value) -> String {
 /// newest finished conversations, each with Save as routine. With none, the one honest line -- unless there are starter
 /// templates to offer instead, and then they are the material.
 fn empty_shelf(s: &State, p: &Palette) -> El {
-    let mut shelf = col().gap(8.0).w_full().key("routines-empty").child(
+    // One 680 column in the middle, read from its left edge (shell.css:26122-26133 `.lc-empty:has(> .lc-savable)`).
+    let mut shelf = col().gap(8.0).w_full().max_w(EMPTY_SHELF_COLUMN).self_center().key("routines-empty").child(
         text("A routine is a job a teammate does again: steps you write, or the turns of a conversation you save, replayed when you press Run or on a schedule.")
             .font(type_::BODY).color(p.text).wrap(),
     );
@@ -2098,13 +2103,13 @@ fn templates_dialog(p: &Palette) -> El {
             row()
                 .w_full()
                 .center_y()
-                .child(text("Start from a template").key("routine-templates-title").font(rune::TextStyle::new(15.0, 600.0)).color(l.c("text-primary")).grow(1.0))
+                .child(text("Start from a template").key("routine-templates-title").font(rune::TextStyle { weight: 600.0, ..l.ty.control }).color(l.c("text-primary")).grow(1.0))
                 .child(
                     text("×")
                         .key("routine-templates-close")
                         .role("button")
                         .label("Close")
-                        .font(rune::TextStyle::new(18.0, 400.0))
+                        .font(l.ty.control)
                         .color(l.c("text-muted"))
                         .px(6.0)
                         .on_press(|s: &mut State| s.routines.templates_open = false),

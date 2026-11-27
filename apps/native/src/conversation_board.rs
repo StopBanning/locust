@@ -289,6 +289,12 @@ pub fn column_name(key: ConversationBoardKey) -> &'static str {
     }
 }
 
+/// A screen's title in its header, as Electron sets every page's since 0.862 (shell.css:26240 `.lc-screen__title`: 20,
+/// weight 650, tracked -0.015em): Rooms, Routines and the Board take it from here.
+pub const SCREEN_TITLE: TextStyle = TextStyle::new(20.0, 650.0).tracking(-0.3);
+/// The count beside it (shell.css:26062 `.lc-screen__meta`: the interface's face at 13, muted).
+pub const SCREEN_META: TextStyle = TextStyle::new(13.0, 400.0);
+
 /// `.lc-screen__header` with BoardScreen.tsx:305-308: "Board", then its meta right beside it (shell.css:11538, the title
 /// 20/650 at 26240, the meta 13 at 26062). Nothing pushes the meta to the middle.
 #[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
@@ -302,8 +308,8 @@ pub fn board_header(l: &Look, meta: &str) -> El {
         .center_y()
         .fill(l.c("bg-chrome"))
         .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
-        .child(text(BOARD_TITLE).key("board-title").font(TextStyle::new(20.0, 650.0).tracking(-0.3)).color(l.c("text-primary")))
-        .child(text(meta.to_owned()).key("board-meta").font(TextStyle::new(13.0, 400.0)).color(l.c("text-muted")))
+        .child(text(BOARD_TITLE).key("board-title").font(SCREEN_TITLE).color(l.c("text-primary")))
+        .child(text(meta.to_owned()).key("board-meta").font(SCREEN_META).color(l.c("text-muted")))
 }
 
 /// `.lc-convcard` (shell.css:11983-12056): the face spanning two lines, the title on the first, the meta line on the

@@ -930,6 +930,9 @@ pub fn rooms_meta(count: usize) -> String {
     format!("{how_many} · one post, every teammate answers")
 }
 
+/// The Rooms screen's reading column (shell.css:26105-26113 `max-width: 620px; margin: auto`).
+pub const ROOMS_COLUMN: f32 = 620.0;
+
 /// The words over the New room card (RoomScreen.tsx:740-743).
 pub const ROOM_ABOUT: &str = "Name it and pick who is in it. A post goes to everyone in the room at once, each on their own AI agent and model; their answers land here, and each one opens the conversation it came from.";
 /// Under the card while there are no rooms yet (RoomScreen.tsx:844-846).
@@ -949,8 +952,8 @@ fn screen_header(l: &Look, title: &str, meta: String) -> El {
         .center_y()
         .fill(l.c("bg-chrome"))
         .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
-        .child(text(title.to_owned()).key("rooms-title").font(rune::TextStyle::new(20.0, 650.0).tracking(-0.3)).color(l.c("text-primary")))
-        .child(text(meta).key("rooms-meta").font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")))
+        .child(text(title.to_owned()).key("rooms-title").font(crate::conversation_board::SCREEN_TITLE).color(l.c("text-primary")))
+        .child(text(meta).key("rooms-meta").font(crate::conversation_board::SCREEN_META).color(l.c("text-muted")))
 }
 
 /// RoomScreen.tsx:684-851: the Rooms screen with no room open. The rooms there are, as cards, under "Your rooms";
@@ -960,7 +963,9 @@ fn view_list(s: &State, p: &Palette, l: &Look) -> El {
     let now_ms = Utc::now().timestamp_millis();
     let mut root = col().key("rooms-screen").grow(1.0).h_full().fill(p.bg);
     root = root.child(screen_header(l, "Rooms", rooms_meta(s.rooms.rooms.len())));
-    let mut body = col().key("rooms-body").w_full().gap(24.0).px(24.0).pt(14.0).pb(22.0);
+    // Rooms, centred (shell.css:26105-26118): every section in one 620 column in the middle of the page, 40 above the
+    // first, as Apple sets a sheet's form; the scroller keeps its 24 either side (`.lc-screen__scroll`).
+    let mut body = col().key("rooms-column").w_full().max_w(ROOMS_COLUMN).self_center().gap(24.0).mt(40.0);
     if !s.rooms.readable {
         body = body.child(text(room_store::UNREADABLE).font(l.ty.body).color(p.amber).wrap());
     }
@@ -983,7 +988,7 @@ fn view_list(s: &State, p: &Palette, l: &Look) -> El {
                     .hover(l.c("hover-surface"))
                     .role("button")
                     .label(room.name.clone())
-                    .child(text(room.name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")))
+                    .child(text(room.name.clone()).font(rune::TextStyle { weight: 500.0, ..l.ty.control }).color(l.c("text-name")))
                     .child(text(meta).font(l.ty.mono).color(l.c("text-muted")).truncate())
                     .on_press(move |s: &mut State| open_room(s, rid.clone())),
             );
@@ -1000,7 +1005,8 @@ fn view_list(s: &State, p: &Palette, l: &Look) -> El {
         new_room = new_room.child(text(NO_ROOMS_YET).key("rooms-none-yet").font(l.ty.body).color(l.c("text-secondary")).wrap().mt(6.0));
     }
     body = body.child(new_room);
-    root.child(col().grow(1.0).w_full().scroll(ScrollSpec { stick_bottom: false }).child(body))
+    let page = col().key("rooms-body").w_full().px(24.0).pt(14.0).pb(22.0).child(body);
+    root.child(col().grow(1.0).w_full().scroll(ScrollSpec { stick_bottom: false }).child(page))
 }
 
 /// `.lc-roomcardform` (shell.css:4139-4227): one raised card, 620 at most, in three bands.
