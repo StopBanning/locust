@@ -283,6 +283,18 @@ fn headless_run_checks_organization_policy_before_discovery_and_recording() {
             "allowedModels",
         )),
     );
+    // Lane check of B21: an OpenCode id needs both halves; "fixture/" names no model, as "fixture" does not.
+    run_case(
+        "opencode-empty-model",
+        "opencode",
+        Some("fixture/"),
+        r#"{"allowedModels":{"opencode":["fixture/"]}}"#,
+        None,
+        Some((
+            "The opencode model account default is not allowed.",
+            "allowedModels",
+        )),
+    );
     run_case(
         "kilo-default",
         "kilo",
