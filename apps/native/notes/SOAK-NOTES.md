@@ -150,6 +150,10 @@ minutes; native.rs:1332 `running: transcript.running && fresh`) and never asks `
 (native.rs:977) and the reader (ledger.rs:2545) do. Only an app's carry-on (`allow_cut_off`) gets past it. So after the
 engine crashes, for 15 minutes the window says the turn has ended and refuses to continue it, in words that say it runs.
 
+**Fixed (Soak fixes 1):** `prior_of` now reads the turn as running only while its process lives (`fresh && !orphaned`),
+as the list and the reader do; the test runs in the suite, and `native::tests::a_follow_up_to_a_turn_whose_process_is_gone_is_not_refused_as_running`
+checks it in a moment.
+
 ## Row 4: two at once (`two_at_once.rs`)
 
 Each round: engine A (this binary in a child, a real `engine_process::Server::start` on a fresh native folder) takes

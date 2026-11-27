@@ -247,11 +247,10 @@ fn killed_mid_turn_short() {
     kills(4, false);
 }
 
-/// FAULT (SOAK-NOTES row 3): within 15 minutes of the crash, a follow-up typed in the conversation is refused as "still
-/// running" while the list and the conversation show the turn ended. `native::prior_of` reads the turn as running from
-/// its file's age alone (`ledger::ACTIVE_WINDOW`), without `orphaned`, which the list and the reader use.
+/// SOAK-NOTES row 3 (fixed): within 15 minutes of the crash, a follow-up typed in the conversation was refused as "still
+/// running" while the list and the conversation showed the turn ended. `native::prior_of` read the turn as running from
+/// its file's age alone (`ledger::ACTIVE_WINDOW`); it now asks `orphaned`, as the list and the reader do.
 #[test]
-#[ignore = "FAULT: after the engine is killed mid-turn, a follow-up is refused as \"still running\" for 15 minutes (SOAK-NOTES row 3)"]
 fn killed_mid_turn_then_a_follow_up_is_taken() {
     kills(2, true);
 }
