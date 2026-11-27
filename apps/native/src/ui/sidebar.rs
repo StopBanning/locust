@@ -316,6 +316,31 @@ fn is_own_mark_model(model: &str) -> bool {
             && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
 }
 
+/// The runtime id a conversation without a teammate ran on: from its ledger summary (ignoring custom `own-` models),
+/// else from its `recent` row's runtime display name (as `main.rs` writes via `engine::runtime_name` and `native-live`
+/// sets `"Codex"`). Returns `None` when no known runtime mark applies.
+fn row_runtime<'a>(s: &'a State, item: &SidebarMission) -> Option<&'a str> {
+    if let Some(m) = s.ledger_summaries.get(&item.mission_id) {
+        return (!m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
+            .then_some(m.runtime.as_str());
+    }
+    let keys = conversation_keys(item);
+    let name = s.recent.iter().find(|r| keys.contains(&r.id) && !r.teammate.is_empty())?.teammate.as_str();
+    match name.to_ascii_lowercase().as_str() {
+        "codex" => Some("codex"),
+        "claude" | "claude code" => Some("claude"),
+        "cursor" | "cursor agent" => Some("cursor"),
+        "copilot" | "github copilot" | "copilot cli" => Some("copilot"),
+        "opencode" => Some("opencode"),
+        "antigravity" => Some("antigravity"),
+        "muse" | "muse code" => Some("muse"),
+        "apple" | "apple intelligence" => Some("apple"),
+        "kilo" => Some("kilo"),
+        "gemini" | "gemini cli" => Some("gemini"),
+        _ => None,
+    }
+}
+
 fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let compare = undecided_comparison(s, item);
@@ -334,12 +359,11 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             .role("img").label(mate.name.clone())
             .key(format!("conversation-owner-{}", item.mission_id)));
     } else {
-        let summary = s.ledger_summaries.get(&item.mission_id);
-        let mark = summary.filter(|m| !m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
-            .and_then(|m| crate::look::controls::agent_mark(&l, &m.runtime, 13.0, l.c("text-muted"))
+        let mark = row_runtime(s, item)
+            .and_then(|runtime| crate::look::controls::agent_mark(&l, runtime, 13.0, l.c("text-muted"))
                 .map(|mark| row().size(OWNER_FACE, OWNER_FACE).center().child(mark)
                     .key(format!("conversation-runtime-{}", item.mission_id))
-                    .role("img").label(locust_core::inspector::runtime_display_name(&m.runtime))));
+                    .role("img").label(locust_core::inspector::runtime_display_name(runtime))));
         // `.lc-conv__nobody`: a 16 box, 2 either side, centred in the face's 20.
         title = title.child(mark.unwrap_or_else(|| el().size(16.0, 16.0).mx((OWNER_FACE - 16.0) / 2.0).radius(4.0)
             .border(1.0, l.c("border-hairline")).a11y_hidden()
@@ -2144,6 +2168,19 @@ mod renderer_model_mark_tests {
         let rt = draw("mission_starting", None);
         assert!(rt.find("conversation-nobody-mission_starting").is_some());
         assert!(rt.find("conversation-runtime-mission_starting").is_none());
+    }
+
+    // case: wears its model's mark where the face goes, named
+    #[test]
+    fn unowned_recent_row_named_by_runtime_wears_its_runtime_mark() {
+        let mut s = State::default();
+        native_scene_live(&mut s);
+        let mut rt = rune::Runtime::new(s, |s, _| sidebar(s, &Palette::new(true)),
+            (280.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        assert!(rt.find("conversation-runtime-sample-1").is_some(), "Continue the native preview should wear Codex's mark");
+        assert!(rt.find("conversation-nobody-sample-1").is_none(), "should not draw the empty box");
+        assert!(rt.elements().iter().any(|e| e.key.as_deref() == Some("conversation-runtime-sample-1") && e.label.as_deref() == Some("Codex")));
     }
 }
 

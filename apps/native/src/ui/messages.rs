@@ -593,7 +593,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         messages = messages.child(card);
     }
     if live_sweeping(s)
-        && let Some(live) = s.ledger.as_ref().and_then(|pane| pane.snapshot.live.as_ref())
+        && let Some(live) = live_for_thread(s)
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
             .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
@@ -624,11 +624,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
             .child(crate::working_shimmer::live_word(&words, s.frame_clock, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
                 .key("live-step-label").shrink().truncate().help(headline));
-        if let Some(step) = &live.detail {
-            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
-        }
+        // ThreadItems.tsx (0.631): the clock sits right after the words, before the plan's "step N of M".
         if let Some(ms) = elapsed {
             line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
+        }
+        if let Some(step) = &live.detail {
+            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
         }
         messages = messages.child(line);
     }
@@ -690,10 +691,22 @@ fn run_with_edits_row(prompt: String, p: &Palette) -> El {
         )
 }
 
+/// The live line for the thread: the ledger snapshot's live projection when a ledger pane is open,
+/// else (just after Send, while `flight` is active before the record exists) Electron's initial
+/// "Starting…" line beside the breathing orb.
+fn live_for_thread(s: &State) -> Option<locust_core::thread_view::LiveLine> {
+    match &s.ledger {
+        Some(pane) => pane.snapshot.live.clone(),
+        None => s.flight.as_ref().and_then(|_| {
+            locust_core::thread_view::live_line(&[], true, &chrono::Utc::now().to_rfc3339(), false)
+        }),
+    }
+}
+
 /// Whether the live line is on screen. The window refreshes its orb and sweeping word while it is.
 pub(super) fn live_sweeping(s: &State) -> bool {
     locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
-        && s.ledger.as_ref().is_some_and(|pane| pane.snapshot.live.is_some())
+        && live_for_thread(s).is_some()
 }
 
 /// Thread.tsx under the current turn: a never-started run of the person's own words offers Run it again
@@ -1392,8 +1405,52 @@ mod tests {
         ];
         s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
         let drawn = thread_text(&items, &mut s);
-        // The words, then the plan's step as its own part (kept whole in a narrow column).
-        assert!(drawn.contains("Running npm test\n · step 2 of 3"), "{drawn}");
+        // ThreadItems.tsx (0.631): the words, then the clock, then the plan's step.
+        let action_at = drawn.find("Running npm test").expect("live action");
+        let step_at = drawn.find(" · step 2 of 3").expect("plan step");
+        assert!(action_at < step_at, "{drawn}");
+        let between = &drawn[action_at + "Running npm test".len()..step_at];
+        assert!(between.contains(" · "), "clock sits between action and step: {drawn}");
+    }
+
+    #[test]
+    fn live_line_places_the_clock_before_the_plan_step_and_shows_just_after_send() {
+        // Clock before "step N of M" by x-coordinate on screen.
+        let items = [ledger::Item::User("run the tests".into())];
+        let mut s = composition_state(None, true);
+        let events = [
+            serde_json::json!({"type": "run.started", "occurredAt": "2026-09-04T21:47:00.000Z", "payload": {}}),
+            serde_json::json!({"type": "plan.updated", "payload": {"plan": {"plan": [{"step": "Step 1", "status": "completed"}, {"step": "Step 2", "status": "in_progress"}]}}}),
+            serde_json::json!({"type": "tool.started", "payload": {"itemId": "t", "toolKind": "command_execution", "name": "shell", "command": "npm test"}}),
+        ];
+        s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
+        let mut rt = rune::Runtime::new(
+            (s, items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let els = rt.elements();
+        let time = els.iter().find(|e| e.key.as_deref() == Some("live-step-time")).expect("live-step-time");
+        let peek = els.iter().find(|e| e.key.as_deref() == Some("live-step-peek")).expect("live-step-peek");
+        assert!(time.rect[0] < peek.rect[0], "clock x={} should precede step x={}", time.rect[0], peek.rect[0]);
+
+        // Just after Send (flight active, no ledger pane yet): draws the breathing orb and "Starting…".
+        let mut after_send = State::default();
+        live_after_send_scene(&mut after_send);
+        assert!(live_sweeping(&after_send));
+        let mut rt2 = rune::Runtime::new(after_send, |s, cx| crate::view(s, cx), (1215.0, 800.0), rune::Env::new(true, 1.0));
+        rt2.frame(0.0);
+        rt2.frame(0.016);
+        let els2 = rt2.elements();
+        let orb = els2
+            .iter()
+            .find(|e| e.trace_name == Some("thinking-orb") && e.key.as_deref() == Some("live-step-orb") && !e.exiting)
+            .expect("live-step-orb after send");
+        assert_eq!(orb.trace_namespace.map(|(_, st)| st), Some("breathing"));
+        let label = els2.iter().find(|e| e.key.as_deref() == Some("live-step-label")).expect("live-step-label after send");
+        assert_eq!(label.text.as_deref().or(label.label.as_deref()), Some("Starting\u{2026}"));
     }
 
     // case: keeps the plan pill of the running line whole, so the thread never scrolls sideways under it

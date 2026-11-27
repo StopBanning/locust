@@ -438,3 +438,29 @@ for line in sys.stdin:
         "the original skill must not be removed or changed"
     );
 }
+
+// Lane check of B22 (the dot's finding): a start refused after the run's skills were copied, but before the worker
+// began (here, a ledger folder that cannot be written), takes that copy away too, as a run that ends does.
+#[test]
+fn a_start_refused_before_its_run_begins_leaves_no_copy_of_its_skills() {
+    use crate::{engine::Teammate, native, store::Store};
+
+    let root = Temp::new("refused-run-skills");
+    let store = Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+    let work = root.0.join("work");
+    std::fs::create_dir(&work).unwrap();
+    skill(&store.root().join("skill-library/skills"), "review", "Say hi.");
+    let scratch = store.root().join("run-skills");
+    // A plain file where the ledger folder goes: the record cannot be made, so the run must not start.
+    std::fs::write(store.root().join("mission-ledger"), "not a folder").unwrap();
+    let _hook = native::hooks::install(store.clone(), Some((PathBuf::from("python3"), vec!["-c".into(), "raise SystemExit(1)".into()])));
+    let refused = native::send(native::Send {
+        teammate: Teammate { folder: Some(work.to_string_lossy().into_owned()), ..native::nobody(Some("codex".into()), None) },
+        conversation: None,
+        prompt: "Inspect the workspace without changing it.".into(),
+        model: None,
+        effort: None,
+    });
+    assert!(refused.is_err(), "a run with nowhere to record itself started: {:?}", refused.map(|s| s.conversation_id));
+    assert!(listed(&scratch).is_empty(), "the refused start left a run's skills on disk: {:?}", listed(&scratch));
+}
