@@ -486,3 +486,20 @@ fn settling_a_copy_runs_changes_is_one_decision() {
     assert!(f.read().get("staged").is_none());
     assert!(progress::settle_staged(&f.store, &f.id, "a1").is_err());
 }
+
+// case: routine-runner.ts:594 — a recovery decision is refused unless the execution is held, even when its attempt and step match
+#[test]
+fn a_decision_about_a_running_step_is_stale_even_when_its_attempt_and_step_match() {
+    let f = fixture();
+    let runner = f.restart();
+    ok(runner.run(&f.id, None));
+    let e = f.execution();
+    assert_ne!(e["status"], json!("held"), "the step must still be running for this case");
+    for decision in [Decision::Keep, Decision::Abandon, Decision::Continue] {
+        let refused = runner.recover(&decide(&f.id, &e["attemptId"], &e["step"], decision)).unwrap();
+        assert_eq!(refused.unwrap_err(), "This recovery decision is stale. Reload routines and review the current attempt.");
+    }
+    assert_eq!(f.execution(), e);
+    assert!(f.read().get("schedule").is_some());
+    assert_eq!(f.started(), 1);
+}
