@@ -339,3 +339,148 @@ which gates both wakes); `Runtime::transaction()` fills it from `live_visible()`
 - **attention_watch.rs**: `notify::supported()` calls `std::env::current_exe()` on every poll.
 - **native::store()** (core/src/native.rs, not in this lane's files): builds and checks a `Store` from disk on every
   call; the engine and the door call it often.
+
+# Speed 2: the worst remaining costs (27 Nov 2026)
+
+Branch exec/native-speed-2 (cut at 31ae451a, fixturn-1 f7b4a19b merged). Colin was at the Mac throughout, so every
+figure here is headless: no subject window was opened on his screen, which rules out `measure-idle.sh` (it needs the
+Mac idle and a visible window) and the `--bench` window `profile-open.sh` starts (level -1, so it shows wherever the
+desktop is bare). The data is a copy of the dogfood lane's `subject-data` (`measure-idle.sh copy`, checkpoints left
+out) at `~/work/scratch/speed-2/subject-data`, with `HOME` pointed at `~/work/scratch/speed-2/home`, so nothing of
+Colin's or Electron's was read. The brief allowed no release build, so these are dev-profile binaries (locust-native
+and locust-core at opt-level 0, dependencies at 2): read them against each other, not against Speed 1's release
+figures.
+
+## The measure: `--bench-headless`
+
+`--bench-headless <out.json> --bench-conversation <id>` (main.rs `run_bench_headless`) runs what `--bench
+--bench-conversation` runs, the app's own `setup`, `poll` and `view` over the data the environment names, opening that
+conversation through `open_when_listed`, but on a `rune::Runtime` with no window, stepped on the wall clock at 60 Hz.
+Each frame builds, lays out and paints the view (everything but the GPU). It writes, in ms from process start:
+`setup_ms`, `first_frame_ms`, `listed_ms` (the row was listed and the open began) and `opened_ms` (the conversation
+is shown with its items, the same `<out>.opened` proof the window bench writes). Run by
+`~/work/scratch/speed-2/open.sh <tag> <binary> [n]` (Speed 1's `profile-open.sh` and `bench.sh` in one, headless; with
+`SAMPLE=1` a `sample` of the first run). Raw results: `~/work/scratch/speed-2/bench/`.
+
+## What a launch that opens the longest conversation costs (before: f7b4a19b with only the bench flag added, `bins/before`)
+
+Voice 2 lane (`mission_native_44397_1795526334661268000`, 347 items, 4.0 MB ledger), three runs, 1 rustc running:
+
+| run | setup | first frame | listed | opened | open after listed |
+|---|---|---|---|---|---|
+| before 1 | 1824 | 2114 | 4770 | 5173 | 403 |
+| before 2 | 1164 | 1168 | 3963 | 4300 | 336 |
+| before 3 | 1175 | 1178 | 4072 | 4439 | 367 |
+
+The `sample` of the main thread and the workers (`bench/beforeprof-sample.txt`) says where the time goes:
+
+1. **Setup reads every ledger before the first frame** (row 3). 1267 of setup's 1296 main-thread samples are
+   `composer_wiring::load_composer_store` -> `limits::limited_runtimes` -> `usage_ledger::collect_missions`: every
+   `.jsonl` in the ledger folder (87 files, 112 MB) read and parsed into `serde_json::Value`s to learn which runtimes
+   are at their usage limit. The first frame follows setup within milliseconds, so this is the whole first-frame cost.
+2. **The list waits on a cold read of every ledger, done twice at once** (row 2). Once listed, the conversation itself
+   opens in 336-403 ms: the 4.0 MB ledger is not the cost. Until then `open_when_listed` waits for the row to be listed,
+   and listing (`refresh_recent` -> `native::list_recent` -> `HistoryCache::read_history_at` -> `ledger::read_ledger`)
+   parses every ledger cold. setup's `load_team` asked for the list before the engine was known; when the team landed a
+   moment later, poll asked again (main.rs, "the first list was asked before the engine was known"), which dropped the
+   first read's answer (`rune::Latest` keeps only the newest request's) and started a second cold read beside it. Two
+   `RecentBatch` workers parsed every ledger side by side, and the list came when the second finished.
+3. **A third full parse runs beside them**: `agent_card_ui::request` -> `usage_ledger::usage_windows` ->
+   `collect_missions`, started by each `refresh_recent`.
+
+So a launch parses the whole ledger folder four times (setup's limits on the main thread, two list reads, the usage
+windows), none of them for the conversation being opened.
+
+## Row 2: the launch's list read is kept (main.rs `list_read_holds`)
+
+When the team lands and the list read asked before it is still running, it is kept, not asked again, provided its
+answer is the one a new read would give: `native::list_recent` answers the native engine differently only while the
+native ledger folder is not made yet, so a read over a folder that is there holds (as does any read for the door
+engine). A read that has already landed is asked again, as before. This is the pattern `room_screen::refresh` and
+`agent_card_ui::request` already follow (neither asks while its own read runs).
+
+After, three runs each (binary `bins/r2`):
+
+| run | setup | first frame | listed | opened | listed after first frame |
+|---|---|---|---|---|---|
+| before | 1164-1824 | 1168-2114 | 3963-4770 | 4300-5173 | 2656-2894 |
+| after | 1202-1801 | 1206-1972 | 3635-4177 | 3984-4521 | 2205-2587 |
+
+About 0.3-0.4 s off the listing, so the open: 3.98-4.52 s against 4.30-5.17 s in this debug build. **Not the 1.5 s
+target.** What is left is the cold parse itself and setup's, both in files outside this lane (below).
+
+Tests (src/ui/list_read_holds_tests.rs, through `poll`'s team arm, the call site):
+`a_list_read_running_when_the_team_lands_is_kept_not_asked_again`,
+`with_no_native_folder_yet_the_list_is_asked_again_for_the_native_engine`,
+`for_the_door_engine_a_running_read_is_kept_with_no_native_folder_too`,
+`a_read_that_already_landed_is_asked_again_when_the_team_lands`. Breaks: 4/4 KILLED, each by these tests
+(`~/work/scratch/evidence/speed-2/row2.entries`, `row2.out`), one on the call site in `poll`'s team arm. Those runs also
+failed a room_screen source check, because row 4's test counter then stood above sidebar.rs's code (that check reads the
+file up to its first test attribute); the counter was moved below the code before either row was committed.
+No new public function (`list_read_holds` is private to main.rs, called from `poll`).
+
+## Row 3: what setup's limits cost, measured; not changed
+
+An experiment build (`bins/exp-nolimits`, never committed: the one line in `composer_wiring.rs` that sets
+`s.limited_runtimes` taken out) shows what moving that read off the main thread would buy, three runs:
+
+| run | setup | first frame | listed | opened |
+|---|---|---|---|---|
+| without setup's limits read | 6-132 | 11-320 | 2506-3042 | 2847-3401 |
+
+First frame 11-320 ms against 1168-2114 ms: under the 0.8 s target with room to spare, and the list read starts about
+a second sooner (load_team comes after `load_composer_store` in setup), which takes the open to 2.8-3.4 s. The fix is
+to compute `limited_runtimes` in a `Latest` job started from setup and set it in poll; until it lands the composer
+treats no runtime as limited, as it does with no ledger. That is `composer_wiring.rs` (the line) and `app_state.rs`
+(the job's field), both outside this lane's files, so it was not done (see "Left").
+
+## Row 4: a resting window never builds the drawn list (sidebar.rs `shimmering`)
+
+`sidebar::shimmering` is asked on every poll while the window shows, and every 50 ms while a row shimmers. It built
+the whole drawn list (`drawn_missions`: every row grouped, filtered, ordered and cloned, each row's owner looked up) to
+learn whether one row is running. A drawn row is running only when a listed row is (`recent_as_missions` takes a row's
+phase from its leaf's state, and `conversation_rows` only sorts), so with none running the answer is now false
+without building the list. With one running, the answer is still the drawn list's own, so a running row the list
+hides (a face filter, a folded group, a settled row) never shimmers.
+
+Not done as the brief put it ("keep it until recents, the org file or the search change"): the drawn list also turns
+on the selection, the face filter, the source switch, folded groups, comparisons, the Board's asks and the clock (a
+settled row is put away by time), and while a turn runs the view builds the same list every frame anyway (the orb
+rebuilds the view at 33 ms). At rest, where the poll was paying for it alone, it is now not built at all.
+
+Tests (src/ui/sidebar_shimmer_rest_tests.rs): `a_resting_window_s_poll_never_builds_the_drawn_list` (200 polls over
+90 listed rows, none running: 0 builds, counted by `DRAWN_BUILDS`),
+`a_running_row_shimmers_and_a_running_row_the_list_hides_does_not`. Breaks: 3/3 KILLED by these tests
+(`~/work/scratch/evidence/speed-2/row4.entries`, `row4.out`; `row4-first.out` is the run from before the counter moved).
+No new public function.
+
+## Row 1: not started (outside this lane's files)
+
+One moving face rebuilds and re-measures the whole view because the face is a `canvas(shape)` built in the view
+(`src/look/faces.rs`, `bot_face_with_look` 306-347: `snapshot_bot` -> `draw_bot_shape` -> `canvas(shape)`), and
+`bot_stage.poll` reports each step as a change. A face that moves without a rebuild needs Rune to draw a shape it is
+handed between builds and the face's drawing to be redone from the poll:
+
+- Rune: a `LiveShape` (a shared, versioned `Shape`, as `LiveText` is for text and `Pixels` for images) and
+  `El::live_shape` / `canvas_live`: subscribed in `subscribe_live` (live_latch.rs), swapped into the node's
+  `vis.shape` in `latch_live`, never kept in a cached layer (cache_layer.rs, as `pixels`), compared by source in
+  memo_reuse.rs. The frame then paints the new outline with no commit and no measure, as a `Live` value does.
+- bot_stage.rs: each slot keeps its `LiveShape` and what the view drew it with (shape, face, hue, size, theme,
+  presence, ring); `poll` steps the rig, draws the new outline into the slot's `LiveShape` and reports no change for
+  those faces (puppets still rebuild).
+- faces.rs: hand the slot its drawing and use `canvas_live` instead of `canvas(shape)`. faces.rs is not
+  `src/look/bot_*.rs`, so this lane stopped here rather than edit it.
+
+## Left, worst first (after Speed 2)
+
+0. **One moving face rebuilds the whole window** (row 1, above): needs `src/look/faces.rs` (about ten lines) beside
+   the Rune and bot_stage.rs work.
+1. **Setup parses every ledger before the first frame** (row 3): `s.limited_runtimes` in a `Latest` job
+   (`composer_wiring.rs` one line, `app_state.rs` one field, main.rs setup and poll). Measured to take the first frame
+   from 1.2-2.1 s to 0.01-0.3 s in this build.
+2. **A launch still parses the ledger folder three times** (row 2's rest): the list (history_cache.rs, cold at every
+   launch: the cache lives in memory only), the usage windows (usage_ledger.rs, read again in full on each
+   `refresh_recent` that is not already running one) and setup's limits (above). `limited_runtimes` and
+   `usage_windows` both come from `collect_missions` over the same files and could share one read; the list needs only
+   summaries for all but the newest 20 rows yet parses every record of every file. Those files (history_cache.rs,
+   usage_ledger.rs, limits.rs, agent_card_ui.rs) are outside this lane's.
