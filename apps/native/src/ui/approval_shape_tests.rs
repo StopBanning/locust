@@ -91,7 +91,7 @@ fn the_receipt_is_a_label_column_then_the_values_from_one_edge() {
     assert!(value_x.windows(2).all(|w| w[0] == w[1]), "every value starts at one edge: {value_x:?}");
     assert!(tops.windows(2).all(|w| w[0] < w[1]), "one fact per row, in Electron's order: {tops:?}");
     // The column is as wide as its widest label (`max-content`) plus the 16 gap (`--lc-space-6`).
-    let widest = rune::text::measure("In short", &[], rune::TextStyle::new(12.0, 600.0), None).0;
+    let widest = rune::text::measure("In short", &[], crate::look::type_::FACT_LABEL, None).0;
     assert!((value_x[0] - label_x[0] - widest - 16.0).abs() < 1.0, "label column {} for widest {widest}", value_x[0] - label_x[0]);
     assert_eq!(find(&els, "approval-exact").text.as_deref(), Some("touch hello.txt"));
 }

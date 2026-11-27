@@ -29,7 +29,13 @@ static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new
 pub(crate) struct Temp(pub(crate) PathBuf);
 impl Temp {
     pub(crate) fn new(what: &str) -> Self {
-        let p = std::env::temp_dir().join(format!(
+        // An engine binds its socket inside this folder, and a socket path may be at most 103 bytes on macOS (SUN_LEN;
+        // invariants::socket_dir). Under macOS's own TMPDIR (/var/folders/xx/…/T/) this name left no room for the
+        // socket: every round of two_at_once failed with "path must be shorter than SUN_LEN". A long TMPDIR gives way
+        // to /tmp, as socket_dir does for the app's own sockets.
+        let temp = std::env::temp_dir();
+        let base = if temp.as_os_str().len() > 24 { std::path::PathBuf::from("/tmp") } else { temp };
+        let p = base.join(format!(
             "locust-soak-{what}-{}-{}-{}",
             std::process::id(),
             crate::invariants::unique_nanos(),

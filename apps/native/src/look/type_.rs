@@ -24,6 +24,10 @@ pub const LABEL: TextStyle = TextStyle::new(12.0, 400.0).lh(12.0 * LEADING);
 /// A name or heading inside a card: 13 px at weight 600, as the toolkit has it.
 pub const TITLE: TextStyle = TextStyle::new(13.0, 600.0);
 
+/// A fact's label beside its value, as the approval card's receipt sets it: 12 px at weight 600, sentence case
+/// (shell.css 0.862's receipt labels; approval_card.rs says where).
+pub const FACT_LABEL: TextStyle = TextStyle::new(12.0, 600.0);
+
 #[cfg(test)]
 #[path = "type_tests.rs"]
 mod type_tests;

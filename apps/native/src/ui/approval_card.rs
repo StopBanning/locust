@@ -240,7 +240,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         let key = format!("approval-{}", label.to_lowercase().replace(' ', "-"));
         facts.push((label, key, words(said.clone(), secondary), said));
     }
-    let label_face = rune::TextStyle::new(12.0, 600.0);
+    let label_face = crate::look::type_::FACT_LABEL;
     let label_column = facts.iter().map(|(label, ..)| rune::text::measure(label, &[], label_face, None).0).fold(0.0, f32::max);
     let value_cap = rune::text::measure("0", &[], l.ty.body, None).0 * 60.0;
     let mut receipt = col().key("approval-receipt").w_full().gap(6.0).px(12.0).pb(12.0);
