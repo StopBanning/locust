@@ -209,3 +209,26 @@ in proportion to the whole conversation instead of the bytes that arrived. The w
 continuously, so a 300-turn conversation left open keeps a core busy in a debug build (several times less in release,
 still growing with every turn). Not chased into the code (tests and notes only); `ledger::Session::poll`
 (ledger.rs:2396) is where to look: the per-poll rebuild of the snapshot over every reader in the chain.
+
+**Partly fixed (Soak fixes 1).** Three costs found in `ledger::Session::poll`: (1) every turn walked the conversation
+back (`conversation_turns`) to check a condition that is always true, so a poll cost the square of the turns; (2) the
+folder scan (`chain`) cloned every file's header and looked for each turn's follow-up among all files (files x turns),
+and ran on every poll of an ended tip; (3) every poll rebuilt the snapshot from every turn. Now the seam alone is asked;
+`chain` reads the cached headers in place and walks a children index; an ended tip's folders are scanned again only when
+one changed (a follow-up is a new file), trusting a folder's time only once its granule has passed (2 s for a whole-second
+time, else 100 ms) and keeping the 2 s rescan as a backstop; and a poll that finds nothing new, with nothing on the clock
+(a running tip, a diff waiting for its checkpoint, the start's label minute), gives the last snapshot again.
+
+Same container, debug, thirds medians in ms (was -> now):
+
+| measure | short (60) | long (300) |
+|---|---|---|
+| idle | 0.49 / 4.06 (8.3x) -> 0.14 / 0.14 (1.0x) | 3.31 / 59.39 (17.9x, notes above) -> 0.16 / 0.58 (3.6x) |
+| tail | 1.32 / 4.85 (3.7x) -> 1.32 / 2.83 (2.1x) | 4.30 / 58.81 -> 2.68 / 11.19 (4.2x) |
+| open | 7.94 / 39.04 (4.9x) -> 7.75 / 33.84 (4.4x) | 31.70 / 199.41 -> 32.30 / 176.35 (5.5x) |
+
+Left: opening fresh reads every turn's ledger and every file's header, so it is linear in the turns and cannot meet a
+3x rule over turns 1-20 against 41-60 without a cache shared across sessions; at 300 turns the idle poll is the copy of
+the snapshot `poll` returns by value (~1 us an item; returning a shared one changes the window crate's API) and the tail
+poll after a turn still rebuilds every turn once. `long_conversation_read_short` stays ignored (open only), as does the
+long form.
