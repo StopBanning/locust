@@ -54,7 +54,7 @@ fn the_head_has_the_shield_and_amber_title_left_and_who_asks_at_the_right() {
     let l = crate::look::controls::Look::new(true);
     let card = find(&els, "approval-ap_shape").rect;
     let shield = find(&els, "approval-shield").rect;
-    let title = els.iter().find(|e| e.text.as_deref() == Some("Approval required — exact action")).expect("the title");
+    let title = els.iter().find(|e| e.text.as_deref() == Some("Codex CLI wants to run a command")).expect("the title");
     let mark = find(&els, "approval-mark-codex").rect;
     let name = find(&els, "approval-runtime");
     assert_eq!(&shield[2..], &[13.0, 13.0], "`<Icon name=shield size={{13}} />`");
@@ -73,7 +73,7 @@ fn the_receipt_is_a_label_column_then_the_values_from_one_edge() {
     let els = drawn(asked());
     let l = crate::look::controls::Look::new(true);
     let card = find(&els, "approval-ap_shape").rect;
-    let facts = [("Action", "approval-action"), ("Exact", "approval-exact"), ("In short", "approval-plain"), ("Where", "approval-where"), ("Effects", "approval-effects")];
+    let facts = [("Exact", "approval-exact"), ("In short", "approval-plain"), ("Where", "approval-where")];
     let mut label_x = Vec::new();
     let mut value_x = Vec::new();
     let mut tops = Vec::new();
@@ -103,4 +103,33 @@ fn an_empty_exact_has_no_row() {
     let els = drawn(request);
     assert!(els.iter().all(|e| e.key.as_deref() != Some("approval-exact")));
     assert!(els.iter().all(|e| e.text.as_deref() != Some("—")));
+}
+
+/// REVIEW-ui-changes-2026-11-26.md change 5 (Colin's yes, 26 Nov), over ApprovalCard.tsx:366 and :387-434: the title is
+/// "<Teammate> wants to run a command", the command directly under it, and no "Action" row saying it again.
+#[test]
+fn the_title_says_who_wants_what_and_the_command_is_right_under_it() {
+    let mut s = State::default();
+    crate::scenes::approval_scene_dark(&mut s);
+    let mut rt = Runtime::new(s, |s, cx| crate::view(s, cx), (1215.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    let els = rt.elements();
+    let title = els.iter().find(|e| e.text.as_deref() == Some("Codec wants to run a command")).expect("the teammate and what it wants");
+    let rows: Vec<&rune::ElementInfo> = els.iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("approval-row-"))).collect();
+    let first = rows.iter().min_by(|a, b| a.rect[1].total_cmp(&b.rect[1])).expect("receipt rows");
+    assert_eq!(first.key.as_deref(), Some("approval-row-exact"), "the command is the first thing under the title");
+    assert!(first.rect[1] > title.rect[1]);
+    assert!(els.iter().all(|e| e.key.as_deref() != Some("approval-action")), "no Action row repeating the title");
+}
+
+/// Change 5: one verb on the buttons, "Allow once", "Always allow this session", "Deny…" (ApprovalCard.tsx:534, :546,
+/// :555 use Approve, Allow and Yes).
+#[test]
+fn the_buttons_use_one_verb() {
+    let els = drawn(asked());
+    let said: Vec<&str> = els.iter().filter_map(|e| e.text.as_deref()).collect();
+    for button in ["Allow once", "Always allow this session", "Deny…"] {
+        assert!(said.contains(&button), "{button}: {said:?}");
+    }
+    assert!(!said.iter().any(|t| t.starts_with("Approve") || t.starts_with("Yes")), "{said:?}");
 }

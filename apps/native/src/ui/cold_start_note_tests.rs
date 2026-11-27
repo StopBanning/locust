@@ -97,7 +97,7 @@ fn misplaced(drawn: &[rune::ElementInfo]) -> Option<String> {
     let said = words(drawn);
     let find = |needle: &str| said.iter().position(|w| w.contains(needle));
     let (Some(note), Some(time)) = (find(COLD), Some(marker(drawn))) else { return Some("no note".into()) };
-    if [find("Now add tests."), find("Adding them now."), find("Run a command")].into_iter().any(|at| at.is_none_or(|at| at < note)) {
+    if [find("Now add tests."), find("Adding them now."), find("wants to run a command")].into_iter().any(|at| at.is_none_or(|at| at < note)) {
         return Some(format!("below the work it describes or the approvals: {said:#?}"));
     }
     if time > note {
@@ -123,7 +123,7 @@ fn sits_above_the_work_it_describes_not_below_it() {
 #[test]
 fn is_nowhere_near_the_approvals_which_are_what_the_run_is_waiting_on() {
     let drawn = thread(Some(true), |_| {});
-    let card = at(&drawn, "Run a command");
+    let card = at(&drawn, "wants to run a command");
     assert!(at(&drawn, COLD) < card);
     // The turn's own work lies between them: the note is at the turn's top, the card at the thread's foot.
     assert!(at(&drawn, COLD) < at(&drawn, "Adding them now.") && at(&drawn, "Adding them now.") < card);

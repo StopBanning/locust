@@ -4250,7 +4250,7 @@ fn a_codex_question_is_answered_by_id_and_label_not_approved() {
     assert!(card.contains("Which database should the fixture use?") && card.contains("SQLite") && card.contains("No server to run") && card.contains("Postgres"), "{card}");
     assert!(card.contains("Anything to keep?") && card.contains("Send answers") && card.contains("Stop the run below if you would rather not answer."), "{card}");
     assert!(rt.find("approve-once").is_none() && rt.find("approve-always").is_none(), "a question has no Approve or Always");
-    assert!(text_in(&rt, &format!("approval-{}", rt.state.pending_approval.as_ref().unwrap().approval_id)).join(" ").contains("A question for you"));
+    assert!(text_in(&rt, &format!("approval-{}", rt.state.pending_approval.as_ref().unwrap().approval_id)).join(" ").contains("is asking you something"));
 
     // Only one answered: Send does nothing yet.
     click(&mut rt, "question-database-option-0");

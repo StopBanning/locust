@@ -56,12 +56,21 @@ fn receipt_words(els: &[rune::ElementInfo]) -> String {
         .join("\n")
 }
 
+/// REVIEW-ui-changes-2026-11-26.md change 5: "Show Effects only when something is known or risky." An ordinary command
+/// about which nothing is known draws no Effects row at all; a careful one keeps the single "Unknown…" row.
 #[test]
-fn are_one_row_when_locust_can_tell_nothing_about_them() {
-    let said = drawn(asked("echo LOCUST-ACP-OK > approved.txt"));
-    assert!(said.contains("Effects: Unknown. Locust cannot tell what a command sends or undo what it does; it can do anything the sandbox allows."), "{said}");
+fn draw_no_effects_row_when_nothing_is_known_and_nothing_is_risky() {
+    let said = drawn(asked("touch hello.txt"));
+    assert!(!said.contains("Effects:"), "{said}");
     assert!(!said.contains("Data sent:"));
     assert!(!said.contains("Reversible:"));
+    assert!(!said.contains("Unknown"), "{said}");
+}
+
+#[test]
+fn keep_the_one_unknown_row_for_a_careful_command() {
+    let said = drawn(asked("rm -rf build"));
+    assert!(said.contains("Effects: Unknown. Locust cannot tell what a command sends or undo what it does; it can do anything the sandbox allows."), "{said}");
     assert_eq!(said.matches("Unknown").count(), 1);
 }
 

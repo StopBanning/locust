@@ -61,7 +61,7 @@ fn the_card_has_no_reach_row_for_a_command_on_its_own_work() {
 #[test]
 fn a_reaching_command_is_offered_neither_always_nor_a_saved_rule() {
     let words = card(Request { always_covers: Some("anything matching “taskkill *”".into()), ..asked(ARENA) });
-    assert!(says(&words, "Approve once") && says(&words, "Deny"), "{words:?}");
+    assert!(says(&words, "Allow once") && says(&words, "Deny"), "{words:?}");
     assert!(!says(&words, "Always allow this session"), "{words:?}");
     assert!(!says(&words, "don't ask again") && !says(&words, "don’t ask again"), "{words:?}");
     assert!(!says(&words, "taskkill *"), "{words:?}");

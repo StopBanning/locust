@@ -140,11 +140,21 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let Some(card) = &s.pending_approval else {
         return col().w_full();
     };
-    let asking = card.kind == approval::Kind::Question && !card.questions.is_empty();
     let l = crate::look::controls::Look::new(p.dark);
     // `.lc-card__head` (ApprovalCard.tsx): the shield and the title in amber on the left; on the right which program is
     // asking, its mark then its name in the code face (`lc-rail__meta`), so a card says who asks at a glance.
     let amber = l.c("amber-text");
+    // THE CARD SAYS WHO WANTS WHAT, IN PLAIN WORDS (REVIEW-ui-changes-2026-11-26.md change 5, Colin's yes 26 Nov).
+    // Electron titles every card "Approval required — exact action" and repeats itself with "Action: Run a command"
+    // (ApprovalCard.tsx:366, :387-434); here the title is the teammate and what it wants, the command right under it.
+    let who = s.ledger.as_ref().map(|pane| pane.header.name.trim().to_owned()).filter(|name| !name.is_empty())
+        .unwrap_or_else(|| runtime_display_name(&card.runtime).to_owned());
+    let title = match card.kind {
+        approval::Kind::Question => format!("{who} is asking you something"),
+        approval::Kind::Command => format!("{who} wants to run a command"),
+        approval::Kind::FileChange => format!("{who} wants to change files"),
+        approval::Kind::Connector => format!("{who} wants to use a connector"),
+    };
     let mut asker = row().key("approval-asker").gap(5.0).center_y().shrink();
     if let Some(mark) = crate::look::controls::agent_mark(&l, &card.runtime, 12.0, l.c("text-muted")) {
         asker = asker.child(mark.key(format!("approval-mark-{}", card.runtime)));
@@ -173,7 +183,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .shrink()
                 .child(crate::look::controls::glyph(&l, &crate::look::icons::SHIELD, 13.0, Some(amber)).key("approval-shield"))
                 .child(
-                    text(if asking { "A question for you" } else { "Approval required — exact action" })
+                    text(title)
                         .font(l.ty.control)
                         .color(amber)
                         .shrink()
@@ -188,12 +198,18 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let secondary = l.c("text-secondary");
     let words = |said: String, ink: rune::Color| text(said).font(l.ty.body).color(ink).wrap_anywhere();
     let mut facts: Vec<(&'static str, String, El, String)> = Vec::new();
-    if let Some(pane) = &s.ledger
-        && let Some(asked_by) = approval::helper_asked_by(approval::tool_use_of(&card.approval_id).as_deref(), &pane.items, Some(pane.header.name.as_str()))
-    {
-        facts.push(("Asked by", "approval-asked-by".into(), words(asked_by.clone(), secondary), asked_by));
+    let asked_by = s.ledger.as_ref().and_then(|pane| {
+        approval::helper_asked_by(approval::tool_use_of(&card.approval_id).as_deref(), &pane.items, Some(pane.header.name.as_str()))
+    });
+    // A command's title already says what it is, so the command itself is the first row and no "Action" row repeats
+    // the title; any other card keeps Electron's order (Asked by, Action, Exact).
+    let command_first = card.kind == approval::Kind::Command && !card.detail.is_empty();
+    if !command_first {
+        if let Some(asked_by) = asked_by.clone() {
+            facts.push(("Asked by", "approval-asked-by".into(), words(asked_by.clone(), secondary), asked_by));
+        }
+        facts.push(("Action", "approval-action".into(), words(card.summary.clone(), secondary), card.summary.clone()));
     }
-    facts.push(("Action", "approval-action".into(), words(card.summary.clone(), secondary), card.summary.clone()));
     if !card.detail.is_empty() {
         // A command is drawn held at its flags (ApprovalCard.tsx `CommandText`); a connector call's detail as it is.
         let exact = if card.kind == approval::Kind::Command { command_text("", &card.detail) } else { text(card.detail.clone()) };
@@ -204,6 +220,10 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
             card.detail.clone(),
         ));
     }
+    if command_first && let Some(asked_by) = asked_by {
+        facts.push(("Asked by", "approval-asked-by".into(), words(asked_by.clone(), secondary), asked_by));
+    }
+    let careful = plain_action_for(card).is_some_and(|plain| plain.careful);
     if let Some(plain) = plain_action_for(card) {
         let ink = if plain.careful { amber } else { secondary };
         facts.push(("In short", "approval-plain".into(), words(plain.said.clone(), ink), plain.said));
@@ -213,7 +233,10 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     }
     let place = card.cwd.clone().unwrap_or_else(|| "the project folder".into());
     facts.push(("Where", "approval-where".into(), text(place.clone()).font(l.ty.body.mono()).color(secondary).wrap_anywhere(), place));
-    for (label, said) in approval::effect_lines(card) {
+    // The two lines of "Effects: Unknown…" on every command are boilerplate a person learns to skip, and then skips the
+    // rows that matter beside them (change 5): they show only for a command the card already calls careful. Known
+    // effects (what is sent, whether it can be undone) always show.
+    for (label, said) in approval::effect_lines(card).into_iter().filter(|(label, _)| *label != "Effects" || careful) {
         let key = format!("approval-{}", label.to_lowercase().replace(' ', "-"));
         facts.push((label, key, words(said.clone(), secondary), said));
     }
@@ -328,7 +351,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .w_full()
                 .gap(8.0)
                 .child(
-                    crate::look::controls::primary_button(&l, "Approve once", false)
+                    crate::look::controls::primary_button(&l, "Allow once", false)
                         .key("approve-once")
                         .on_press(|s: &mut State| {
                             decide_pending(s, approval::Decision::ApproveOnce)
@@ -344,7 +367,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         })
                 })
                 .child(if approval::can_save_allow_rule(card) {
-                    crate::look::controls::ghost_button(&l, "Yes, and don't ask again")
+                    crate::look::controls::ghost_button(&l, "Always allow this command")
                         .key("dont-ask-again")
                         .on_press(|s: &mut State| {
                             if let Some(card) = s.pending_approval.clone() {
@@ -526,7 +549,7 @@ mod tests {
         let elements = rt.elements();
         assert!(runtime_display_name("copilot").contains("Copilot"));
         let mark = elements.iter().position(|e| e.key.as_deref() == Some("approval-mark-copilot")).expect("the mark");
-        let name = elements.iter().position(|e| e.text.as_deref().is_some_and(|t| t.starts_with(&runtime_display_name("copilot")))).expect("the name");
+        let name = elements.iter().position(|e| e.key.as_deref() == Some("approval-runtime") && e.text.as_deref().is_some_and(|t| t.starts_with(&runtime_display_name("copilot")))).expect("the name");
         assert!(mark < name, "the mark, then its name");
     }
 
