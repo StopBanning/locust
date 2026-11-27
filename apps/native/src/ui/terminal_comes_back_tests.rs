@@ -100,7 +100,14 @@ mod live_boundary {
         fs::create_dir_all(&root).unwrap();
         let _cleanup = Temp(root.clone());
         let shell = root.join("fixture-shell");
-        fs::write(&shell, "#!/bin/sh\nprintf '%s\\n' \"$TERM\" \"$PTY_PERSON\" \"$@\" > terminal-receipt\n").unwrap();
+        fs::write(&shell, r#"#!/bin/sh
+if [ "$2" = "-c" ]; then
+    printf '%s\n' "$3" > command-receipt
+    printf 'hello\n'
+else
+    printf '%s\n' "$TERM" "$PTY_PERSON" "$@" > terminal-receipt
+fi
+"#).unwrap();
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&shell, fs::Permissions::from_mode(0o700)).unwrap();
         let output = Command::new(std::env::current_exe().unwrap())
@@ -197,5 +204,43 @@ mod live_boundary {
         assert!(text.starts_with("xterm-256color\nperson-environment\n"), "{text:?}");
         assert!(!project.join("terminal-receipt").exists());
         assert!(!conversation.join("terminal-receipt").exists());
+    }
+
+    // case: runs in the conversation folder, in the terminal panel's default shell, not a path the window sent
+    #[test]
+    fn terminal_bang_uses_the_saved_folder_and_the_default_shell() {
+        let Some(root) = in_own_profile(concat!(module_path!(), "::terminal_bang_uses_the_saved_folder_and_the_default_shell")) else { return; };
+        locust_core::org_policy::use_policy_on_this_thread(None);
+        let store = native::store().unwrap();
+        record(&store);
+        store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_wren", "name": "Wren"}],
+            "missionOwners": {MISSION: "tm_wren"}, "settings": {}})).unwrap();
+        let project = root.join("project");
+        let conversation = root.join("shop");
+        fs::create_dir_all(&project).unwrap();
+        fs::create_dir_all(&conversation).unwrap();
+        native::set_open_folder(&store, &project).unwrap();
+        locust_core::folders::learn(&store, &[("ws_other".into(), conversation.to_string_lossy().into())]).unwrap();
+        let mut s = showing(MISSION, "claude", false);
+        s.data = Some(store);
+        let mut rt = window(s);
+        let (x, y) = rt.find("composer").expect("composer drawn in this conversation");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.paste("!echo hello");
+        rt.frame(0.016);
+        rt.key(Key::Enter.into());
+        rt.frame(0.016);
+        assert_eq!(rt.state.terminal.commands.len(), 1, "the typed command starts: {:?}", rt.state.composer_note);
+        until(|| {
+            poll(&mut rt.state);
+            rt.state.terminal.commands[0].result.is_some()
+        }, "the command never finished");
+        let result = rt.state.terminal.commands[0].result.as_ref().unwrap();
+        assert_eq!(result.output.trim_end_matches(['\r', '\n']), "hello");
+        assert_eq!(result.exit, Some(0));
+        assert!(!result.stopped);
+        assert_eq!(fs::read_to_string(conversation.join("command-receipt")).expect("the command receipt belongs in the selected folder"), "echo hello\n");
+        assert!(!project.join("command-receipt").exists());
     }
 }
