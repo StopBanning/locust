@@ -27,6 +27,9 @@ const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
 pub const UNKNOWN_RESPONSE: &str = "A response arrived for an unknown request.";
 /// How long a request may go unanswered (app-server.ts `requestTimeoutMs`).
 const ANSWER_WITHIN: Duration = Duration::from_secs(60);
+/// How long a goal request waits: a reopened thread asks before its turn starts, so a server that never answers holds
+/// the turn this long at most.
+const GOAL_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// How long a steer waits for the server to say whether it took it (a2.10 `steer`).
 const STEER_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// One line off the server's stdout: a message, or a line that is not JSON (app-server.ts `unparsable-line`), which is
@@ -532,7 +535,7 @@ impl Codex {
             GoalAsk::Get => ("thread/goal/get", json!({"threadId": thread})),
             GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread})),
         };
-        let within = self.answer_within;
+        let within = self.answer_within.min(GOAL_ANSWER_WITHIN);
         let result = match self.answer_within_or_refusal(method, params, within) {
             Ok(Ok(result)) => result,
             Ok(Err(refused)) if super::goal::not_known(&refused) => return GoalAnswer::NoStandingGoals,
@@ -541,17 +544,16 @@ impl Codex {
             }
             Err(e) => return GoalAnswer::Refused(e.to_string()),
         };
-        match ask {
-            GoalAsk::Clear => {
-                self.normal.goal_said(GoalEvent::Cleared { thread_id: thread });
-                return GoalAnswer::Cleared;
-            }
-            GoalAsk::Get if result["goal"].is_null() => self.normal.goal_said(GoalEvent::Cleared { thread_id: thread }),
-            _ => {
-                if let Some(goal) = ThreadGoal::parse(&result["goal"], Some(&thread)) {
-                    self.normal.goal_said(GoalEvent::Updated(goal));
-                }
-            }
+        let learning = matches!(ask, GoalAsk::Get);
+        let said = match ask {
+            GoalAsk::Clear => Some(GoalEvent::Cleared { thread_id: thread }),
+            GoalAsk::Get if result["goal"].is_null() => Some(GoalEvent::Cleared { thread_id: thread }),
+            _ => ThreadGoal::parse(&result["goal"], Some(&thread)).map(GoalEvent::Updated),
+        };
+        let written = said.and_then(|said| self.normal.goal_said(said, method, learning));
+        self.queued.extend(written);
+        if method == "thread/goal/clear" {
+            return GoalAnswer::Cleared;
         }
         GoalAnswer::Held(self.normal.goal.clone())
     }
@@ -694,6 +696,12 @@ impl Runtime for Codex {
         self.normal.thread = Some(thread.clone());
         if let Some((_, _, id)) = crate::invariants::lock(&self.approval_lifecycle).as_mut() {
             *id = Some(thread.clone());
+        }
+        // A new thread holds no standing goal; a reopened one asks after the goal it holds, before its turn, so what
+        // the turn says of it reads as a change or not. A Codex without goals, or one that says no, leaves the turn be.
+        self.normal.goal_known = turn.resume.is_none();
+        if turn.resume.is_some() && !self.fork {
+            let _ = self.ask_goal(super::goal::GoalAsk::Get);
         }
         match self.slash.as_deref() {
             Some("review") => {

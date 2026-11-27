@@ -131,6 +131,19 @@ pub enum GoalAnswer {
     Refused(String),
 }
 
+/// How a goal's status is said in its ledger event: "Codex's standing goal {words}: {objective}".
+pub fn status_words(status: GoalStatus) -> &'static str {
+    match status {
+        GoalStatus::Active => "is active",
+        GoalStatus::Paused => "is paused",
+        GoalStatus::Blocked => "is blocked",
+        GoalStatus::UsageLimited => "stopped at a usage limit",
+        GoalStatus::BudgetLimited => "ran out of its token budget",
+        GoalStatus::Complete => "is complete",
+        GoalStatus::Unknown => "is in a state Locust does not know",
+    }
+}
+
 /// `thread/goal/set`'s params: the thread, what the person gave, and `origin: "user"`. A status Locust does not know is
 /// not sent.
 pub fn set_params(thread: &str, set: &GoalSet) -> Value {

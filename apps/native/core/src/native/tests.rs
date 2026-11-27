@@ -3466,6 +3466,84 @@ fn codexs_init_is_a_turn_carrying_locusts_words_for_it_and_a_command_it_has_no_r
     assert_eq!(methods(&codex_requests(&t)).iter().filter(|m| **m == "thread/compact/start").count(), 0);
 }
 
+// ---- a Codex teammate's standing goal in the conversation's record ------------------------------------------------
+
+fn kept_green(status: &str, used: u64) -> Value {
+    json!({"threadId": "thread_fake", "objective": "Keep the test suite green", "status": status, "tokenBudget": 200000,
+        "tokensUsed": used, "timeUsedSeconds": 42, "createdAt": 1764200000, "updatedAt": 1764200042})
+}
+
+/// The conversation's goal records, by code, oldest first.
+fn goal_records(t: &Temp, id: &str) -> Vec<Value> {
+    records(&path_of(t, id))
+        .into_iter()
+        .filter(|r| r["event"]["type"] == "adapter.diagnostic")
+        .filter(|r| r["event"]["payload"]["code"].as_str().is_some_and(|c| c.starts_with("codex.goal_")))
+        .map(|r| r["event"]["payload"].clone())
+        .collect()
+}
+
+#[test]
+fn a_codex_goal_set_a_status_change_and_a_clear_each_write_one_event_in_the_conversations_record() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    let notice = |method: &str, goal: Option<Value>| match goal {
+        Some(goal) => json!({"method": method, "params": {"goal": goal}}),
+        None => json!({"method": method, "params": {}}),
+    };
+    let reply = json!({"goal_notices": [
+        notice("thread/goal/updated", Some(kept_green("active", 100))),
+        notice("thread/goal/updated", Some(kept_green("active", 900))),
+        notice("thread/goal/updated", Some(kept_green("paused", 1000))),
+        notice("thread/goal/updated", Some(kept_green("paused", 1001))),
+        notice("thread/goal/cleared", None),
+        notice("thread/goal/cleared", None),
+    ]});
+    fs::write(t.0.join("work/commands-reply.json"), reply.to_string()).unwrap();
+    let run = send(job(&t, None, "Keep at it.")).unwrap();
+    finished(&run.conversation_id);
+    let written = goal_records(&t, &run.conversation_id);
+    let codes: Vec<&str> = written.iter().map(|p| p["code"].as_str().unwrap()).collect();
+    assert_eq!(codes, ["codex.goal_set", "codex.goal_status", "codex.goal_cleared"]);
+    assert_eq!(written[0]["message"], "Codex holds a standing goal: Keep the test suite green");
+    assert_eq!(written[0]["goal"], kept_green("active", 100));
+    assert_eq!(written[1]["message"], "Codex's standing goal is paused: Keep the test suite green");
+    assert_eq!(written[1]["goal"]["status"], "paused");
+    assert_eq!(written[2]["message"], "Codex's standing goal was cleared.");
+    assert_eq!(kinds(&path_of(&t, &run.conversation_id)).last().map(String::as_str), Some("run.completed"));
+}
+
+#[test]
+fn a_reopened_codex_conversation_asks_thread_goal_get_on_resume_and_writes_only_what_changed() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    let first = send(job(&t, None, "Look around.")).unwrap();
+    finished(&first.conversation_id);
+    assert!(!methods(&codex_requests(&t)).contains(&"thread/goal/get"), "a new thread has no goal to ask after");
+    // Codex holds the goal set last time; this turn it is complete.
+    let reply = json!({"goal": kept_green("active", 100), "goal_notices": [
+        {"method": "thread/goal/updated", "params": {"goal": kept_green("active", 500)}},
+        {"method": "thread/goal/updated", "params": {"goal": kept_green("complete", 600)}},
+    ]});
+    fs::write(t.0.join("work/commands-reply.json"), reply.to_string()).unwrap();
+    let next = send(job(&t, Some(&first.conversation_id), "Carry on.")).unwrap();
+    finished(&next.conversation_id);
+    let asked = codex_requests(&t);
+    let named = methods(&asked);
+    let at = |m: &str| named.iter().rposition(|a| *a == m).unwrap_or_else(|| panic!("{m} not asked: {named:?}"));
+    assert!(at("thread/resume") < at("thread/goal/get") && at("thread/goal/get") < at("turn/start"), "{named:?}");
+    assert_eq!(asked[at("thread/goal/get")]["params"], json!({"threadId": "thread_fake"}));
+    // The follow-up's run has a ledger of its own.
+    let first_ledger = path_of(&t, &first.conversation_id);
+    let resumed = ledgers(&t).into_iter().find(|l| *l != first_ledger).expect("the follow-up's ledger");
+    let goal_of = |path: &Path| -> Vec<String> {
+        records(path).iter().filter_map(|r| r["event"]["payload"]["code"].as_str().filter(|c| c.starts_with("codex.goal_")).map(str::to_owned)).collect()
+    };
+    assert!(goal_of(&first_ledger).is_empty());
+    let codes = goal_of(&resumed);
+    assert_eq!(codes, ["codex.goal_status"], "the goal it held is learned, not written again");
+}
+
 fn opencode_mate(t: &Temp) -> Teammate {
     fs::create_dir_all(t.0.join("work")).unwrap();
     Teammate { runtime: Some("opencode".into()), model: Some("opencode/beam-free".into()), id: "tm_open".into(), name: "Open".into(), ..codex(t) }

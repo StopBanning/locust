@@ -186,3 +186,154 @@ fn a_runtime_other_than_codex_keeps_no_standing_goals() {
     assert_eq!(runtime.goal(GoalAsk::Get), GoalAnswer::NoStandingGoals);
     assert_eq!(runtime.goal(GoalAsk::Clear), GoalAnswer::NoStandingGoals);
 }
+
+// ---- one ledger event per set, status change and clear; a reopened thread asks again -------------------------------
+
+/// The goal events a run wrote, by code.
+fn goal_codes(events: &[Event]) -> Vec<&str> {
+    events
+        .iter()
+        .filter(|e| e.kind == "adapter.diagnostic")
+        .filter_map(|e| e.payload["code"].as_str())
+        .filter(|c| c.starts_with("codex.goal_"))
+        .collect()
+}
+
+fn updated_notice(goal: Value) -> Value {
+    json!({"send": {"jsonrpc": "2.0", "method": "thread/goal/updated", "params": {"threadId": "thread_9", "goal": goal}}})
+}
+
+fn cleared_notice() -> Value {
+    json!({"send": {"jsonrpc": "2.0", "method": "thread/goal/cleared", "params": {"threadId": "thread_9"}}})
+}
+
+fn with_tokens(mut goal: Value, used: u64) -> Value {
+    goal["tokensUsed"] = json!(used);
+    goal
+}
+
+fn resumed_turn() -> Turn {
+    Turn { resume: Some("thread_9".into()), ..turn_in(Mode::AcceptEdits) }
+}
+
+#[test]
+fn a_set_writes_one_event_with_the_goal_however_many_times_the_server_says_it() {
+    let (mut codex, _told) = started(json!({
+        "thread/goal/set": [{"result": {"goal": kept_green("active")}}, updated_notice(kept_green("active")), turn_ends()],
+    }));
+    codex.goal(GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() }));
+    let events = to_the_end(&mut codex);
+    assert_eq!(goal_codes(&events), ["codex.goal_set"]);
+    let set = events.iter().find(|e| e.payload["code"] == "codex.goal_set").unwrap();
+    assert_eq!(set.payload["level"], "info");
+    assert_eq!(set.payload["terminal"], false);
+    assert_eq!(set.payload["message"], "Codex holds a standing goal: Keep the test suite green");
+    assert_eq!(set.payload["goal"], kept_green("active"), "the goal as the protocol says it");
+    assert_eq!(set.payload["evidence"], json!({"runtimeEventType": "thread/goal/set", "redacted": true}));
+}
+
+#[test]
+fn a_status_change_writes_one_event_and_the_counts_ticking_write_none() {
+    let (mut codex, _told) = turn_with(&[
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": kept_green("active")})),
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": with_tokens(kept_green("active"), 5000)})),
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": with_tokens(kept_green("budgetLimited"), 200000)})),
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": with_tokens(kept_green("budgetLimited"), 200001)})),
+        completed(),
+    ]);
+    let events = to_the_end(&mut codex);
+    assert_eq!(goal_codes(&events), ["codex.goal_set", "codex.goal_status"]);
+    let status = events.iter().find(|e| e.payload["code"] == "codex.goal_status").unwrap();
+    assert_eq!(status.payload["message"], "Codex's standing goal ran out of its token budget: Keep the test suite green");
+    assert_eq!(status.payload["goal"]["status"], "budgetLimited");
+    assert_eq!(status.payload["evidence"]["runtimeEventType"], "thread/goal/updated");
+}
+
+#[test]
+fn a_new_objective_is_a_new_goal_set() {
+    let mut other = kept_green("active");
+    other["objective"] = json!("Ship the release notes");
+    let (mut codex, _told) = turn_with(&[
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": kept_green("active")})),
+        ("thread/goal/updated", json!({"threadId": "thread_9", "goal": other})),
+        completed(),
+    ]);
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_set", "codex.goal_set"]);
+}
+
+#[test]
+fn a_clear_writes_one_event_however_many_times_the_server_says_it() {
+    let (mut codex, _told) = started(json!({
+        "thread/goal/set": [{"result": {"goal": kept_green("active")}}],
+        "thread/goal/clear": [{"result": {}}, cleared_notice(), cleared_notice(), turn_ends()],
+    }));
+    codex.goal(GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() }));
+    codex.goal(GoalAsk::Clear);
+    let events = to_the_end(&mut codex);
+    assert_eq!(goal_codes(&events), ["codex.goal_set", "codex.goal_cleared"]);
+    let cleared = events.iter().find(|e| e.payload["code"] == "codex.goal_cleared").unwrap();
+    assert_eq!(cleared.payload["message"], "Codex's standing goal was cleared.");
+    assert!(cleared.payload.get("goal").is_none());
+}
+
+#[test]
+fn a_clear_of_a_fresh_thread_that_never_held_a_goal_writes_nothing() {
+    let (mut codex, _told) = turn_with(&[("thread/goal/cleared", json!({"threadId": "thread_9"})), completed()]);
+    assert!(goal_codes(&to_the_end(&mut codex)).is_empty());
+}
+
+#[test]
+fn an_objective_carrying_a_secret_is_written_scrubbed() {
+    let mut goal = kept_green("active");
+    goal["objective"] = json!("Rotate the key sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD");
+    let (mut codex, _told) = turn_with(&[("thread/goal/updated", json!({"threadId": "thread_9", "goal": goal})), completed()]);
+    let events = to_the_end(&mut codex);
+    let set = events.iter().find(|e| e.payload["code"] == "codex.goal_set").unwrap();
+    let written = set.payload.to_string();
+    assert!(!written.contains("abcdefghijklmnopqrstuvwxyz0123456789"), "{written}");
+}
+
+#[test]
+fn a_reopened_thread_asks_thread_goal_get_before_its_turn_and_learns_the_goal_without_writing_it_again() {
+    let (mut codex, told) = stand_in(json!({
+        "thread/goal/get": [{"result": {"goal": kept_green("active")}}],
+        "turn/start": [
+            {"result": {"turn": {"id": "turn_1"}}},
+            updated_notice(with_tokens(kept_green("active"), 9000)),
+            updated_notice(with_tokens(kept_green("complete"), 9100)),
+            turn_ends(),
+        ],
+    }));
+    codex.start(&resumed_turn()).unwrap();
+    let asked = told.asked();
+    let at = |m: &str| asked.iter().position(|a| a == m).unwrap_or_else(|| panic!("{m} not asked: {asked:?}"));
+    assert!(at("thread/resume") < at("thread/goal/get") && at("thread/goal/get") < at("turn/start"), "{asked:?}");
+    assert_eq!(told.params_of("thread/goal/get").unwrap(), json!({"threadId": "thread_9"}));
+    // The goal it already held is learned, not written again; only what changed since is.
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_status"]);
+}
+
+#[test]
+fn a_fresh_thread_and_a_forked_one_do_not_ask() {
+    let (_fresh, told) = started(json!({}));
+    assert!(told.asked().contains(&"turn/start".to_owned()));
+    assert!(!told.asked().contains(&"thread/goal/get".to_owned()), "{:?}", told.asked());
+    let (forked, told) = stand_in(json!({}));
+    let mut forked = forked.with_fork(true);
+    forked.start(&resumed_turn()).unwrap();
+    assert!(told.asked().contains(&"thread/fork".to_owned()));
+    assert!(!told.asked().contains(&"thread/goal/get".to_owned()), "{:?}", told.asked());
+}
+
+#[test]
+fn a_reopened_thread_on_a_codex_without_goals_goes_on_with_its_turn() {
+    let (mut codex, told) = stand_in(json!({
+        "thread/goal/get": [{"error": "Method not found", "code": -32601}],
+        "turn/start": [{"result": {"turn": {"id": "turn_1"}}}, turn_ends()],
+    }));
+    codex.start(&resumed_turn()).unwrap();
+    assert!(told.asked().contains(&"thread/goal/get".to_owned()));
+    let events = to_the_end(&mut codex);
+    assert_eq!(events.last().unwrap().kind, "run.completed");
+    assert!(goal_codes(&events).is_empty());
+}

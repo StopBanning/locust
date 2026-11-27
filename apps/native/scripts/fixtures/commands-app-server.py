@@ -5,7 +5,7 @@ import json, os, sys
 
 # A test may choose what the turn says and how it ends: `commands-reply.json` in the working folder, {"text": ...,
 # "status": "completed" or "failed", "deltas": [pieces streamed before the whole text], "config": what config/read
-# answers, "ask": {"method": ..., "params": ...}, a request the turn sends as `srv-1` and waits on before it ends}.
+# answers, "goal": what thread/goal/get answers, "goal_notices": goal notifications the turn says before it ends, "ask": {"method": ..., "params": ...}, a request the turn sends as `srv-1` and waits on before it ends}.
 # Without it the turn answers "Done." and completes, and the person's Codex has no settings. The answer to `srv-1` is
 # written to `commands-replies.jsonl`.
 def chosen():
@@ -35,6 +35,9 @@ def done(msg):
 
 def end():
     reply, status = chosen_reply()
+    # `goal_notices`: goal notifications ({"method", "params"}) the turn says before it ends.
+    for said in chosen().get('goal_notices', []):
+        notify(said['method'], **said['params'])
     for piece in chosen().get('deltas', []):
         notify('item/agentMessage/delta', itemId='answer', delta=piece)
     notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
@@ -66,6 +69,11 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={'thread': {'id': 'thread_fake'}}))
     elif method in ('turn/start', 'review/start'):
         done(msg)
+    elif method == 'thread/goal/get':
+        # `goal`: the standing goal the thread holds; none without it.
+        send(dict(id=msg['id'], result={'goal': chosen().get('goal')}))
+    elif method in ('thread/goal/set', 'thread/goal/clear'):
+        send(dict(id=msg['id'], result={}))
     elif method == 'thread/compact/start':
         send(dict(id=msg['id'], result={}))
         notify('turn/started', turn={'id': 'turn_compact'})
