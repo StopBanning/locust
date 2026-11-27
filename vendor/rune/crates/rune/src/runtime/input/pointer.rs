@@ -360,7 +360,9 @@ impl<S: 'static> Runtime<S> {
 
     /// The pointer shape the shell should show: the pressed element's while a gesture holds
     /// the pointer, else the one under it in the current frame (the held hover while moving
-    /// layout holds it), from the nearest ancestor that sets one. The arrow while the pointer is outside the window.
+    /// layout holds it), from the nearest ancestor that sets one. An element with `on_press`
+    /// that sets none shows the hand, and a disabled one the arrow. The arrow while the pointer
+    /// is outside the window.
     pub fn cursor(&self) -> crate::el::Cursor {
         let Some((x, y)) = self.pointer.filter(|&(x, y)| self.in_viewport(x, y)) else { return crate::el::Cursor::Default };
         // An element on its way out has no cursor: `Cursor::Hidden` ends when it's removed.
@@ -380,11 +382,22 @@ impl<S: 'static> Runtime<S> {
         if self.is_selectable(i) && !self.text_sel.dragging && self.link_at(i, x, y).is_some() {
             return crate::el::Cursor::Pointer;
         }
+        // The nearest element that says anything decides, as CSS's nearest `cursor` does: its own
+        // `El::cursor` first, then a disabled control's arrow (Electron's `.lc-button:disabled {
+        // cursor: default }`, shell.css:710-713), then the hand over anything with `on_press`
+        // (`.lc-button { cursor: pointer }`, shell.css:686-697).
         loop {
-            if let Some(c) = self.nodes[i].handlers.cursor {
+            let n = &self.nodes[i];
+            if let Some(c) = n.handlers.cursor {
                 return c;
             }
-            let Some(parent) = self.nodes[i].parent else { return crate::el::Cursor::Default };
+            if n.a11y.disabled {
+                return crate::el::Cursor::Default;
+            }
+            if n.handlers.on_press.is_some() {
+                return crate::el::Cursor::Pointer;
+            }
+            let Some(parent) = n.parent else { return crate::el::Cursor::Default };
             i = parent;
         }
     }
