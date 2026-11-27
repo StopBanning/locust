@@ -2769,6 +2769,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
         changed = true;
     }
+    phone_section::mirror_desk(s);
     changed
 }
 
