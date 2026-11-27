@@ -15,6 +15,7 @@ mod input_clipboard;
 mod layout_hover;
 mod layout_reads;
 mod layout_rows;
+mod live_shape;
 mod loop_sleep;
 mod no_motion;
 mod one_snap;

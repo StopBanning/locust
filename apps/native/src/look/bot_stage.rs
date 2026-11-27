@@ -18,6 +18,7 @@ use locust_core::buddy_moves::{
     glance_look, screen_face_for, OldTweensCleanup, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
 };
 use locust_core::buddy_rig::{BuddyPose, REST_POSE};
+use locust_core::bot_spec::BotFace;
 use rune::Tx;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -70,6 +71,82 @@ pub struct BuddySnapshot {
     pub hovered: bool,
 }
 
+/// The parts of a face's drawing the view chooses: `BotDrawSpec` or `BuddyDrawSpec` without the pose, which the stage
+/// steps itself.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FaceDrawing {
+    Bot { shape: String, face: BotFace, hue: String, size: f32, light_theme: bool, presence: Option<PresenceDot>, ring: bool },
+    Buddy { hue: String, size: f32, light_theme: bool, presence: Option<PresenceDot>, ring: bool },
+}
+
+/// What the view last drew a face with, and the drawing the window shows for it (`rune::LiveShape`). A face the view
+/// handed over in its last build moves by poll drawing its next pose into `live`, with no rebuild (speed-2 row 1).
+/// `this_build` is cleared by `begin_frame` and set again when the view hands the face over (`live_face`); a slot the
+/// view drew some other way (a puppet) keeps asking for a rebuild.
+#[derive(Default)]
+struct Drawn {
+    with: Option<FaceDrawing>,
+    live: Option<rune::LiveShape>,
+    this_build: bool,
+}
+
+impl Drawn {
+    fn hand_over(&mut self, with: FaceDrawing, shape: rune::Shape) -> rune::LiveShape {
+        self.with = Some(with);
+        self.this_build = true;
+        match &self.live {
+            Some(live) => {
+                live.set(shape);
+                live.clone()
+            }
+            None => self.live.insert(rune::LiveShape::new(shape)).clone(),
+        }
+    }
+
+    /// Draws `snap` into the window's drawing; false when the view must draw it (nothing handed over this build).
+    fn publish_bot(&self, _slot_key: &str, snap: &BotSnapshot) -> bool {
+        let (true, Some(FaceDrawing::Bot { shape, face, hue, size, light_theme, presence, ring }), Some(live)) =
+            (self.this_build, &self.with, &self.live)
+        else {
+            return false;
+        };
+        let drawn = super::bots::draw_bot_shape(&super::bots::BotDrawSpec {
+            shape,
+            face: *face,
+            hue,
+            size: *size,
+            light_theme: *light_theme,
+            presence: *presence,
+            ring: *ring,
+            snap,
+        });
+        #[cfg(test)]
+        super::faces::note_drawn(_slot_key, &drawn);
+        live.set(drawn);
+        true
+    }
+
+    fn publish_buddy(&self, _slot_key: &str, snap: &BuddySnapshot) -> bool {
+        let (true, Some(FaceDrawing::Buddy { hue, size, light_theme, presence, ring }), Some(live)) =
+            (self.this_build, &self.with, &self.live)
+        else {
+            return false;
+        };
+        let drawn = super::bots::draw_buddy_shape(&super::bots::BuddyDrawSpec {
+            hue,
+            size: *size,
+            light_theme: *light_theme,
+            presence: *presence,
+            ring: *ring,
+            snap,
+        });
+        #[cfg(test)]
+        super::faces::note_drawn(_slot_key, &drawn);
+        live.set(drawn);
+        true
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct DesiredState {
     activity: FaceActivity,
@@ -103,6 +180,7 @@ struct BotSlot {
     seen_this_frame: bool,
     settled: bool,
     cached: BotSnapshot,
+    drawn: Drawn,
 }
 
 struct BuddySlot {
@@ -120,6 +198,7 @@ struct BuddySlot {
     seen_this_frame: bool,
     settled: bool,
     cached: BuddySnapshot,
+    drawn: Drawn,
 }
 
 struct StageInner {
@@ -129,6 +208,8 @@ struct StageInner {
     bots: HashMap<String, BotSlot>,
     buddies: HashMap<String, BuddySlot>,
     reduced_snap_pending: bool,
+    /// When the faces last stepped (ms), so every poll asks for the same next step.
+    stepped_ms: f64,
     wake_count: u64,
     old_tweens: OldTweensCleanup,
     #[cfg(test)]
@@ -144,6 +225,7 @@ impl Default for StageInner {
             bots: HashMap::new(),
             buddies: HashMap::new(),
             reduced_snap_pending: false,
+            stepped_ms: f64::NEG_INFINITY,
             wake_count: 0,
             old_tweens: OldTweensCleanup::new(),
             #[cfg(test)]
@@ -435,10 +517,24 @@ impl BotStage {
         let mut inner = self.inner.borrow_mut();
         for slot in inner.bots.values_mut() {
             slot.seen_this_frame = false;
+            slot.drawn.this_build = false;
         }
         for slot in inner.buddies.values_mut() {
             slot.seen_this_frame = false;
+            slot.drawn.this_build = false;
         }
+    }
+
+    /// The view drew the face in `slot_key` with `with`, as `shape`: the drawing the window shows it by
+    /// (`rune::canvas_live`), which poll redraws as the face moves, so a moving face rebuilds nothing. None when the
+    /// stage has no such face (its snapshot was not asked for this build): draw `shape` as it is.
+    pub fn live_face(&self, slot_key: &str, with: FaceDrawing, shape: rune::Shape) -> Option<rune::LiveShape> {
+        let mut inner = self.inner.borrow_mut();
+        let drawn = match with {
+            FaceDrawing::Bot { .. } => &mut inner.bots.get_mut(slot_key)?.drawn,
+            FaceDrawing::Buddy { .. } => &mut inner.buddies.get_mut(slot_key)?.drawn,
+        };
+        Some(drawn.hand_over(with, shape))
     }
 
     pub fn set_hover(&self, key: &str, hovered: bool) {
@@ -589,6 +685,7 @@ impl BotStage {
                 seen_this_frame: true,
                 settled: resting_at_start,
                 cached,
+                drawn: Drawn::default(),
             };
             if slot.glance.give(glance, now_s) {
                 slot.settled = false;
@@ -691,6 +788,7 @@ impl BotStage {
                 seen_this_frame: true,
                 settled: resting_at_start,
                 cached,
+                drawn: Drawn::default(),
             };
             slot.glance.give(glance, now_s);
             slot.cached = build_buddy_snapshot(&mut slot, now_s, reduced_motion, false);
@@ -812,15 +910,23 @@ impl BotStage {
         } else {
             SUBTLE_STEP_MS
         };
-        tx.wake_after(Duration::from_millis(step_ms));
+        // The next step comes `step_ms` after the last one, whatever woke this poll. Asked `step_ms` from every poll,
+        // each frame something else drew (a hover, a reply) started another chain of wakes beside the steps' own, and
+        // the chains piled up to a frame every vsync for a face that steps 30 times a second (speed-2 row 1).
+        if step_due {
+            inner.stepped_ms = now_ms;
+        }
+        let next_ms = (inner.stepped_ms + step_ms as f64 - now_ms).clamp(1.0, step_ms as f64);
+        tx.wake_after(Duration::from_secs_f64(next_ms / 1000.0));
         inner.wake_count += 1;
 
         if !step_due {
             return false;
         }
 
+        // A face the view handed over is drawn here, into the drawing the window shows; any other needs the view.
         let mut redrawn = false;
-        for slot in inner.bots.values_mut() {
+        for (key, slot) in inner.bots.iter_mut() {
             let hover_notice = slot
                 .hover_noticed_s
                 .zip(slot.hover_until_s)
@@ -833,9 +939,9 @@ impl BotStage {
             let dt = (now_s - slot.last_step_s).clamp(0.0, 0.1);
             slot.last_step_s = now_s;
             slot.cached = build_bot_snapshot(slot, now_s, dt, false, hover_notice);
-            redrawn = true;
+            redrawn |= !slot.drawn.publish_bot(key, &slot.cached);
         }
-        for slot in inner.buddies.values_mut() {
+        for (key, slot) in inner.buddies.iter_mut() {
             let hover_notice = slot
                 .hover_noticed_s
                 .zip(slot.hover_until_s)
@@ -847,7 +953,7 @@ impl BotStage {
             }
             slot.last_step_s = now_s;
             slot.cached = build_buddy_snapshot(slot, now_s, false, hover_notice);
-            redrawn = true;
+            redrawn |= !slot.drawn.publish_buddy(key, &slot.cached);
         }
         redrawn
     }

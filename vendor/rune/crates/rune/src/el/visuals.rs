@@ -188,6 +188,16 @@ impl El {
         }
         self
     }
+    /// Paints `live`'s latest drawing, as [`shape`](Self::shape) paints a fixed one: each frame
+    /// draws what it holds then, with no commit and no layout ([`LiveShape`](crate::LiveShape)).
+    pub fn live_shape(mut self, live: &crate::shape::LiveShape) -> Self {
+        let now = live.get();
+        let cold = self.vis.cold_mut();
+        // What it holds at the build, for everything that asks whether the element paints a shape.
+        cold.shape = (!now.is_empty()).then(|| Rc::new((*now).clone()));
+        cold.live_shape = Some(live.clone());
+        self
+    }
     /// Shows `pixels`, scaled into the element's rect and clipped to its corner radius. The image
     /// can change without the view re-running: the next frame draws its latest contents.
     /// An element that sets only its width (`w`, `w_full`) or only its height takes the other

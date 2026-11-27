@@ -425,7 +425,8 @@ Setup read every ledger on the window's thread to learn which runtimes are at th
 (`load_composer_store` -> `limits::limited_runtimes`). Colin allowed the two files outside this lane's (27 Nov):
 `load_composer_store` now starts that read as a `Latest` job (`limits_job`, one field in app_state.rs) and poll sets
 `limited_runtimes` when it lands (`take_limits`, main.rs). Until it lands the composer treats no runtime as limited, as
-it does with no ledger; opening the model menu and the agents screen still read it again on the spot, as before.
+it does with no ledger; opening the model menu and the agents screen still read it again on the spot, as before. A
+job that lands after one of those reads replaces it with its own, read moments earlier from the same files.
 
 An experiment build first (`bins/exp-nolimits`, never committed: the line taken out) showed what moving it would buy;
 then the change itself (`bins/r3`, HEAD 96e98bd8 + this change, 1 rustc running beside it), three runs each:
@@ -465,27 +466,69 @@ Tests (src/ui/sidebar_shimmer_rest_tests.rs): `a_resting_window_s_poll_never_bui
 (`~/work/scratch/evidence/speed-2/row4.entries`, `row4.out`; `row4-first.out` is the run from before the counter moved).
 No new public function.
 
-## Row 1: not started (outside this lane's files)
+## Row 1: a moving face moves with no rebuild (Rune `LiveShape`, bot_stage.rs, faces.rs)
 
-One moving face rebuilds and re-measures the whole view because the face is a `canvas(shape)` built in the view
-(`src/look/faces.rs`, `bot_face_with_look` 306-347: `snapshot_bot` -> `draw_bot_shape` -> `canvas(shape)`), and
-`bot_stage.poll` reports each step as a change. A face that moves without a rebuild needs Rune to draw a shape it is
-handed between builds and the face's drawing to be redone from the poll:
+One moving face rebuilt and re-measured the whole view: the face was a `canvas(shape)` built in the view, and
+`bot_stage.poll` reported each step of its rig as a change. Colin allowed faces.rs (27 Nov). Now:
 
-- Rune: a `LiveShape` (a shared, versioned `Shape`, as `LiveText` is for text and `Pixels` for images) and
-  `El::live_shape` / `canvas_live`: subscribed in `subscribe_live` (live_latch.rs), swapped into the node's
-  `vis.shape` in `latch_live`, never kept in a cached layer (cache_layer.rs, as `pixels`), compared by source in
-  memo_reuse.rs. The frame then paints the new outline with no commit and no measure, as a `Live` value does.
-- bot_stage.rs: each slot keeps its `LiveShape` and what the view drew it with (shape, face, hue, size, theme,
-  presence, ring); `poll` steps the rig, draws the new outline into the slot's `LiveShape` and reports no change for
-  those faces (puppets still rebuild).
-- faces.rs: hand the slot its drawing and use `canvas_live` instead of `canvas(shape)`. faces.rs is not
-  `src/look/bot_*.rs`, so this lane stopped here rather than edit it.
+- Rune (vendor/rune): `LiveShape`, a shared drawing an app redraws between builds, and `canvas_live` /
+  `El::live_shape` to show one. Paint draws its latest contents each frame (`runtime/paint/content.rs`), so a redraw
+  needs no commit and no layout. A cached raster never holds one (`cache_layer.rs`, as `pixels`), and memo reuse
+  counts one live drawing as the same visual whatever it held at the build (`memo_reuse.rs`). It wakes nothing
+  itself: an app publishes from `poll` or an update, and that frame paints it. Rune test: `runtime/tests/live_shape.rs`.
+- bot_stage.rs: the view hands each face's drawing over (`BotStage::live_face`: the shape, face, hue, size, theme,
+  dot and ring it drew with, as `FaceDrawing`); poll draws each next pose into that face's `LiveShape` and reports no
+  change. A face the view did not hand over this build (a puppet) still asks for a rebuild, as does reduced motion's
+  one snap. faces.rs shows the face with `canvas_live`.
+- The stage's wake (bot_stage.rs `stepped_ms`): poll asked for a wake one step from *every* poll, so each frame
+  something else drew (a hover, the commit's own frame) started another chain of wakes beside the steps', and the
+  chains piled up to a frame every vsync for a face that steps 15-30 times a second. It now asks for the step after
+  the last one, so every poll asks for the same wake.
+
+Faces still loop as Electron's CSS does: only the rebuild and the extra frames are gone.
+
+**Measured, headless** (Colin at the Mac: no window). `bot_stage_live_tests::measure_a_focused_window_with_one_moving_face`
+(ignored, run by hand from the test binary with `LOCUST_TEST_ROOT`): the real `view` and `poll`, focused, the wide
+sidebar with one teammate whose face loops (`busy`, Working), framed only when it asks (a frame at the next wake, or at
+the next vsync while anything animates, as a window's host frames), 20 s after 2 s of warm-up; CPU from `ps`. Test
+binaries (locust-native at opt-level 0, Rune at 2), so read them against each other, not against Speed 1's windowed
+release figures. Before = 8787cd4d with only the harness added (`bins/before-r1-test`); three runs each:
+
+| build | CPU | commits/s | frames/s |
+|---|---|---|---|
+| before | 26.3-27.7 % | 14.2-14.3 | 66.5-67.8 |
+| live drawing only (no wake fix) | 21.7-25.2 % | 0.0 | 62.9-65.4 |
+| after (row 1) | 7.9-9.8 % | 0.0 | 15.1-15.2 |
+| the same window, face at rest (`LOCUST_FACE_BUSY=0`) | 0.9-1.4 % | 0.0 | 3.9 |
+
+(The sidebar's face moves at the subtle beat, 15 steps a second, before and after.) So in this build a moving face
+costs about 8 points over rest, from about 26; what is left is Rune painting the whole window on each step (no
+commit, no layout). Not measured in a real window: `measure-idle.sh` needs a visible window, which the brief ruled out
+while Colin was at the Mac. Rerun it there (focused, a face looping) before calling the "well below 10 % of a core"
+target met in the app; the headless figure says yes for this debug build and so, very likely, for release.
+
+Tests (src/look/bot_stage_live_tests.rs, over the real window): `a_moving_face_in_a_focused_window_moves_with_no_rebuild`
+(two seconds, at most 2 commits, at least 10 poses), `what_the_window_paints_is_the_pose_the_stage_drew_last` (what is
+painted inside the face's box changes with no commit), `a_moving_face_frames_the_window_once_a_step_however_often_something_else_draws`
+(two seconds with an extra frame every quarter second: at most 80 frames), `a_face_at_rest_asks_for_nothing_and_a_new_activity_still_rebuilds`.
+The first two fail on the before binary (30 commits in two seconds; "none of them rebuilt the window").
+Breaks 5/5 caught (`~/work/scratch/evidence/speed-2/row1.entries`, `row1.out`; `row1-first.out` is the run killed
+after 2): Rune's paint reading the live drawing (content.rs), the call site (faces.rs `canvas_live`), poll's publish,
+and both halves of the wake fix. The window_drive_tests and cloud-panel failures beside two of them are harden-1's
+timing flakes under load, not these breaks.
+
+New public functions and where the app calls them: `BotStage::live_face` and `rune::canvas_live` (faces.rs,
+`bot_face_with_look`); `LiveShape::new` and `LiveShape::set` (bot_stage.rs `Drawn::hand_over`, from that call);
+`El::live_shape` (Rune's `canvas_live`); `LiveShape::get` (Rune's paint, content.rs); `LiveShape::same` (memo_reuse.rs).
+
+Not run: Rune's own `cargo test -p rune --lib` (live_shape.rs) did not finish compiling within the 900 s limit, twice,
+under the other lanes' builds; the content.rs break above is caught by the app's window test instead. apps/native/RUNE.md
+("The local patch") still lists two changes: this third one needs a line there, outside this lane's files.
 
 ## Left, worst first (after Speed 2)
 
-0. **One moving face rebuilds the whole window** (row 1, above): needs `src/look/faces.rs` (about ten lines) beside
-   the Rune and bot_stage.rs work.
+0. (done, row 1, headless) A moving face no longer rebuilds the window, and its wakes no longer pile up. Left: Rune
+   paints the whole window on each face step (about 8 % of a core in a debug test binary); a real-window measure.
 1. (done, row 3) Setup's limits read now runs off the window's thread.
 2. **A launch still parses the ledger folder three times** (row 2's rest): the list (history_cache.rs, cold at every
    launch: the cache lives in memory only), the usage windows (usage_ledger.rs, read again in full on each

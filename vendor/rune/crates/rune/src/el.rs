@@ -721,6 +721,14 @@ pub fn canvas(shape: Shape) -> El {
     e
 }
 
+/// An element that paints `live`'s latest drawing each frame ([`LiveShape`](crate::LiveShape)):
+/// redrawing it moves the picture without the view running again. Size it like any element.
+pub fn canvas_live(live: &crate::shape::LiveShape) -> El {
+    let mut e = base(FlexDirection::Row).live_shape(live);
+    e.role = "image";
+    e
+}
+
 /// A text field showing `edit`; route edits back with `.on_edit(|s| &mut s.field)`.
 ///
 /// Multi-line by default (see [`El::single_line`]). Plain Return in a paragraph submits (calling

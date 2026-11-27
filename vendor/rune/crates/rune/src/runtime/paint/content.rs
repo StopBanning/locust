@@ -63,7 +63,8 @@ impl<S: 'static> Runtime<S> {
             Some(g) if group > 0.0 => c.mix(g, group),
             _ => c,
         };
-        if let Some(shape) = &n.vis.shape {
+        let live_shape = n.vis.live_shape.as_ref().map(crate::shape::LiveShape::get);
+        if let Some(shape) = live_shape.as_deref().filter(|s| !s.is_empty()).or(n.vis.shape.as_deref().filter(|_| live_shape.is_none())) {
             // When pixel snapping adjusts `r`'s width or height from `r_exact`, keep a point-sized
             // shape centred in `r` so it shares `r`'s centre with fills, borders and icons.
             let (origin, k) = match shape.view_box {

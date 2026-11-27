@@ -4021,3 +4021,6 @@ mod list_read_holds_tests;
 #[cfg(test)]
 #[path = "ui/limits_off_launch_tests.rs"]
 mod limits_off_launch_tests;
+#[cfg(test)]
+#[path = "look/bot_stage_live_tests.rs"]
+mod bot_stage_live_tests;
