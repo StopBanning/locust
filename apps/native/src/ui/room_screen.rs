@@ -721,7 +721,7 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
                 s.rooms.error = None;
             }
             Err(e) => {
-                if s.rooms.active == RoomView::New {
+                if matches!(s.rooms.active, RoomView::New | RoomView::List) {
                     s.rooms.create_error = Some(e);
                 } else {
                     s.rooms.error = Some(e);
@@ -913,7 +913,6 @@ fn on_room_draft_edit(s: &mut State, room_members: &[MentionMember]) {
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let l = Look::new(p.dark);
     match &s.rooms.active {
-        RoomView::New => view_create(s, p, &l),
         RoomView::Room(id) => {
             if let Some(room) = s.rooms.rooms.iter().find(|r| &r.room_id == id) {
                 view_room(s, room, p, &l)
@@ -921,224 +920,212 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 view_list(s, p, &l)
             }
         }
-        RoomView::List | RoomView::None => view_list(s, p, &l),
+        RoomView::List | RoomView::New | RoomView::None => view_list(s, p, &l),
     }
 }
 
+/// The Rooms screen's line beside its title (RoomScreen.tsx:689-691): how many rooms, then what a room is.
+pub fn rooms_meta(count: usize) -> String {
+    let how_many = if count == 0 { "none yet".to_owned() } else { format!("{count} room{}", if count == 1 { "" } else { "s" }) };
+    format!("{how_many} · one post, every teammate answers")
+}
+
+/// The words over the New room card (RoomScreen.tsx:740-743).
+pub const ROOM_ABOUT: &str = "Name it and pick who is in it. A post goes to everyone in the room at once, each on their own AI agent and model; their answers land here, and each one opens the conversation it came from.";
+/// Under the card while there are no rooms yet (RoomScreen.tsx:844-846).
+pub const NO_ROOMS_YET: &str = "No rooms yet. The first one you make appears in the sidebar under its own name.";
+/// In place of the card with nobody to put in a room (RoomScreen.tsx:715).
+pub const MAKE_A_TEAMMATE_FIRST: &str = "Make a teammate first; a room is a set of them.";
+
+/// `.lc-screen__header` (shell.css:11538, the title at 20/650 from 26240, the meta at 13 from 26062): 60 high, the
+/// title, then its meta beside it, on the chrome ground over a hairline.
+fn screen_header(l: &Look, title: &str, meta: String) -> El {
+    row()
+        .key("rooms-header")
+        .w_full()
+        .h(60.0)
+        .px(24.0)
+        .gap(12.0)
+        .center_y()
+        .fill(l.c("bg-chrome"))
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+        .child(text(title.to_owned()).key("rooms-title").font(rune::TextStyle::new(20.0, 650.0).tracking(-0.3)).color(l.c("text-primary")))
+        .child(text(meta).key("rooms-meta").font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")))
+}
+
+/// RoomScreen.tsx:684-851: the Rooms screen with no room open. The rooms there are, as cards, under "Your rooms";
+/// then "New room", the form itself as one card in three bands (what a room is, what this one will be, the one thing
+/// to press). New room in the `+` menu opens this same screen (App.tsx:1014 `openRoomsScreen`).
 fn view_list(s: &State, p: &Palette, l: &Look) -> El {
     let now_ms = Utc::now().timestamp_millis();
     let mut root = col().key("rooms-screen").grow(1.0).h_full().fill(p.bg);
-    root = root.child(
-        row()
-            .w_full()
-            .px(20.0)
-            .py(14.0)
-            .gap(12.0)
-            .center_y()
-            .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-            .child(
-                text("Rooms")
-                    .font(rune::TextStyle::new(16.0, 600.0))
-                    .color(p.text)
-                    .grow(1.0),
-            )
-            .child(
-                button(l, "New room", Tone::Active, false)
-                    .key("rooms-list-new")
-                    .on_press(|s: &mut State| open_new(s)),
-            ),
-    );
-    let mut body = col().w_full().gap(10.0).padding(20.0);
+    root = root.child(screen_header(l, "Rooms", rooms_meta(s.rooms.rooms.len())));
+    let mut body = col().key("rooms-body").w_full().gap(24.0).px(24.0).pt(14.0).pb(22.0);
     if !s.rooms.readable {
-        body = body.child(
-            text(room_store::UNREADABLE)
-                .font(l.ty.label)
-                .color(p.amber)
-                .wrap(),
-        );
+        body = body.child(text(room_store::UNREADABLE).font(l.ty.body).color(p.amber).wrap());
     }
-    if s.rooms.rooms.is_empty() {
-        body = body.child(
-            text("No rooms yet. The first one you make appears in the sidebar under its own name.")
-                .font(l.ty.body)
-                .color(p.muted)
-                .wrap(),
-        );
-    } else {
+    if !s.rooms.rooms.is_empty() {
+        // `.lc-roomlist`: a grid of cards, each at least 220 wide (shell.css:4063).
+        let mut cards = row().key("rooms-list").w_full().gap(6.0).flex_wrap();
         for room in &s.rooms.rooms {
             let rid = room.room_id.clone();
             let meta = room_card_meta(room, &s.teammates, now_ms);
-            body = body.child(
-                row()
+            cards = cards.child(
+                col()
                     .key(format!("room-list-card-{}", room.room_id))
-                    .w_full()
-                    .padding(14.0)
-                    .gap(12.0)
-                    .center_y()
-                    .radius(8.0)
-                    .fill(p.raised)
-                    .border(1.0, p.hairline)
+                    .min_w(220.0)
+                    .grow(1.0)
+                    .padding(8.0)
+                    .gap(2.0)
+                    .radius(l.t.px("radius-card"))
+                    .fill(l.c("bg-raised"))
+                    .border(1.0, l.c("border-card"))
                     .hover(l.c("hover-surface"))
                     .role("button")
                     .label(room.name.clone())
-                    .child(
-                        col()
-                            .grow(1.0)
-                            .gap(2.0)
-                            .child(text(room.name.clone()).font(type_::TITLE).color(p.text))
-                            .child(text(meta).font(l.ty.label).color(p.muted).truncate()),
-                    )
+                    .child(text(room.name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")))
+                    .child(text(meta).font(l.ty.mono).color(l.c("text-muted")).truncate())
                     .on_press(move |s: &mut State| open_room(s, rid.clone())),
             );
         }
+        body = body.child(col().key("rooms-yours").w_full().gap(4.0).child(label(l, "Your rooms")).child(cards));
     }
-    root.child(
-        col()
-            .grow(1.0)
-            .w_full()
-            .scroll(ScrollSpec { stick_bottom: false })
-            .child(body),
-    )
+    let mut new_room = col().key("rooms-new").w_full().gap(4.0).child(label(l, "New room"));
+    if s.teammates.is_empty() {
+        new_room = new_room.child(text(MAKE_A_TEAMMATE_FIRST).key("rooms-make-a-teammate").font(l.ty.body).color(l.c("text-secondary")).wrap());
+    } else {
+        new_room = new_room.child(new_room_card(s, l));
+    }
+    if s.rooms.rooms.is_empty() && !s.teammates.is_empty() {
+        new_room = new_room.child(text(NO_ROOMS_YET).key("rooms-none-yet").font(l.ty.body).color(l.c("text-secondary")).wrap().mt(6.0));
+    }
+    body = body.child(new_room);
+    root.child(col().grow(1.0).w_full().scroll(ScrollSpec { stick_bottom: false }).child(body))
 }
 
-fn view_create(s: &State, p: &Palette, l: &Look) -> El {
+/// `.lc-roomcardform` (shell.css:4139-4227): one raised card, 620 at most, in three bands.
+fn new_room_card(s: &State, l: &Look) -> El {
     let picked = s.rooms.create_picks.len();
     let total = s.teammates.len();
     let plural = if total == 1 { "" } else { "s" };
     let blocked = room_blocked_reason(&s.rooms.create_name.text, picked);
-    let full_note = room_full_note(picked);
-
-    let form = col()
-        .key("room-create-screen")
-        .grow(1.0)
-        .h_full()
-        .fill(p.bg)
-        .child(
-            row()
-                .w_full()
-                .px(20.0)
-                .py(14.0)
-                .gap(12.0)
-                .center_y()
-                .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-                .child(
-                    text("New room")
-                        .font(rune::TextStyle::new(16.0, 600.0))
-                        .color(p.text)
-                        .grow(1.0),
-                )
-                .child(
-                    button(l, "Cancel", Tone::Neutral, false)
-                        .key("room-create-cancel")
-                        .on_press(|s: &mut State| close(s)),
-                ),
-        );
-
-    let mut body = col()
+    // Band one: what a room is.
+    let about = col()
+        .key("room-create-about")
         .w_full()
-        .max_w(640.0)
-        .gap(14.0)
-        .padding(20.0)
-        .child(label(l, "Name"))
+        .px(12.0)
+        .py(8.0)
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-card"))
+        .child(text(ROOM_ABOUT).font(l.ty.body).color(l.c("text-muted")).wrap());
+    // Band two: the name, and who is in it, as chips that wrap (`.lc-roomform__members`).
+    let mut chips = row().key("room-create-members").w_full().gap(4.0).flex_wrap().role("group").label("Teammates in the room");
+    for tm in &s.teammates {
+        let tid = tm.id.clone();
+        let on = s.rooms.create_picks.contains(&tid);
+        // `.lc-button` (`.is-active` when picked) holding the face, the name and, when picked, a tick
+        // (RoomScreen.tsx:774-797): the face first, at `BOT_SIZE.pickerMark` (20).
+        let (border, fill, ink) = if on { ("lime-border", "lime-tint", "lime-text") } else { ("border-control", "bg-control", "text-secondary") };
+        let mut chip = row()
+            .key(format!("room-create-pick-{}", tm.id))
+            .h(30.0)
+            .px(12.0)
+            .gap(4.0)
+            .center_y()
+            .radius(l.t.px("radius-control"))
+            .fill(l.c(fill))
+            .border(1.0, l.c(border))
+            .hover(l.c("hover-surface"))
+            .focusable(true)
+            .role("checkbox")
+            .label(tm.name.clone())
+            .child(face(
+                s.image_cache.as_deref(),
+                &tm.id,
+                &tm.name,
+                s.looks.get(&tm.id),
+                20.0,
+                s.settings_panel.settings.terminal_faces,
+                l,
+            ))
+            .child(text(tm.name.clone()).font(l.ty.body).color(l.c(ink)));
+        if on {
+            // A tick as well as the lime: a pick said by colour alone is a guess for a colour-blind reader.
+            chip = chip.child(crate::look::controls::glyph(l, &crate::look::icons::CHECK, 13.0, Some(l.c("lime-text"))).key(format!("room-create-tick-{}", tm.id)));
+        }
+        chips = chips.child(chip.on_press(move |s: &mut State| {
+            if let Some(pos) = s.rooms.create_picks.iter().position(|id| id == &tid) {
+                s.rooms.create_picks.remove(pos);
+            } else {
+                s.rooms.create_picks.push(tid.clone());
+            }
+            s.rooms.create_error = None;
+        }));
+    }
+    let mut fields = col()
+        .key("room-create-fields")
+        .w_full()
+        .padding(12.0)
+        .gap(6.0)
+        .child(label(l, "Room name"))
         .child(
             text_input(&s.rooms.create_name, type_::BODY)
                 .key("room-create-name")
                 .single_line()
                 .w_full()
-                .padding(10.0)
-                .radius(8.0)
-                .fill(p.field)
-                .border(1.0, p.hairline)
-                .color(p.text)
-                .placeholder("Room name", p.muted)
+                .px(6.0)
+                .py(4.0)
+                .radius(l.t.px("radius-control"))
+                .fill(l.c("bg-field"))
+                .border(1.0, l.c("border-control"))
+                .color(l.c("text-primary"))
+                .placeholder("Release, standup, research…", l.c("text-muted"))
                 .on_edit(|s: &mut State| &mut s.rooms.create_name)
                 .on_submit(|s: &mut State, _| submit_create(s)),
         )
+        .child(label(l, "Who is in it"))
+        .child(chips);
+    // Said here, while the room is being built: amber when it is the cap, quiet otherwise (RoomScreen.tsx:806-814).
+    if let Some(reason) = &blocked {
+        let tone = if room_full_note(picked).is_some() { l.c("amber-text") } else { l.c("text-secondary") };
+        fields = fields.child(text(reason.clone()).key("room-full-note").font(l.ty.body).color(tone).wrap());
+    }
+    // Band three: what is about to happen, beside the button that does it, on the lighter ground.
+    let mut action = row()
+        .key("room-create-action")
+        .w_full()
+        .px(12.0)
+        .py(8.0)
+        .gap(6.0)
+        .center_y()
+        .fill(l.c("bg-raised-2"))
+        .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-card"))
         .child(
-            text(format!(
-                "{picked} of {total} teammate{plural} · each answers on its own model"
-            ))
-            .font(l.ty.label)
-            .color(p.muted),
+            text(format!("{picked} of {total} teammate{plural} · each answers on its own model"))
+                .key("room-create-summary")
+                .font(l.ty.body)
+                .color(l.c("text-muted"))
+                .grow(1.0)
+                .shrink(),
+        )
+        .child(
+            button(l, "Create room", Tone::Active, blocked.is_some() || s.rooms.action_job.is_pending())
+                .key("room-create-submit")
+                .on_press(|s: &mut State| submit_create(s)),
         );
-
-    let mut picker = col().w_full().gap(6.0);
-    for tm in &s.teammates {
-        let tid = tm.id.clone();
-        let is_picked = s.rooms.create_picks.contains(&tid);
-        picker = picker.child(
-            row()
-                .key(format!("room-create-pick-{}", tm.id))
-                .w_full()
-                .px(12.0)
-                .py(9.0)
-                .gap(10.0)
-                .center_y()
-                .radius(8.0)
-                .fill(if is_picked { p.selected } else { p.raised })
-                .border(1.0, p.hairline)
-                .hover(l.c("hover-surface"))
-                .role("checkbox")
-                .label(tm.name.clone())
-                .child(
-                    text(if is_picked { "✓" } else { "○" })
-                        .font(l.ty.label)
-                        .color(if is_picked { p.green } else { p.muted }),
-                )
-                .child(face(
-                    s.image_cache.as_deref(),
-                    &tm.id,
-                    &tm.name,
-                    s.looks.get(&tm.id),
-                    24.0,
-                    s.settings_panel.settings.terminal_faces,
-                    l,
-                ))
-                .child(
-                    col()
-                        .grow(1.0)
-                        .child(text(tm.name.clone()).font(l.ty.body).color(p.text))
-                        .child(text(tm.role.clone()).font(l.ty.label).color(p.muted)),
-                )
-                .on_press(move |s: &mut State| {
-                    if let Some(pos) = s.rooms.create_picks.iter().position(|id| id == &tid) {
-                        s.rooms.create_picks.remove(pos);
-                    } else {
-                        s.rooms.create_picks.push(tid.clone());
-                    }
-                    s.rooms.create_error = None;
-                }),
-        );
-    }
-    body = body.child(picker);
-
-    if let Some(note) = full_note {
-        body = body.child(
-            text(note)
-                .key("room-full-note")
-                .font(l.ty.label)
-                .color(p.amber)
-                .wrap(),
-        );
-    }
     if let Some(err) = &s.rooms.create_error {
-        body = body.child(text(err.clone()).font(l.ty.label).color(p.red).wrap());
+        action = action.child(text(err.clone()).font(l.ty.body).color(l.c("red-text")).wrap());
     }
-
-    let submit_btn = row().pt(4.0).child(
-        button(l, "Create room", Tone::Active, blocked.is_some())
-            .key("room-create-submit")
-            .on_press(|s: &mut State| submit_create(s)),
-    );
-    body = body.child(submit_btn);
-
-    form.child(
-        col()
-            .grow(1.0)
-            .w_full()
-            .scroll(ScrollSpec { stick_bottom: false })
-            .child(body),
-    )
+    col()
+        .key("room-create-card")
+        .w_full()
+        .max_w(620.0)
+        .radius(l.t.px("radius-card"))
+        .fill(l.c("bg-raised"))
+        .border(1.0, l.c("border-card"))
+        .clip_rounded(l.t.px("radius-card"))
+        .child(about)
+        .child(fields)
+        .child(action)
 }
 
 fn view_room(s: &State, room: &PublicRoom, p: &Palette, l: &Look) -> El {
@@ -2591,3 +2578,7 @@ mod post_headline_tests;
 #[cfg(test)]
 #[path = "room_toast_tests.rs"]
 mod room_toast_tests;
+
+#[cfg(test)]
+#[path = "rooms_index_tests.rs"]
+mod rooms_index_tests;
