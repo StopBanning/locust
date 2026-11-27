@@ -966,3 +966,7 @@ impl RoutineHooks {
 #[cfg(test)]
 #[path = "routine_hooks_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routine_hook_browser_tests.rs"]
+mod browser_tests;
