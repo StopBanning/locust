@@ -243,4 +243,80 @@ fi
         assert_eq!(fs::read_to_string(conversation.join("command-receipt")).expect("the command receipt belongs in the selected folder"), "echo hello\n");
         assert!(!project.join("command-receipt").exists());
     }
+
+    fn terminal_text(path: &Path) {
+        // The prompt and final answer from the first terminal exchange in Electron's CLAUDE_SESSION.
+        let typed = json!({"sessionId": SESSION, "type": "user", "entrypoint": "cli", "isSidechain": false,
+            "timestamp": "2026-09-27T10:05:00.000Z", "message": {"role": "user", "content": "Now add tests for the migrations."}});
+        let answer = json!({"sessionId": SESSION, "type": "assistant", "isSidechain": false, "timestamp": "2026-09-27T10:06:00.000Z",
+            "message": {"role": "assistant", "model": "claude-opus-5-5", "stop_reason": "end_turn", "content": [
+                {"type": "text", "text": "Added three tests; all pass."}]}});
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, format!("{typed}\n{answer}\n")).unwrap();
+    }
+
+    // The focus side of the Electron case in what-happens-in-the-terminal-comes-back.test.ts:210.
+    #[test]
+    fn terminal_focus_during_a_pending_read_brings_back_the_real_exchange() {
+        let Some(root) = in_own_profile(concat!(module_path!(), "::terminal_focus_during_a_pending_read_brings_back_the_real_exchange")) else { return; };
+        let store = native::store().unwrap();
+        record(&store);
+        let mut s = showing(MISSION, "claude", false);
+        s.data = Some(store.clone());
+        let pane = s.ledger.as_mut().unwrap();
+        pane.dir = store.ledger_dir().unwrap();
+        pane.worker = Some(native::session_for(pane.dir.clone(), MISSION.into(), None));
+        pane.due = f64::INFINITY; // The settled pane isn't polling the disk any more.
+        let mut rt = window(s);
+        rt.window_focus(true);
+        rt.frame(0.016);
+        let mut now = 1.;
+        let mut app_tick = |rt: &mut rune::Runtime<State>| {
+            now += 0.1;
+            rt.update(|s, tx| { crate::poll(s, now, tx); });
+            rt.frame(0.016);
+        };
+        app_tick(&mut rt);
+        settle(&mut rt.state);
+        assert_eq!(rt.state.terminal.asks, 1, "the initial empty read went through the app");
+        assert_eq!(native::real_tip(MISSION).unwrap(), MISSION);
+
+        // Hold the worker busy across a real blur/focus. Only the subsequent request reads the transcript.
+        let (release, wait) = std::sync::mpsc::channel();
+        rt.state.terminal.catchup.request((), move |()| { wait.recv_timeout(Duration::from_secs(10)).unwrap(); Ok(0) });
+        rt.window_focus(false);
+        rt.frame(0.016);
+        app_tick(&mut rt);
+        terminal_text(&root.join(format!("home/.claude/projects/C--work/{SESSION}.jsonl")));
+        rt.window_focus(true);
+        rt.frame(0.016);
+        assert!(rt.state.window_focused);
+        app_tick(&mut rt);
+        assert_eq!(rt.state.terminal.asks, 1, "don't discard the read in flight");
+        release.send(()).unwrap();
+
+        // The next poll should still honor the focus change, using the actual local store and runtime reader.
+        until(|| {
+            app_tick(&mut rt);
+            native::real_tip(MISSION).is_ok_and(|id| id != MISSION)
+        }, "focus returned while a read was pending, but the terminal turn never reached disk");
+        let latest = native::real_tip(MISSION).unwrap();
+        let turn = native::turn_records(&latest).unwrap();
+        assert!(!turn.incomplete);
+        assert_eq!(turn.metadata["prompt"], "Now add tests for the migrations.");
+        assert_eq!(turn.metadata["startedBy"]["kind"], "terminal");
+        assert_eq!(turn.metadata["continuesFrom"]["missionId"], MISSION);
+        assert_eq!(turn.metadata["continuesFrom"]["runtimeThreadId"], SESSION);
+        assert!(turn.events.iter().any(|e| e["type"] == "message.delta" && e["payload"]["text"] == "Added three tests; all pass."));
+        until(|| {
+            app_tick(&mut rt);
+            rt.state.ledger.as_ref().is_some_and(|pane| pane.snapshot.tip == latest
+                && pane.items.iter().any(|item| matches!(item, ledger::Item::Assistant { text, .. } if text == "Added three tests; all pass.")))
+        }, "the settled thread never showed the imported answer");
+        assert_eq!(locust_core::people::owner_of(&store, &latest).as_deref(), Some("tm_wren"));
+        assert!(rt.elements().into_iter().any(|el| el.text.is_some_and(|text| text.contains("Added three tests; all pass."))),
+            "the real window draws the imported answer");
+        assert_eq!(rt.state.ledger.as_ref().unwrap().conversation.conversation_id.as_deref(), Some(MISSION));
+        assert!(rt.state.terminal.asks >= 2);
+    }
 }

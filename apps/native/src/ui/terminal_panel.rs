@@ -14,6 +14,8 @@ pub(super) struct Panel {
     pub asked: Option<String>,
     pub asked_by_hand: bool,
     pub was_focused: bool,
+    focus_due: bool,
+    catchup_from: Option<String>,
     /// How many catch-ups the window asked for on its own.
     pub asks: u32,
     pub selection: Option<(usize, usize)>,
@@ -189,14 +191,18 @@ pub(super) fn catch_up_id(s: &State) -> Option<String> {
 /// WHAT HAPPENED IN THE TERMINAL COMES BACK (App.tsx 0.391): what the person did in the terminal is asked for when the
 /// conversation is shown, and again whenever the window comes back into focus on it, so the promise the terminal
 /// offer makes ("What you do there comes back into this conversation") is kept without a press.
-fn ask_terminal_back(s: &mut State) {
+fn ask_terminal_back(s: &mut State, can_ask: bool) {
     let focus_back = s.window_focused && !s.terminal.was_focused;
     s.terminal.was_focused = s.window_focused;
     let Some(id) = catch_up_id(s) else {
+        s.terminal.focus_due = false;
         return;
     };
-    if (s.terminal.asked.as_deref() != Some(id.as_str()) || focus_back) && !s.terminal.catchup.is_pending() {
+    s.terminal.focus_due |= focus_back;
+    if can_ask && (s.terminal.asked.as_deref() != Some(id.as_str()) || s.terminal.focus_due) {
+        s.terminal.focus_due = false;
         s.terminal.asked = Some(id.clone());
+        s.terminal.catchup_from = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
         s.terminal.asked_by_hand = false;
         s.terminal.asks += 1;
         s.terminal.catchup.request(id, |id| runtime_terminal::catch_up(&id));
@@ -205,17 +211,30 @@ fn ask_terminal_back(s: &mut State) {
 
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = s.terminal.open;
-    ask_terminal_back(s);
-    if let Some(result) = s.terminal.catchup.take() {
-        // Asked on its own, it speaks only when something came back.
+    // Take a landed answer before sending another request. Latest would otherwise drop it.
+    let can_ask = !s.terminal.catchup.is_pending();
+    if can_ask && let Some(result) = s.terminal.catchup.take() {
         let by_hand = std::mem::take(&mut s.terminal.asked_by_hand);
+        let from = s.terminal.catchup_from.take();
+        let pane = s.ledger.as_mut().filter(|pane| {
+            !by_hand && from.is_some() && from == pane.conversation.conversation_id
+        });
         match result {
             Ok(0) | Err(_) if !by_hand => {}
-            Ok(n) => s.composer_note = Some(format!("Brought back {n} terminal turns.")),
+            Ok(n) if by_hand || pane.is_some() => {
+                // The settled conversation normally stops reading its ledger. Read it again only if
+                // this is still the conversation on screen, so the imported turns can be shown in it.
+                if n != 0 && let Some(pane) = pane {
+                    pane.due = 0.;
+                }
+                s.composer_note = Some(format!("Brought back {n} terminal turns."));
+            }
             Err(e) => s.composer_note = Some(e),
+            Ok(_) => {}
         }
         changed = true;
     }
+    ask_terminal_back(s, can_ask);
     for t in &mut s.terminal.tabs {
         if let Err(e) = t.poll() {
             s.terminal.error = Some(e);
