@@ -130,6 +130,14 @@ fn rooms_there_are_are_cards_under_your_rooms_above_the_new_room_card() {
 }
 
 #[test]
+fn pressing_a_room_card_opens_that_room() {
+    // RoomScreen.tsx:695-703: each card in Your rooms is a button that opens its room.
+    let mut rt = window(rooms_screen(vec![room("r1", "Release", &["codec"]), room("r2", "Docs", &["argon"])]));
+    press(&mut rt, "room-list-card-r2");
+    assert!(matches!(&rt.state.rooms.active, RoomView::Room(id) if id == "r2"), "{:?}", rt.state.rooms.active);
+}
+
+#[test]
 fn new_room_opens_this_screen_not_a_screen_of_its_own() {
     // App.tsx:1014: the `+` menu's New room calls `openRoomsScreen`: the same screen, its form in the card.
     let mut s = rooms_screen(Vec::new());
