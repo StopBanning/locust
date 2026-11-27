@@ -5,8 +5,7 @@
 //! The relay is this window's one phone link (index.ts `address`/`open` on `phoneAnywhere`) and the tools are the door's
 //! own, as an app on this computer gets them. The phone link's line is NSURLSession's WebSocket on macOS; on Windows and
 //! Linux it is still a stand-in, so From anywhere never connects there and the switch says so in Electron's own words.
-//! The "keep it running" line (Electron's `stay`) is not shown: it needs the tray and login-item switches this window
-//! does not have yet.
+//! The "keep it running" line uses the same saved background preference and login-item host as Startup settings.
 
 use super::*;
 use chrono::{DateTime, Local};
@@ -66,17 +65,70 @@ pub fn keep_it_running(
     }
 }
 
-fn stay_words(platform: Option<&str>) -> (&'static str, &'static str) {
-    match platform {
-        Some("darwin") => ("menu bar", "log in to your Mac"),
-        Some("linux") => ("system tray", "sign in"),
-        _ => ("tray", "sign in to Windows"),
+/// The live Settings panel is the source of truth. The optional snapshot is
+/// only used by isolated rendering fixtures that have no native store.
+fn startup_reachability(s: &State) -> Option<StayingReachable> {
+    if s.data.is_none() {
+        return s.remote_mcp_stay.clone();
     }
+    let login = &s.settings_panel.login_item;
+    Some(StayingReachable {
+        keep_running: s.settings_panel.keep_running,
+        open_at_login: login.open_at_login,
+        login_item_available: login.available,
+        platform: Some(crate::os_hosts::node_platform().to_owned()),
+    })
+}
+
+fn startup_login_item() -> locust_core::login_item::LoginItem<Box<dyn locust_core::login_item::LoginItemHost>> {
+    use locust_core::login_item::{LoginItem, LoginItemHost};
+    #[cfg(test)]
+    if let Some(file) = tests::test_login_file() {
+        let host: Box<dyn LoginItemHost> = Box::new(crate::os_hosts::LaunchAgent { file });
+        return LoginItem::new(host, true, "locust-native", "darwin");
+    }
+    let host: Box<dyn LoginItemHost> = crate::os_hosts::login_item();
+    LoginItem::new(
+        host,
+        crate::os_hosts::packaged(),
+        std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default(),
+        crate::os_hosts::node_platform(),
+    )
 }
 
 fn press_keep_it_running(s: &mut State) {
-    if let Some(stay) = s.remote_mcp_stay.as_mut() {
-        keep_it_running(stay, &mut |_| {}, &mut |_| {});
+    use locust_core::keep_awake::{BACKGROUND_FILE, write_keep_running};
+
+    let Some(store) = s.data.as_ref() else { return };
+    let Some(mut stay) = startup_reachability(s) else { return };
+    let mut keep = false;
+    let mut login = false;
+    keep_it_running(&mut stay, &mut |on| keep = on, &mut |on| login = on);
+
+    const KEEP_FAILED: &str = "Could not save Keep Locust running:";
+    const LOGIN_FAILED: &str = "Could not set Locust to start at login.";
+    if (keep || login) && (s.settings_panel.error.starts_with(KEEP_FAILED) || s.settings_panel.error == LOGIN_FAILED) {
+        s.settings_panel.error.clear();
+    }
+    if keep {
+        let file = store.root().join(BACKGROUND_FILE);
+        if let Err(error) = write_keep_running(&file, true) {
+            s.settings_panel.error = format!("{KEEP_FAILED} {error}");
+        } else {
+            s.settings_panel.keep_running = true;
+        }
+    }
+    if login {
+        let updated = startup_login_item().set(true);
+        if updated.available && !updated.open_at_login && !updated.approval {
+            if s.settings_panel.error.starts_with(KEEP_FAILED) {
+                s.settings_panel.error.push(' ');
+                s.settings_panel.error.push_str(LOGIN_FAILED);
+            } else {
+                s.settings_panel.error = LOGIN_FAILED.into();
+            }
+        }
+        s.settings_panel.login_item = updated;
     }
 }
 
@@ -208,27 +260,17 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
                     .child(text(address.clone()).key("remote-mcp-address").font(type_::LABEL.mono()).color(l.c("text-primary")).wrap_anywhere().grow(1.0))
                     .child(button(&l, "Copy", "remote-mcp-copy".into(), true, false).on_press_tx(move |_s: &mut State, tx| tx.copy(copy.clone()))),
             );
-        if let Some(stay) = &s.remote_mcp_stay {
-            let (tray, sign_in) = stay_words(stay.platform.as_deref());
-            if reachable(stay) {
-                let starts = if stay.open_at_login {
-                    format!("it starts when you {sign_in}, and ")
-                } else {
-                    String::new()
-                };
-                let line = format!(
-                    "Locust stays reachable while this computer is on and awake: {starts}it keeps running in the {tray} when you close its window. Quit from the {tray}, and no app can open it again."
-                );
+        if let Some(stay) = startup_reachability(s) {
+            use locust_core::machine_words::{Stay, machine_words, stay_line};
+            let words = machine_words(stay.platform.as_deref());
+            let line = stay_line(words, Stay {
+                open_at_login: stay.open_at_login,
+                login_available: stay.login_item_available,
+                keep_running: stay.keep_running,
+            });
+            if reachable(&stay) {
                 box_col = box_col.child(text(line).key("remote-mcp-reachable").font(l.ty.body).color(l.c("text-secondary")).wrap());
             } else {
-                let also_start = if stay.login_item_available {
-                    format!(", and start it when you {sign_in}")
-                } else {
-                    String::new()
-                };
-                let line = format!(
-                    "An app can reach Locust only while it is running here: once it quits, nothing on this computer can open it. Keep it running in the {tray} when you close its window{also_start}."
-                );
                 box_col = box_col.child(
                     col()
                         .w_full()
@@ -695,25 +737,121 @@ mod tests {
         assert!(unavailable.keep_running && !unavailable.open_at_login);
     }
 
+    std::thread_local! {
+        static LOGIN_FILE: std::cell::RefCell<Option<std::path::PathBuf>> =
+            const { std::cell::RefCell::new(None) };
+    }
+
+    pub(super) fn test_login_file() -> Option<std::path::PathBuf> {
+        LOGIN_FILE.with(|file| file.borrow().clone())
+    }
+
     #[test]
     // case: is given the Startup switches themselves, and the relay says so when Locust is not running
     fn is_given_the_startup_switches_themselves_and_the_relay_says_so_when_locust_is_not_running() {
-        // Clicking "Keep it running" in section() flips the Startup switches in State and hides the button.
-        let s = on_state_with_stay(StayingReachable::default());
-        let mut rt = rune::Runtime::new(
-            s,
-            |s, _| col().w_full().children(section(s, &Palette::new(true))),
-            (1200.0, 900.0),
-            rune::Env::new(true, 1.0),
+        use locust_core::keep_awake::{BACKGROUND_FILE, read_keep_running};
+        use locust_core::login_item::LoginItem;
+        use locust_core::store::Store;
+
+        let root = std::env::temp_dir().join(format!(
+            "locust-remote-mcp-keep-running-{}-{}",
+            std::process::id(),
+            locust_core::invariants::unique_nanos(),
+        ));
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                LOGIN_FILE.with(|file| *file.borrow_mut() = None);
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+        let background = store.root().join(BACKGROUND_FILE);
+        let login_file = root.join("LaunchAgents").join("lol.locust.native.plist");
+        LOGIN_FILE.with(|file| *file.borrow_mut() = Some(login_file.clone()));
+        let login = || LoginItem::new(
+            crate::os_hosts::LaunchAgent { file: test_login_file().expect("temporary login host") },
+            true,
+            "locust-native",
+            "darwin",
+        ).read();
+
+        let open = |store: &Store, login_available, restart| {
+            let mut s = on_state_with_stay(StayingReachable::default());
+            s.data = Some(store.clone());
+            crate::settings_panel::open(&mut s);
+            if login_available {
+                s.settings_panel.login_item = login();
+            }
+            if restart {
+                s.remote_mcp_stay = None;
+            }
+            let mut rt = rune::Runtime::new(
+                s,
+                |s, _| {
+                    let p = Palette::new(true);
+                    col().w_full().children(section(s, &p))
+                        .child(crate::quit_guard_dialog::startup_section(s, &p))
+                },
+                (1200.0, 1200.0),
+                rune::Env::new(true, 1.0),
+            );
+            rt.frame(0.0);
+            rt
+        };
+        let press = |rt: &mut rune::Runtime<State>| {
+            let (x, y) = rt.find("remote-mcp-keep-running").expect("Keep it running button");
+            rt.pointer_down(x, y);
+            rt.pointer_up(x, y);
+            rt.frame(0.05);
+            rt.settle_all();
+            rt.frame(0.0);
+        };
+        let startup_on = |rt: &rune::Runtime<State>, key: &str| {
+            rt.elements().iter().find(|el| el.key.as_deref() == Some(key))
+                .expect("real Startup switch").fill == crate::look::controls::Look::new(true).c("switch-on")
+        };
+
+        let mut rt = open(&store, true, false);
+        assert!(!read_keep_running(&background));
+        assert!(!login().open_at_login);
+        press(&mut rt);
+
+        assert!(read_keep_running(&background), "the window button must save the actual Startup file");
+        assert!(login().open_at_login, "the window button must reach the Startup login host");
+        assert!(
+            std::fs::read_to_string(&login_file).unwrap().contains("--background"),
+            "the login host launches the app in the background",
         );
-        rt.frame(0.0);
-        let (x, y) = rt.find("remote-mcp-keep-running").expect("Keep it running button");
-        rt.pointer_down(x, y);
-        rt.pointer_up(x, y);
-        rt.frame(0.05);
-        let stay = rt.state.remote_mcp_stay.as_ref().expect("stay state");
-        assert!(reachable(stay));
-        assert!(stay.keep_running && stay.open_at_login);
+        assert!(rt.state.settings_panel.keep_running);
+        assert!(rt.state.settings_panel.login_item.open_at_login);
+        assert!(startup_on(&rt, "settings-keep-running"));
+        assert!(startup_on(&rt, "settings-login-item"));
         assert!(rt.find("remote-mcp-keep-running").is_none());
+
+        let reopened = open(&store, true, true);
+        assert!(reopened.state.settings_panel.keep_running, "Settings reloads the saved preference");
+        assert!(reopened.state.settings_panel.login_item.open_at_login);
+        assert!(reopened.find("remote-mcp-reachable").is_some());
+        assert!(reopened.find("remote-mcp-keep-running").is_none());
+
+        // This test binary is not packaged. If sign-in is unavailable, only save the tray preference.
+        let unavailable = Store::new(root.join("native-unavailable"), root.join("electron")).unwrap();
+        let unavailable_login = root.join("LaunchAgents").join("must-not-be-created.plist");
+        LOGIN_FILE.with(|file| *file.borrow_mut() = Some(unavailable_login.clone()));
+        let mut rt = open(&unavailable, false, true);
+        assert!(!rt.state.settings_panel.login_item.available);
+        press(&mut rt);
+        assert!(read_keep_running(&unavailable.root().join(BACKGROUND_FILE)));
+        assert!(startup_on(&rt, "settings-keep-running"));
+        assert!(!rt.state.settings_panel.login_item.open_at_login);
+        assert!(!unavailable_login.exists(), "do not touch a login item when it is unavailable");
+        assert!(rt.find("remote-mcp-reachable").is_some());
+
+        // Same source-level check as Electron; this does not exercise the relay.
+        assert!(include_str!("../../../relay/src/room.ts").contains(
+            "nothing there can open it. Open Locust there and try again. To keep it reachable, turn on Keep it running under Use from anywhere"
+        ));
     }
 }
