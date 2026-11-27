@@ -147,3 +147,17 @@ fn b07_automatic_reply_on_account_default_does_not_take_the_profiles_level() {
     let req = last_start(&t);
     assert!(req.get("model").is_none() && req.get("effort").is_none(), "{req}");
 }
+
+#[test]
+fn an_imported_electron_turn_with_its_account_only_in_the_route_id_keeps_that_account() {
+    // Lane check of B07: Electron's older headers keep the account only inside `resolvedRouteId`
+    // (`<runtime>-<model>-account:<id>`), so a reply to such a turn stays on that account, not the profile's.
+    let id = "account_0123456789abcdef0123456789abcdef";
+    let route = crate::native::recorded_turn_route(&json!({
+        "runtime": "codex", "model": "gpt-5.5", "resolvedRouteId": format!("codex-gpt-5.5-account:{id}")
+    }))
+    .expect("a header naming its runtime has a route");
+    assert_eq!(route.account.as_deref(), Some(id));
+    let named = crate::native::recorded_turn_route(&json!({"runtime": "codex", "account": "account_ffffffffffffffffffffffffffffffff"})).unwrap();
+    assert_eq!(named.account.as_deref(), Some("account_ffffffffffffffffffffffffffffffff"), "a named account wins");
+}
