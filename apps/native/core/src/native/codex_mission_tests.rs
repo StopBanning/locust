@@ -870,14 +870,111 @@ fn codex_runs_as_a_server_its_pieces_become_message_events_and_the_mode_earns_it
     );
 }
 
+// case: runs one fixed read-only Codex route and streams normalized events
 #[test]
-fn a_read_only_mode_stays_read_only_and_never_asks_for_full_access() {
+fn a_fixed_read_only_codex_mission_keeps_its_route_and_writes_the_stream_and_final_answer() {
     let t = Temp::new();
-    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
-    let started = send(job(&t, None, "Just look.")).unwrap();
+    // Electron's fixture supplies one completed item, not an extra delta repeating the whole answer.
+    // Send the two app-server fragments followed by just that completed item.
+    let server = r#"
+import json, sys
+from pathlib import Path
+
+def send(**message):
+    print(json.dumps({"jsonrpc": "2.0", **message}), flush=True)
+
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request["method"]
+    if method == "initialized":
+        continue
+    with Path("commands-requests.jsonl").open("a", encoding="utf-8") as log:
+        log.write(line)
+    id = request["id"]
+    if method == "initialize":
+        send(id=id, result={})
+    elif method == "config/read":
+        send(id=id, result={"config": {}})
+    elif method == "thread/start":
+        send(id=id, result={"thread": {"id": "thread-live"}})
+    elif method == "turn/start":
+        def notify(method, **params):
+            send(method=method, params={"threadId": "thread-live", **params})
+
+        send(id=id, result={"turn": {"id": "turn-live"}})
+        notify("turn/started", turn={"id": "turn-live"})
+        for part in ["Safe ", "result"]:
+            notify("item/agentMessage/delta", itemId="answer", turnId="turn-live", delta=part)
+        notify("item/completed", item={"id": "answer", "type": "agentMessage", "text": "Safe result"})
+        notify("turn/completed", turn={"id": "turn-live", "status": "completed"})
+    else:
+        raise AssertionError(method)
+"#;
+    let _hook = hooks::install(t.store(), Some((PathBuf::from("python3"), vec!["-c".into(), server.into()])));
+    const PROMPT: &str = "Inspect the workspace without changing it.";
+    let mut mine = job(&t, None, PROMPT);
+    mine.model = Some("account-default".into());
+    let started = send(mine).unwrap();
+    assert_eq!(started.mode, "ask");
     finished(&started.conversation_id);
-    assert_eq!(thread_request(&t)["params"]["sandbox"], "read-only");
-    assert!(!serde_json::to_string(&codex_requests(&t)).unwrap().contains("danger-full-access"));
+
+    // The public window send starts one app-server thread/turn in native. Electron's older exec
+    // sends an argv sandbox and emits step events; this transport sends the policy and prompt as JSON.
+    let requests = codex_requests(&t);
+    assert_eq!(methods(&requests), ["initialize", "config/read", "thread/start", "turn/start"]);
+    let open = &requests[2]["params"];
+    assert_eq!(open["cwd"], json!(t.0.join("work").to_string_lossy()));
+    assert_eq!(open["sandbox"], "read-only");
+    assert_eq!(open["approvalPolicy"], "never");
+    assert!(open.get("model").is_none(), "account-default never names a model");
+    assert!(!serde_json::to_string(&requests).unwrap().contains("danger-full-access"));
+    let turn = &requests[3]["params"];
+    assert_eq!(turn["threadId"], "thread-live");
+    assert_eq!(turn["approvalPolicy"], "never");
+    assert!(turn.get("model").is_none());
+    let input = &turn["input"][0];
+    assert_eq!(input["type"], "text");
+    // Native can add its own briefing; the question belongs in the turn, never in the process arguments.
+    assert!(input["text"].as_str().is_some_and(|asked| asked.contains(PROMPT)));
+
+    let path = path_of(&t, &started.conversation_id);
+    assert_eq!(ledgers(&t), [path.clone()], "one turn made one durable mission");
+    let head = header(&path);
+    assert_eq!(head["missionId"], started.conversation_id);
+    assert_eq!(head["prompt"], PROMPT);
+    assert_eq!(head["runtime"], "codex");
+    assert_eq!(head["model"], "account-default");
+    assert_eq!(head["sandbox"], "read-only");
+    assert!(head["command"]["args"].as_array().unwrap().iter().all(|arg| arg != PROMPT));
+
+    // Native's window reads this ledger. The hook gives no Codex CLI version; don't invent one.
+    let durable = records(&path);
+    let events: Vec<_> = durable.iter().filter(|r| r["recordType"] == "mission.event").map(|r| &r["event"]).collect();
+    let position = |kind| events.iter().position(|e| e["type"] == kind).expect("expected event in the durable ledger");
+    let deltas: Vec<_> = events.iter().enumerate().filter(|(_, e)| e["type"] == "message.delta").collect();
+    assert_eq!(deltas.len(), 3, "the two fragments and the final answer must be saved: {events:?}");
+    let (first, a) = deltas[0];
+    let (second, b) = deltas[1];
+    for (event, fragment) in [(a, "Safe "), (b, "result")] {
+        assert_eq!(event["payload"]["operation"], "append");
+        assert_eq!(event["payload"]["text"], fragment);
+        assert_eq!(event["payload"]["final"], false);
+    }
+    let finals: Vec<_> = deltas.iter().copied().filter(|(_, e)| e["payload"]["final"] == true).collect();
+    assert_eq!(finals.len(), 1, "exactly one durable final answer: {deltas:?}");
+    let (final_at, answer) = finals[0];
+    assert_eq!(answer["payload"]["operation"], "replace");
+    assert_eq!(answer["payload"]["text"], "Safe result");
+    for event in [a, b, answer] {
+        assert_eq!(event["payload"]["itemId"], "answer");
+    }
+    assert!(position("run.started") < first && first < second && second < final_at && final_at < position("run.completed"));
+    let transcript = ledger::read_transcript(&path);
+    let answers: Vec<_> = transcript.items.iter().filter_map(|item| match item {
+        ledger::Item::Assistant { text, .. } => Some(text.as_str()),
+        _ => None,
+    }).collect();
+    assert_eq!(answers, ["Safe result"], "opening the ledger must not show an echo of the stream");
 }
 
 // case: starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)
