@@ -1933,6 +1933,15 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
 /// One conversation on the Board: Electron's two-line card (`conversation_board::conv_card`), its teammate's face at 20
 /// beside the title and the one line `Who · under … · state`; a request the conversation is making keeps its words and
 /// its buttons under the card, as `lc-boardwait` draws them (`answer_board` is the approval path).
+#[cfg(test)]
+thread_local! {
+    static DRAWN_BOARD_COMMAND: std::cell::Cell<Option<rune::TextStyle>> = const { std::cell::Cell::new(None) };
+}
+
+fn board_command_style() -> rune::TextStyle {
+    type_::LABEL.mono()
+}
+
 fn board_card(
     s: &State,
     p: &Palette,
@@ -1983,11 +1992,20 @@ fn board_card(
     // The request's own mark (BoardScreen.tsx `data-board-ask`), on the line that says what it needs.
     let mut wait = col().w_full().gap(6.0).px(16.0).child(text(state).font(type_::LABEL).color(p.amber).key(format!("board-request-{}", ask.approval_id)));
     if let Some(command) = &ask.command {
-        // BoardScreen.tsx: the command held at its flags (`CommandText`).
-        wait = wait.child(crate::approval_card::command_text("", command).font(type_::LABEL).color(p.secondary).wrap());
+        // BoardScreen.tsx: the command held at its flags (`CommandText`), in the code face (`.lc-boardwait__command`).
+        let style = board_command_style();
+        #[cfg(test)]
+        DRAWN_BOARD_COMMAND.with(|f| f.set(Some(style)));
+        wait = wait.child(
+            crate::approval_card::command_text("", command)
+                .key(format!("board-command-{}", ask.approval_id))
+                .font(style)
+                .color(p.secondary)
+                .wrap(),
+        );
     }
     if let Some(where_) = &ask.where_ {
-        wait = wait.child(text(conversation_board::in_where(where_)).font(type_::LABEL).color(p.muted));
+        wait = wait.child(text(conversation_board::in_where(where_)).font(type_::LABEL.mono()).color(p.muted));
     }
     let approval_id = ask.approval_id.clone();
     if ask.command.is_some() {
@@ -2995,6 +3013,46 @@ mod home_issue_starter_tests {
         open_board(&mut s);
         assert!(s.home.board_open, "the Board is open");
         assert!(!s.home.home_open, "and Home is not drawn over it");
+    }
+
+    #[test]
+    fn board_request_command_uses_the_code_face() {
+        DRAWN_BOARD_COMMAND.with(|f| f.set(None));
+        let mut s = State::default();
+        s.home.board_open = true;
+        s.recent = vec![ConversationRow {
+            id: "m_cmd".into(),
+            teammate: String::new(),
+            title: "Check files".into(),
+            started_by: "native".into(),
+            state: "running".into(),
+            updated: chrono::Utc::now().to_rfc3339(),
+        }];
+        s.home.asks.insert(
+            "m_cmd".into(),
+            BoardAsk {
+                approval_id: "ap_cmd".into(),
+                kind: "command".into(),
+                command: Some("ls -la".into()),
+                where_: Some("apps/native".into()),
+                shown: std::time::Instant::now(),
+            },
+        );
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| board_view(s, &Palette::new(true)),
+            (1200.0, 1200.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let el = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("board-command-ap_cmd"))
+            .expect("board command element");
+        assert_eq!(el.text.as_deref().map(|t| t.replace('\u{2060}', "")).as_deref(), Some("ls -la"));
+        let style = DRAWN_BOARD_COMMAND.with(|f| f.get()).expect("board command style recorded");
+        assert_eq!(style.family, rune::Family::Mono, "board request command uses the code face (lc-mono)");
     }
 }
 

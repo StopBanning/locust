@@ -1378,7 +1378,7 @@ impl Channel {
                 .pending
                 .insert(pending.request.approval_id.clone(), pending);
             return Err(
-                "This action must be asked about every time. Choose Approve once or Deny.".into(),
+                "This action must be asked about every time. Choose Allow once or Deny.".into(),
             );
         }
         if matches!(
@@ -2799,6 +2799,50 @@ mod tests {
                 paths: vec!["src/a.ts".into()]
             }
         );
+    }
+
+    #[test]
+    fn asks_every_time_refusal_says_allow_once_not_approve_once() {
+        let ch = Channel::new();
+        let req = Request {
+            approval_id: "ap_browser_1".into(),
+            mission_id: "m_browser".into(),
+            runtime: "browser".into(),
+            kind: Kind::Connector,
+            summary: "Click submit".into(),
+            detail: "Submit the form".into(),
+            cwd: None,
+            requested_at: now_iso(),
+            always_covers: None,
+            always_key: None,
+            data_sent_says: None,
+            reversible_says: None,
+            patch: None,
+            skippable: false,
+            answer_in: None,
+            claude_input: None,
+            questions: Vec::new(),
+        };
+        let worker = ch.clone();
+        let handle = std::thread::spawn(move || worker.ask(req, &|| false));
+        let end = Instant::now() + Duration::from_secs(5);
+        while ch.waiting().is_empty() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let err = ch
+            .decide(Answer::Decision {
+                approval_id: "ap_browser_1".into(),
+                decision: Decision::ApproveAlways,
+                reason: None,
+            })
+            .unwrap_err();
+        assert_eq!(
+            err,
+            "This action must be asked about every time. Choose Allow once or Deny."
+        );
+        ch.release("m_browser");
+        let _ = handle.join();
     }
 }
 
