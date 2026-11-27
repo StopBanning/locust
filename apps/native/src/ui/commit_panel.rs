@@ -129,6 +129,15 @@ fn label(p: &Palette, word: impl Into<String>) -> El {
     text(word.into()).font(type_::LABEL).color(p.secondary).padding(7.0)
 }
 
+/// The key of the panel's button for `then`.
+fn action_key(then: Then) -> &'static str {
+    match then {
+        Then::Commit => "commit-action-commit",
+        Then::Push => "commit-action-push",
+        Then::PullRequest => "commit-action-pull-request",
+    }
+}
+
 /// The header's Commit button: only while there is something to commit and nothing is running.
 pub(super) fn control(s: &State, p: &Palette) -> El {
     let count = match s.commit.changes.as_ref().map(|(_, c)| c) {
@@ -211,12 +220,15 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
             let tone = if refused || failed_after { p.red } else { p.text };
             card = card.child(said(&line, tone));
         }
-        let (word, back): (&str, fn(&mut State)) = if refused {
-            ("Back", |s: &mut State| s.commit.result = None)
+        // CommitChanges.tsx `CommitOutcome`: a refusal's one button is Back, a commit's is Done, each an `.lc-button`.
+        let (word, key, back): (&str, &str, fn(&mut State)) = if refused {
+            ("Back", "commit-back", |s: &mut State| s.commit.result = None)
         } else {
-            ("Done", |s: &mut State| s.commit.open = false)
+            ("Done", "commit-done", |s: &mut State| s.commit.open = false)
         };
-        return Some(card.child(row().gap(8.0).child(label(p, word).on_press(back))));
+        let l = crate::look::controls::Look::new(p.dark);
+        let button = crate::look::controls::button(&l, word, crate::look::controls::Tone::Neutral, false).key(key).on_press(back);
+        return Some(card.child(row().gap(8.0).child(button)));
     }
     match s.commit.changes.as_ref().filter(|(f, _)| f == &s.commit.folder).map(|(_, c)| c) {
         None | Some(FolderChanges::None(Nothing::NotARepository)) => {
@@ -278,19 +290,22 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
                     .on_edit(|s: &mut State| &mut s.commit.message),
             );
             let empty = s.commit.message.text.trim().is_empty();
-            let action = |word: &str, working: &str, then: Then, mine: bool| -> El {
+            // CommitChanges.tsx `lc-commit__actions`: Commit is the `.lc-primarybutton`, Commit and push and Open a
+            // pull request are `.lc-button`s after it, each disabled while one is working, a message is being
+            // written, or the message is empty, and saying what it is doing while it does it.
+            let l = crate::look::controls::Look::new(p.dark);
+            let action = |word: &str, working: &str, then: Then, primary: bool| -> El {
                 let shown_word = if s.commit.working == Some(then) { working } else { word };
-                let mut b = label(p, shown_word);
-                if mine {
-                    b = b.color(p.text);
-                }
-                if busy || empty {
-                    b
+                let disabled = busy || empty;
+                let b = if primary {
+                    crate::look::controls::primary_button(&l, shown_word, disabled)
                 } else {
-                    b.on_press(move |s: &mut State| go(s, then))
+                    crate::look::controls::button(&l, shown_word, crate::look::controls::Tone::Neutral, disabled)
                 }
+                .key(action_key(then));
+                if disabled { b } else { b.on_press(move |s: &mut State| go(s, then)) }
             };
-            let mut actions = row().gap(8.0).child(action("Commit", "Committing…", Then::Commit, true));
+            let mut actions = row().gap(8.0).center_y().child(action("Commit", "Committing…", Then::Commit, true));
             if remote.is_some() {
                 actions = actions.child(action("Commit and push", "Pushing…", Then::Push, false));
             }
@@ -375,6 +390,152 @@ mod tests {
             false,
             Some(&FolderChanges::Blocked { why: folder_commit::Blocked::Merging, files: vec![] }),
         ));
+    }
+
+    use rune::{Env, Runtime};
+
+    /// The panel as `scene` opens it (four files on main, a GitHub remote with gh signed in), in a folder that does
+    /// not exist, so a pressed button's git finds nothing to commit.
+    fn panel(dark: bool) -> Runtime<State> {
+        let mut s = State::default();
+        scene(&mut s);
+        let nowhere = std::env::temp_dir().join("locust-commit-panel-buttons-no-such-folder");
+        if let Some((folder, _)) = s.commit.changes.as_mut() {
+            *folder = nowhere.clone();
+        }
+        s.commit.folder = nowhere;
+        let mut rt = if dark {
+            Runtime::new(s, |s, _| view(s, &Palette::new(true)).unwrap_or_else(el), (640.0, 700.0), Env::new(true, 1.0))
+        } else {
+            Runtime::new(s, |s, _| view(s, &Palette::new(false)).unwrap_or_else(el), (640.0, 700.0), Env::new(false, 1.0))
+        };
+        rt.frame(0.0);
+        rt
+    }
+
+    fn press(rt: &mut Runtime<State>, key: &str) {
+        let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no {key}"));
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.016);
+    }
+
+    // CommitChanges.tsx `lc-commit__actions`: Commit (`lc-primarybutton`), Commit and push, Open a pull request (`lc-button`).
+    #[test]
+    fn the_commit_actions_are_buttons_with_electrons_words_in_its_order() {
+        let rt = panel(true);
+        let mut buttons: Vec<_> = rt
+            .elements()
+            .into_iter()
+            .filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("commit-action-")))
+            .collect();
+        buttons.sort_by(|a, b| a.rect[0].total_cmp(&b.rect[0]));
+        let words: Vec<_> = buttons.iter().map(|e| (e.role, e.label.clone().unwrap_or_default())).collect();
+        assert_eq!(
+            words,
+            vec![
+                ("button", "Commit".to_owned()),
+                ("button", "Commit and push".to_owned()),
+                ("button", "Open a pull request".to_owned()),
+            ]
+        );
+        assert!(buttons.iter().all(|b| b.rect[3] >= 30.0), "each is a button's height, not a line of text: {buttons:?}");
+        assert!(buttons.iter().all(|b| b.fill.a > 0.0), "each is drawn on a fill: {buttons:?}");
+        // The primary is the filled one: its fill differs from the outlined buttons beside it.
+        assert_ne!(buttons[0].fill, buttons[1].fill);
+        assert_eq!(buttons[1].fill, buttons[2].fill);
+    }
+
+    #[test]
+    fn each_commit_button_presses_its_own_action() {
+        for (key, then) in [
+            ("commit-action-commit", Then::Commit),
+            ("commit-action-push", Then::Push),
+            ("commit-action-pull-request", Then::PullRequest),
+        ] {
+            let mut rt = panel(true);
+            press(&mut rt, key);
+            let mut working = None;
+            rt.update(|s, _| working = s.commit.working);
+            assert_eq!(working, Some(then), "{key}");
+        }
+    }
+
+    #[test]
+    fn an_empty_message_leaves_the_commit_buttons_unpressable() {
+        let mut rt = panel(false);
+        rt.update(|s, _| s.commit.message = TextEdit::new("   "));
+        rt.frame(0.016);
+        press(&mut rt, "commit-action-commit");
+        let mut working = Some(Then::Push);
+        rt.update(|s, _| working = s.commit.working);
+        assert_eq!(working, None);
+    }
+
+    // Lane check of small-2 row 3. CommitChanges.tsx:190-201: each button is `disabled={working !== undefined || drafting
+    // || message.trim().length === 0}`, and only the one working says so (`working === 'push' ? 'Pushing…' : 'Commit and
+    // push'`), the others keeping their own words.
+    #[test]
+    fn while_one_commit_action_works_or_a_message_is_drafted_none_can_be_pressed_and_only_it_says_so() {
+        let mut rt = panel(true);
+        rt.update(|s, _| s.commit.working = Some(Then::Push));
+        rt.frame(0.016);
+        let said = |rt: &Runtime<State>, key: &str| {
+            rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.label).unwrap_or_else(|| panic!("no {key}"))
+        };
+        assert_eq!(
+            [said(&rt, "commit-action-commit"), said(&rt, "commit-action-push"), said(&rt, "commit-action-pull-request")],
+            ["Commit".to_owned(), "Pushing…".to_owned(), "Open a pull request".to_owned()]
+        );
+        for key in ["commit-action-commit", "commit-action-pull-request"] {
+            press(&mut rt, key);
+            let mut working = None;
+            rt.update(|s, _| working = s.commit.working);
+            assert_eq!(working, Some(Then::Push), "{key} pressed while Commit and push works");
+        }
+
+        let mut rt = panel(true);
+        rt.update(|s, _| s.commit.drafting = true);
+        rt.frame(0.016);
+        press(&mut rt, "commit-action-commit");
+        let mut working = Some(Then::Push);
+        rt.update(|s, _| working = s.commit.working);
+        assert_eq!(working, None, "Commit pressed while the message is being written");
+    }
+
+    // CommitChanges.tsx `CommitOutcome`: Done after a commit, Back after a refusal, each an `lc-button`.
+    #[test]
+    fn the_outcome_has_a_done_button_and_a_refusal_a_back_button() {
+        let mut rt = panel(true);
+        rt.update(|s, _| {
+            s.commit.result = Some(CommitResult::Done {
+                sha: "4f2c9a1".into(),
+                branch: "main".into(),
+                files: 4,
+                left_out: Vec::new(),
+                new_branch: None,
+                pushed: None,
+                pull_request_url: None,
+                after: None,
+            })
+        });
+        rt.frame(0.016);
+        let done = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("commit-done")).expect("Done");
+        assert_eq!((done.role, done.label.as_deref()), ("button", Some("Done")));
+        press(&mut rt, "commit-done");
+        let mut open = true;
+        rt.update(|s, _| open = s.commit.open);
+        assert!(!open, "Done closes the panel");
+
+        let mut rt = panel(true);
+        rt.update(|s, _| s.commit.result = Some(CommitResult::Refused("The folder changed since.".into())));
+        rt.frame(0.016);
+        let back = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("commit-back")).expect("Back");
+        assert_eq!((back.role, back.label.as_deref()), ("button", Some("Back")));
+        press(&mut rt, "commit-back");
+        let mut gone = false;
+        rt.update(|s, _| gone = s.commit.result.is_none());
+        assert!(gone, "Back returns to the form");
     }
 
     #[test]

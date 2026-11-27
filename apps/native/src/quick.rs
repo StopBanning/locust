@@ -149,6 +149,8 @@ pub struct State {
     sending: Latest<StartAnswer>,
     waiting: Latest<ReplyAnswer>,
     stream: Latest<StreamAnswer>,
+    /// The system's reduced-motion setting as the last view read it: the working word stands still under it.
+    reduced_motion: std::cell::Cell<bool>,
 }
 
 impl Default for State {
@@ -177,6 +179,7 @@ impl Default for State {
             sending: Latest::default(),
             waiting: Latest::default(),
             stream: Latest::default(),
+            reduced_motion: std::cell::Cell::new(false),
         }
     }
 }
@@ -882,7 +885,13 @@ fn arm_deadline(s: &State, now: Instant, tx: &mut Tx) {
 }
 
 fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
-    poll_at(s, tx, Instant::now())
+    let changed = poll_at(s, tx, Instant::now());
+    // The working word's sweep moves on the main window's cadence (main.rs, `working_shimmer::FRAME_MS`).
+    if sweeping(s) {
+        tx.wake_after(Duration::from_millis(crate::working_shimmer::FRAME_MS));
+        return true;
+    }
+    changed
 }
 
 fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
@@ -971,7 +980,51 @@ fn close(s: &mut State, _: &mut Tx) {
     stop_watching(s);
 }
 
+/// The face the working line wears: the main window's live line's (messages.rs, `thread_face(s, "live", 34.0, p)`).
+const LIVE_FACE: f32 = 34.0;
+
+/// The working line, as the main window's live line draws a working turn (Thread.tsx `LiveStepCard`): the teammate's
+/// face, then the swept word, `sweepText('working')` ("Working…") in `.lc-sweep`. Who is working is the face and the
+/// line's name, "Codec is working…", which the word keeps as its hover title.
+fn working_line(flight: &Flight, p: &Palette, reduced: bool) -> El {
+    #[cfg(test)]
+    WORD_STANDS_STILL.with(|still| still.set(Some(reduced)));
+    let l = crate::look::controls::Look::new(p.dark);
+    let said = format!("{} is working…", flight.name);
+    let word = locust_core::thread_view::sweep_text("working");
+    row()
+        .key("quick-working")
+        .w_full()
+        .center_y()
+        .label(said.clone())
+        .child(
+            row()
+                .key("quick-working-face")
+                .child(crate::look::faces::face(None, &flight.teammate_id, &flight.name, None, LIVE_FACE, false, &l)),
+        )
+        .child(el().w(8.0))
+        .child(
+            crate::working_shimmer::live_word(&word, p.muted, l.c("text-name"), reduced)
+                .key("quick-working-word")
+                .shrink()
+                .truncate()
+                .help(said),
+        )
+}
+
+// What the working word was last drawn with: its sweep's spans are not in Rune's ElementInfo, so a test reads this.
+#[cfg(test)]
+thread_local! {
+    static WORD_STANDS_STILL: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// The working line is on screen and its word should move: shown, a turn working, and motion wanted.
+fn sweeping(s: &State) -> bool {
+    !s.demo && s.visible && s.flight.is_some() && s.activity == Activity::Working && !s.reduced_motion.get()
+}
+
 fn view(s: &State, cx: &mut Cx<State>) -> El {
+    s.reduced_motion.set(cx.is_reduced_motion());
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let teammate = if let Some(flight) = &s.flight {
         s.teammates.iter().find(|t| t.id == flight.teammate_id)
@@ -1059,19 +1112,18 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .selectable(true),
         );
     } else if let Some(flight) = &s.flight {
-        let status = match s.activity {
-            Activity::Working => format!("{} is working…", flight.name),
+        match s.activity {
+            Activity::Working => output = output.child(working_line(flight, &p, s.reduced_motion.get())),
             Activity::WaitingForYou => {
-                format!("{} is waiting for you in Locust", flight.name)
+                output = output.child(
+                    text(format!("{} is waiting for you in Locust", flight.name))
+                        .font(type_::LABEL)
+                        .color(p.muted)
+                        .w_full()
+                        .wrap(),
+                );
             }
-        };
-        output = output.child(
-            text(status)
-                .font(type_::LABEL)
-                .color(p.muted)
-                .w_full()
-                .wrap(),
-        );
+        }
     } else if s.team.is_pending() {
         output = output.child(text("Loading teammates…").font(type_::LABEL).color(p.muted));
     }
@@ -2067,5 +2119,76 @@ mod tests {
         wait(&gone);
         let result = gone.stream.take().expect("job result");
         assert!(matches!(&result, Err(error) if matches!(error.1, ReadFail::Unreadable)));
+    }
+
+    // ---- the working line: the teammate's face and the swept word, as the main window's live line ----
+
+    fn drawn(s: State) -> Vec<rune::ElementInfo> {
+        let mut rt = rune::Runtime::new(s, |s, cx| view(s, cx), (WIDTH, 420.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.elements()
+    }
+
+    fn rect_in(inner: [f32; 4], outer: [f32; 4]) -> bool {
+        inner[0] >= outer[0] - 0.5
+            && inner[1] >= outer[1] - 0.5
+            && inner[0] + inner[2] <= outer[0] + outer[2] + 0.5
+            && inner[1] + inner[3] <= outer[1] + outer[3] + 0.5
+    }
+
+    // Thread.tsx `LiveStepCard`: the owner's face, then `sweepText(REGISTER_WORD.working)`, "Working…", in `.lc-sweep`.
+    #[test]
+    fn the_working_line_holds_the_teammates_face_and_the_swept_word() {
+        let all = drawn(working(Instant::now()));
+        let find = |key: &str| all.iter().find(|e| e.key.as_deref() == Some(key)).unwrap_or_else(|| panic!("no {key}"));
+        let line = find("quick-working");
+        assert_eq!(line.label.as_deref(), Some("Codec is working…"));
+        let face = find("quick-working-face");
+        let word = find("quick-working-word");
+        assert!(rect_in(face.rect, line.rect) && rect_in(word.rect, line.rect), "both on the line");
+        assert_eq!((face.rect[2], face.rect[3]), (34.0, 34.0), "the live line's face size");
+        assert!(face.rect[0] + face.rect[2] <= word.rect[0], "the face leads the word");
+        assert_eq!(word.text.as_deref(), Some("Working…"));
+        assert_eq!(word.help.as_deref(), Some("Codec is working…"));
+        // `.lc-livestep__register`: the live word at 14/500 (working_shimmer::LIVE_WORD), taller than the 12 px label
+        // the plain line wore.
+        assert!(word.rect[3] >= 14.0 * 1.2, "{:?}", word.rect);
+        // `.lc-sweep`: the word is the muted grey; the highlight only passes over it.
+        assert_eq!(word.text_color, Some(Palette::new(true).muted));
+        // The face is the teammate's own drawn bot (look::faces::face for `codec`), not the old initial in a disc.
+        assert!(all.iter().any(|e| e.key.as_deref() == Some("bot-static-codec-34")), "the face drawn is Codec's");
+        assert!(!all.iter().any(|e| e.text.as_deref() == Some("Codec is working…")), "the old plain line is gone");
+    }
+
+    // Lane check of small-2 row 4: shell.css:10321-10326 drops only the sweep's highlight under `prefers-reduced-motion:
+    // reduce` (`.lc-sweep::before { display: none }`), so the word drawn stands still exactly when the system asks for
+    // less motion, and sweeps otherwise.
+    #[test]
+    fn the_working_word_drawn_stands_still_only_when_the_system_asks_for_less_motion() {
+        for reduced in [false, true] {
+            let mut s = working(Instant::now());
+            s.demo = false;
+            let mut rt = rune::Runtime::new(s, |s, cx| view(s, cx), (WIDTH, 420.0), rune::Env::new(true, 1.0));
+            rt.set_system_reduced_motion(reduced);
+            WORD_STANDS_STILL.with(|still| still.set(None));
+            rt.frame(0.0);
+            assert!(rt.find("quick-working-word").is_some(), "the working line is drawn");
+            assert_eq!(WORD_STANDS_STILL.with(std::cell::Cell::get), Some(reduced), "less motion asked: {reduced}");
+        }
+    }
+
+    #[test]
+    fn the_working_word_sweeps_on_the_main_windows_clock_unless_motion_is_reduced() {
+        let mut s = working(Instant::now());
+        s.demo = false;
+        assert!(sweeping(&s));
+        s.reduced_motion.set(true);
+        assert!(!sweeping(&s), "less motion: the word stands still");
+        s.reduced_motion.set(false);
+        s.activity = Activity::WaitingForYou;
+        assert!(!sweeping(&s), "waiting for the person is not working");
+        s.activity = Activity::Working;
+        s.visible = false;
+        assert!(!sweeping(&s), "hidden, nothing moves");
     }
 }
