@@ -573,12 +573,12 @@ pub(crate) fn render_panel(side: &SideChatState, p: &Palette) -> El {
                         .radius(6.0)
                         .fill(p.selected)
                         .child(
-                            text("Approve once")
+                            text("Allow once")
                                 .font(type_::LABEL)
                                 .color(p.text),
                         )
                         .role("button")
-                        .label("Approve once")
+                        .label("Allow once")
                         .on_press(move |_s: &mut State| {
                             let _ = api().decide(&approval_id, Decision::ApproveOnce, None);
                         }),
@@ -923,9 +923,11 @@ mod tests {
             skippable: false, answer_in: None, claude_input: None,
             questions: Vec::new(),
         };
-        let (texts, _) = render_texts_and_labels(sample_side("running", vec![approval]));
+        let (texts, labels) = render_texts_and_labels(sample_side("running", vec![approval]));
         assert!(texts.iter().any(|t| t == "Use create_issue on github"));
-        assert!(texts.iter().any(|t| t == "Approve once"));
+        assert!(texts.iter().any(|t| t == "Allow once"));
+        assert!(labels.iter().any(|l| l.as_deref() == Some("Allow once")));
+        assert!(!texts.iter().any(|t| t.contains("Approve")));
     }
 
     // a-side-question-can-be-approved-and-stopped.test.tsx
