@@ -553,7 +553,11 @@ impl Serve {
         }
         p.last = Some(Instant::now());
         p.sent = p.text.as_str().to_owned();
-        let part = json!({"id":id,"type":"text","text":p.text.as_str(),"messageID":p.message});
+        // Scrub the whole text so far, once per paced emission (at most one per 120 ms), never only the new end: a key split
+        // across two deltas is found only in the whole, and the normalizer writes the difference to the ledger (review of
+        // Soak fixes 1 by the dot, finding 1). The cost is per emission, not per delta, so the reply stays linear in deltas.
+        let clean = super::events::text(p.text.as_str(), 262144);
+        let part = json!({"id":id,"type":"text","text":clean,"messageID":p.message});
         self.push(json!({"type":"text_partial","part":part}));
     }
     fn flush(&mut self) {
@@ -1242,5 +1246,29 @@ mod overflow_words_tests {
         assert_eq!(last.payload["message"], said);
         assert_eq!(last.payload["process"]["stderr"], format!("{said}\nserver log"));
         assert_eq!(last.payload["process"]["outputLimitExceeded"], true, "{:?}", last.payload);
+    }
+}
+
+#[cfg(test)]
+mod split_secret_tests {
+    use super::*;
+
+    /// Review of Soak fixes 1 (the dot, finding 1): a key that arrives split across two paced partials must not reach the
+    /// records whole across the two of them. The first piece is too short to be a key; the second piece alone is not one
+    /// either, so only scrubbing the whole text so far catches it.
+    #[test]
+    fn a_key_split_across_two_partials_never_reaches_the_records_in_pieces() {
+        let mut serve = Serve::new(Command::new("opencode"), Arc::new(AtomicBool::new(false)));
+        serve.roles.insert("m1".into(), "assistant".into());
+        let mut text = HeldText::keeping(PART_END);
+        text.push("here it is: sk-ant-oat01-QQQQ"); // public-guard: allow
+        serve.parts.insert("p1".into(), Part { kind: "text".into(), message: "m1".into(), synthetic: false, text, last: None, sent: String::new() });
+        serve.partial("p1", true);
+        let rest = "Q".repeat(36);
+        serve.parts.get_mut("p1").unwrap().text.push(&rest);
+        serve.partial("p1", true);
+        let written: String = serve.queued.iter().map(|e| e.payload.to_string()).collect();
+        assert!(!serve.queued.is_empty(), "both partials were written");
+        assert!(!written.contains(&rest), "the key's second piece reached the records raw: {written}");
     }
 }
