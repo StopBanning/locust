@@ -27,8 +27,9 @@ struct SendSpec {
     dirty: bool,
     codex_ready: bool,
     exec_reply: Ran,
-    /// `codex cloud list --env` says the repository has no environment (the panel's check before a send).
-    env_missing: bool,
+    /// `codex cloud list --env` says the repository has no environment (the panel's check before a send); shared, so a
+    /// test can make the environment in the Codex app partway through.
+    env_missing: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Default for SendSpec {
@@ -39,7 +40,7 @@ impl Default for SendSpec {
             dirty: false,
             codex_ready: true,
             exec_reply: Ran::ok("https://chatgpt.com/codex/tasks/task_e_9911\n"),
-            env_missing: false,
+            env_missing: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -60,7 +61,7 @@ fn fake_service(spec: SendSpec, calls: Arc<Mutex<Vec<Vec<String>>>>) -> MakeCode
                     .push(args.iter().map(|s| (*s).to_owned()).collect());
                 match args.get(1).copied() {
                     Some("exec") => Ok(spec_codex.exec_reply.clone()),
-                    Some("list") if spec_codex.env_missing => Ok(Ran::new(1, "", "Error: environment 'acme/widgets' not found; run `codex cloud` to list available environments")),
+                    Some("list") if spec_codex.env_missing.load(Ordering::Relaxed) => Ok(Ran::new(1, "", "Error: environment 'acme/widgets' not found; run `codex cloud` to list available environments")),
                     Some("list") => Ok(Ran::ok("")),
                     Some("status") => Ok(Ran::ok("")),
                     _ => Ok(Ran::ok("")),
@@ -451,7 +452,7 @@ fn no_environment_words() -> String {
 // the words stay in the box under what to do instead, and Cloud stays picked.
 #[test]
 fn a_repository_known_to_have_no_codex_environment_holds_the_send_before_it_goes() {
-    let (world, mut rt) = window(SendSpec { env_missing: true, ..SendSpec::default() });
+    let (world, mut rt) = window(SendSpec { env_missing: Arc::new(std::sync::atomic::AtomicBool::new(true)), ..SendSpec::default() });
     click(&mut rt, "compare-mode-chip");
     click(&mut rt, "compare-mode-cloud");
     pump(&mut rt, "missing environment known", |s| {
@@ -471,8 +472,10 @@ fn a_repository_known_to_have_no_codex_environment_holds_the_send_before_it_goes
 // marked as having no environment, and the next send is held back before it goes.
 #[test]
 fn a_no_environment_refusal_marks_the_repository_and_holds_the_next_send() {
+    let missing = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let (world, mut rt) = window(SendSpec {
         exec_reply: Ran::new(1, "", "Error: environment 'acme/widgets' not found; run `codex cloud` to list available environments"),
+        env_missing: missing.clone(),
         ..SendSpec::default()
     });
     click(&mut rt, "compare-mode-chip");
@@ -486,8 +489,32 @@ fn a_no_environment_refusal_marks_the_repository_and_holds_the_next_send() {
     assert_eq!(rt.state.cloud.codex.environment, Some(locust_core::cloud_tasks::CloudEnvironment::Missing));
     assert_eq!(rt.state.draft.text, "Tighten checkout validation");
 
+    // Asked again before the next send, Codex's check now agrees: held back, never sent again.
+    missing.store(true, Ordering::Relaxed);
     rt.update(|s, _| s.composer_note = None);
     type_and_send(&mut rt, "Tighten checkout validation");
     assert_eq!(exec_calls(&world), 1, "the second send is held back, never sent again");
     assert_eq!(rt.state.composer_note.as_deref(), Some(no_environment_words().as_str()));
+}
+
+// Doing what the words say -- making the environment in the Codex app, then sending again -- sends: the hold asks again
+// before it holds (27 Nov), so a repository marked missing earlier never keeps a send from going.
+#[test]
+fn after_the_environment_is_made_the_next_send_goes_to_codex_cloud() {
+    let missing = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let (world, mut rt) = window(SendSpec { env_missing: missing.clone(), ..SendSpec::default() });
+    click(&mut rt, "compare-mode-chip");
+    click(&mut rt, "compare-mode-cloud");
+    pump(&mut rt, "missing environment known", |s| {
+        s.cloud.codex.environment == Some(locust_core::cloud_tasks::CloudEnvironment::Missing)
+    });
+    type_and_send(&mut rt, "Tighten checkout validation");
+    assert_eq!(exec_calls(&world), 0);
+
+    missing.store(false, Ordering::Relaxed);
+    rt.update(|s, _| s.composer_note = None);
+    type_and_send(&mut rt, "Tighten checkout validation");
+    assert_eq!(exec_calls(&world), 1, "the send goes once the environment is there");
+    assert_eq!(rt.state.cloud.codex.environment, Some(locust_core::cloud_tasks::CloudEnvironment::Ready));
+    assert_eq!(rt.state.cloud.codex.tasks.len(), 1, "the task is started and kept");
 }

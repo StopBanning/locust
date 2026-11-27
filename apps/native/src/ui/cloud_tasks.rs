@@ -145,13 +145,18 @@ pub(crate) fn send(s: &mut State, typed: &str) -> bool {
         s.composer_note = Some(CLOUD_START_FAILED.into());
         return true;
     };
-    // NO ENVIRONMENT, NO DOOMED SEND (27 Nov, Electron `sendOrCompare`): known before the send, nothing goes to Codex
-    // Cloud and the words stay in the box under what to do instead.
-    if let Some(repo) = repo_without_environment(s) {
-        s.composer_note = Some(refusal_for(&CloudStartProblem::NoEnvironment { repo }));
-        return true;
-    }
     let svc = build_service(store, &s.cloud.codex.make);
+    // NO ENVIRONMENT, NO DOOMED SEND (27 Nov, Electron `sendOrCompare`): known before the send, it is asked again first --
+    // the words say to make one in the Codex app and send again, and that send must go. Still missing: nothing goes to
+    // Codex Cloud, and the words stay in the box under what to do instead.
+    if let Some(repo) = repo_without_environment(s) {
+        let now = svc.environment(&repo, Path::new(&here));
+        s.cloud.codex.environment = Some(now);
+        if now == CloudEnvironment::Missing {
+            s.composer_note = Some(refusal_for(&CloudStartProblem::NoEnvironment { repo }));
+            return true;
+        }
+    }
     let teammate_id = teammate(s).map(|mate| mate.id.clone());
     match svc.start(CloudStartInput {
         folder: here,
