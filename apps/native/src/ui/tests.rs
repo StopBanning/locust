@@ -831,3 +831,32 @@ fn the_window_wakes_when_the_shared_engine_s_answers_change() {
     });
     assert!(reached, "the engine's change never reached the window");
 }
+
+/// Big Brother's change 1: a running turn keeps moving in a window behind another app's that still shows; it holds
+/// when the window is hidden, minimised or covered, or motion is reduced; with no turn nothing asks for its frames.
+#[test]
+fn a_running_turn_moves_behind_another_window_and_holds_only_when_the_window_is_away() {
+    // The soonest wake one poll asks for, from a window in front, behind another app's window, or covered.
+    let soonest = |s: State, focused: bool, shown: bool| {
+        let mut rt = rune::Runtime::new(s, |_: &State, _: &mut rune::Cx<State>| rune::col(), (100.0, 100.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.window_focus(focused);
+        rt.set_live_visible(shown);
+        rt.update(|s, tx| {
+            let _ = crate::poll(s, 0.0, tx);
+        });
+        rt.frame(0.0);
+        rt.wake_deadline()
+    };
+    let turn = crate::messages::tests_live_state;
+    let motion = |at: Option<f64>| at.is_some_and(|at| at <= 0.06);
+    assert!(motion(soonest(turn(), true, true)), "in front during a turn: the sweep's next frame");
+    assert!(motion(soonest(turn(), false, true)), "behind another window, still on screen: it keeps moving");
+    assert!(!motion(soonest(turn(), false, false)), "covered, hidden or minimised: no motion frames");
+    let calm = turn();
+    calm.reduced_motion.set(true);
+    assert!(!motion(soonest(calm, false, true)), "less motion asked for: none");
+    let mut rest = turn();
+    rest.ledger = None;
+    assert!(!motion(soonest(rest, false, true)), "no turn: no motion frames");
+}
