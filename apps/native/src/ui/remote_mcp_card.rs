@@ -83,11 +83,15 @@ fn press_keep_it_running(s: &mut State) {
 /// This computer's pairing, made once. Tests never reach a relay: without a stand-in of their own there is none.
 fn service(s: &State) -> Option<Arc<RemoteMcp>> {
     let mut held = SERVICE.lock().unwrap_or_else(|e| e.into_inner());
-    if cfg!(test) {
-        return held.clone();
-    }
+    held_or_made(&mut held, || if cfg!(test) { None } else { made(s) })
+}
+
+/// The pairing held, or made now and held when none is (index.ts makes it once, at startup, and keeps it until Locust
+/// quits: `will-quit` disposes it and nothing replaces it). Nothing made is nothing held, so the next look tries again --
+/// a window whose data folder is not read yet has no pairing until it is.
+fn held_or_made(held: &mut Option<Arc<RemoteMcp>>, make: impl FnOnce() -> Option<Arc<RemoteMcp>>) -> Option<Arc<RemoteMcp>> {
     if held.is_none() {
-        *held = Some(made(s)?);
+        *held = make();
     }
     held.clone()
 }
@@ -131,8 +135,7 @@ pub(super) fn dispose() {
 /// What the pairing shows, read on every turn of the window's loop: a card must appear on any screen.
 pub(super) fn poll(s: &mut State) -> bool {
     let Some(service) = service(s) else { return false };
-    service.tick();
-    let now = service.settings();
+    let now = service.look();
     if s.remote_mcp.as_ref() == Some(&now) {
         return false;
     }
@@ -341,6 +344,52 @@ mod tests {
         );
         rt.frame(0.0);
         rt.elements().into_iter().filter_map(|e| e.key).collect()
+    }
+
+    // Lane check: the window keeps two things. `SERVICE` holds the one pairing (index.ts's `remoteMcp`, made once and kept
+    // until Locust quits), and `State::remote_mcp` holds what the window last drew of it, thrown away for the pairing's
+    // new state only when that state changed (the window redraws only then).
+
+    #[test]
+    fn keeps_the_one_pairing_it_made_and_makes_one_again_only_while_none_is_held() {
+        let (a, dir_a) = pairing("held-a", None);
+        let (b, dir_b) = pairing("held-b", None);
+        let mut held = None;
+        let mut asked = 0;
+        // No data folder yet: nothing is made, and nothing is held for the next look to find.
+        assert!(held_or_made(&mut held, || { asked += 1; None }).is_none());
+        assert!(held.is_none());
+        let made = held_or_made(&mut held, || { asked += 1; Some(a.clone()) }).expect("made");
+        assert!(Arc::ptr_eq(&made, &a));
+        // Held, it is kept: never made again, whatever another make would give.
+        let again = held_or_made(&mut held, || { asked += 1; Some(b.clone()) }).expect("held");
+        assert!(Arc::ptr_eq(&again, &a));
+        assert_eq!(asked, 2);
+        let _ = std::fs::remove_dir_all(dir_a);
+        let _ = std::fs::remove_dir_all(dir_b);
+    }
+
+    #[test]
+    fn reads_the_pairing_it_holds_on_every_look_and_keeps_what_it_drew_until_that_changes() {
+        let _turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
+        let (remote, dir) = pairing("kept", None);
+        use_service(remote.clone());
+        let mut s = State::default();
+        assert!(poll(&mut s), "the first look draws the pairing");
+        let drawn = s.remote_mcp.clone().expect("what it drew");
+        assert!(!drawn.enabled);
+        // Nothing changed: what was drawn is kept, and the window is not redrawn.
+        assert!(!poll(&mut s));
+        assert_eq!(s.remote_mcp.as_ref(), Some(&drawn));
+        // The pairing is the one held, on every look.
+        assert!(service(&s).is_some_and(|held| Arc::ptr_eq(&held, &remote)));
+        // The pairing changed: what was drawn is thrown away for its new state.
+        remote.set_enabled(&json!(true));
+        assert!(poll(&mut s));
+        assert_eq!(s.remote_mcp.as_ref(), Some(&remote.look()));
+        assert_ne!(s.remote_mcp.as_ref(), Some(&drawn));
+        assert!(service(&s).is_some_and(|held| Arc::ptr_eq(&held, &remote)));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

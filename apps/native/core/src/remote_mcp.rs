@@ -403,7 +403,8 @@ impl RemoteMcp {
             message: inner.message.clone(),
         }
     }
-    pub fn settings(&self) -> RemoteMcpState {
+    /// What the settings are now, without the due write: the window reads them through `look`.
+    pub(crate) fn settings(&self) -> RemoteMcpState {
         let inner = self.lock();
         self.state_of(&inner)
     }
@@ -591,6 +592,13 @@ impl RemoteMcp {
             inner.used_due = Some(at + USED_SAVE_MS);
         }
     }
+    /// The window's look, every poll: writes an app's last use once it is a minute old (`tick`), then says the settings.
+    /// One call, so a window cannot read the settings and forget the write.
+    pub fn look(&self) -> RemoteMcpState {
+        self.tick();
+        self.settings()
+    }
+
     /// Called now and then by whoever owns this: writes an app's last use once it is a minute old, and tells the window.
     pub fn tick(&self) {
         let due = { self.lock().used_due.is_some_and(|due| due <= self.now()) };

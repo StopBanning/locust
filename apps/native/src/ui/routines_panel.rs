@@ -345,8 +345,10 @@ fn read_hook(s: &mut State, id: &str, replace: bool) {
 fn sync_hooks_async(s: &mut State) {
     let Some(engine) = engine(s) else { return };
     let hooks = engine.host.hooks().clone();
+    // index.ts's `syncHooks`: a sync that fails is written to locust-errors.log in Electron's words.
+    let log_root = engine.host.store().root().to_path_buf();
     std::thread::spawn(move || {
-        let _ = hooks.sync();
+        hooks.sync_or_note(&log_root);
     });
 }
 fn result(s: &mut State, r: Result<(), String>) {
@@ -1654,7 +1656,8 @@ pub(super) fn poll(s: &mut State) -> bool {
                     tick = true;
                 }
                 if tick {
-                    let _ = host.hooks().sync();
+                    // index.ts's `tickRoutines` starts with `syncHooks()`, which notes a sync that fails.
+                    host.hooks().sync_or_note(host.store().root());
                 }
                 let result = if tick { runner.tick(locust_core::routine_runner::Host::now(&*host)).map(|_| ()) } else if ended { runner.ended() } else { Ok(()) };
                 if let Err(e) = result {

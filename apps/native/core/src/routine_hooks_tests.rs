@@ -99,6 +99,8 @@ fn decode_b64url(text: &str) -> Result<Vec<u8>, String> {
 struct FakeRelay {
     room: String,
     on: AtomicBool,
+    /// The relay answers every hook-open with a refusal (phone-anywhere.ts's `command` resolving false).
+    refuse_open: AtomicBool,
     hashes: Mutex<BTreeMap<String, String>>,
     boxes: Mutex<Vec<HookLetter>>,
     lost: Mutex<u64>,
@@ -109,6 +111,7 @@ impl FakeRelay {
         Arc::new(Self {
             room,
             on: AtomicBool::new(true),
+            refuse_open: AtomicBool::new(false),
             hashes: Mutex::new(BTreeMap::new()),
             boxes: Mutex::new(Vec::new()),
             lost: Mutex::new(0),
@@ -128,6 +131,9 @@ impl HookRelay for FakeRelay {
         self.on.load(Ordering::SeqCst)
     }
     fn hook_open(&self, hook: &str, hash: &str) -> Result<bool, String> {
+        if self.refuse_open.load(Ordering::SeqCst) {
+            return Ok(false);
+        }
         self.hashes.lock().unwrap().insert(hook.to_owned(), hash.to_owned());
         Ok(true)
     }
@@ -763,4 +769,52 @@ fn a_hook_cannot_run_a_folder_check_or_make_a_writable_copy_and_preserves_saved_
     assert!(active["execution"].get("untilCheck").is_none());
     assert_eq!(active["inCopy"], json!(true));
     assert_eq!(active["untilCheck"], json!({"tries": 3}));
+}
+
+// ---- Lane check: index.ts's `syncHooks` -------------------------------------------------------------------------------
+// `void keychain.settled().then(() => routineHooks.sync()).catch(() => note('routine', 'The called links could not be
+// collected. They will be tried again when the relay connects.'))`: a sync that fails is written to locust-errors.log,
+// and nothing reaches the window. A relay that refuses a link is not a failed sync in routine-hooks.ts (its `command`
+// resolves false, and the sync goes on to the next link); the editor's own read of the link says so.
+
+const ELECTRON_SYNC_NOTE: &str = " routine: The called links could not be collected. They will be tried again when the relay connects.\n";
+
+#[test]
+fn a_sync_the_keychain_cannot_open_the_links_for_is_written_to_the_log_in_electrons_words() {
+    let f = Fixture::new(&["Summarize the event."]);
+    f.hooks.sync().unwrap();
+    // The kept links are sealed; a keychain that does not answer cannot open them, so load fails (CANNOT_READ).
+    let locked_box = FakeBox::new(true);
+    locked_box.fail_open.store(true, Ordering::SeqCst);
+    let locked = make_hooks(&f.hooks_file, locked_box, f.relay.clone(), &f.store, f.now_ms.clone(), f.protection.clone());
+    let logs = f.root.join("logs");
+    locked.sync_or_note(&logs);
+    let log = std::fs::read_to_string(crate::diagnostic_log::log_path(&logs)).expect("a line was written");
+    assert!(log.ends_with(ELECTRON_SYNC_NOTE), "{log}");
+    assert_eq!(log.lines().count(), 1, "{log}");
+}
+
+#[test]
+fn a_relay_that_refuses_a_link_is_not_a_failed_sync_and_the_editor_says_the_link_is_not_confirmed() {
+    let f = Fixture::new(&["Summarize the event."]);
+    f.relay.refuse_open.store(true, Ordering::SeqCst);
+    let logs = f.root.join("logs");
+    f.hooks.sync_or_note(&logs);
+    assert!(!crate::diagnostic_log::log_path(&logs).exists(), "nothing is noted for a refusal Electron's sync goes past");
+    assert!(f.relay.hashes.lock().unwrap().is_empty());
+    // routine-hooks.ts `state`: what the editor reads for a link the relay has not confirmed, and for one it refused.
+    assert_eq!(
+        f.hooks.state(&f.routine_id, false).unwrap(),
+        RoutineHookState { message: Some("The relay has not confirmed a link yet. Save the routine, then try again when it is connected.".into()), can_make: true, url: None }
+    );
+    assert_eq!(f.hooks.state(&f.routine_id, true).unwrap(), RoutineHookState::message("The relay did not confirm this link. Try again when it is connected."));
+}
+
+#[test]
+fn the_routines_panel_syncs_its_links_through_the_sync_that_notes_a_failure() {
+    // Both of the window's syncs Electron's `syncHooks` stands for: after a save or a removal, and the routines' tick.
+    let panel = include_str!("../../src/ui/routines_panel.rs");
+    assert!(panel.contains("hooks.sync_or_note(&log_root);"));
+    assert!(panel.contains("host.hooks().sync_or_note(host.store().root());"));
+    assert!(!panel.contains("hooks.sync();") && !panel.contains("hooks().sync();"), "a sync whose failure is dropped");
 }
