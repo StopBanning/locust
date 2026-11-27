@@ -137,6 +137,19 @@ fn pressing_a_template_row_opens_its_preview() {
 }
 
 #[test]
+fn a_template_row_is_a_button_named_by_its_template_for_a_screen_reader() {
+    // RoutineTemplates.tsx:43: each row is a <button> whose name is the template's.
+    let rt = window(empty_shelf_state());
+    for t in locust_core::routine_templates::list_shipped_templates() {
+        let key = format!("routine-use-template-{}", t.id);
+        let row = shown(&rt).into_iter().find(|e| e.key.as_deref() == Some(key.as_str())).unwrap_or_else(|| panic!("no {key}"));
+        assert_eq!(row.role, "button", "{key}");
+        assert_eq!(row.label.as_deref(), Some(t.name.as_str()), "{key}");
+        assert!(row.focusable, "{key} can be reached by Tab");
+    }
+}
+
+#[test]
 fn with_routines_the_add_row_names_the_templates_and_opens_the_picker() {
     // AutomationsScreen.tsx:470-478: "Start from a template", `templatesLine(templates)` under it.
     let mut rt = window(one_routine_state());
