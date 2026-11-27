@@ -275,6 +275,14 @@ pub struct Turn {
 }
 impl Turn {
     pub fn begin(store: &Store, workspace: &Path) -> Self {
+        Self::begin_with(store, workspace, take)
+    }
+
+    fn begin_with(
+        store: &Store,
+        workspace: &Path,
+        snapshot: fn(&Store, &Path) -> io::Result<Snapshot>,
+    ) -> Self {
         let _undo = UNDO.lock().unwrap_or_else(|e| e.into_inner());
         let workspace = workspace
             .canonicalize()
@@ -293,7 +301,7 @@ impl Turn {
             shared.store(true, Ordering::SeqCst)
         }
         Self {
-            before: take(store, &workspace),
+            before: snapshot(store, &workspace),
             workspace,
             shared,
         }
@@ -335,8 +343,17 @@ impl Turn {
     /// As `finish_reporting_edits`, with the paths the host itself saw change (A2.17): None when another run shared
     /// the folder, since then the host cannot say whose change a path was.
     pub fn finish_reporting_changes(self, store: &Store, id: &str) -> io::Result<(bool, Option<Vec<String>>)> {
+        self.finish_with(store, id, take)
+    }
+
+    fn finish_with(
+        self,
+        store: &Store,
+        id: &str,
+        snapshot: fn(&Store, &Path) -> io::Result<Snapshot>,
+    ) -> io::Result<(bool, Option<Vec<String>>)> {
         self.leave_active();
-        let after = take(store, &self.workspace);
+        let after = snapshot(store, &self.workspace);
         let before = self
             .before
             .as_ref()
@@ -919,6 +936,10 @@ pub fn put_back(store: &Store, workspace: &Path, turns: &[String]) -> io::Result
 #[cfg(test)]
 #[path = "putting_back_tests.rs"]
 mod putting_back_tests;
+
+#[cfg(test)]
+#[path = "checkpoint_undo_parity_tests.rs"]
+mod checkpoint_undo_parity_tests;
 
 #[cfg(test)]
 mod tests {

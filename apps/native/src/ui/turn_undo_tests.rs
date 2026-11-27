@@ -151,3 +151,33 @@ fn draws_no_undo_for_a_turn_that_shared_its_folder_or_has_no_record() {
         assert!(!shown.contains("Undo these changes") && !shown.contains("Undone"), "{state:?}: {shown}");
     }
 }
+
+#[test]
+fn undo_press_shows_the_refusal_under_its_files_card_and_keeps_the_files() {
+    let (_t, store, work) = turn_that_wrote("mission_refused");
+    let _hook = locust_core::native::hooks::install(store.clone(), None);
+    let mut rt = window(&work, "mission_refused", items(&["report.md", "notes.md"]));
+    pump(&mut rt, "the turn's undo state", |s| matches!(s.turn_undo.states.get("mission_refused"), Some(UndoState::Ready { .. })));
+    press(&mut rt, "/undo-ask");
+    assert!(!said(&rt).contains("Undo could not finish:"));
+
+    // Another writer enters the folder after the offer was read. The actual Undo press must refuse.
+    let active = Turn::begin(&store, &work);
+    press(&mut rt, "/undo-go");
+    pump(&mut rt, "Undo's refusal", |s| !s.turn_undo.undoing && !s.undo_job.is_pending());
+    assert!(rt.elements().iter().any(|e| e.key.as_deref().is_some_and(|k| k.ends_with("/undo-refusal"))));
+    assert!(said(&rt).contains("Undo could not finish: A turn is still running in this folder."));
+    assert!(rt.state.changes.result.is_none(), "the Changes panel did not get the thread's answer");
+    assert_eq!(std::fs::read(work.join("report.md")).unwrap(), b"x\n");
+    assert_eq!(std::fs::read(work.join("notes.md")).unwrap(), b"x\n");
+    assert!(locust_core::checkpoints::undone(&store, &work, "mission_refused").is_none());
+    drop(active);
+
+    #[cfg(unix)]
+    {
+        press(&mut rt, "/undo-go");
+        pump(&mut rt, "Undo's successful retry", |s| s.turn_undo.states.get("mission_refused").is_some_and(UndoState::put_back));
+        assert!(!said(&rt).contains("Undo could not finish:"));
+        assert!(!work.join("report.md").exists() && !work.join("notes.md").exists());
+    }
+}
