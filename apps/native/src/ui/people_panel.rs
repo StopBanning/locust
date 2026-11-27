@@ -11,6 +11,7 @@ pub(super) struct Panel {
     pub month_read: Option<std::time::Instant>,
     pub limit: TextEdit,
     pub memory_tab: bool,
+    tidy_menu_open: bool,
     /// 0 teammates, 1 memory, 2 saved approvals
     pub tab: u8,
     pub entry: Value,
@@ -54,6 +55,7 @@ fn field(value: &str) -> TextEdit {
 pub(super) fn open(s: &mut State) {
     crate::room_screen::close(s);
     s.people_panel.open = true;
+    s.people_panel.tidy_menu_open = false;
     reload(s);
     edit(s, None);
     s.people_panel.form_open = false;
@@ -66,6 +68,7 @@ pub(super) fn open_new(s: &mut State) {
     s.settings_panel.open = false;
     s.routines.open = false;
     s.people_panel.open = true;
+    s.people_panel.tidy_menu_open = false;
     reload(s);
     edit(s, None);
     s.people_panel.removing = None;
@@ -77,6 +80,7 @@ pub(super) fn open_edit(s: &mut State, id: &str) {
     s.settings_panel.open = false;
     s.routines.open = false;
     s.people_panel.open = true;
+    s.people_panel.tidy_menu_open = false;
     reload(s);
     edit(s, Some(id));
     s.people_panel.removing = None;
@@ -556,7 +560,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .color(p.text)
                         .grow(1.0),
                 )
-                .child(button("Close", p).on_press(|s: &mut State| s.people_panel.open = false)),
+                .child(button("Close", p).on_press(|s: &mut State| {
+                    s.people_panel.open = false;
+                    s.people_panel.tidy_menu_open = false;
+                })),
         );
     if !panel.error.is_empty() {
         body = body.child(text(panel.error.clone()).color(p.red).wrap());
@@ -565,14 +572,17 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         row()
             .child(button("Teammates", p).on_press(|s: &mut State| {
                 s.people_panel.tab = 0;
+                s.people_panel.tidy_menu_open = false;
                 s.people_panel.memory_tab = false;
             }))
             .child(button("Memory", p).on_press(|s: &mut State| {
                 s.people_panel.tab = 1;
+                s.people_panel.tidy_menu_open = false;
                 s.people_panel.memory_tab = true;
             }))
             .child(button("Saved approvals", p).on_press(|s: &mut State| {
                 s.people_panel.tab = 2;
+                s.people_panel.tidy_menu_open = false;
                 s.people_panel.memory_tab = false;
             })),
     );
@@ -1251,12 +1261,73 @@ fn team_grid(s: &State, p: &Palette) -> El {
 }
 
 fn set_memory_mode(s: &mut State, mode: &str) {
+    s.people_panel.tidy_menu_open = false;
     let result = s.data.clone().ok_or("No native data folder".to_owned()).and_then(|store| {
         let mut settings = crate::workspace_settings::load(&store)?;
         settings.memory_mode = mode.to_owned();
         crate::workspace_settings::save(&store, &settings)
     });
     done(s, result);
+}
+
+// Electron offers its callback even for an empty roster, so the menu can explain
+// why no teammate can be asked yet. Offline and demo screens cannot send.
+fn tidy_available(s: &State, kept_here: usize) -> bool {
+    !s.demo && s.engine == Some(Kind::Native) && s.people_panel.memory_mode != "off" && kept_here >= 2
+}
+
+fn tidy_kept_here(s: &State) -> usize {
+    let Some(workspace) = current_workspace_id(s) else { return 0 };
+    s.people_panel.memories["memories"].as_array().into_iter().flatten()
+        .filter(|m| m["status"] == "kept" && m["scope"] == "workspace" && m["workspaceId"] == workspace)
+        .count()
+}
+
+fn tidy_teammates(s: &State) -> impl Iterator<Item = &Teammate> {
+    s.teammates.iter().filter(|t| !t.id.is_empty() && t.id != LEDGER_TARGET)
+}
+
+/// App.tsx tidyMemory: a new conversation as the chosen teammate. Use the same
+/// start route as their composer. Tidy blocks are proposals, not edits.
+fn ask_to_tidy(s: &mut State, teammate_id: &str, tx: &mut Tx) {
+    s.people_panel.tidy_menu_open = false;
+    if !tidy_available(s, tidy_kept_here(s)) {
+        return;
+    }
+    let Some(teammate) = tidy_teammates(s).find(|t| t.id == teammate_id).cloned() else { return };
+    let as_teammate = super::review_action::start_as_for(s, &teammate);
+    let model = (!as_teammate.route.model.is_empty() && as_teammate.route.model != "account-default")
+        .then_some(as_teammate.route.model);
+    let origin = native::Origin {
+        // The memory reader keys proposals by the run folder. Tidy this card's folder.
+        folder: s.home.folder_path.as_deref().map(std::path::PathBuf::from),
+        mode: locust_core::approval::Mode::parse(&as_teammate.mode),
+        runtime: Some(as_teammate.route.runtime),
+        account: as_teammate.route.account.map(Some),
+        ..Default::default()
+    };
+    let prompt = locust_core::memory_tidy::tidy_prompt();
+    s.conversations.insert(teammate_id.to_owned(), Conversation::default());
+    select_teammate(s, teammate_id, tx);
+    s.own_turn = None;
+    s.stop_when_named = None;
+    s.flight = Some(Flight {
+        teammate_id: teammate_id.to_owned(),
+        conversation_id: None,
+        header: Some(teammate.clone()),
+        after_tip: None,
+        // This prompt did not come from the composer. Do not restore it to a draft if refused.
+        message: None,
+    });
+    set_status(s, teammate_id, "Sending…", StatusTone::Muted);
+    let job = native::Send {
+        teammate,
+        conversation: None,
+        prompt,
+        model,
+        effort: as_teammate.effort,
+    };
+    s.sending.request((job, origin), |(job, origin)| locust_core::engine_api::api().send(job, origin));
 }
 
 /// MemoryScreen.tsx: About you, How memory is kept, This folder, Everywhere and Recently forgotten, each a card in
@@ -1635,9 +1706,10 @@ fn memory_screen(s: &State, p: &Palette) -> El {
 
     let folder_name = s.home.folder_path.as_deref().and_then(|f| f.trim_end_matches('/').rsplit('/').next()).unwrap_or("no folder").to_owned();
     let mut here_card = card().key("memory-here").child(heading(format!("This folder · {folder_name}")));
-    if mode != "off" && here.len() >= 2 {
-        let nudge = if here.len() > locust_core::memory_tidy::TIDY_NUDGE_AT {
-            format!("{} memories here. ", here.len())
+    let kept_here = tidy_kept_here(s);
+    if tidy_available(s, kept_here) {
+        let nudge = if kept_here > locust_core::memory_tidy::TIDY_NUDGE_AT {
+            format!("{kept_here} memories here. ")
         } else {
             String::new()
         };
@@ -1647,8 +1719,27 @@ fn memory_screen(s: &State, p: &Palette) -> El {
                 .gap(8.0)
                 .center_y()
                 .child(note(&format!("{nudge}A teammate reads them and suggests merges and retirements; nothing changes until you keep it.")).grow(1.0).shrink())
-                .child(button("Tidy up…", p).key("memory-tidy")),
+                .child(button("Tidy up…", p).key("memory-tidy").expanded(panel.tidy_menu_open)
+                    .on_press(|s: &mut State| s.people_panel.tidy_menu_open = !s.people_panel.tidy_menu_open)),
         );
+        if panel.tidy_menu_open {
+            let mut menu = col().key("memory-tidy-menu").gap(4.0).padding(8.0)
+                .radius(8.0).border(1.0, l.c("border-hairline"))
+                .child(heading("Tidy up with".into()));
+            let mut teammates = tidy_teammates(s).peekable();
+            if teammates.peek().is_none() {
+                menu = menu.child(button("Add a teammate first", p).disabled(true))
+                    .child(note("A tidy pass is a teammate reading the memories."));
+            }
+            for teammate in teammates {
+                let id = teammate.id.clone();
+                menu = menu.child(
+                    button(&format!("Ask {}", teammate.name), p).key(format!("memory-tidy-with-{id}"))
+                        .on_press_tx(move |s: &mut State, tx: &mut Tx| ask_to_tidy(s, &id, tx)),
+                );
+            }
+            here_card = here_card.child(menu);
+        }
     }
     if here.is_empty() {
         here_card = here_card.child(note("Nothing remembered for this folder yet."));
@@ -2472,7 +2563,7 @@ mod memory_proposal_tests {
         })
     }
 
-    fn render(memories: Vec<Value>, mode: &str) -> Runtime<State> {
+    fn memory_window_state(memories: Vec<Value>, mode: &str) -> State {
         let mut s = State::default();
         s.people_panel.open = true;
         s.people_panel.tab = 1;
@@ -2480,8 +2571,12 @@ mod memory_proposal_tests {
         s.people_panel.memory_mode = mode.to_owned();
         s.people_panel.memories = json!({ "memories": memories, "forgotten": [] });
         s.home.folder_path = Some("/tmp/shop".into());
+        s
+    }
+
+    fn render(memories: Vec<Value>, mode: &str) -> Runtime<State> {
         let mut rt = Runtime::new(
-            s,
+            memory_window_state(memories, mode),
             |s, _| memory_screen(s, &Palette::new(true)),
             (900.0, 2000.0),
             Env::new(true, 1.0),
@@ -2543,7 +2638,7 @@ mod memory_proposal_tests {
         assert!(!joined.contains("Wants to "), "{joined}");
     }
 
-    // a-tidy-suggestion-says-what-it-does.test.tsx
+    // case: a merge: the one sentence, every memory it replaces, Merge them / Keep them apart
     #[test]
     fn a_merge_suggestion_lists_every_memory_it_replaces_with_merge_them_and_keep_them_apart() {
         let a = kept("mem_a", "Deploys go out on Thursdays.");
@@ -2569,7 +2664,7 @@ mod memory_proposal_tests {
         assert!(all.iter().any(|t| t == "Keep them apart"), "{joined}");
     }
 
-    // a-tidy-suggestion-says-what-it-does.test.tsx
+    // case: a retirement says why -- in words, not the ids the model cited
     #[test]
     fn a_retirement_suggestion_says_why_without_citing_model_ids() {
         let a = kept("mem_a", "Deploys go out on Thursdays.");
@@ -2593,27 +2688,299 @@ mod memory_proposal_tests {
         assert!(!joined.contains("mem_a"), "{joined}");
     }
 
-    // a-tidy-suggestion-says-what-it-does.test.tsx
+    fn tidy_window(rows: Vec<Value>, mode: &str, offer: bool) -> Runtime<State> {
+        let mut rt = Runtime::new(
+            memory_window_state(rows, mode),
+            super::super::view,
+            (1320.0, 1450.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.update(|s, _| {
+            let workspace = current_workspace_id(s).unwrap();
+            for m in s.people_panel.memories["memories"].as_array_mut().unwrap() {
+                m["workspaceId"] = json!(workspace);
+            }
+            if offer {
+                s.engine = Some(Kind::Native);
+                apply_team(s, vec![Teammate {
+                    id: "tm_wren".into(), name: "Wren".into(), role: "Custom".into(),
+                    runtime: Some("codex".into()), model: Some("synthetic-model".into()),
+                    account: None, busy: false, runs_in: "ask".into(),
+                    folder: s.home.folder_path.clone(),
+                }]);
+            }
+        });
+        rt.frame(0.05);
+        rt
+    }
+
+    fn click_memory(rt: &mut Runtime<State>, key: &str) {
+        // Let reflow and press motion land before reading the next button's hit box.
+        for _ in 0..12 {
+            rt.frame(0.05);
+        }
+        let (x, y) = rt.find(key).unwrap_or_else(|| panic!("missing {key}"));
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        for _ in 0..12 {
+            rt.frame(0.05);
+        }
+    }
+
+    // case: once there is something to tidy, memory is on, and a teammate can be asked
     #[test]
-    fn offers_a_tidy_pass_when_two_or_more_and_mode_is_on_and_nudges_past_limit() {
+    fn tidy_button_opens_the_teammate_menu_only_when_offered() {
         let a = kept("mem_a", "Deploys go out on Thursdays.");
         let b = kept("mem_b", "We deploy every Thursday.");
-        let offered = render(vec![a.clone(), b.clone()], "auto");
-        let joined = texts(&offered).join("\n");
-        assert!(joined.contains("Tidy up…"), "{joined}");
-        assert!(joined.contains("suggests merges and retirements; nothing changes until you keep it"), "{joined}");
-        assert!(!texts(&render(vec![a.clone()], "auto")).join("\n").contains("Tidy up…"));
-        assert!(!texts(&render(vec![a, b], "off")).join("\n").contains("Tidy up…"));
+        let mut rt = tidy_window(vec![a.clone(), b.clone()], "auto", true);
+        let before = rt.state.people_panel.memories.clone();
+        assert!(texts(&rt).join("\n").contains("suggests merges and retirements; nothing changes until you keep it"));
+        click_memory(&mut rt, "memory-tidy");
+        let menu = texts(&rt).join("\n");
+        assert!(menu.contains("Tidy up with") && menu.contains("Ask Wren"), "{menu}");
+        assert_eq!(rt.state.people_panel.memories, before);
+        assert!(rt.state.flight.is_none(), "opening the chooser must not send");
+        click_memory(&mut rt, "memory-tidy");
+        assert!(!rt.state.people_panel.tidy_menu_open, "the second press closes the chooser");
+        assert!(rt.find("memory-tidy-menu").is_none(), "the closed chooser is not live");
 
-        let at_limit: Vec<Value> = (0..locust_core::memory_tidy::TIDY_NUDGE_AT)
+        assert!(tidy_window(vec![a.clone()], "auto", true).find("memory-tidy").is_none());
+        assert!(tidy_window(vec![a.clone(), b.clone()], "off", true).find("memory-tidy").is_none());
+        assert!(tidy_window(vec![a.clone(), b.clone()], "auto", false).find("memory-tidy").is_none());
+
+        let mut empty_team = tidy_window(vec![a.clone(), b.clone()], "auto", true);
+        empty_team.update(|s, _| s.teammates.clear());
+        empty_team.frame(0.05);
+        click_memory(&mut empty_team, "memory-tidy");
+        let menu = texts(&empty_team).join("\n");
+        assert!(menu.contains("Add a teammate first"), "{menu}");
+        assert!(menu.contains("A tidy pass is a teammate reading the memories."), "{menu}");
+
+        let mut elsewhere = tidy_window(vec![a, b], "auto", true);
+        elsewhere.update(|s, _| s.people_panel.memories["memories"][1]["workspaceId"] = json!("ws_other"));
+        elsewhere.frame(0.05);
+        assert!(elsewhere.find("memory-tidy").is_none());
+    }
+
+    // App.tsx tidyMemory and the merge from a-tidy-pass-only-suggests.test.ts.
+    #[test]
+    fn asking_wren_starts_a_tidy_turn_and_only_merge_them_changes_kept_memory() {
+        // Other window tests can install a process-wide browser host. Give this
+        // fake Codex turn a fresh process so it never inherits that host.
+        const ISOLATED: &str = "LOCUST_TEST_TIDY_PASS_IN_CHILD";
+        if std::env::var_os(ISOLATED).is_none() {
+            let test = "people_panel::memory_proposal_tests::asking_wren_starts_a_tidy_turn_and_only_merge_them_changes_kept_memory";
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", test, "--nocapture"])
+                .env(ISOLATED, "1")
+                .output()
+                .expect("start the tidy window in its own process");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                output.status.success() && stdout.contains("1 passed; 0 failed"),
+                "tidy window child failed:\n{stdout}{}",
+                String::from_utf8_lossy(&output.stderr),
+            );
+            return;
+        }
+
+        const PROMPT: &str = r#"Tidy this folder's team memory. Read .locust/memory.md -- every memory is listed there, with its id in square brackets at the end of its line.
+Suggest at most 10 changes, and only ones you are sure of:
+- merge two or more memories that say the same thing, as one sentence;
+- retire a memory that is stale, superseded by another, or no longer true, and say why in plain words -- one marked "may be out of date" names a file that changed after it was written, so check that file, and one marked "not given to a teammate in N days" may no longer matter;
+- rewrite a memory that is unclear or contradicts another, as the corrected sentence.
+Change nothing yourself: every suggestion waits for the person, who keeps it or not. The ids are for the block only; the person reads your reasons, so write them without ids.
+Say in a sentence or two what you found, then end your reply with a block in this form, one suggestion per line, each id exactly as the file shows it:
+
+<locust-tidy>
+merge mem_a mem_b :: the one sentence that replaces them
+retire mem_c :: why it no longer holds
+rewrite mem_d :: the corrected sentence
+</locust-tidy>
+
+Write the block in your reply itself -- not in a code block, a command or a file. If nothing needs tidying, say so and leave the block out."#;
+        const FAKE: &str = r#"
+import json, sys
+def emit(**message):
+    print(json.dumps(dict(jsonrpc='2.0', **message)), flush=True)
+def notify(method, **params):
+    emit(method=method, params=dict(threadId='thread_tidy', **params))
+for line in sys.stdin:
+    msg = json.loads(line)
+    method, p = msg.get('method'), msg.get('params', {})
+    if 'id' not in msg:
+        continue
+    if method == 'thread/start':
+        emit(id=msg['id'], result={'thread': {'id': 'thread_tidy'}})
+    elif method == 'turn/start':
+        assert p['model'] == 'synthetic-model', p
+        assert sys.argv[1] in p['input'][0]['text'], p
+        emit(id=msg['id'], result={'turn': {'id':'turn_tidy', 'status':'inProgress'}})
+        notify('turn/started', turn={'id':'turn_tidy'})
+        reply = 'Two records say the same thing.\n<locust-tidy>\nmerge mem_a mem_b :: Deploys go out every Thursday.\n</locust-tidy>'
+        notify('item/agentMessage/delta', itemId='answer', delta=reply)
+        notify('item/completed', item={'id':'answer', 'type':'agentMessage', 'text':reply})
+        notify('turn/completed', turn={'id':'turn_tidy', 'status':'completed'})
+    elif method == 'initialize' or method == 'config/read':
+        emit(id=msg['id'], result={'config': {}})
+    else:
+        raise AssertionError(msg)
+"#;
+        struct Temp(std::path::PathBuf);
+        impl Drop for Temp {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = Temp(std::env::temp_dir().join(format!(
+            "locust-tidy-button-{}-{}",
+            std::process::id(), locust_core::invariants::unique_nanos()
+        )));
+        let folder = root.0.join("shop");
+        std::fs::create_dir_all(&folder).unwrap();
+        let folder = folder.canonicalize().unwrap();
+        let other_folder = root.0.join("wrens-usual-folder");
+        std::fs::create_dir_all(&other_folder).unwrap();
+        let store = locust_core::store::Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+        let _hook = native::hooks::install(
+            store.clone(),
+            Some(("python3".into(), vec!["-c".into(), FAKE.into(), PROMPT.into()])),
+        );
+        let mut a = kept("mem_a", "Deploys go out on Thursdays.");
+        let mut b = kept("mem_b", "We deploy every Thursday.");
+        let workspace_id = people::workspace_id(&folder);
+        a["workspaceId"] = json!(workspace_id);
+        b["workspaceId"] = json!(workspace_id);
+        let initial = json!({"schemaVersion":1,"memories":[a,b]});
+        store.save_json("memories.json", &initial).unwrap();
+        store.save_json("teammates.json", &json!({
+            "schemaVersion": 1,
+            "teammates": [{"teammateId":"tm_wren","name":"Wren","role":"Custom"}],
+            "missionOwners": {},
+            "settings": {"memoryMode":"auto"}
+        })).unwrap();
+        let mut rt = tidy_window(vec![a.clone(), b.clone()], "auto", true);
+        rt.update(|s, _| {
+            s.data = Some(store.clone());
+            s.engine = Some(Kind::Native);
+            s.home.folder_path = Some(folder.to_string_lossy().into_owned());
+            s.people_panel.memories = initial.clone();
+            let wren = s.teammates.iter_mut().find(|t| t.id == "tm_wren").unwrap();
+            wren.folder = Some(other_folder.to_string_lossy().into_owned());
+            let mut mira = wren.clone();
+            mira.id = "tm_mira".into();
+            mira.name = "Mira".into();
+            mira.model = Some("not-wrens-model".into());
+            s.teammates.insert(0, mira);
+            s.selected = 0;
+            s.conversations.insert("tm_wren".into(), Conversation {
+                conversation_id: Some("wren-already-has-a-thread".into()),
+                ..Default::default()
+            });
+        });
+        rt.frame(0.05);
+        assert_eq!(rt.state.teammates[rt.state.selected].id, "tm_mira");
+        click_memory(&mut rt, "memory-tidy");
+        assert_eq!(people::memories(&store).unwrap()["memories"], json!([a,b]));
+        click_memory(&mut rt, "memory-tidy-with-tm_wren");
+        let flight = rt.state.flight.as_ref().expect("Ask Wren must start a turn");
+        assert_eq!(flight.teammate_id, "tm_wren");
+        assert_eq!(rt.state.teammates[rt.state.selected].id, "tm_wren");
+        assert_eq!(flight.conversation_id, None, "tidy starts a fresh conversation");
+        assert!(!rt.state.people_panel.open);
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        let proposal_id = loop {
+            let file = people::memories(&store).unwrap();
+            let rows = file["memories"].as_array().unwrap();
+            if let Some(proposal) = rows.iter().find(|row| row["status"] == "proposed") {
+                assert_eq!(proposal["merges"], json!(["mem_a","mem_b"]));
+                assert_eq!(proposal["text"], "Deploys go out every Thursday.");
+                assert_eq!(proposal["by"]["name"], "Wren");
+                let kept: Vec<_> = rows.iter().filter(|row| row["status"] == "kept")
+                    .map(|row| row["text"].as_str().unwrap()).collect();
+                assert_eq!(kept, ["Deploys go out on Thursdays.", "We deploy every Thursday."]);
+                break proposal["memoryId"].as_str().unwrap().to_owned();
+            }
+            // The native engine writes proposals in its worker. Window poll
+            // would install a browser host into this test process.
+            if let Some(started) = rt.state.sending.take() {
+                started.expect("start the fake Codex tidy turn");
+            }
+            assert!(std::time::Instant::now() < deadline, "Wren never proposed the merge");
+            std::thread::sleep(Duration::from_millis(15));
+        };
+        rt.update(|s, _| open(s));
+        rt.frame(0.3);
+        let key = format!("memory-keep-{proposal_id}");
+        assert!(texts(&rt).iter().any(|words| words == "Merge them"));
+        click_memory(&mut rt, &key);
+        let file = people::memories(&store).unwrap();
+        let kept: Vec<_> = file["memories"].as_array().unwrap().iter()
+            .filter(|row| row["status"] == "kept").map(|row| row["text"].as_str().unwrap()).collect();
+        assert_eq!(kept, ["Deploys go out every Thursday."]);
+    }
+
+    // case: says so outright past ${String(TIDY_NUDGE_AT)} memories
+    #[test]
+    fn tidy_button_only_nudges_past_sixty_memories() {
+        let at_limit: Vec<Value> = (0..60)
             .map(|i| kept(&format!("mem_{i}"), &format!("Note number {i}.")))
             .collect();
-        assert!(!texts(&render(at_limit.clone(), "auto")).join("\n").contains("memories here."));
-
+        assert!(!texts(&tidy_window(at_limit.clone(), "auto", true)).join("\n").contains("memories here."));
         let mut past_limit = at_limit;
         past_limit.push(kept("mem_extra", "One more note."));
-        let expected = format!("{} memories here.", locust_core::memory_tidy::TIDY_NUDGE_AT + 1);
-        assert!(texts(&render(past_limit, "auto")).join("\n").contains(&expected));
+        assert!(texts(&tidy_window(past_limit, "auto", true)).join("\n").contains("61 memories here."));
+    }
+
+    // case: the card names the merge and the retirement for what they ask
+    #[test]
+    fn tidy_reply_card_names_both_pending_actions() {
+        let a = kept("mem_a", "Deploys go out on Thursdays.");
+        let b = kept("mem_b", "We deploy every Thursday.");
+        let c = kept("mem_c", "The API is on port 3000.");
+        let mut merge = kept("mem_m", "Deploys go out every Thursday.");
+        merge["status"] = json!("proposed");
+        merge["merges"] = json!(["mem_a", "mem_b"]);
+        merge["by"] = json!({"name":"Wren"});
+        merge["missionId"] = json!("mission_tidy");
+        let mut retire = kept("mem_r", "The API is on port 3000.");
+        retire["status"] = json!("proposed");
+        retire["forgets"] = json!("mem_c");
+        retire["by"] = json!({"name":"Wren"});
+        retire["missionId"] = json!("mission_tidy");
+        let mut s = State::default();
+        s.people_panel.memories = json!({"memories":[a,b,c,merge,retire]});
+        let mut rt = Runtime::new(
+            s,
+            |s, _| crate::memory_card::view(s, Some("mission_tidy"), &Palette::new(true))
+                .expect("the tidy turn has a memory card"),
+            (900.0, 320.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        assert!(texts(&rt).join("\n").contains(
+            "Wren wants to forget 1 thing and wants to merge 1 set of memories — answer it on the Memory screen"
+        ));
+    }
+
+    // case: the notice counts the suggestions and says which could not be made
+    #[test]
+    fn tidy_notice_counts_pending_suggestions_and_explains_refusals() {
+        let mut waiting = kept("mem_m", "Deploys go out every Thursday.");
+        waiting["status"] = json!("proposed");
+        let mut rt = render(vec![waiting], "auto");
+        rt.update(|s, _| heard_memory_changed(s, &people::MemoryChanged {
+            by: "Wren".into(),
+            proposed_tidy: 2,
+            tidy_refused: vec!["A suggestion to forget a memory named one this folder does not keep.".into()],
+            ..Default::default()
+        }));
+        rt.frame(0.05);
+        assert!(texts(&rt).join("\n").contains(
+            "Wren suggested 2 changes to memory, waiting below. 1 could not be made: A suggestion to forget a memory named one this folder does not keep."
+        ));
     }
 
     // a-tidy-pass-is-answered-in-one-press.test.tsx
