@@ -12,7 +12,9 @@ fn drawn(items: &[ledger::Item], s: State) -> (usize, usize) {
     rt.frame(0.0);
     let elements = rt.elements();
     let names = elements.iter().filter(|e| e.text.as_deref() == Some("Codec")).count();
-    let copies = elements.iter().filter(|e| e.label.as_deref() == Some("Copy reply")).count();
+    // In sight at rest: an older turn's last reply keeps a Copy too, hidden until the pointer is on it
+    // (REVIEW-ui-changes-2026-11-26.md change 8, reply_copy_tests.rs).
+    let copies = elements.iter().filter(|e| e.label.as_deref() == Some("Copy reply") && e.opacity > 0.5).count();
     (names, copies)
 }
 

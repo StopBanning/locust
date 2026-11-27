@@ -150,6 +150,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     // One face per run of speech, Copy once under the turn's last reply (Thread.tsx continuesSpeech, lastSpeech).
     let said = |i: usize| matches!(&items[i], ledger::Item::Assistant { text, .. } if !locust_core::protocol_tags::shown_text(text).is_empty());
     let last_speech = locust_core::speech_runs::last_speech(items, turn_running(s), said);
+    // Each older turn's last reply keeps a Copy under the pointer (REVIEW-ui-changes-2026-11-26.md change 8; Thread.tsx
+    // :324-345 gives every turn's last reply one): the last said reply before each of the person's later words.
+    let turn_ends: std::collections::HashSet<usize> = (0..items.len())
+        .filter(|&at| matches!(items[at], ledger::Item::User(_)))
+        .filter_map(|at| (0..at).rev().take_while(|&i| !matches!(items[i], ledger::Item::User(_))).find(|&i| said(i)))
+        .collect();
     let pieces = locust_core::steps_fold::thread_pieces(items, turn_running(s));
     let drawn_alone: std::collections::HashSet<usize> =
         pieces.iter().filter_map(|piece| if let locust_core::steps_fold::Piece::Item(i) = piece { Some(*i) } else { None }).collect();
@@ -501,7 +507,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply_in_thread(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p));
+                        .child(reply_actions::with_hover_copy(
+                            reply_actions::reply_in_thread(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p),
+                            s, &shown, turn_ends.contains(&index) && last_speech != Some(index), p,
+                        ));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
