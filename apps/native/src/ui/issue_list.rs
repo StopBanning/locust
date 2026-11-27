@@ -9,6 +9,17 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Target {
+    folder: PathBuf,
+    draft_key: String,
+}
+
+struct StagedIssue {
+    target: Target,
+    brief: String,
+}
+
 #[derive(Default)]
 pub(super) struct Picker {
     pub open: bool,
@@ -19,14 +30,16 @@ pub(super) struct Picker {
     pub empty: Option<String>,
     /// The issue the next send starts from.
     pub pending: Option<StartedIssue>,
+    picker_target: Option<Target>,
+    staged: Option<StagedIssue>,
     /// Whether the folder on screen is one `gh` can read, once asked.
     pub ready: Option<(PathBuf, bool)>,
 }
 
 pub(super) enum Answer {
     Ready(PathBuf, bool),
-    Listed(Vec<ListedIssue>),
-    Opened(Option<(String, StartedIssue)>),
+    Listed(Target, Vec<ListedIssue>),
+    Opened(Target, String, Option<(String, StartedIssue)>),
 }
 
 static GH: Mutex<Option<Arc<GhIn>>> = Mutex::new(None);
@@ -49,6 +62,14 @@ fn folder(s: &State) -> Option<PathBuf> {
     selected_conversation(s).and_then(|(t, _)| t.folder.as_ref()).or_else(|| s.teammates.get(s.selected).and_then(|t| t.folder.as_ref())).map(PathBuf::from)
 }
 
+fn target(s: &State) -> Option<Target> {
+    Some(Target { folder: folder(s)?, draft_key: conversation_draft_key(s)? })
+}
+
+fn picker_is_current(s: &State, expected: &Target) -> bool {
+    s.issues.open && s.issues.picker_target.as_ref() == Some(expected) && target(s).as_ref() == Some(expected)
+}
+
 /// `/issues` is offered only for a folder `gh` can read as a GitHub repository.
 pub(super) fn offered(s: &State) -> bool {
     matches!((&s.issues.ready, folder(s)), (Some((at, true)), Some(now)) if *at == now)
@@ -57,6 +78,32 @@ pub(super) fn offered(s: &State) -> bool {
 /// Ask once whether the folder on screen is a GitHub one, off the window's thread.
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = false;
+    if s.issues.open && s.issues.picker_target.as_ref() != target(s).as_ref() {
+        s.issues.open = false;
+        changed = true;
+    }
+    if let Some(answer) = s.issues_job.take() {
+        changed = true;
+        match answer {
+            Answer::Ready(at, ready) if folder(s).as_ref() == Some(&at) => s.issues.ready = Some((at, ready)),
+            Answer::Listed(at, issues) if picker_is_current(s, &at) => {
+                s.issues.issues = issues;
+                s.issues.at = 0;
+            }
+            Answer::Opened(at, was, opened) if picker_is_current(s, &at) && s.draft.text == was => {
+                if let Some((brief, issue)) = opened {
+                    s.draft.replace_text(&brief);
+                    s.draft.focused = true;
+                    s.issues.pending = Some(issue);
+                    s.issues.staged = Some(StagedIssue { target: at, brief });
+                    s.issues.open = false;
+                } else {
+                    s.issues.empty = Some("That issue could not be read. The box is unchanged.".into());
+                }
+            }
+            _ => {} // A stale answer cannot write into the current box.
+        }
+    }
     if let Some(now) = folder(s)
         && s.issues.ready.as_ref().is_none_or(|(at, _)| *at != now)
         && !s.issues_job.is_pending()
@@ -68,45 +115,38 @@ pub(super) fn poll(s: &mut State) -> bool {
             Answer::Ready(now, ready)
         });
     }
-    if let Some(answer) = s.issues_job.take() {
-        changed = true;
-        match answer {
-            Answer::Ready(at, ready) => s.issues.ready = Some((at, ready)),
-            Answer::Listed(issues) => {
-                s.issues.issues = issues;
-                s.issues.at = 0;
-            }
-            Answer::Opened(None) => s.issues.empty = Some("That issue could not be read. The box is unchanged.".into()),
-            Answer::Opened(Some((brief, issue))) => {
-                s.draft.replace_text(&brief);
-                s.draft.focused = true;
-                s.issues.pending = Some(issue);
-                s.issues.open = false;
-            }
-        }
-    }
     changed
 }
 
 /// The list, as `/issues` opens it.
 pub(super) fn open_list(s: &mut State) {
-    let (Some(at), Some(gh)) = (folder(s), gh()) else { return };
+    if !offered(s) {
+        return;
+    }
+    let (Some(at), Some(gh)) = (target(s), gh()) else { return };
     s.issues.open = true;
+    s.issues.picker_target = Some(at.clone());
     s.issues.empty = None;
     s.issues.query = TextEdit::default();
     s.issues.query.focused = true;
     s.issues.issues.clear();
-    s.issues_job.request((gh, at), |(gh, at)| Answer::Listed(github_issues::list(gh.as_ref(), &at)));
+    s.issues_job.request((gh, at), |(gh, at)| {
+        let issues = github_issues::list(gh.as_ref(), &at.folder);
+        Answer::Listed(at, issues)
+    });
 }
 
 fn choose(s: &mut State, number: u64) {
-    let (Some(at), Some(gh)) = (folder(s), gh()) else { return };
-    s.issues_job.request((gh, at, number), |(gh, at, number)| {
-        let opened = github_issues::open_with_images(gh.as_ref(), &at, number, |url| {
+    let (Some(at), Some(gh)) = (target(s), gh()) else { return };
+    if !picker_is_current(s, &at) || !s.issues.issues.iter().any(|issue| issue.number == number) {
+        return;
+    }
+    s.issues_job.request((gh, at, s.draft.text.clone(), number), |(gh, at, was, number)| {
+        let opened = github_issues::open_with_images(gh.as_ref(), &at.folder, number, |url| {
             if cfg!(test) { None } else { github_issues::real_image_get(url) }
         })
         .map(|(brief, issue, _images)| (brief, issue));
-        Answer::Opened(opened)
+        Answer::Opened(at, was, opened)
     });
 }
 
@@ -144,7 +184,13 @@ pub(super) fn key(s: &mut State, event: &KeyEvent) -> bool {
 
 pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
     if !s.issues.open {
-        return None;
+        let staged = s.issues.staged.as_ref()?;
+        let issue = s.issues.pending.as_ref()?;
+        if target(s).as_ref() != Some(&staged.target) || s.draft.text != staged.brief {
+            return None;
+        }
+        return Some(row().key(format!("issue-draft-{}", issue.number)).role("status")
+            .child(text(format!("#{} · {}", issue.number, issue.title)).font(type_::LABEL).color(p.secondary)));
     }
     let now = chrono::Utc::now().timestamp_millis();
     let list = shown(s);
@@ -212,3 +258,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
     }
     Some(body)
 }
+
+#[cfg(test)]
+#[path = "next_steps_issue_handoff_tests.rs"]
+mod issue_handoff_tests;
