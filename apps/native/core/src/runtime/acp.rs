@@ -146,6 +146,15 @@ pub fn command(profile: &Path, folder: &Path, route: Option<&str>) -> io::Result
 
 /// The value to ask for, given what the agent lists for a setting (acp-run.ts `resolveConfigValue`).
 pub type ResolveConfig = Arc<dyn Fn(&str, &str, &[String]) -> String + Send + Sync>;
+/// A failed turn in the runtime's own words (acp-events.ts `failureWords`): what the thread says, the limit card's
+/// words when it is a used-up quota, and whether the session is gone, so the next reply starts fresh.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FailureSaid {
+    pub message: String,
+    pub limit: Option<String>,
+    pub session_ended: bool,
+}
+pub type FailureWords = fn(&str, i64) -> Option<FailureSaid>;
 
 #[derive(Clone)]
 pub struct Profile {
@@ -162,6 +171,7 @@ pub struct Profile {
     pub resolve: Option<ResolveConfig>,
     /// The agent's questions go on a question card: forms are offered at `initialize` (acp-run.ts `onElicitation`).
     pub questions: bool,
+    pub failure_words: Option<FailureWords>,
 }
 impl Default for Profile {
     fn default() -> Self {
@@ -175,6 +185,7 @@ impl Default for Profile {
             preferred: vec![],
             resolve: None,
             questions: false,
+            failure_words: None,
         }
     }
 }
@@ -681,6 +692,13 @@ impl Acp {
         }
     }
     fn finish(&mut self, stop: &str, usage: Value, failure: Option<&str>) {
+        // The runtime's own words for a failed turn (acp-events.ts `failureWords`), and its limit card's.
+        let own = failure.and_then(|f| self.profile.failure_words.and_then(|words| words(f, chrono::Utc::now().timestamp_millis())));
+        if let Some(said) = &own {
+            self.normal.limit_words = said.limit.clone();
+            self.normal.session_ended = said.session_ended;
+        }
+        let failure = own.as_ref().map(|said| said.message.as_str()).or(failure);
         self.queued.extend(self.normal.finish(
             stop,
             usage,

@@ -19,6 +19,10 @@ pub struct AcpNormalizer {
     thinking: bool,
     /// What the open thought has said so far: its step's message once it closes (acp-events.ts `closeReasoning`).
     thought: HeldText,
+    /// The limit card's words for a used-up quota, when the runtime says them its own way (agy, 27 Nov 2026).
+    pub limit_words: Option<String>,
+    /// The session is gone (agy: "Session not found"): the failure says so, and the next reply starts fresh.
+    pub session_ended: bool,
 }
 fn string(v: &Value) -> Option<&str> {
     v.as_str().filter(|s| !s.is_empty())
@@ -388,11 +392,15 @@ impl AcpNormalizer {
                 "process-failed"
             };
             if matches!(k, "quota-exhausted" | "temporary-rate-limit") {
-                out.push(self.event("route.limit_detected",json!({"kind":k,"message":text(f,16384),"evidence":{"runtimeEventType":"acp.error","redacted":true}})));
+                let said = self.limit_words.take().unwrap_or_else(|| text(f, 16384));
+                out.push(self.event("route.limit_detected",json!({"kind":k,"message":said,"evidence":{"runtimeEventType":"acp.error","redacted":true}})));
             }
             p["kind"] = json!(k);
             p["message"] = json!(text(f, 16384));
             p["runtimeTerminal"] = json!("missing");
+            if self.session_ended {
+                p["sessionEnded"] = json!(true);
+            }
             "run.failed"
         } else if stop == "refusal" {
             p["kind"] = json!("safety-blocked");

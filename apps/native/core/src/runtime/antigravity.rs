@@ -8,7 +8,7 @@
 //! "User Skipped" itself). Modes are `default`, `accept-edits`, `auto`, `plan`; the model and effort are its `model` and
 //! `thought_level` settings, the effort's choices listed per model. `session/load` continues an ACP session and a
 //! conversation `-p` began alike.
-use super::acp::{Acp, Profile};
+use super::acp::{Acp, FailureSaid, Profile};
 use super::process::{Control, interrupt_process, kill_process};
 use super::{Event, Runtime, Turn, agy_events::AgyNormalizer};
 use crate::approval::Mode;
@@ -268,8 +268,32 @@ pub fn acp_model_id(wanted: &str, effort: Option<&str>, offered: &[String]) -> S
     }
 }
 
+/// A failed turn in Antigravity's own words, as `-p`'s normalizer says them (agy-acp-run.ts `agyAcpFailureWords`).
+pub fn acp_failure_words(said: &str, now_ms: i64) -> Option<FailureSaid> {
+    let words = |message: &str| FailureSaid { message: message.to_owned(), ..Default::default() };
+    if let Some(limit) = super::agy_events::quota_limit(said, now_ms) {
+        return Some(FailureSaid { limit: Some(limit), ..words(super::agy_events::QUOTA_SENTENCE) });
+    }
+    if crate::invariants::regex(r"(?i)stream idle timeout|DEADLINE_EXCEEDED|context deadline exceeded").is_match(said) {
+        return Some(words(super::agy_events::STALLED_SENTENCE));
+    }
+    if crate::invariants::regex(r"(?i)INVALID_ARGUMENT|Request contains an invalid argument").is_match(said) {
+        return Some(words(super::agy_events::REFUSED_SENTENCE));
+    }
+    // agy's -32002 for a conversation it no longer has (measured 2026-11-27): the session is over, so the next reply
+    // starts fresh rather than asking for it again.
+    if crate::invariants::regex(r"(?i)Session not found").is_match(said) {
+        return Some(FailureSaid {
+            session_ended: true,
+            ..words("Antigravity CLI does not have this conversation any more. Send it again and it starts fresh, with the conversation so far.")
+        });
+    }
+    let provider = crate::provider_error::provider_error_sentence(said, Some("antigravity"));
+    (provider != said).then(|| words(&provider))
+}
+
 /// The settings one turn sets over `agy acp`: the model, then the mode (both must hold), then the effort where the model
-/// lists it; questions on a card.
+/// lists it; questions on a card; Antigravity's words for a failed turn.
 pub fn acp_profile(turn: &Turn) -> Profile {
     let (model, effort) = agy_route(turn.model.as_deref().filter(|m| *m != "account-default"), turn.effort.as_deref());
     let mut required = vec![];
@@ -289,6 +313,7 @@ pub fn acp_profile(turn: &Turn) -> Profile {
             if config == "model" { acp_model_id(wanted, kept.as_deref(), offered) } else { wanted.to_owned() }
         }) as super::acp::ResolveConfig),
         questions: true,
+        failure_words: Some(acp_failure_words),
         ..Default::default()
     }
 }

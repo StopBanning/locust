@@ -234,6 +234,21 @@ fn antigravity_acp_leaves_out_an_effort_the_model_does_not_list_and_asks_for_gpt
 }
 
 #[test]
+fn antigravity_acp_events_say_a_used_up_quota_as_its_limit_card() {
+    // case: says a used-up quota as Antigravity's limit card, as the -p route did
+    let (_agent, mut command) = agy(
+        "say(dict(id=prompt['id'], error=dict(code=-32603, message='Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 2h0m0s.')))",
+        "pass",
+    );
+    let events = run_agy(&mut command, &agy_turn(&std::env::temp_dir(), Mode::Ask, "gemini-3.8-flash", Some("low"), None), None);
+    let limit = events.iter().find(|e| e.kind == "route.limit_detected").expect("the limit card's event");
+    assert!(limit.payload["message"].as_str().unwrap().starts_with("Antigravity's quota is used up · resets "), "{}", limit.payload);
+    let failed = events.last().unwrap();
+    assert_eq!(failed.kind, "run.failed");
+    assert_eq!(failed.payload["message"], crate::runtime::agy_events::QUOTA_SENTENCE);
+}
+
+#[test]
 fn antigravity_acp_elicitation_refuses_a_form_it_cannot_read_and_asks_nobody() {
     // case: cancels a form it cannot read and says so, never asking the person half a question
     // case: refuses a form it cannot read whole rather than answer half of it
@@ -306,6 +321,26 @@ fn antigravity_falls_back_to_agy_p_where_agy_has_no_acp() {
     let auto = antigravity::acp_args(Mode::Auto, &["/work/ref"], Some("/tmp/skills"));
     assert_eq!(auto, ["acp", "--add-dir", "/tmp/skills"]);
     assert_eq!(antigravity::acp_args(Mode::Ask, &["/work/ref"], None), ["acp", "--add-dir", "/work/ref"]);
+}
+
+#[test]
+fn antigravity_acp_events_say_a_conversation_agy_no_longer_has_ended_so_the_next_reply_starts_fresh() {
+    // case: marks a conversation agy no longer has as ended, so the next reply starts fresh
+    let script = AGY
+        .replace("TURN_START", "ended(prompt)")
+        .replace("TURN_REPLY", "pass")
+        .replace(
+            "    elif meth in ('session/new', 'session/load'):",
+            "    elif meth == 'session/load':\n        say(dict(id=m['id'], error=dict(code=-32002, message='Session not found: gone')))\n    elif meth == 'session/new':",
+        );
+    let (agent, mut command) = agy_from(&script);
+    let mut t = agy_turn(&agent.dir, Mode::Ask, "gemini-3.8-flash", None, None);
+    t.resume = Some("gone".into());
+    let events = run_agy(&mut command, &t, None);
+    let failed = events.last().unwrap();
+    assert_eq!(failed.kind, "run.failed");
+    assert_eq!(failed.payload["sessionEnded"], true, "native.rs then starts the next reply fresh: {}", failed.payload);
+    assert!(failed.payload["message"].as_str().unwrap().contains("starts fresh"));
 }
 
 #[test]
