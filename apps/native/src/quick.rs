@@ -151,6 +151,8 @@ pub struct State {
     stream: Latest<StreamAnswer>,
     /// The system's reduced-motion setting as the last view read it: the working word stands still under it.
     reduced_motion: std::cell::Cell<bool>,
+    /// This window's clock at its last poll, in seconds: where the working word's sweep stands.
+    frame_clock: f64,
 }
 
 impl Default for State {
@@ -180,6 +182,7 @@ impl Default for State {
             waiting: Latest::default(),
             stream: Latest::default(),
             reduced_motion: std::cell::Cell::new(false),
+            frame_clock: 0.0,
         }
     }
 }
@@ -884,7 +887,8 @@ fn arm_deadline(s: &State, now: Instant, tx: &mut Tx) {
     }
 }
 
-fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
+fn poll(s: &mut State, clock: f64, tx: &mut Tx) -> bool {
+    s.frame_clock = clock;
     let changed = poll_at(s, tx, Instant::now());
     // The working word's sweep moves on the main window's cadence (main.rs, `working_shimmer::FRAME_MS`).
     if sweeping(s) {
@@ -986,7 +990,7 @@ const LIVE_FACE: f32 = 34.0;
 /// The working line, as the main window's live line draws a working turn (Thread.tsx `LiveStepCard`): the teammate's
 /// face, then the swept word, `sweepText('working')` ("Working…") in `.lc-sweep`. Who is working is the face and the
 /// line's name, "Codec is working…", which the word keeps as its hover title.
-fn working_line(flight: &Flight, p: &Palette, reduced: bool) -> El {
+fn working_line(flight: &Flight, p: &Palette, reduced: bool, seconds: f64) -> El {
     #[cfg(test)]
     WORD_STANDS_STILL.with(|still| still.set(Some(reduced)));
     let l = crate::look::controls::Look::new(p.dark);
@@ -1004,7 +1008,7 @@ fn working_line(flight: &Flight, p: &Palette, reduced: bool) -> El {
         )
         .child(el().w(8.0))
         .child(
-            crate::working_shimmer::live_word(&word, p.muted, l.c("text-name"), reduced)
+            crate::working_shimmer::live_word(&word, seconds, p.muted, l.c("text-name"), reduced)
                 .key("quick-working-word")
                 .shrink()
                 .truncate()
@@ -1113,7 +1117,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         );
     } else if let Some(flight) = &s.flight {
         match s.activity {
-            Activity::Working => output = output.child(working_line(flight, &p, s.reduced_motion.get())),
+            Activity::Working => output = output.child(working_line(flight, &p, s.reduced_motion.get(), s.frame_clock)),
             Activity::WaitingForYou => {
                 output = output.child(
                     text(format!("{} is waiting for you in Locust", flight.name))

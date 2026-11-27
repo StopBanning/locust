@@ -2296,6 +2296,8 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     // Busy until this returns: work that runs on too long is written down as the window not answering.
     let _answering = locust_core::diagnostic_log::answering();
+    // The band and the sweep stand where this window's clock puts them (`working_shimmer`).
+    s.frame_clock = now;
     s.prompt_rail.tick(std::time::Instant::now());
     let seen = home_panel::mark_seen_if_looking(s) | home_panel::poll_cover(s, tx);
     // The orb turns behind other windows too, by redrawing its own image (look/orb.rs `tick`); nothing moves at rest.

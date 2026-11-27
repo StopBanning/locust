@@ -29,19 +29,19 @@ pub(crate) const LOCKED: &[(&str, fn(&mut State))] = &[
 pub(crate) const AT: &str = "1";
 pub(crate) const SCALE: &str = "1";
 
-/// Elements left out of the comparison, by key, each with why. Every locked scene is built on the team fixture, whose
-/// Argon is working, so the sidebar's first Recent row shimmers; the band runs on the wall clock
-/// (`working_shimmer::clock`, an `Instant` started at the first shimmer drawn), not Rune's frame clock, so where it
-/// stands in a snap depends on how fast this machine drew the frames before it: up to ~500 pixels of that title
-/// moved by up to 134 levels between two runs of the same binary (26 Nov). The rectangle is read from each render's
-/// own element tree, so it follows the row if the layout moves it; everything else on the screen is compared.
+/// Elements left out of the comparison, by key, each with why. The rectangle is read from each render's own element
+/// tree, so it follows the element if the layout moves it; everything else on the screen is compared.
+///
+/// The sidebar's working title is compared: every locked scene is built on the team fixture, whose Argon is working, so
+/// its first Recent row shimmers, and the band once ran on the wall clock, so where it stood in a snap depended on how
+/// fast the machine drew the frames before it (up to ~500 pixels moved by up to 134 levels, 26 Nov). It now stands
+/// where the window's own clock puts it (`working_shimmer::title`, at poll's `now`), the same in every snap at AT.
 ///
 /// The Settings header's meta line ("Locust 0.883.0 · local only") is the other: it names the version, which every
 /// release bumps, and a debug build (the tests) adds " · development build" that the release binary approved
 /// pictures are drawn with never shows (`cfg!(debug_assertions)` in settings_panel.rs). The element grows across the
 /// header, so its rectangle is the strip right of "Settings" up to Close.
 pub(crate) const UNLOCKED: &[(&str, &str)] = &[
-    ("conversation-title-sample-2", "the working row's title shimmers on the wall clock (src/ui/working_shimmer.rs clock())"),
     ("settings-meta", "the version, and \" · development build\" in a debug build"),
 ];
 
@@ -53,7 +53,7 @@ pub(crate) const UNLOCKED: &[(&str, &str)] = &[
 /// moved, recoloured or missing element: the smallest of those, one short label, already covers several hundred.
 pub(crate) const CHANNEL_TOLERANCE: u8 = 8;
 pub(crate) const MAX_CHANGED_SHARE: f64 = 0.0002;
-/// The most of a picture the UNLOCKED elements may cover (the shimmering title is ~0.25%, the settings meta strip ~1.6%).
+/// The most of a picture the UNLOCKED elements may cover (the settings meta strip is ~1.6%).
 pub(crate) const MAX_UNLOCKED_SHARE: f64 = 0.025;
 
 /// How one render differs from its reference.
@@ -117,7 +117,7 @@ pub(crate) fn compare(reference: &Image, render: &Image, skip: &[[u32; 4]]) -> R
 }
 
 /// How many pixels the unlocked elements took out of the comparison, when that is more than MAX_UNLOCKED_SHARE: they
-/// are one title row, never a hole the size of a panel.
+/// are one header strip, never a hole the size of a panel.
 pub(crate) fn left_out_too_much(difference: &Difference) -> Option<usize> {
     let left_out = difference.mask.len() - difference.total;
     (left_out as f64 > MAX_UNLOCKED_SHARE * difference.mask.len() as f64).then_some(left_out)
@@ -160,6 +160,8 @@ struct Rendered {
     image: Image,
     skip: Vec<[u32; 4]>,
     at: Option<f64>,
+    /// The render's element tree (`--tree`).
+    tree: serde_json::Value,
 }
 
 /// Renders `scene` as `--snap` does, at the locked time.
@@ -182,7 +184,7 @@ fn render_at(scene: &str, at: &str) -> Rendered {
     let skip = rects_of(&tree, &keys, SCALE.parse().unwrap_or(1.0));
     let at = tree["t"].as_f64();
     let _ = (std::fs::remove_file(&out), std::fs::remove_file(base.with_extension("json")));
-    Rendered { image, skip, at }
+    Rendered { image, skip, at, tree }
 }
 
 /// Err when a render was not taken at AT. The pixels cannot say so themselves: every locked scene is settled by
@@ -444,13 +446,21 @@ fn an_unlocked_rectangle_is_left_out_and_nothing_beside_it() {
     assert_eq!((d.changed, d.bounds), (10, Some([30, 10, 30, 19])), "the column just right of it is compared");
 }
 
+/// The changed pixels of `difference` inside `[left, top, right, bottom)` of a picture `width` wide.
+fn changed_inside(difference: &Difference, width: u32, [left, top, right, bottom]: [u32; 4]) -> usize {
+    (top..bottom).flat_map(|y| (left..right).map(move |x| (y * width + x) as usize)).filter(|&i| difference.mask[i]).count()
+}
+
+/// The working row's band runs on the window's clock, not the wall clock, so its title is compared like the rest of the
+/// screen: two renders at the locked time draw it alike, pixel for pixel.
 #[test]
-fn the_shimmering_title_is_found_in_each_render_and_is_only_that_row() {
-    let skip = render("empty").skip;
-    assert_eq!(skip.len(), 1, "the working title, and no settings header on this screen: {skip:?}");
-    let [left, top, right, bottom] = skip[0];
-    assert!(right <= 248 && bottom - top <= 20, "inside the sidebar, one line high: {skip:?}");
-    assert!(((right - left) * (bottom - top)) as f64 <= MAX_UNLOCKED_SHARE * 1215.0 * 800.0, "{skip:?}");
+fn the_working_title_is_compared_and_two_renders_draw_its_band_alike() {
+    let (first, again) = (render("empty"), render("empty"));
+    assert!(first.skip.is_empty(), "nothing on this screen is left out of the comparison: {:?}", first.skip);
+    let title = rects_of(&first.tree, &["conversation-title-sample-2"], SCALE.parse().unwrap_or(1.0));
+    assert_eq!(title.len(), 1, "the working row's title is drawn: {title:?}");
+    let same = compare(&first.image, &again.image, &[]).unwrap();
+    assert_eq!(changed_inside(&same, first.image.width, title[0]), 0, "two renders at {AT} s draw the band in the same place");
 }
 
 #[test]
@@ -475,7 +485,7 @@ fn leaving_out_more_than_a_row_fails() {
 #[test]
 fn the_settings_header_leaves_out_only_its_meta_line() {
     let skip = render("settings").skip;
-    assert_eq!(skip.len(), 2, "the working title and the meta line: {skip:?}");
+    assert_eq!(skip.len(), 1, "the meta line alone; the working title is compared: {skip:?}");
     let meta = skip.iter().find(|[_, top, _, _]| *top < 100).expect("the meta line is in the header");
     assert!(meta[0] > 248 && meta[3] - meta[1] <= 20, "right of the sidebar, one line high: {meta:?}");
 }
@@ -488,9 +498,13 @@ fn a_render_is_taken_at_the_locked_time_and_one_at_zero_fails() {
     let early = render_at("empty", "0");
     let failure = taken_at_the_locked_time(&early).expect_err("a render at 0 is not the approved time");
     assert!(failure.contains("rendered at Some(0.0) s, not at the locked 1 s"), "{failure}");
-    // Why the time is checked and not left to the pixels: at 0 only the title bar's pulsing working dot differs.
+    // Why the time is checked and not left to the pixels: at 0 only what moves on the frame clock differs, the title
+    // bar's pulsing working dot and the working row's band. Without a working row (the title set aside here), only the
+    // dot is left.
     let reference = Image::read_png(&pictures_dir().join("empty.png")).unwrap();
-    let d = compare(&reference, &early.image, &early.skip).unwrap();
+    let mut skip = early.skip.clone();
+    skip.extend(rects_of(&early.tree, &["conversation-title-sample-2"], SCALE.parse().unwrap_or(1.0)));
+    let d = compare(&reference, &early.image, &skip).unwrap();
     let [left, top, right, bottom] = d.bounds.expect("the working dot pulses on the frame clock, so 0 differs");
     assert!(left >= 1120 && right <= 1135 && top >= 10 && bottom <= 25, "only the dot moves: {:?}, {} pixels", d.bounds, d.changed);
     assert!(d.passes(), "and it is under the share, which is why the time itself is held: {:?}", d.bounds);

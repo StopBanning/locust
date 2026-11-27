@@ -369,7 +369,7 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
     // A working row's title shimmers instead of wearing a dot (Sidebar.tsx `lc-conv__title is-working`).
     let working = item.phase == "running";
     let name = if working {
-        crate::working_shimmer::title(&item.title, l.c("text-primary"), s.reduced_motion.get())
+        crate::working_shimmer::title(&item.title, l.c("text-primary"), s.reduced_motion.get(), s.frame_clock)
     } else {
         text(item.title.clone()).color(l.c("text-name"))
     };
