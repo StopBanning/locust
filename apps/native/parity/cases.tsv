@@ -3729,7 +3729,7 @@ apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each 
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	yes
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	yes
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the Board	yes
-apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	are one row when Locust can tell nothing about them	yes
+apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	are one row when Locust can tell nothing about them	no
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	stay two rows whenever either row knows something	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says what a forced push does, under the command, in amber	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says it plainly, without amber, for one that only looks	yes
@@ -4641,12 +4641,12 @@ apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	is o
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	keeps each in turn, in order, and says every refusal once	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	waits for each before the next: a later one is judged against what the earlier one did	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	has the suggestion mark, not a switch; a kept memory keeps its switch	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	a merge: the one sentence, every memory it replaces, Merge them / Keep them apart	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	a retirement says why -- in words, not the ids the model cited	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	once there is something to tidy, memory is on, and a teammate can be asked	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	says so outright past ${String(TIDY_NUDGE_AT)} memories	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the card names the merge and the retirement for what they ask	no
-apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the notice counts the suggestions and says which could not be made	no
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	a merge: the one sentence, every memory it replaces, Merge them / Keep them apart	yes
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	a retirement says why -- in words, not the ids the model cited	yes
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	once there is something to tidy, memory is on, and a teammate can be asked	yes
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	says so outright past ${String(TIDY_NUDGE_AT)} memories	yes
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the card names the merge and the retirement for what they ask	yes
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the notice counts the suggestions and says which could not be made	yes
 apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts	becomes a code block labelled tool call, and the prose around it stays prose	yes
 apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts	takes an unclosed one to the end, and leaves a reply without one alone	yes
 apps/desktop/src/renderer/src/a-trimmed-live-turn-says-so-on-screen.test.tsx	shows the omission notice once when a running turn exceeds 3000 events	yes
