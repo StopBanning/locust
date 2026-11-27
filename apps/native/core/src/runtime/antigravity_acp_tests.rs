@@ -165,6 +165,37 @@ fn antigravity_acp_events_approval_puts_the_command_agy_asks_to_run_on_a_card_in
 }
 
 #[test]
+fn antigravity_acp_elicitation_puts_agys_question_on_a_question_card_in_ask_and_the_chosen_label_goes_back_as_the_forms_value() {
+    // case: puts agy's question on a question card in Ask, and the chosen label goes back as the form's value
+    // case: offers forms only to a caller that answers them, and sends the person's answer back in the same turn
+    let (agent, mut command) = agy(
+        "say(dict(id='ask-1', method='elicitation/create', params=FORM))",
+        "said('got: ' + json.dumps(m.get('result'), sort_keys=True)); ended(prompt)",
+    );
+    let channel = Channel::new();
+    let seen = Arc::new(Mutex::new(None::<crate::approval::Request>));
+    let kept = seen.clone();
+    run_agy(
+        &mut command,
+        &agy_turn(&agent.dir, Mode::Ask, "gemini-3.8-flash", Some("low"), Some(channel.clone())),
+        Some((channel, Box::new(move |card| {
+            *crate::invariants::lock(&kept) = Some(card.clone());
+            Answer::Answers { approval_id: card.approval_id.clone(), answers: vec![("q1".into(), vec!["Blue".into()])] }
+        }))),
+    );
+    // Forms are offered at the start, so agy asks rather than ending its turn on a printed question.
+    let init = agent.sent().into_iter().find(|m| m["method"] == "initialize").unwrap();
+    assert_eq!(init["params"]["clientCapabilities"]["elicitation"], json!({"form":{}}));
+    let card = crate::invariants::lock(&seen).clone().expect("agy's question reached a card");
+    assert_eq!((card.runtime.as_str(), &card.kind), ("antigravity", &Kind::Question));
+    assert_eq!(card.questions.len(), 1);
+    assert_eq!(card.questions[0].question, "Which color?");
+    assert_eq!(card.questions[0].options.iter().map(|o| o.label.as_str()).collect::<Vec<_>>(), ["(Recommended) Red", "Blue"]);
+    assert!(card.questions[0].is_other, "agy's q1_other takes a written answer");
+    assert_eq!(reply_to(&agent, "ask-1"), json!({"action":"accept","content":{"q1":"2"}}));
+}
+
+#[test]
 fn antigravity_acp_runs_each_mode_as_agys_and_answers_what_agy_asks_without_a_card() {
     // case: runs %s as agy's %s mode and answers what agy asks without a card
     // case: maps each Locust mode to agy's, and who answers what agy asks
@@ -200,6 +231,43 @@ fn antigravity_acp_leaves_out_an_effort_the_model_does_not_list_and_asks_for_gpt
     let (agent, mut command) = asking_to_run();
     run_agy(&mut command, &agy_turn(&agent.dir, Mode::Ask, "gpt-oss-120b-medium", None, None), None);
     assert_eq!(settings_set(&agent), vec![pair("model", "gpt-oss-120b-medium")]);
+}
+
+#[test]
+fn antigravity_acp_elicitation_refuses_a_form_it_cannot_read_and_asks_nobody() {
+    // case: cancels a form it cannot read and says so, never asking the person half a question
+    // case: refuses a form it cannot read whole rather than answer half of it
+    let (agent, mut command) = agy(
+        "say(dict(id='ask-2', method='elicitation/create', params=dict(mode='form', message='Pick a number.', requestedSchema=dict(type='object', properties=dict(n=dict(type='number', title='How many?'))))))",
+        "ended(prompt)",
+    );
+    let channel = Channel::new();
+    let events = run_agy(&mut command, &agy_turn(&agent.dir, Mode::Ask, "gemini-3.8-flash", None, Some(channel.clone())), None);
+    assert_eq!(reply_to(&agent, "ask-2"), json!({"action":"cancel"}));
+    assert!(channel.take_recorded_for("acp_case").is_empty());
+    assert!(events.iter().any(|e| e.payload["code"] == "acp.question_unreadable"), "the thread says it was refused");
+}
+
+#[test]
+fn acp_elicitation_reads_a_multi_select_and_files_words_beside_the_choices() {
+    // case: reads both questions, the multi-select one too, with each written-answer field paired to its question
+    // case: answers a chosen label as its value, many as a list, and words in the written-answer field; nothing at all is a decline
+    let form = super::super::acp_elicitation::form_of(&json!({"mode":"form","toolCallId":"c","requestedSchema":{"type":"object","properties":{
+        "q1":{"type":"string","title":"Which color?","oneOf":[{"const":"1","title":"Red"},{"const":"2","title":"Blue"}]},
+        "q1_other":{"type":"string","title":"Other"},
+        "q2":{"type":"array","title":"Which fruits?","items":{"anyOf":[{"const":"1","title":"Apple"},{"const":"2","title":"Pear"},{"const":"3","title":"Plum"}]}},
+        "q2_other":{"type":"string","title":"Other"}}}}))
+    .unwrap();
+    assert_eq!(form.questions.len(), 2);
+    assert!(form.questions[1].multiple);
+    assert_eq!(form.questions[0].other_field.as_deref(), Some("q1_other"));
+    let card = json!({"answers":{"q1":{"answers":["Blue"]},"q2":{"answers":["Pear","Plum","a kiwi"]}}});
+    assert_eq!(super::super::acp_elicitation::form_result(&form, &card), json!({"action":"accept","content":{"q1":"2","q2":["2","3"],"q2_other":"a kiwi"}}));
+    assert_eq!(super::super::acp_elicitation::form_result(&form, &json!({"answers":{"q1":{"answers":[]}}})), json!({"action":"decline"}));
+    assert_eq!(super::super::acp_elicitation::form_result(&form, &json!({"decision":"reject"})), json!({"action":"cancel"}));
+    let request = super::super::acp_elicitation::question_request(&form, "/work");
+    assert_eq!(request["itemId"], "c");
+    assert_eq!(request["questions"][1]["options"][2]["label"], "Plum");
 }
 
 /// An executable that prints `help` to stderr, as agy prints its usage.

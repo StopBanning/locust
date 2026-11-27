@@ -160,6 +160,8 @@ pub struct Profile {
     /// `preferredConfig`): agy 1.5.18 offers Flash no `xhigh` and an Orchestrator no effort at all.
     pub preferred: Vec<(String, String)>,
     pub resolve: Option<ResolveConfig>,
+    /// The agent's questions go on a question card: forms are offered at `initialize` (acp-run.ts `onElicitation`).
+    pub questions: bool,
 }
 impl Default for Profile {
     fn default() -> Self {
@@ -172,6 +174,7 @@ impl Default for Profile {
             host_permissions: true,
             preferred: vec![],
             resolve: None,
+            questions: false,
         }
     }
 }
@@ -523,6 +526,9 @@ impl Acp {
             return Ok(());
         }
         let id = v["id"].clone();
+        if v["method"] == "elicitation/create" && self.profile.questions {
+            return self.answer_question(id, &v["params"]);
+        }
         if v["method"] != "session/request_permission" {
             return self.send(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"Locust offers this agent no files and no terminal."}}));
         }
@@ -589,6 +595,41 @@ impl Acp {
             return Ok(());
         }
         self.send(json!({"jsonrpc":"2.0","id":id,"result":{"outcome":outcome}}))
+    }
+    /// A QUESTION, PUT TO THE PERSON (acp-run.ts `ask`, 27 Nov 2026): the form as a question card, its answer back as
+    /// the form takes it; "cancel" once the run is over, never an answer nobody gave. A form that cannot be read whole
+    /// is refused, and the thread says so.
+    fn answer_question(&mut self, id: Value, params: &Value) -> io::Result<()> {
+        let Some(form) = super::acp_elicitation::form_of(params) else {
+            self.queued.push_back(self.normal.event("adapter.diagnostic",json!({"level":"warning","code":"acp.question_unreadable","message":"The agent asked a question in a form Locust cannot show yet, so Locust told it no answer was given.","terminal":false,"evidence":{"runtimeEventType":"elicitation/create","redacted":true}})));
+            return self.send(json!({"jsonrpc":"2.0","id":id,"result":{"action":"cancel"}}));
+        };
+        let t = self.turn.as_ref().ok_or_else(|| err("Turn has not started"))?;
+        let card = match &t.approvals {
+            Some(ch) => {
+                let cancel = self.cancel.clone();
+                let gone = self.gone.clone();
+                let answered = self.answered.clone();
+                let request = super::acp_elicitation::question_request(&form, &t.folder.to_string_lossy());
+                ch.ask_codex_with_changes(&t.run_id, &t.mission_id, &self.profile.runtime, "item/tool/requestUserInput", &request, json!(0), None, &|| {
+                    crate::run_cli::interrupted()
+                        || gone.load(Ordering::Relaxed)
+                        || answered.load(Ordering::Relaxed)
+                        || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
+                })
+                .unwrap_or(Value::Null)
+            }
+            None => Value::Null,
+        };
+        if self.gone.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+        let result = if self.cancelled() || self.answered.load(Ordering::Relaxed) {
+            json!({"action":"cancel"})
+        } else {
+            super::acp_elicitation::form_result(&form, &card)
+        };
+        self.send(json!({"jsonrpc":"2.0","id":id,"result":result}))
     }
     /// ACP cannot add to an active prompt; steering waits for the next prompt boundary.
     pub fn steer(&mut self, text: &str) -> bool {
@@ -681,7 +722,12 @@ impl Acp {
             .profile
             .deadline
             .unwrap_or_else(|| Instant::now() + Duration::from_secs(60));
-        let init=self.request("initialize",json!({"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false}}),deadline)?;
+        let mut capabilities = json!({"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false});
+        // Questions, as forms, only to an agent whose questions go on a card.
+        if self.profile.questions {
+            capabilities["elicitation"] = json!({"form":{}});
+        }
+        let init = self.request("initialize", json!({"protocolVersion":1,"clientCapabilities":capabilities}), deadline)?;
         if init["protocolVersion"] != 1 {
             return Err(err(format!(
                 "The agent speaks version {} of the Agent Client Protocol, and Locust speaks 1.",

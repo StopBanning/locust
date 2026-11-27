@@ -1,5 +1,6 @@
 //! Runtime orchestration has no window or Electron dependency.
 pub mod acp;
+pub mod acp_elicitation;
 pub mod acp_events;
 pub mod agy_events;
 pub mod antigravity;

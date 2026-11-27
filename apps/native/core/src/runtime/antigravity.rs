@@ -269,7 +269,7 @@ pub fn acp_model_id(wanted: &str, effort: Option<&str>, offered: &[String]) -> S
 }
 
 /// The settings one turn sets over `agy acp`: the model, then the mode (both must hold), then the effort where the model
-/// lists it.
+/// lists it; questions on a card.
 pub fn acp_profile(turn: &Turn) -> Profile {
     let (model, effort) = agy_route(turn.model.as_deref().filter(|m| *m != "account-default"), turn.effort.as_deref());
     let mut required = vec![];
@@ -288,6 +288,7 @@ pub fn acp_profile(turn: &Turn) -> Profile {
         resolve: Some(std::sync::Arc::new(move |config: &str, wanted: &str, offered: &[String]| {
             if config == "model" { acp_model_id(wanted, kept.as_deref(), offered) } else { wanted.to_owned() }
         }) as super::acp::ResolveConfig),
+        questions: true,
         ..Default::default()
     }
 }
