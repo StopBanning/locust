@@ -30,7 +30,7 @@ area	feature	where	built	detail	engine	alone	not_alone_because	live	seen
 2	Multiline auto-expanding editor, Shift+Enter	`renderer/src/components/Composer.tsx`	done		no	yes		no	
 2	Separate conversation drafts while switching within window	`renderer/src/components/Composer.tsx`	done		no	yes		no	
 2	@ file attachment and teammate tagging	`renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts`	done		yes	yes		no	
-2	Runtime/custom slash commands and setup/usage commands	`renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts`	done		yes	yes		no	
+2	Runtime/custom slash commands and setup/usage commands	`renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts`	partial	the person's own Markdown commands are read from <profile>/commands and <folder>/.locust/commands and offered in the / menu, filled into the box, a folder's ! lines asked first (core/src/own_commands.rs, src/ui/own_commands_ui.rs, 26 Nov); Settings > Chat's Your commands section (ChatCommands.tsx: the two lists and Open folder) is not drawn yet	yes	yes		no	
 2	Paste/drop files, images and PDF attachment previews	`renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts`	done		yes	yes		no	
 2	Durable busy-turn queue, edit/discard and stop/send now	`renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts`	done		yes	yes		no	
 2	Up-arrow sent-message history	`renderer/src/components/Composer.tsx`	done		no	yes		no	

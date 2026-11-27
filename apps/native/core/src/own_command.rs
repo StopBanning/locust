@@ -11,6 +11,10 @@ pub const MODE_NOTE: &str = "Command mode. This runs in this folder. Escape leav
 pub fn bang(text: &str) -> Option<&str> {
     text.strip_prefix('!').map(str::trim)
 }
+/// Escape leaves command mode and keeps what was typed after the mark (Electron `leaveCommandMode`).
+pub fn leave_command_mode(text: &str) -> String {
+    text.strip_prefix('!').unwrap_or(text).to_owned()
+}
 pub fn validate(command: &str, folder: Option<&Path>) -> Result<(), String> {
     if command.trim().is_empty() {
         return Err("Type a command after !. Nothing was run.".into());

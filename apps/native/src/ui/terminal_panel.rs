@@ -245,6 +245,10 @@ pub(super) fn commands(s: &State, p: &Palette) -> El {
                 .role("status"),
         );
     }
+    // A folder's command asks before its `!` lines run (CommandAsk, above the box as Electron draws it).
+    if let Some(card) = crate::own_commands_ui::ask_card(s, p) {
+        out = out.child(card);
+    }
     for (i, e) in s
         .terminal
         .commands
@@ -309,7 +313,7 @@ pub(super) fn commands(s: &State, p: &Palette) -> El {
     }
     out
 }
-fn mono() -> rune::TextStyle {
+pub(super) fn mono() -> rune::TextStyle {
     rune::TextStyle {
         family: rune::Family::SystemMono,
         line_height: 16.,

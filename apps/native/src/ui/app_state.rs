@@ -268,6 +268,11 @@ pub(super) struct State {
     /// Each runtime's own slash commands, as the engine kept them, and the context ring's menu.
     pub(super) runtime_commands: crate::runtime_commands_ui::Commands,
     pub(super) runtime_commands_job: Latest<std::collections::BTreeMap<String, Vec<locust_core::runtime_commands::CommandInfo>>>,
+    /// The person's own commands (Markdown files in their commands folder and the conversation folder's), as read.
+    pub(super) own_commands: crate::own_commands_ui::Own,
+    pub(super) own_commands_job: Latest<Vec<locust_core::own_commands::StoredCommand>>,
+    /// A chosen command, expanded off the window's thread (App.tsx `chooseOwnCommand`, `allowCommandAsk`).
+    pub(super) own_commands_expand_job: Latest<(crate::own_commands_ui::Chosen, locust_core::own_commands::Expanded)>,
     /// Codex and Copilot kept current: what the service says, and the job that asks it (agents_section.rs).
     pub(super) agent_updates: crate::agents_section::Keeping,
     pub(super) agent_updates_job: Latest<crate::agents_section::UpdatesAnswer>,
@@ -643,6 +648,9 @@ impl Default for State {
             keys_job: Latest::default(),
             runtime_commands: Default::default(),
             runtime_commands_job: Latest::default(),
+            own_commands: Default::default(),
+            own_commands_job: Latest::default(),
+            own_commands_expand_job: Latest::default(),
             agent_updates: Default::default(),
             agent_updates_job: Latest::default(),
             diff_notes: Default::default(),
