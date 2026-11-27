@@ -176,6 +176,25 @@ pub fn install(engine: Arc<dyn EngineApi>) -> Result<(), String> {
     INSTALLED.set(engine).map_err(|_| "The engine was already chosen for this process.".to_string())
 }
 
+/// A window's wake: the same shape as Rune's `Waker`, so the window hands its own over.
+pub type Wake = Arc<dyn Fn() + std::marker::Send + Sync>;
+
+static ON_CHANGE: std::sync::Mutex<Option<Wake>> = std::sync::Mutex::new(None);
+
+/// The window's wake, for an engine in another process whose answers change (a card raised, a turn ended): the client
+/// keeping those answers calls it, and only when they change, so the window shows it on its next frame.
+pub fn on_change(wake: Wake) {
+    *crate::invariants::lock(&ON_CHANGE) = Some(wake);
+}
+
+/// Wakes the window, if it gave its wake. The shared engine's client calls it when an answer changes.
+pub fn changed() {
+    let wake = crate::invariants::lock(&ON_CHANGE).clone();
+    if let Some(wake) = wake {
+        wake();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

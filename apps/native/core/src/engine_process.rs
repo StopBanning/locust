@@ -437,6 +437,13 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
                 .collect();
             Ok(Value::Array(list))
         }
+        // Everything a window reads, in one answer (its client's reader asks this twice a second).
+        "reads" => Ok(json!({
+            "running": engine.running(),
+            "running_checks": engine.running_checks(),
+            "waiting": engine.waiting().iter().map(card_json).collect::<Vec<_>>(),
+            "room_notices": notices_json(&engine.room_notices()),
+        })),
         "ping" => Ok(Value::from("engine")),
         other => Err(format!("The engine does not know the request {other}.")),
     })();
@@ -623,11 +630,71 @@ impl Line {
 
 /// Requests that only read: asked again after a lost reply, they change nothing.
 fn only_reads(request: &Value) -> bool {
-    matches!(request["op"].as_str(), Some("ping" | "running" | "running_checks" | "waiting" | "owns" | "room-notices"))
+    matches!(request["op"].as_str(), Some("ping" | "reads" | "running" | "running_checks" | "waiting" | "owns" | "room-notices"))
 }
 
-/// [`EngineApi`] over the socket of an engine in another process.
-pub struct Client {
+/// What the window reads many times a second (running turns, their checks, the waiting cards), as the engine last said
+/// it, with the answer it came from to tell a change by.
+#[derive(Clone)]
+struct Reads {
+    running: Vec<String>,
+    checks: Vec<(String, String)>,
+    waiting: Vec<Request>,
+    said: Value,
+}
+
+/// How often a client's reader asks the engine again: one round trip on the kept connection, slow and cheap.
+const READ_EVERY: Duration = Duration::from_millis(500);
+
+fn checks_from(v: &Value) -> Vec<(String, String)> {
+    v.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|pair| {
+            let a = pair.as_array()?;
+            Some((a.first()?.as_str()?.to_owned(), a.get(1)?.as_str()?.to_owned()))
+        })
+        .collect()
+}
+
+fn notices_from(v: &Value) -> Vec<crate::room_tasks::RoomNotice> {
+    v.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|n| {
+            Some(crate::room_tasks::RoomNotice {
+                room_id: n.get("roomId")?.as_str()?.to_owned(),
+                room_name: n.get("roomName")?.as_str()?.to_owned(),
+                message: n.get("message")?.as_str()?.to_owned(),
+            })
+        })
+        .collect()
+}
+
+fn notices_json(notices: &[crate::room_tasks::RoomNotice]) -> Value {
+    Value::Array(notices.iter().map(|n| json!({"roomId": n.room_id, "roomName": n.room_name, "message": n.message})).collect())
+}
+
+/// The engine's answer to `reads`: what the window reads, and the room notices it hands over once.
+fn reads_from(v: &Value) -> (Reads, Vec<crate::room_tasks::RoomNotice>) {
+    // Told apart by content, not order: a list the engine builds from a map may come back in another order unchanged.
+    let sorted = |list: &Value| {
+        let mut items: Vec<String> = list.as_array().into_iter().flatten().map(Value::to_string).collect();
+        items.sort();
+        items
+    };
+    let said = json!({"running": sorted(&v["running"]), "running_checks": sorted(&v["running_checks"]), "waiting": sorted(&v["waiting"])});
+    let reads = Reads {
+        running: strings(&v["running"]),
+        checks: checks_from(&v["running_checks"]),
+        waiting: v["waiting"].as_array().into_iter().flatten().filter_map(|c| card_from(c).ok()).collect(),
+        said,
+    };
+    (reads, notices_from(&v["room_notices"]))
+}
+
+/// The connection side of a [`Client`], shared with its reader thread.
+struct Inner {
     socket: PathBuf,
     shutting: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
     restart: Option<Restart>,
@@ -636,30 +703,119 @@ pub struct Client {
     /// Connections that answered a read whole, kept for the next. Taken out while used, so a long call never holds up
     /// another caller.
     kept: std::sync::Mutex<Vec<Line>>,
+    /// The last reads, kept up to date by the reader thread. None before the first and after anything this client asked
+    /// to change, so the next read asks the engine itself.
+    reads: std::sync::Mutex<Option<Reads>>,
+    /// Room notices the engine handed over, until the window takes them.
+    notices: std::sync::Mutex<Vec<crate::room_tasks::RoomNotice>>,
+    reader: AtomicBool,
+    /// Set once the window asked the engine to shut down: from then on nothing starts it again and the reader stops.
+    shut: AtomicBool,
+    /// Counts this client's changes, so a reader's answer asked before one is never kept after it.
+    changes: std::sync::atomic::AtomicU64,
+    every: Duration,
+    /// Who hears a changed answer: the window's wake ([`crate::engine_api::on_change`]) unless a test gave its own.
+    wake: std::sync::Mutex<Option<crate::engine_api::Wake>>,
+}
+
+/// [`EngineApi`] over the socket of an engine in another process. A read (`running`, `owns`, `waiting`, the room
+/// notices) never waits on the socket once the first has been answered: a thread keeps the last answers, asking the
+/// engine again every half second, and wakes the window when they change. A request that changes something makes the
+/// next read ask the engine itself, so what the caller just did shows at once.
+pub struct Client {
+    inner: Arc<Inner>,
 }
 
 impl Client {
     pub fn new(socket: PathBuf) -> Self {
-        Client {
-            socket,
-            shutting: std::sync::Mutex::new(None),
-            restart: None,
-            last_restart: std::sync::Mutex::new(None),
-            restarted: AtomicBool::new(false),
-            kept: std::sync::Mutex::new(Vec::new()),
-        }
+        Client::with(socket, None, READ_EVERY)
     }
 
     /// A client that starts the engine again when it finds it gone (E5): at most once every ten seconds.
     pub fn restarting(socket: PathBuf, restart: Restart) -> Self {
-        Client { restart: Some(restart), ..Client::new(socket) }
+        Client::with(socket, Some(restart), READ_EVERY)
+    }
+
+    fn with(socket: PathBuf, restart: Option<Restart>, every: Duration) -> Self {
+        Client {
+            inner: Arc::new(Inner {
+                socket,
+                shutting: std::sync::Mutex::new(None),
+                restart,
+                last_restart: std::sync::Mutex::new(None),
+                restarted: AtomicBool::new(false),
+                kept: std::sync::Mutex::new(Vec::new()),
+                reads: std::sync::Mutex::new(None),
+                notices: std::sync::Mutex::new(Vec::new()),
+                reader: AtomicBool::new(false),
+                shut: AtomicBool::new(false),
+                changes: std::sync::atomic::AtomicU64::new(0),
+                every,
+                wake: std::sync::Mutex::new(None),
+            }),
+        }
     }
 
     /// Does an engine answer on this socket?
     pub fn answers(&self) -> bool {
-        self.call(json!({"op": "ping"})).ok().and_then(|v| v.as_str().map(|s| s == "engine")).unwrap_or(false)
+        self.inner.call(json!({"op": "ping"})).ok().and_then(|v| v.as_str().map(|s| s == "engine")).unwrap_or(false)
     }
 
+    /// The last reads; the engine's own answer when there are none yet or this client just changed something.
+    fn reads(&self) -> Option<Reads> {
+        if let Some(reads) = crate::invariants::lock(&self.inner.reads).clone() {
+            return Some(reads);
+        }
+        let asked_after = self.inner.changes.load(Ordering::Relaxed);
+        let (reads, notices) = reads_from(&self.inner.fetch().ok()?);
+        crate::invariants::lock(&self.inner.notices).extend(notices);
+        let mut held = crate::invariants::lock(&self.inner.reads);
+        // Kept only if no change was asked meanwhile (on another thread); either way this caller gets what it asked.
+        if self.inner.changes.load(Ordering::Relaxed) == asked_after {
+            *held = Some(reads.clone());
+        }
+        drop(held);
+        self.start_reader();
+        Some(reads)
+    }
+
+    /// The thread that keeps the reads up to date. It holds the client weakly and ends with it.
+    fn start_reader(&self) {
+        if self.inner.reader.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        let weak = Arc::downgrade(&self.inner);
+        let every = self.inner.every;
+        let started = std::thread::Builder::new().name("locust-engine-reads".into()).spawn(move || {
+            loop {
+                std::thread::sleep(every);
+                let Some(inner) = weak.upgrade() else { return };
+                if inner.shut.load(Ordering::Relaxed) {
+                    return;
+                }
+                inner.refresh();
+            }
+        });
+        if started.is_err() {
+            self.inner.reader.store(false, Ordering::Relaxed);
+        }
+    }
+
+    /// Something this client asked may have changed what the reads say: the next one asks the engine.
+    fn changing<T>(&self, asked: T) -> T {
+        let mut reads = crate::invariants::lock(&self.inner.reads);
+        self.inner.changes.fetch_add(1, Ordering::Relaxed);
+        *reads = None;
+        drop(reads);
+        asked
+    }
+
+    fn call(&self, request: Value) -> Result<Value, String> {
+        self.inner.call(request)
+    }
+}
+
+impl Inner {
     /// A connection to the engine. When none answers and this client may restart it, start it once and connect again.
     /// That is no retry of a request: a request that found no engine never reached one, so nothing it asked happened.
     fn connect(&self) -> Result<UnixStream, String> {
@@ -668,6 +824,10 @@ impl Client {
         }
         let gone = || "Locust's engine is not running.".to_string();
         let Some(restart) = &self.restart else { return Err(gone()) };
+        // A window that is closing asked the engine to stop: an engine started now would outlive it.
+        if self.shut.load(Ordering::Relaxed) {
+            return Err(gone());
+        }
         {
             let mut last = crate::invariants::lock(&self.last_restart);
             if last.is_some_and(|t| t.elapsed() < RESTART_PAUSE) {
@@ -714,52 +874,84 @@ impl Client {
         }
         Ok(reply)
     }
+
+    /// Everything the window reads, in one round trip; asked one by one of an engine too old to know `reads`.
+    fn fetch(&self) -> Result<Value, String> {
+        match self.call(json!({"op": "reads"})) {
+            Err(e) if e.contains("does not know the request reads") => Ok(json!({
+                "running": self.call(json!({"op": "running"}))?,
+                "running_checks": self.call(json!({"op": "running_checks"}))?,
+                "waiting": self.call(json!({"op": "waiting"}))?,
+                "room_notices": self.call(json!({"op": "room-notices"}))?,
+            })),
+            other => other,
+        }
+    }
+
+    /// The reader's turn: ask again, keep the answer, and wake the window only if it changed. An engine that is gone
+    /// leaves no answers, so the next read asks (and may start the engine again) itself.
+    fn refresh(&self) {
+        let asked_after = self.changes.load(Ordering::Relaxed);
+        let Ok(said) = self.fetch() else {
+            *crate::invariants::lock(&self.reads) = None;
+            return;
+        };
+        let (reads, notices) = reads_from(&said);
+        // Notices are handed over once by the engine, so they are kept whatever happens to the rest of the answer.
+        let heard = !notices.is_empty();
+        crate::invariants::lock(&self.notices).extend(notices);
+        let changed = {
+            let mut held = crate::invariants::lock(&self.reads);
+            // This client changed something while the answer was on its way: it may be out of date, so the next read
+            // asks the engine itself.
+            if self.changes.load(Ordering::Relaxed) != asked_after {
+                *held = None;
+                false
+            } else {
+                let changed = held.as_ref().is_none_or(|was| was.said != reads.said);
+                *held = Some(reads);
+                changed
+            }
+        };
+        if changed || heard {
+            match crate::invariants::lock(&self.wake).clone() {
+                Some(wake) => wake(),
+                None => crate::engine_api::changed(),
+            }
+        }
+    }
 }
 
 impl EngineApi for Client {
     fn send(&self, job: Send, origin: Origin) -> Result<Started, String> {
-        let v = self.call(json!({"op": "send", "job": send_json(&job), "origin": origin_json(&origin)}))?;
+        let v = self.changing(self.call(json!({"op": "send", "job": send_json(&job), "origin": origin_json(&origin)})))?;
         Ok(Started { conversation_id: needed(&v, "conversationId")?, mode: text(&v, "mode").unwrap_or_default() })
     }
     fn stop(&self, conversation: &str) -> Result<String, String> {
-        Ok(self.call(json!({"op": "stop", "conversation": conversation}))?.as_str().unwrap_or_default().to_owned())
+        Ok(self.changing(self.call(json!({"op": "stop", "conversation": conversation})))?.as_str().unwrap_or_default().to_owned())
     }
     fn owns(&self, conversation: &str) -> bool {
-        self.call(json!({"op": "owns", "conversation": conversation})).ok().and_then(|v| v.as_bool()).unwrap_or(false)
+        self.reads().is_some_and(|r| r.running.iter().any(|id| id == conversation))
     }
     fn running(&self) -> Vec<String> {
-        self.call(json!({"op": "running"})).map(|v| strings(&v)).unwrap_or_default()
+        self.reads().map(|r| r.running).unwrap_or_default()
     }
     fn running_checks(&self) -> Vec<(String, String)> {
-        self.call(json!({"op": "running_checks"}))
-            .ok()
-            .and_then(|v| {
-                v.as_array().map(|arr| {
-                    arr.iter()
-                        .filter_map(|pair| {
-                            let a = pair.as_array()?;
-                            Some((a.first()?.as_str()?.to_owned(), a.get(1)?.as_str()?.to_owned()))
-                        })
-                        .collect()
-                })
-            })
-            .unwrap_or_default()
+        self.reads().map(|r| r.checks).unwrap_or_default()
     }
     fn waiting(&self) -> Vec<Request> {
-        self.call(json!({"op": "waiting"}))
-            .map(|v| v.as_array().into_iter().flatten().filter_map(|c| card_from(c).ok()).collect())
-            .unwrap_or_default()
+        self.reads().map(|r| r.waiting).unwrap_or_default()
     }
     fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String> {
-        self.call(json!({"op": "decide", "approvalId": approval_id, "decision": decision_word(&decision), "reason": reason}))
+        self.changing(self.call(json!({"op": "decide", "approvalId": approval_id, "decision": decision_word(&decision), "reason": reason})))
             .map(|_| ())
     }
     fn answer(&self, approval_id: &str, answers: Vec<(String, Vec<String>)>) -> Result<(), String> {
         let answers: Vec<Value> = answers.into_iter().map(|(id, given)| json!([id, given])).collect();
-        self.call(json!({"op": "answer", "approvalId": approval_id, "answers": answers})).map(|_| ())
+        self.changing(self.call(json!({"op": "answer", "approvalId": approval_id, "answers": answers}))).map(|_| ())
     }
     fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String> {
-        self.call(json!({"op": "save-rule-and-decide", "card": card_json(card), "effect": effect_word(&effect)}))
+        self.changing(self.call(json!({"op": "save-rule-and-decide", "card": card_json(card), "effect": effect_word(&effect)})))
             .map(|_| ())
     }
     fn carry(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
@@ -779,23 +971,25 @@ impl EngineApi for Client {
         if let Some(m) = &also.message {
             req["message"] = json!(m);
         }
-        let v = self.call(req)?;
+        let v = self.changing(self.call(req))?;
         Ok((needed(&v, "conversation")?, text(&v, "folder"), text(&v, "mode").unwrap_or_default()))
     }
     fn shut_down(&self) {
         // Asked from the UI thread as the window closes, which must not wait: the request goes on its own thread, and
         // its reply (once every ending is written) is what `wait_for_shutdown` waits for.
-        let socket = self.socket.clone();
+        self.inner.shut.store(true, Ordering::Relaxed);
+        let socket = self.inner.socket.clone();
         let handle = std::thread::Builder::new()
             .name("locust-engine-shut-down".into())
             .spawn(move || {
                 let _ = Client::new(socket).call(json!({"op": "shut-down"}));
             })
             .ok();
-        *crate::invariants::lock(&self.shutting) = handle;
+        *crate::invariants::lock(&self.inner.shutting) = handle;
+        self.changing(());
     }
     fn wait_for_shutdown(&self) {
-        if let Some(handle) = crate::invariants::lock(&self.shutting).take() {
+        if let Some(handle) = crate::invariants::lock(&self.inner.shutting).take() {
             let _ = handle.join();
         }
     }
@@ -803,26 +997,14 @@ impl EngineApi for Client {
         self.call(json!({"op": "door", "door": door_change_json(change)})).map(|v| door_state_from(&v))
     }
     fn notice(&self) -> Option<String> {
-        self.restarted.swap(false, Ordering::Relaxed).then(|| {
+        self.inner.restarted.swap(false, Ordering::Relaxed).then(|| {
             "Locust's engine had stopped, so it was started again. A turn it was running shows where it stopped.".to_string()
         })
     }
     fn room_notices(&self) -> Vec<crate::room_tasks::RoomNotice> {
-        self.call(json!({"op": "room-notices"}))
-            .map(|v| {
-                v.as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|n| {
-                        Some(crate::room_tasks::RoomNotice {
-                            room_id: n.get("roomId")?.as_str()?.to_owned(),
-                            room_name: n.get("roomName")?.as_str()?.to_owned(),
-                            message: n.get("message")?.as_str()?.to_owned(),
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
+        // The first read hands over what the engine holds; after that the reader collects them.
+        let _ = self.reads();
+        std::mem::take(&mut *crate::invariants::lock(&self.inner.notices))
     }
 }
 
@@ -838,7 +1020,7 @@ pub fn join_or_start(dir: &Path, exe: &Path) -> Result<Arc<dyn EngineApi>, Strin
     }
     start_engine(dir, exe)?;
     // Started by joining, not found gone: nothing to tell the window.
-    client.restarted.store(false, Ordering::Relaxed);
+    client.inner.restarted.store(false, Ordering::Relaxed);
     Ok(Arc::new(client))
 }
 

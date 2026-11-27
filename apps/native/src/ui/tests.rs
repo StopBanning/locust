@@ -811,3 +811,23 @@ fn an_added_account_is_named_in_the_picker_and_respects_policy_and_limits() {
     }
     assert_eq!(rt.state.agent_accounts.accounts.iter().find(|a| a.id == work.id).unwrap().state, AccountState::New);
 }
+
+/// speed-1: the window's setup gives the shared engine's client its wake, so a raised card or an ended turn shows when
+/// the engine says it, not at the next poll that something else causes.
+#[test]
+fn the_window_wakes_when_the_shared_engine_s_answers_change() {
+    let mut s = State { demo: true, ..Default::default() };
+    let woken = Arc::new(AtomicU64::new(0));
+    let count = woken.clone();
+    // Another window test's setup in this process may hand over its own wake between the two lines, so a few tries.
+    let reached = (0..20).any(|_| {
+        let count = count.clone();
+        crate::setup(&mut s, Arc::new(move || {
+            count.fetch_add(1, Ordering::SeqCst);
+        }));
+        let before = woken.load(Ordering::SeqCst);
+        locust_core::engine_api::changed();
+        woken.load(Ordering::SeqCst) > before
+    });
+    assert!(reached, "the engine's change never reached the window");
+}

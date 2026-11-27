@@ -898,6 +898,8 @@ fn setup(s: &mut State, waker: Waker) {
         window_glass::mac_has_glass_view(),
     );
     s.changes_job.set_waker(waker.clone());
+    // The shared engine's client wakes the window when a card or a running turn changes (speed-1).
+    locust_core::engine_api::on_change(waker.clone());
     s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
