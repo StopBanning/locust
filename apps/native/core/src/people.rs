@@ -980,8 +980,17 @@ pub fn owner_of(store: &Store, mission: &str) -> Option<String> {
 
 /// The native teammates file as [`team`] reads it, parsed once while it is unchanged. One not written yet has no owners
 /// of its own (`team` would seed it from Electron's, which `owner_of` reads next anyway).
+///
+/// The file's path is checked (`Store::check`: symlinks, and never inside Electron's or Codex's folders) only when it is
+/// read again: the check resolves every part of the path on disk, and asked for every row of every frame it was most of
+/// what a sidebar row cost (speed-1, the focused window).
 fn native_team_kept(store: &Store) -> Option<std::sync::Arc<Value>> {
-    let file = kept_json(&store.check(&store.root().join("teammates.json")).ok()?)?;
+    let path = store.root().join("teammates.json");
+    let file = kept_json_if(&path, || {
+        #[cfg(test)]
+        KEPT_CHECKS.with(|n| n.set(n.get() + 1));
+        store.check(&path).is_ok()
+    })?;
     (file["schemaVersion"] == 1 && file["teammates"].is_array()).then_some(file)
 }
 
@@ -989,6 +998,11 @@ fn native_team_kept(store: &Store) -> Option<std::sync::Arc<Value>> {
 /// the time). The sidebar asks a conversation's owner for every row it draws, and the window draws every frame while a
 /// turn's orb moves, so reading the file each time made each frame tens of milliseconds (speed-1 row 5).
 fn kept_json(path: &Path) -> Option<std::sync::Arc<Value>> {
+    kept_json_if(path, || true)
+}
+
+/// [`kept_json`], reading the file again only when `allowed` agrees; a kept file is handed back without asking it.
+fn kept_json_if(path: &Path, allowed: impl FnOnce() -> bool) -> Option<std::sync::Arc<Value>> {
     type Kept = std::collections::HashMap<std::path::PathBuf, ((u64, std::time::SystemTime), std::sync::Arc<Value>)>;
     static KEPT: Mutex<Option<Kept>> = Mutex::new(None);
     let meta = std::fs::metadata(path).ok()?;
@@ -1001,6 +1015,9 @@ fn kept_json(path: &Path) -> Option<std::sync::Arc<Value>> {
             return Some(file.clone());
         }
     }
+    if !allowed() {
+        return None;
+    }
     #[cfg(test)]
     KEPT_READS.with(|n| n.set(n.get() + 1));
     let file = std::sync::Arc::new(serde_json::from_slice::<Value>(&std::fs::read(path).ok()?).ok()?);
@@ -1012,6 +1029,8 @@ fn kept_json(path: &Path) -> Option<std::sync::Arc<Value>> {
 thread_local! {
     /// Files [`kept_json`] read from disk on this thread (a test's own count).
     static KEPT_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// Native teammates files [`native_team_kept`] checked on this thread.
+    static KEPT_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 /// Every conversation turn's owner by name, read once: the native file's owners over Electron's (read only), and each
 /// teammate's name from either file. For lists that show a teammate beside each conversation.

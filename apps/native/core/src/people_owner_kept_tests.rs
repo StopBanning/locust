@@ -72,3 +72,37 @@ fn a_native_teammates_file_of_another_version_names_no_owner() {
     .unwrap();
     assert_eq!(owner_of(&store, "m_one").as_deref(), Some("tm_old"), "a file this version cannot read is not believed");
 }
+
+#[test]
+fn a_row_s_owner_asked_every_frame_checks_the_native_file_s_path_once() {
+    let (_t, store) = fixture();
+    record_owner(&store, "m_new", "tm_scout").unwrap();
+    let before = KEPT_CHECKS.with(std::cell::Cell::get);
+    for _ in 0..200 {
+        assert_eq!(owner_of(&store, "m_new").as_deref(), Some("tm_scout"));
+    }
+    assert_eq!(KEPT_CHECKS.with(std::cell::Cell::get) - before, 1, "checked when read, not on every ask");
+    record_owner(&store, "m_new", "tm_other").unwrap();
+    assert_eq!(owner_of(&store, "m_new").as_deref(), Some("tm_other"));
+    assert_eq!(KEPT_CHECKS.with(std::cell::Cell::get) - before, 2, "a changed file is checked again as it is read");
+}
+
+#[test]
+fn a_native_teammates_file_that_leads_into_codex_s_folder_names_no_owner() {
+    let path = std::env::temp_dir().join(id("native-owner-codex").unwrap());
+    let _t = Temp(path.clone());
+    for dir in ["electron", "codex", "native"] {
+        std::fs::create_dir_all(path.join(dir)).unwrap();
+    }
+    let store = Store::with_codex(path.join("native"), path.join("electron"), vec![path.join("codex")]).unwrap();
+    std::fs::write(path.join("codex/teammates.json"), json!({"schemaVersion":1,"teammates":[],"missionOwners":{"m_one":"tm_codex"}}).to_string()).unwrap();
+    std::os::unix::fs::symlink(path.join("codex/teammates.json"), store.root().join("teammates.json")).unwrap();
+    std::fs::write(
+        store.electron().join("teammates.json"),
+        json!({"schemaVersion":1,"teammates":[],"missionOwners":{"m_one":"tm_old"}}).to_string(),
+    )
+    .unwrap();
+    for _ in 0..3 {
+        assert_eq!(owner_of(&store, "m_one").as_deref(), Some("tm_old"), "a file in Codex's folder is never believed");
+    }
+}
