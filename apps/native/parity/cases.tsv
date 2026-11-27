@@ -4250,7 +4250,7 @@ apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	sends nothing -- the words are back in the box, not the queue -- and leaves the other conversation queued	yes
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	waits in the conversation it was typed in, for the busy run	no
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	goes to their busy run when the thread on screen is not theirs, or there is none	no
-apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	replies into the live run on screen, whoever else is busy	no
+apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	replies into the live run on screen, whoever else is busy	yes
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	is judged by the run it waits for: held while that runs, sent when it ends	no
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	judges and shows a waiting row by the run it waits for (M32)	no
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote is drawn as a quote, not as a paragraph	yes
@@ -4303,10 +4303,10 @@ apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	The UI doe
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A failed write keeps the previous queue and reports that nothing changed.	no
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	An unreadable queue refuses updates instead of silently replacing saved words.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Only person-written messages are persisted rather than host scheduling intents.	yes
-apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Send durably removes its row before dispatch and leaves every other conversation held.	no
+apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Send durably removes its row before dispatch and leaves every other conversation held.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Another queued Send waits while the first Send is still being acknowledged.	no
-apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused Send offers the message back held rather than dropping or retrying it.	no
-apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A failed removal write sends nothing and keeps the saved words.	no
+apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused Send offers the message back held rather than dropping or retrying it.	yes
+apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A failed removal write sends nothing and keeps the saved words.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused folded message restores its original rows without exceeding the saved row limit.	no
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	counts the folder's change, not every Write outside it, and does not blame Claude Code for those Writes	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps a normal finished turn's card: one Write with a diff is still one edited file	yes
