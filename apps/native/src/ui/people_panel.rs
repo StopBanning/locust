@@ -365,11 +365,24 @@ fn model_fallback_name(id: &str) -> String {
     }
     name
 }
-/// This choice belongs to the form until Save, never to the open workspace.
+/// Fill the folder field without changing the open workspace.
 fn set_form_folder(s: &mut State, folder: Option<&std::path::Path>) {
     if let Some(edit) = s.people_panel.fields.get_mut(7) {
         *edit = field(&folder.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default());
     }
+}
+
+/// Returning to the project folder is a saved action of its own. Leave the other form edits alone.
+fn reset_saved_folder(s: &mut State, id: &str) {
+    let result = s.data.as_ref().ok_or("Native data folder could not be determined.".into())
+        .and_then(|store| people::set_folder(store, id, None)).map(|_| ());
+    if result.is_ok() {
+        set_form_folder(s, None);
+        if let Some(entry) = s.people_panel.entry.as_object_mut() {
+            entry.remove("folder");
+        }
+    }
+    done(s, result);
 }
 
 fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
@@ -394,8 +407,9 @@ fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
                 }
             }));
     if !folder.is_empty() {
+        let id = id.to_owned();
         choices = choices.child(button("Use the project folder", p).key("team-folder-reset")
-            .on_press(|s: &mut State| set_form_folder(s, None)));
+            .on_press(move |s: &mut State| reset_saved_folder(s, &id)));
     }
     Some(col().key("team-folder-row").w_full().gap(6.0)
         .child(text("Works in").font(type_::LABEL).color(p.secondary))
@@ -2479,6 +2493,10 @@ mod renderer_model_tests {
 }
 
 #[cfg(test)]
+#[path = "people_folder_persistence_tests.rs"]
+mod people_folder_persistence_tests;
+
+#[cfg(test)]
 mod renderer_folder_tests {
     use super::*;
     fn form(folder: Option<&str>, host: bool, mode: &str) -> State {
@@ -2507,14 +2525,6 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("The project folder"));
         assert!(texts(&rt).contains("Choose folder"));
         assert!(rt.find("team-folder-reset").is_none());
-    }
-    #[test]
-    fn shows_the_folder_it_was_pointed_at_and_the_way_back() {
-        let rt = render(form(Some("/home/dev/claude"),true,"auto"));
-        assert!(texts(&rt).contains("/home/dev/claude"));
-        assert!(texts(&rt).contains("Use the project folder"));
-        assert!(texts(&rt).contains("Change"));
-        assert!(!texts(&rt).lines().any(|l|l == "The project folder"));
     }
     #[test]
     fn says_why_the_folder_is_worth_setting_in_the_persons_terms() {
@@ -2547,19 +2557,7 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("every write refused"));
         assert!(!texts(&rt).contains("may edit anything on this machine"));
     }
-    #[test]
-    fn resetting_the_folder_changes_only_the_form_until_saved() {
-        let mut rt = render(form(Some("/home/dev/claude"),true,"auto"));
-        let (x,y) = rt.find("team-folder-reset").unwrap();
-        rt.pointer_down(x,y); rt.pointer_up(x,y); rt.frame(0.1);
-        assert!(build_entry_from_form(&rt.state).unwrap().get("folder").is_none());
-        assert_eq!(rt.state.people_panel.team["teammates"][0]["folder"],"/home/dev/claude");
-        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
-        assert!(rt.find("team-folder-reset").is_none());
-        set_form_folder(&mut rt.state,Some(std::path::Path::new("/home/dev/new")));
-        assert_eq!(build_entry_from_form(&rt.state).unwrap()["folder"],"/home/dev/new");
-        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
-    }
+
 }
 
 #[cfg(test)]
