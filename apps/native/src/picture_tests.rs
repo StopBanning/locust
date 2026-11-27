@@ -25,7 +25,7 @@ pub(crate) const LOCKED: &[(&str, fn(&mut State))] = &[
 ];
 
 /// The render: one second in (past the opening fades; frame 0 is still loading and differs run to run), at 1x so the
-/// eight references stay under a megabyte in all. scripts/picture-lock.sh passes the same two.
+/// eight references stay under a megabyte in all. scripts/picture-lock.sh passes the same two (a test holds it to them).
 pub(crate) const AT: &str = "1";
 pub(crate) const SCALE: &str = "1";
 
@@ -526,4 +526,69 @@ fn the_app_window_and_the_picture_render_take_their_look_from_one_place() {
     for part in ["window_glass::window_options(", ".font_smoothing(crate::look::type_::SMOOTHING)", ".chrome(WINDOW_CHROME)"] {
         assert!(look.contains(part), "main_window_look sets {part}");
     }
+}
+
+/// A copy of what scripts/picture-lock.sh reads, in a scratch tree, with a stand-in for the isolated runner that
+/// records its arguments and writes the --snap file: the real pictures/ is never touched.
+fn lock_tree(name: &str) -> PathBuf {
+    let root = scratch(name);
+    let here = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for dir in ["scripts", "src", "pictures"] {
+        std::fs::create_dir_all(root.join(dir)).unwrap();
+    }
+    std::fs::copy(here.join("scripts/picture-lock.sh"), root.join("scripts/picture-lock.sh")).unwrap();
+    std::fs::copy(here.join("src/picture_tests.rs"), root.join("src/picture_tests.rs")).unwrap();
+    std::fs::write(
+        root.join("scripts/isolated-test-runner.py"),
+        "import sys, pathlib\nargs = sys.argv[1:]\npathlib.Path('runner-args').open('a').write(' '.join(args) + '\\n')\n\
+         pathlib.Path(args[args.index('--snap') + 1]).write_bytes(b'png')\n",
+    )
+    .unwrap();
+    root
+}
+
+fn lock(root: &Path, scenes: &[&str]) -> std::process::Output {
+    std::process::Command::new("sh")
+        .arg(root.join("scripts/picture-lock.sh"))
+        .args(scenes)
+        .env("LOCUST_NATIVE_BIN", "/bin/sh")
+        .output()
+        .expect("run picture-lock.sh")
+}
+
+#[test]
+fn the_lock_script_renders_locked_scenes_at_the_tests_time_and_scale_through_the_isolated_runner() {
+    let root = lock_tree("lock");
+    std::fs::write(root.join("pictures/people.new.png"), b"left by a failing test").unwrap();
+    std::fs::write(root.join("pictures/people.diff.png"), b"left by a failing test").unwrap();
+    let out = lock(&root, &["settings", "people"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let runs = std::fs::read_to_string(root.join("runner-args")).expect("the isolated runner drew them");
+    let runs: Vec<&str> = runs.lines().collect();
+    assert_eq!(runs.len(), 2, "{runs:?}");
+    for (run, scene) in runs.iter().zip(["settings", "people"]) {
+        let picture = root.join(format!("pictures/{scene}.png"));
+        assert_eq!(
+            *run,
+            format!("/bin/sh --scene {scene} --snap {} --at {AT} --scale {SCALE}", picture.display()),
+            "the approved picture is drawn as the test draws it"
+        );
+        assert!(picture.is_file());
+    }
+    assert!(!root.join("pictures/people.new.png").exists() && !root.join("pictures/people.diff.png").exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_lock_script_refuses_a_scene_the_tests_do_not_lock_and_writes_nothing() {
+    let root = lock_tree("refuse");
+    // An UNLOCKED key, a prefix of a locked name, an unknown name; and a good one beside a bad one.
+    for scenes in [&["settings-meta"][..], &["sett"], &["nope"], &["empty", "nope"]] {
+        let out = lock(&root, scenes);
+        assert_eq!(out.status.code(), Some(2), "{scenes:?}");
+        assert!(String::from_utf8_lossy(&out.stderr).contains("is not a locked scene"), "{scenes:?}");
+    }
+    assert!(!root.join("runner-args").exists(), "nothing was rendered");
+    assert_eq!(std::fs::read_dir(root.join("pictures")).unwrap().count(), 0, "nothing was approved");
+    let _ = std::fs::remove_dir_all(&root);
 }
