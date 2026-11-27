@@ -452,7 +452,7 @@ impl Serve {
         let overflow = self.overflow.clone();
         std::thread::spawn(move || {
             read_events(BufReader::new(response.into_reader()), &tx, &end, &sid, &overflow);
-            gone.store(true, Ordering::Relaxed);
+            gone.store(true, Ordering::Release);
         });
         self.session = if let Some(id) = &t.resume {
             if self.fork {
@@ -478,7 +478,11 @@ impl Serve {
         }
         // A stream lost before the message was sent could never show its turn: nothing is sent
         // (opencode-serve-run.ts readEvents, `sessionId === undefined || !prompted`).
-        if self.stream_ended.load(Ordering::Relaxed) {
+        if self.stream_ended.load(Ordering::Acquire) {
+            self.drain_stream();
+            if self.ended {
+                return Ok(());
+            }
             return Err(err(format!("{CLOSED} Its outcome could not be confirmed.")));
         }
         if let Some(name) = self.slash.clone() {
@@ -783,6 +787,52 @@ impl Serve {
         }
         Ok(())
     }
+    fn accept_stream_item(&mut self, item: io::Result<Value>) {
+        match item {
+            Ok(v) => {
+                if let Err(e) = self.accept(&v) {
+                    self.finish(Some(&e.to_string()));
+                }
+            }
+            Err(error) => {
+                // readEvents().catch in Electron is not EOF recovery. Keep text already read, stop,
+                // and say the transport's reason rather than guessing what the model did.
+                let reason = error.to_string();
+                self.flush();
+                self.finish(Some(&reason));
+                if let Some(last) = self.queued.back_mut()
+                    && last.kind == "run.failed"
+                {
+                    last.payload["message"] = json!(super::events::text(&reason, 16384));
+                }
+            }
+        }
+    }
+
+    fn drain_stream(&mut self) {
+        while !self.ended {
+            let Some(Ok(item)) = self.rx.as_ref().map(Receiver::try_recv) else {
+                break;
+            };
+            self.accept_stream_item(item);
+        }
+    }
+
+    /// The reader publishes its last item before marking the stream ended. Drain it even if an
+    /// in-flight watchdog has just got an answer: only a clean EOF permits recovery from that answer.
+    fn begin_eof_recovery(&mut self) -> bool {
+        if !self.stream_ended.load(Ordering::Acquire) {
+            return false;
+        }
+        self.drain_stream();
+        if self.ended || self.recovery.is_some() {
+            return false;
+        }
+        self.flush();
+        self.recovery = Some(Instant::now());
+        true
+    }
+
     fn recover(&mut self) -> io::Result<()> {
         self.last_check = Instant::now();
         let api = self
@@ -790,11 +840,16 @@ impl Serve {
             .as_ref()
             .ok_or_else(|| err("OpenCode API is unavailable"))?
             .clone();
-        let statuses = api.check("/session/status")?;
+        let statuses = api.check("/session/status");
         // A stop that came while the server was asked is the person's, not the check's (`settled || cancelled`).
         if self.cancelled() || self.stopping.is_some() {
             return Ok(());
         }
+        self.begin_eof_recovery();
+        if self.ended {
+            return Ok(());
+        }
+        let statuses = statuses?;
         if !statuses.is_object() {
             return Err(err("OpenCode's session status was not readable."));
         }
@@ -807,23 +862,20 @@ impl Serve {
         if !status.is_null() && kind != Some("idle") {
             return Err(err("OpenCode's session status could not be identified."));
         }
-        let messages = api.check(&format!("/session/{}/message", encoded(&self.session)))?;
+        let messages = api.check(&format!("/session/{}/message", encoded(&self.session)));
         if self.cancelled() || self.stopping.is_some() {
             return Ok(());
         }
+        // A stream that closed while this check was out is read as closed: the same check serves both
+        // (opencode-serve-run.ts checkBegun, `if (!streamClosed)` after the messages arrive).
+        self.begin_eof_recovery();
+        if self.ended {
+            return Ok(());
+        }
+        let messages = messages?;
         let messages = messages
             .as_array()
             .ok_or_else(|| err("OpenCode's session messages were not readable."))?;
-        // A stream that closed while this check was out is read as closed: the same check serves both
-        // (opencode-serve-run.ts checkBegun, `if (!streamClosed)` after the messages arrive).
-        if self.recovery.is_none() && self.stream_ended.load(Ordering::Relaxed) {
-            // Every record the stream carried is read before it counts as closed.
-            while let Some(Ok(Ok(v))) = self.rx.as_ref().map(|rx| rx.try_recv()) {
-                self.accept(&v)?;
-            }
-            self.flush();
-            self.recovery = Some(Instant::now());
-        }
         if self.recovery.is_none() {
             if messages
                 .iter()
@@ -1000,22 +1052,14 @@ impl Runtime for Serve {
         // The reader marks the stream ended only after its last record was sent, so a poll that found nothing
         // after that has read every record (Electron reads the whole stream before it sees the close).
         let drained = result.is_err();
-        match result {
-            Ok(Ok(v)) => {
-                if let Err(e) = self.accept(&v) {
-                    self.finish(Some(&e.to_string()));
-                }
-            }
-            Ok(Err(e)) => self.finish(Some(&e.to_string())),
-            Err(_) => {}
+        if let Ok(item) = result {
+            self.accept_stream_item(item);
+        }
+        if !self.ended && drained && self.begin_eof_recovery() {
+            self.last_check = Instant::now() - Duration::from_secs(1);
         }
         if self.ended {
             return Ok(self.queued.pop_front());
-        }
-        if drained && self.stream_ended.load(Ordering::Relaxed) && self.recovery.is_none() {
-            self.flush();
-            self.recovery = Some(Instant::now());
-            self.last_check = Instant::now() - Duration::from_secs(1);
         }
         if self.stopping.is_some() {
             // Stopped: nothing more is asked of the server; the stop settles the run.
@@ -1118,7 +1162,13 @@ pub(crate) fn read_events(
             .read_until(b'\n', &mut line)
         {
             Ok(0) => break,
-            Err(_) => break,
+            Err(error) => {
+                // Send failures through the same bounded queue, after every record already read.
+                if matches!(tx.try_send(Err(error)), Err(mpsc::TrySendError::Full(_))) {
+                    overflow.store(true, Ordering::Relaxed);
+                }
+                break;
+            }
             Ok(_) if line.len() > 8 * 1024 * 1024 => {
                 overflow.store(true, Ordering::Relaxed);
                 break;
@@ -1272,3 +1322,7 @@ mod split_secret_tests {
         assert!(!written.contains(&rest), "the key's second piece reached the records raw: {written}");
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "opencode_serve_read_error_tests.rs"]
+mod read_error_tests;
