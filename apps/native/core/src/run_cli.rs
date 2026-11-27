@@ -54,16 +54,23 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         let v = args.get(i + 1).ok_or("Missing option value")?;
         match args[i].as_str() {
             "--folder" => turn.folder = PathBuf::from(v),
-            "--model" => turn.model = Some(v.clone()),
+            "--model" => {
+                let model = v.trim();
+                turn.model = (!model.is_empty() && model != "account-default").then(|| model.to_owned());
+            }
             _ => return Err(format!("Unknown option: {}", args[i]).into()),
         }
         i += 2;
     }
+    // Like Electron's CLI door, check the machine policy before probing any executable or writing a mission.
+    let policy = crate::org_policy::current();
+    check_route(&policy, runtime_name, &turn)?;
     turn.folder = turn.folder.canonicalize()?;
     if !turn.folder.is_dir() {
         return Err("--folder must name a directory".into());
     }
     let store = Store::local()?;
+    check_spend(&policy, &store)?;
     let id = format!(
         "mission_native_{}_{}",
         std::process::id(),
@@ -345,6 +352,48 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
     }
 }
 
+/// Unlike a normal mission, this CLI launches its runtime directly. Judge the model that the driver
+/// will ask for. A default or an OpenCode id that the legacy driver would ignore is not a named model.
+fn check_route(
+    policy: &crate::org_policy::PolicyState,
+    runtime: &str,
+    turn: &Turn,
+) -> Result<(), String> {
+    if let Some(why) = crate::org_policy::feature_refusal(Some(policy), "otherApps") {
+        return Err(why);
+    }
+    let asked = turn.model.as_deref();
+    let model = match runtime {
+        "kilo" => Some(crate::runtime::kilo::model_for_run(asked)),
+        "antigravity" => crate::runtime::antigravity::agy_route(asked, turn.effort.as_deref()).0,
+        "opencode" => asked.filter(|id| id.split_once('/').is_some_and(|(provider, model)| {
+            !provider.is_empty() && !model.is_empty()
+        })).map(str::to_owned),
+        _ => asked.map(str::to_owned),
+    };
+    // --run is local, starts in Ask, and has no saved-account selector.
+    crate::org_policy::turn_refusal(Some(policy), runtime, model.as_deref(), turn.mode.as_str(), false, false)
+        .map_or(Ok(()), Err)
+}
+
+/// An unowned CLI run counts the whole month's receipts, just as an unowned Electron start does.
+/// The headless driver writes its own events into that same native ledger.
+fn check_spend(policy: &crate::org_policy::PolicyState, store: &Store) -> Result<(), String> {
+    let Some(limit) = crate::org_policy::monthly_limit(Some(policy), None) else {
+        return Ok(());
+    };
+    let unreadable = || crate::org_policy::policy_refusal(policy, "monthlyLimitUsd",
+        "The monthly spending limit could not be checked. Ask your administrator to restore access to the spending record.");
+    let month = crate::spend::month_of(&chrono::Local::now().to_rfc3339()).ok_or_else(unreadable)?;
+    let turns = crate::usage_ledger::usage_turns_readable(store).map_err(|_| unreadable())?;
+    let spent = crate::spend::spent_by(&turns, &month, |_| true);
+    if crate::spend::limit_reached(Some(&spent), limit) {
+        return Err(crate::org_policy::policy_refusal(policy, "monthlyLimitUsd",
+            &format!("Locust has reached this month's effective limit of {limit:.2} USD. It starts again next month.")));
+    }
+    Ok(())
+}
+
 fn drive<R: Runtime>(
     runtime: &mut R,
     writer: &mut LedgerWriter,
@@ -421,3 +470,7 @@ fn record_start_failure(writer: &mut LedgerWriter, error: &io::Error) -> io::Res
     writer.append(&event.kind, json!(event.payload), event.thread.as_deref())?;
     Ok(())
 }
+
+#[cfg(all(test, unix))]
+#[path = "run_cli_policy_tests.rs"]
+mod policy_tests;
