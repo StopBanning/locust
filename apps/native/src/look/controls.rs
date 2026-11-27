@@ -3,7 +3,7 @@
 //! toasts and segmented controls come from rune-kit, styled by `look::kit`, for their keyboard and overlay behaviour.
 
 use super::{LocustType, Tokens, kit, locust_type, tokens};
-use rune::{Color, El, Icon, Shadow, TextStyle, col, row, text};
+use rune::{Color, Curve, Easing, El, Icon, Shadow, TextStyle, col, row, text};
 use rune_kit::Kit;
 
 /// One appearance's tokens, kit and type, handed to every builder.
@@ -37,7 +37,9 @@ fn ring(width: f32, color: Color) -> Shadow {
 }
 
 fn focusable(l: &Look, e: El, label: &str, disabled: bool) -> El {
-    e.focusable(!disabled).focus_ring(2.0, 2.0, l.c("focus-ring")).role("button").label(label.to_owned())
+    // `disabled` as the `<button disabled>` it stands for: said to assistive tech, and the arrow, not the hand
+    // (`.lc-button:disabled { cursor: default }`, shell.css:710-713).
+    e.focusable(!disabled).focus_ring(2.0, 2.0, l.c("focus-ring")).role("button").label(label.to_owned()).disabled(disabled)
 }
 
 /// `.lc-button`: 30 high, 12 across, a 1-point border on the control fill, secondary text at 13.
@@ -59,9 +61,23 @@ pub fn button(l: &Look, label: &str, tone: Tone, disabled: bool) -> El {
     if disabled {
         e = e.opacity(0.5);
     } else {
-        e = e.hover(l.c("hover-surface")).press_scale(0.98);
+        // `.lc-button:hover:not(:disabled)`: the hover surface and the border lifted to `--lc-hover-border`, both on
+        // `transition: background var(--lc-motion-hover) var(--lc-ease), border-color …` (shell.css:698, 701-704), 140ms ease.
+        let ease = Curve::tween(0.14, Easing::EASE);
+        e = e.hover(l.c("hover-surface")).hover_border(l.c("hover-border")).hover_motion(ease, ease).press_scale(0.98);
     }
     focusable(l, e, label, disabled)
+}
+
+/// The colour that, drawn over `under`, shows `want`: Rune's hover paints over the fill, where CSS's `:hover` replaces
+/// the background. Exact when the two share their hue and differ in alpha, as the switch's off and off-hover tracks do.
+fn over_to(under: Color, want: Color) -> Color {
+    if under.a >= 1.0 || want.a <= under.a {
+        return want;
+    }
+    let a = (want.a - under.a) / (1.0 - under.a);
+    let ch = |w: f32, u: f32| ((w * want.a - u * under.a * (1.0 - a)) / a).clamp(0.0, 1.0);
+    Color { r: ch(want.r, under.r), g: ch(want.g, under.g), b: ch(want.b, under.b), a }
 }
 
 /// `.lc-primarybutton`: the one filled control in a dialog, ivory on dark and ink on light, 32 high, semibold 14.
@@ -143,6 +159,12 @@ pub fn switch(l: &Look, on: bool, label: &str, disabled: bool) -> El {
     let mut e = track.child(knob);
     if disabled {
         e = e.opacity(0.45);
+    } else if !on {
+        // `button.lc-switch:hover:not(:disabled):not(.is-on) { background: var(--lc-switch-off-hover) }`
+        // (shell.css:18926-18928), on `transition: background 160ms var(--lc-ease-out)` (shell.css:18923; the curve is
+        // tokens.css:770).
+        let ease = Curve::tween(0.16, Easing::cubic(0.22, 0.8, 0.24, 1.0));
+        e = e.hover(over_to(l.c("switch-off"), l.c("switch-off-hover"))).hover_motion(ease, ease);
     }
     // Says on or off and whether it can be used, as Electron's `aria-checked` and `disabled` do: a switch that only
     // looked on was silent to a screen reader.
@@ -445,3 +467,7 @@ pub fn header_button(l: &Look, i: &'static Icon, words: &str) -> El {
 #[cfg(test)]
 #[path = "runtime_mark_colour_tests.rs"]
 mod runtime_mark_colour_tests;
+
+#[cfg(test)]
+#[path = "control_hover_tests.rs"]
+mod control_hover_tests;
