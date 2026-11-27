@@ -3782,7 +3782,7 @@ fn main_window_look<S: 'static>(app: App<S>) -> App<S> {
 }
 
 /// What `--scene NAME --snap` draws (main, above), rendered in-process for the picture tests (picture_tests.rs), with
-/// the default code font. A look change in main's App::new belongs here too; the picture tests fail when it is missed.
+/// the default code font. A look option main sets outside main_window_look is not seen here: put it in there.
 #[cfg(test)]
 pub(crate) fn picture_render(scenes: &'static [(&'static str, fn(&mut State))], args: Vec<String>) {
     HEADLESS.store(true, std::sync::atomic::Ordering::Relaxed);
