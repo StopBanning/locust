@@ -1034,6 +1034,15 @@ fn integrity(missions: &[Value], missing_parent: Option<&str>) -> String {
             .unwrap_or("");
         if let Some(issues) = mission.get("issues").and_then(Value::as_array) {
             for issue in issues {
+                // The on-disk native reader returns issue codes. Keep them visible in a saved record.
+                if let Some(code) = issue.as_str() {
+                    let message = match code {
+                        "truncated-tail" => "An incomplete final ledger record was ignored after recovery.",
+                        _ => "An invalid ledger record was ignored.",
+                    };
+                    problems.push(format!("`{code}`: {message} ({fallback_id})"));
+                    continue;
+                }
                 let code = issue.get("code").and_then(Value::as_str).unwrap_or("");
                 let message = issue.get("message").and_then(Value::as_str).unwrap_or("");
                 let id = issue
