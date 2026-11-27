@@ -411,3 +411,18 @@ fn hover_change_spans_descendants_and_holds_through_a_press() {
     rt.frame(0.0);
     assert_eq!(rt.state.0, [true, false, true, false]);
 }
+
+#[test]
+fn overlay_pointer_reaching_a_border_only_hover_asks_for_a_frame() {
+    // Lane check of Hover 1: an element whose only hover look is its border's colour (El::hover_border, no fill, no
+    // press, no handler) still changes how it looks under the pointer, so reaching and leaving it must ask for a frame.
+    fn view(_: &u32, _: &mut Cx<u32>) -> El {
+        el().child(el().size(40.0, 20.0).border(1.0, Color::BLACK).hover_border(Color::WHITE))
+    }
+    let mut rt = Runtime::new(0, view, (100.0, 100.0), Env { system_dark: true, scale: 1.0 });
+    rt.frame(0.0);
+    assert!(rt.observe_pointer(5.0, 5.0), "reaching a border-only hover changes its look");
+    rt.frame(0.0);
+    assert!(!rt.observe_pointer(6.0, 5.0), "moving within it changes nothing");
+    assert!(rt.observe_pointer(90.0, 90.0), "leaving it changes its look back");
+}
