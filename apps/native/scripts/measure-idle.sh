@@ -166,6 +166,9 @@ front() {
 
 back() {
   read_pids
+  # Only while the subject still has focus: if someone has since moved to another app, theirs stays in front.
+  local now; now="$(osascript -e 'tell application "System Events" to get unix id of first process whose frontmost is true' 2>/dev/null || true)"
+  [ "$now" = "$WIN" ] || { echo "the subject is not in front; focus left where it is" >&2; return 0; }
   local was; was="$(cat "$WORK/frontmost" 2>/dev/null || true)"
   [ -n "$was" ] || was=com.apple.finder
   osascript -e "tell application id \"$was\" to activate" >/dev/null
@@ -173,6 +176,8 @@ back() {
 
 quit_subject() {
   read_pids
+  # An engine that started after launch looked (the window starts it a moment later) is found now.
+  if [ "$ENG" = 0 ]; then ENG=$(lsof -t "$DATA/engine.lock" 2>/dev/null | awk 'NR==1'); ENG=${ENG:-0}; fi
   kill -TERM "$WIN" 2>/dev/null || true
   local i
   for i in $(seq 1 100); do kill -0 "$WIN" 2>/dev/null || break; sleep 0.1; done
