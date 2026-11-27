@@ -369,3 +369,121 @@ fn a_new_pages_change_in_the_activity_drawer_says_what_the_runtime_counted_in_al
     let said = new_file_shown_as_its_change("index.html");
     assert!(said.iter().any(|t| t.ends_with("the runtime counted +300 −40 in all")), "{said:?}");
 }
+
+// The real window draws the panel and receives the same key events as the native shell.
+fn changes_files_window() -> rune::Runtime<State> {
+    let mut s = State::default();
+    s.changes = Panel {
+        open: true,
+        files: true,
+        diff: Some(Ok(changes::Folder {
+            base: "main".into(),
+            branch: "feature".into(),
+            showing: "all".into(),
+            files: changes::parse(TWO_HUNKS),
+            ..changes::Folder::default()
+        })),
+        ..Panel::default()
+    };
+    let mut rt = rune::Runtime::new(s, crate::view, (1400.0, 1000.0), rune::Env::new(true, 1.0));
+    rt.on_key = Some(crate::on_key);
+    settle_changes_files(&mut rt);
+    rt
+}
+
+fn settle_changes_files(rt: &mut rune::Runtime<State>) {
+    for _ in 0..6 {
+        rt.frame(0.05);
+    }
+}
+
+fn press_changes_file_key(rt: &mut rune::Runtime<State>, key: Key, mods: rune::Mods) {
+    rt.key(KeyEvent { key, mods });
+    settle_changes_files(rt);
+}
+
+fn assert_changes_files(rt: &rune::Runtime<State>, shown: bool) {
+    let elements = rt.elements();
+    assert_eq!(elements.iter().any(|e| !e.exiting && e.label.as_deref() == Some("Folder src")), shown,
+        "the Changes file tree must follow the control");
+    assert!(elements.iter().any(|e| !e.exiting && e.key.as_deref() == Some("changes-file-0")),
+        "toggling the file tree must leave the diff on screen");
+}
+
+fn show_files_toggle_state(tree: &serde_json::Value) -> Option<&str> {
+    if tree["key"] == "changes-files" {
+        return tree["states"].as_array()?.iter().filter_map(serde_json::Value::as_str)
+            .find(|state| matches!(*state, "checked" | "unchecked"));
+    }
+    tree["children"].as_array()?.iter().find_map(show_files_toggle_state)
+}
+
+fn primary_mods() -> rune::Mods {
+    let mac = cfg!(target_os = "macos");
+    rune::Mods { cmd: true, ctrl: !mac, logo: mac, shift: true, ..Default::default() }
+}
+
+// case: on a Mac is Cmd+Shift+Y, and Ctrl+Shift+Y is not it
+#[cfg(target_os = "macos")]
+#[test]
+fn changes_files_takes_cmd_y_not_ctrl_y_on_mac() {
+    let mut rt = changes_files_window();
+    press_changes_file_key(&mut rt, Key::Text("Y".into()), rune::Mods { ctrl: true, shift: true, ..Default::default() });
+    assert_changes_files(&rt, true);
+    press_changes_file_key(&mut rt, Key::Command('y'), primary_mods());
+    assert_changes_files(&rt, false);
+}
+
+// case: on Windows and Linux stays Ctrl+Shift+Y, as it always was
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn changes_files_takes_ctrl_y_not_super_y_off_mac() {
+    let mut rt = changes_files_window();
+    press_changes_file_key(&mut rt, Key::Text("Y".into()), rune::Mods { logo: true, shift: true, ..Default::default() });
+    assert_changes_files(&rt, true);
+    press_changes_file_key(&mut rt, Key::Command('y'), primary_mods());
+    assert_changes_files(&rt, false);
+}
+
+// case: wants Shift and Y, and no Alt, everywhere
+#[test]
+fn changes_files_chord_needs_shift_and_y_without_alt() {
+    let mut rt = changes_files_window();
+    let mods = primary_mods();
+    for (key, wrong) in [
+        (Key::Command('y'), rune::Mods { shift: false, ..mods }),
+        (Key::Command('y'), rune::Mods { alt: true, ..mods }),
+        (Key::Command('t'), mods),
+    ] {
+        press_changes_file_key(&mut rt, key, wrong);
+        assert_changes_files(&rt, true);
+    }
+    press_changes_file_key(&mut rt, Key::Command('y'), mods);
+    assert_changes_files(&rt, false);
+}
+
+// case: the button's title names the chord this machine takes
+#[test]
+fn changes_files_names_the_platform_chord_in_its_rendered_button() {
+    let rt = changes_files_window();
+    let button = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("changes-files")).unwrap();
+    let title = if cfg!(target_os = "macos") { "Show the files (Cmd+Shift+Y)" } else { "Show the files (Ctrl+Shift+Y)" };
+    assert_eq!(button.help.as_deref(), Some(title));
+}
+
+// case: is what the panel listens for and what its button says
+#[test]
+fn changes_files_button_and_keyboard_control_the_same_tree() {
+    let mut rt = changes_files_window();
+    assert_changes_files(&rt, true);
+    assert_eq!(show_files_toggle_state(&rt.accessibility_json()), Some("checked"), "Electron exposes the shown tree as pressed");
+    let (x, y) = rt.find("changes-files").expect("Show files");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    settle_changes_files(&mut rt);
+    assert_changes_files(&rt, false);
+    assert_eq!(show_files_toggle_state(&rt.accessibility_json()), Some("unchecked"));
+    press_changes_file_key(&mut rt, Key::Command('y'), primary_mods());
+    assert_changes_files(&rt, true);
+    assert_eq!(show_files_toggle_state(&rt.accessibility_json()), Some("checked"));
+}
