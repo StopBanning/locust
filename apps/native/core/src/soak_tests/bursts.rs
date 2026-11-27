@@ -220,6 +220,14 @@ fn burst_claude_records_short() {
     claude(N, Reader::Held).unwrap();
 }
 
+/// The same burst against a slow reader, which takes records out while they still arrive: after the queue overflows,
+/// the reader thread must stop taking records, or what reaches the queue after the overflow follows a gap (held, the
+/// agent has finished before anything is read, so a reader that carries on past the overflow leaves no gap to see).
+#[test]
+fn burst_claude_records_slow_short() {
+    claude(N, Reader::Slow).unwrap();
+}
+
 #[test]
 fn burst_codex_short() {
     codex(N, Reader::Held).unwrap();
