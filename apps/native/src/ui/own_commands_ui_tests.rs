@@ -215,3 +215,46 @@ fn yours_sit_between_locusts_own_and_the_runtimes_and_stay_while_a_turn_runs() {
     assert_eq!(offered(false), vec!["ask", "plan", "edit", "approve", "model", "setup", "auto", "team/review", "compact"]);
     assert_eq!(offered(true), vec!["ask", "plan", "edit", "approve", "model", "stop", "setup", "auto", "team/review"]);
 }
+
+// App.tsx applyOwnCommand: the prompt goes into the box with `attachments: []` (setHandBack), so what was attached to the
+// message being written is let go.
+#[test]
+fn choosing_a_command_lets_go_of_what_was_attached_to_the_message_being_written() {
+    let (dir, mut s) = state();
+    write(&dir.0.join("electron/commands/ship.md"), "Ship it.\n");
+    read_now(&mut s);
+    s.attached.push("/tmp/a-picture.png".into());
+    super::choose(&mut s, "ship", Source::Global, "");
+    read_now(&mut s);
+    assert_eq!(s.draft.text, "Ship it.\n");
+    assert!(s.attached.is_empty(), "{:?}", s.attached);
+}
+
+// App.tsx applyOwnCommand: `setSelectedTeammateId(mate.teammateId)` for the teammate the file names. For the one already
+// on screen that is no change at all: the mode picked in the box stays, and no menu is closed.
+#[test]
+fn a_command_naming_the_teammate_already_on_screen_changes_nothing_else() {
+    let (dir, mut s) = state();
+    write(&dir.0.join("electron/commands/ship.md"), "---\nteammate: Wren\n---\nShip it.\n");
+    s.teammates.push(locust_core::engine::Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: None,
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.composer_mode = Some("plan".into());
+    s.mode_menu = true;
+    read_now(&mut s);
+    super::choose(&mut s, "ship", Source::Global, "");
+    read_now(&mut s);
+    assert_eq!(s.draft.text, "Ship it.\n");
+    assert_eq!(s.composer_mode.as_deref(), Some("plan"), "the mode the person picked stays: the teammate is the same one");
+    assert!(s.mode_menu, "no menu is closed by choosing the teammate who is already there");
+}

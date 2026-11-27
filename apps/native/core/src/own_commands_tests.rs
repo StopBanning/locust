@@ -357,3 +357,28 @@ fn opens_a_commands_folder_the_host_names_never_one_the_window_names() {
         Err("That folder could not be opened. Your commands are where they were.".into())
     );
 }
+
+// own-command-host.ts readTree: `if (text.length > MAX_FILE) continue`. `text.length` counts UTF-16 units, so a file of
+// emoji (two units each) is over the limit at half as many characters.
+#[test]
+fn a_file_is_too_long_by_its_utf16_units_not_its_characters() {
+    let profile = temp("utf16");
+    let root = profile.0.join("commands");
+    // 50,000 emoji are 100,000 units: exactly MAX_FILE, read. 50,001 are 100,002: left out, though only 50,001 characters.
+    write(&root.join("exactly.md"), &"\u{1F600}".repeat(MAX_FILE / 2));
+    write(&root.join("over.md"), &"\u{1F600}".repeat(MAX_FILE / 2 + 1));
+    let read = read_tree(&root, Source::Global);
+    assert_eq!(read.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), vec!["exactly"]);
+}
+
+// shared/own-commands.ts argumentsOfOwnCommand: `names.find((one) => one.toLowerCase() === typed.toLowerCase())`, and the
+// name given back is the file's own, not the one typed.
+#[test]
+fn a_name_typed_in_any_case_is_the_command_the_file_names() {
+    assert_eq!(
+        arguments_of_own_command("/Team/Review the notes", &["team/review"]),
+        Some(("team/review".to_owned(), "the notes".to_owned()))
+    );
+    assert_eq!(arguments_of_own_command("/REVIEW  two  words ", &["review", "other"]), Some(("review".to_owned(), "two  words".to_owned())));
+    assert_eq!(arguments_of_own_command("/revie the notes", &["review"]), None);
+}
