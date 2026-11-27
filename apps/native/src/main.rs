@@ -3645,7 +3645,7 @@ fn main() {
         locust_core::window_bounds::opening_placement(saved.as_ref(), &[display], primary)
     };
 
-    App::new(AppSpec {
+    main_window_look(App::new(AppSpec {
         min_size: Some((placement.min_width as f32, placement.min_height as f32)),
         setup: Some(setup),
         poll: Some(poll),
@@ -3788,10 +3788,7 @@ fn main() {
         ),
         ..AppSpec::new("Locust", (placement.width as f32, placement.height as f32), State::default, view)
     })
-    .maximized(placement.maximized)
-    .window_options(window_glass::window_options(std::env::consts::OS))
-    .font_smoothing(crate::look::type_::SMOOTHING)
-    .chrome(WINDOW_CHROME)
+    .maximized(placement.maximized))
     .on_close(on_close)
     .on_open_url(link_open::opened)
     .on_quit(on_quit)
@@ -3811,6 +3808,34 @@ fn main() {
     // The window is gone: let cancelled records land (bounded; an unresponsive server is killed by its watchdog).
     locust_core::engine_api::api().wait_for_shutdown();
 }
+
+/// The main window's glass options, glyph smoothing and frame: main() and the picture tests' render both take them here.
+fn main_window_look<S: 'static>(app: App<S>) -> App<S> {
+    app.window_options(window_glass::window_options(std::env::consts::OS))
+        .font_smoothing(crate::look::type_::SMOOTHING)
+        .chrome(WINDOW_CHROME)
+}
+
+/// What `--scene NAME --snap` draws (main, above), rendered in-process for the picture tests (picture_tests.rs), with
+/// the default code font. A look option main sets outside main_window_look is not seen here: put it in there.
+#[cfg(test)]
+pub(crate) fn picture_render(scenes: &'static [(&'static str, fn(&mut State))], args: Vec<String>) {
+    HEADLESS.store(true, std::sync::atomic::Ordering::Relaxed);
+    let min = locust_core::window_bounds::MIN_WINDOW_WIDTH as f32;
+    let app = main_window_look(App::new(AppSpec {
+        min_size: Some((min, locust_core::window_bounds::MIN_WINDOW_HEIGHT as f32)),
+        setup: Some(setup),
+        poll: Some(poll),
+        on_key: Some(on_key),
+        scenes,
+        fonts: look::FONTS,
+        families: look::families_for(&locust_core::workspace_settings::startup_code_font(None)),
+        ..AppSpec::new("Locust", (1215.0, 800.0), State::default, view)
+    }));
+    rune::tooling::headless(app, rune::tooling::Args::parse_from(args));
+}
+#[cfg(test)]
+mod picture_tests;
 
 #[cfg(test)]
 #[path = "ui/tests.rs"]
