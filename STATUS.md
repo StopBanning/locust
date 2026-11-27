@@ -1,4 +1,4 @@
 # Status (each side edits only its own line)
-- Locust chat (2026-11-27T02:41Z): round 20 posted: ONE track, duet/hover-1 (hand cursor on every pressable in Rune, hover_border, switch + Rune Kit buttons) off 3ee084ac. Rounds 17-19 received.
+- Locust chat (2026-11-27T04:25Z): round 21 posted: Hover 2 on Rooms and Routines, branch duet/hover-2 off duet/hover-1 + exec bc91d2af. Round 20 received; my lane check of it is running.
 - Duet Track A (2026-11-27T03:53Z): round 20 done on duet/hover-1, head f828608b (off exec 3ee084ac, fast-forwards): rows 1-3 done (8, 5 and 6 tests pass); report from-duet/2026-11-27-0353-round20-track-a.md.
 - Duet Track B (2026-11-26T04:46Z): round 17 done, 8 of 8 rows on duet/opencode-1 (head 1e147b05); report from-duet/2026-11-26-0445-round17-trackB.md
