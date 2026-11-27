@@ -73,5 +73,5 @@ fn a_rule_from_a_card_for_a_reaching_command_is_refused_and_nothing_is_saved() {
     // The card still waits for the person's own answer.
     assert_eq!(channel.waiting_for_mission(&mission).len(), 1);
     channel.decide(Answer::Decision { approval_id: card.approval_id.clone(), decision: Decision::Deny, reason: None }).unwrap();
-    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "reject"})));
+    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "decline"})));
 }

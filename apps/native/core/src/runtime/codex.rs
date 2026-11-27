@@ -344,7 +344,8 @@ impl Codex {
                 }
                 // A question is answered, in any mode: it authorizes nothing (question-answers.test.ts).
                 "item/tool/requestUserInput" => self.answer_question(&method_owned, &params, wire_id.clone())?,
-                "execCommandApproval" | "applyPatchApproval" => json!({"decision":"denied"}),
+                // The legacy requests are never put on a card; their refusal is their own shape (0.172 schema).
+                "execCommandApproval" | "applyPatchApproval" => crate::approval::codex_legacy_refusal(),
                 _ => {
                     self.send(json!({"jsonrpc":"2.0","id":wire_id,"error":{"code":-32601,"message":"Native does not support this interactive request"}}))?;
                     self.queued.push_back(self.normal.diagnostic(
@@ -413,7 +414,7 @@ impl Codex {
         if super::events::thread_id(params)
             .is_some_and(|id| self.normal.thread.as_ref() != Some(&id))
         {
-            return Ok(json!({"decision":"reject"}));
+            return Ok(crate::approval::codex_refusal());
         }
         // Only Approve-each stops for a card (`codexAppServerPolicy` → untrusted).
         // Ask / other modes auto-decline the way M1 did, even when a channel exists.
@@ -422,7 +423,7 @@ impl Codex {
                 method,
                 "Codex requested approval; native declines approvals outside Approve each.",
             ));
-            return Ok(json!({"decision":"decline"}));
+            return Ok(crate::approval::codex_refusal());
         }
         let channel = self
             .approvals
@@ -453,7 +454,7 @@ impl Codex {
             Err(message) => {
                 self.queued
                     .push_back(self.normal.diagnostic(method, &message));
-                Ok(json!({"decision":"reject"}))
+                Ok(crate::approval::codex_refusal())
             }
         }
     }
@@ -1021,3 +1022,7 @@ mod codex_replay_case_tests;
 #[cfg(test)]
 #[path = "codex_file_change_rows_tests.rs"]
 mod codex_file_change_rows_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_decision_schema_tests.rs"]
+mod codex_decision_schema_tests;

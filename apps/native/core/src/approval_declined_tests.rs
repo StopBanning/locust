@@ -74,7 +74,7 @@ fn remembers_the_items_the_person_declined_in_a_run_and_only_those_and_only_whil
     };
     channel.decide(Answer::Decision { approval_id: first.approval_id.clone(), decision: Decision::Deny, reason: None }).unwrap();
     channel.decide(Answer::Decision { approval_id: second.approval_id.clone(), decision: Decision::ApproveOnce, reason: None }).unwrap();
-    assert_eq!(denied.join().unwrap().unwrap(), json!({"decision": "reject"}));
+    assert_eq!(denied.join().unwrap().unwrap(), json!({"decision": "decline"}));
     assert_eq!(approved.join().unwrap().unwrap(), json!({"decision": "accept"}));
     assert_eq!(channel.declined("run_1"), set(&["item_denied"]));
     assert_eq!(channel.declined("run_other"), HashSet::new());
