@@ -53,6 +53,8 @@ impl<S: 'static> Runtime<S> {
         if self.window_focused != Some(focused) {
             // Refocused, the pointer where it was hovers again; blurred, it waits for a move.
             if focused && self.window_focused == Some(false) { self.hover_paused = false; }
+            // Loops stood still while the window was behind another app's; a frame starts them again.
+            if focused && self.window_focused == Some(false) && !self.loops.is_empty() { self.dirty = true; }
             self.window_focused = Some(focused);
             if let Some(f) = self.on_focus { self.update(|s, tx| f(s, focused, tx)); }
             // Deliver the cancelled Up before FocusLost can commit a view that removes its
@@ -247,7 +249,7 @@ impl<S: 'static> Runtime<S> {
 
     pub(super) fn transaction(&self) -> Tx {
         Tx { trace: self.tracing().then(crate::el::TraceCalls::default), mods: self.held_mods, selection: self.selection_snapshot(),
-            input_time: crate::input::time::current(), ..Tx::default() }
+            input_time: crate::input::time::current(), hidden: !self.live_visible(), ..Tx::default() }
     }
 
     /// A scalar from the actual draw path (e.g. `shell.width`). Values hold until resampled.

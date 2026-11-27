@@ -523,7 +523,10 @@ impl<S: 'static> Runtime<S> {
                         && sh[3] > oc[1].max(vp[1] - filter_margin) && sh[1] < oc[3].min(vp[3] + filter_margin)
                 }
             };
+            // A loop runs while someone can be watching it: shown, on screen, visible, motion wanted, and in the window
+            // that has focus. A window behind another app's draws its loops where they stand and asks for no frames.
             if self.surface_visible && base_opacity >= 1.0 / 255.0 && !self.reduced_motion
+                && self.window_focused != Some(false)
                 && loop_vis
                 && let Some(track) = self.loops.get(&n.id)
             {

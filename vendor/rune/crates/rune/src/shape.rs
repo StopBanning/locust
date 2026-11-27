@@ -395,6 +395,42 @@ pub(crate) fn triangulate(points: &[[f32; 2]]) -> Vec<([usize; 3], u32)> {
     out
 }
 
+/// The triangles [`triangulate`] gives for `points`, kept while the same outline comes back. A view builds its shapes
+/// again every frame, and a window of drawn faces clipped every outline's ears again on each paint: most of a focused
+/// window's CPU while one face moved (speed-1). Kept in two generations, so the outlines still drawn stay as moving
+/// ones churn through; an outline is matched by its points, never by its hash alone.
+pub(crate) fn with_triangles<R>(points: &[[f32; 2]], f: impl FnOnce(&[([usize; 3], u32)]) -> R) -> R {
+    use std::hash::{Hash, Hasher};
+    type Kept = std::collections::HashMap<u64, (Vec<[f32; 2]>, Vec<([usize; 3], u32)>)>;
+    const KEEP: usize = 512;
+    thread_local! {
+        static KEPT: std::cell::RefCell<(Kept, Kept)> = std::cell::RefCell::new((Kept::new(), Kept::new()));
+    }
+    let same = |a: &[[f32; 2]]| {
+        a.len() == points.len() && a.iter().zip(points).all(|(p, q)| p[0].to_bits() == q[0].to_bits() && p[1].to_bits() == q[1].to_bits())
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for p in points {
+        (p[0].to_bits(), p[1].to_bits()).hash(&mut hasher);
+    }
+    let key = hasher.finish();
+    KEPT.with(|kept| {
+        let mut kept = kept.borrow_mut();
+        let (now, before) = &mut *kept;
+        if !now.get(&key).is_some_and(|(at, _)| same(at)) {
+            let entry = match before.remove(&key) {
+                Some(entry) if same(&entry.0) => entry,
+                _ => (points.to_vec(), triangulate(points)),
+            };
+            if now.len() >= KEEP {
+                *before = std::mem::take(now);
+            }
+            now.insert(key, entry);
+        }
+        f(&now[&key].1)
+    })
+}
+
 fn mask(boundary: impl Fn(usize, usize) -> bool, a: usize, b: usize, c: usize) -> u32 {
     (boundary(a, b) as u32) | ((boundary(b, c) as u32) << 1) | ((boundary(c, a) as u32) << 2)
 }

@@ -76,6 +76,8 @@ pub struct Tx {
     pub(crate) button: crate::PointerButton,
     /// Modifier keys held as the handler runs.
     pub(crate) mods: crate::Mods,
+    /// The window was off screen as this ran (hidden, minimised, wholly covered): `Tx::shown`.
+    pub(crate) hidden: bool,
     pub(crate) srgb_blend: Option<bool>,
     /// `Tx::record_rewind`.
     pub(crate) rewind: Option<Option<crate::rewind::Rewind>>,
@@ -121,6 +123,13 @@ pub enum Shell {
 }
 
 impl Tx {
+    /// Whether any of the window is on screen as this runs: false while it is hidden, minimised or wholly covered by
+    /// other windows (or its displays sleep). A window behind another app's that still shows counts as shown, focused
+    /// or not. A poll that steps its own motion with `wake_after` asks for those frames only while this holds.
+    pub fn shown(&self) -> bool {
+        !self.hidden
+    }
+
     /// Pick from the last presented frame, with the geometry and visibility rules of
     /// [`Runtime::element_at`](crate::Runtime::element_at). Runs `f` after this handler,
     /// before its view commit. Pass `PointerEvent::window_x` and `window_y`, not local points.

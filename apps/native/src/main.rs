@@ -907,6 +907,8 @@ fn setup(s: &mut State, waker: Waker) {
         window_glass::mac_has_glass_view(),
     );
     s.changes_job.set_waker(waker.clone());
+    // The shared engine's client wakes the window when a card or a running turn changes (speed-1).
+    locust_core::engine_api::on_change(waker.clone());
     s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
@@ -2761,21 +2763,27 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         .bot_stage
         .poll(now, s.reduced_motion.get(), s.window_focused, tx);
     if changed
-        && !s.reduced_motion.get()
-        && s.window_focused
+        && turn_motion_drawn(s, tx)
         && s.bot_stage.active_count() == 0
         && (!s.seen_live.is_empty() || s.flight.is_some())
     {
         tx.wake_after(Duration::from_millis(33));
     }
-    // A working row's band moves while the window is in front and motion is wanted; it stands still otherwise.
+    // A working row's band moves while the window shows and motion is wanted; it stands still otherwise.
     // The live word's sweep too (`.lc-sweep`), on the same clock and under the same rule.
-    if s.window_focused && !s.reduced_motion.get() && (sidebar::shimmering(s) || messages::live_sweeping(s)) {
+    if turn_motion_drawn(s, tx) && (sidebar::shimmering(s) || messages::live_sweeping(s)) {
         tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
         changed = true;
     }
     phone_section::mirror_desk(s);
     changed
+}
+
+/// Whether a running turn's motion (the orb, the live word's sweep, a working row's band) is drawn: while any of the
+/// window shows, in front or behind another app's window beside an editor, and motion is wanted. Hidden, minimised or
+/// wholly covered it holds and asks for no frames (Big Brother's change 1, 26 Nov: a still live line reads as hung).
+fn turn_motion_drawn(s: &State, tx: &Tx) -> bool {
+    tx.shown() && !s.reduced_motion.get()
 }
 
 /// The app is quitting (⌘Q, the Dock, logout): macOS may end the process once the quit hooks return, before `main`

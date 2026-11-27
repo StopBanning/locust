@@ -811,3 +811,52 @@ fn an_added_account_is_named_in_the_picker_and_respects_policy_and_limits() {
     }
     assert_eq!(rt.state.agent_accounts.accounts.iter().find(|a| a.id == work.id).unwrap().state, AccountState::New);
 }
+
+/// speed-1: the window's setup gives the shared engine's client its wake, so a raised card or an ended turn shows when
+/// the engine says it, not at the next poll that something else causes.
+#[test]
+fn the_window_wakes_when_the_shared_engine_s_answers_change() {
+    let mut s = State { demo: true, ..Default::default() };
+    let woken = Arc::new(AtomicU64::new(0));
+    let count = woken.clone();
+    // Another window test's setup in this process may hand over its own wake between the two lines, so a few tries.
+    let reached = (0..20).any(|_| {
+        let count = count.clone();
+        crate::setup(&mut s, Arc::new(move || {
+            count.fetch_add(1, Ordering::SeqCst);
+        }));
+        let before = woken.load(Ordering::SeqCst);
+        locust_core::engine_api::changed();
+        woken.load(Ordering::SeqCst) > before
+    });
+    assert!(reached, "the engine's change never reached the window");
+}
+
+/// Big Brother's change 1: a running turn keeps moving in a window behind another app's that still shows; it holds
+/// when the window is hidden, minimised or covered, or motion is reduced; with no turn nothing asks for its frames.
+#[test]
+fn a_running_turn_moves_behind_another_window_and_holds_only_when_the_window_is_away() {
+    // The soonest wake one poll asks for, from a window in front, behind another app's window, or covered.
+    let soonest = |s: State, focused: bool, shown: bool| {
+        let mut rt = rune::Runtime::new(s, |_: &State, _: &mut rune::Cx<State>| rune::col(), (100.0, 100.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.window_focus(focused);
+        rt.set_live_visible(shown);
+        rt.update(|s, tx| {
+            let _ = crate::poll(s, 0.0, tx);
+        });
+        rt.frame(0.0);
+        rt.wake_deadline()
+    };
+    let turn = crate::messages::tests_live_state;
+    let motion = |at: Option<f64>| at.is_some_and(|at| at <= 0.06);
+    assert!(motion(soonest(turn(), true, true)), "in front during a turn: the sweep's next frame");
+    assert!(motion(soonest(turn(), false, true)), "behind another window, still on screen: it keeps moving");
+    assert!(!motion(soonest(turn(), false, false)), "covered, hidden or minimised: no motion frames");
+    let calm = turn();
+    calm.reduced_motion.set(true);
+    assert!(!motion(soonest(calm, false, true)), "less motion asked for: none");
+    let mut rest = turn();
+    rest.ledger = None;
+    assert!(!motion(soonest(rest, false, true)), "no turn: no motion frames");
+}
