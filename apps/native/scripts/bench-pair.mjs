@@ -67,15 +67,16 @@ async function seedConversation(folder) {
   return { profile, owners: Object.fromEntries(turns.map((turn) => [turn.missionId, turn.owner])) }
 }
 
-/** Every live process under `root`, with resident memory (KiB) and CPU seconds used so far. */
-function tree(root) {
+/** Every live process under `roots` (a pid, or a list of pids), with resident memory (KiB) and
+ * CPU seconds used so far. */
+function tree(roots) {
   const rows = execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,rss=,time=']).toString().trim().split('\n').map((line) => {
     const [pid, ppid, rss, time] = line.trim().split(/\s+/)
     const parts = time.split(':').map(Number)
     const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1]
     return { pid: Number(pid), ppid: Number(ppid), rss: Number(rss), cpu: seconds }
   })
-  const keep = new Set([root])
+  const keep = new Set(Array.isArray(roots) ? roots : [roots])
   let grew = true
   while (grew) {
     grew = false
@@ -151,16 +152,47 @@ await drive.finish({ intro: 'Bench pair: Electron with the conversation open, me
 const home = await mkdtemp(join(tmpdir(), 'locust-benchpair-home-'))
 const electronData = join(home, 'Library/Application Support/@teammate/desktop')
 await mkdir(dirname(electronData), { recursive: true })
-await cp(seeded.profile, electronData, { recursive: true })
+// Electron may still be closing and clearing its own files in that profile after `finish`: copy once it has gone, and
+// try again if a file vanished mid-copy (27 Nov: ENOENT in 3 of 21 runs).
+const alive = (pid) => { try { process.kill(pid, 0); return true } catch { return false } }
+for (let i = 0; i < 60 && drive.pid && alive(drive.pid); i += 1) await sleep(500)
+for (let attempt = 1; ; attempt += 1) {
+  try {
+    await cp(seeded.profile, electronData, { recursive: true, force: true })
+    break
+  } catch (error) {
+    if (attempt >= 4) throw error
+    await sleep(2000)
+  }
+}
 const frame = join(OUT, 'native-frame.json')
-const child = spawn(BINARY, ['--bench', frame, '--bench-seconds', String(WARM + SECONDS + 5), '--bench-conversation', CONVERSATION], {
-  env: { ...process.env, HOME: home, LOCUST_NATIVE_DATA: join(home, 'native') },
+// The Rust app's engine runs as its own process (`--engine`, plan E3). The window starts it as a child, but one already
+// answering in that data folder would be joined instead, outside the window's tree: count whatever holds the lock.
+const nativeData = join(home, 'native')
+const enginePids = () => {
+  try {
+    return execFileSync('/usr/sbin/lsof', ['-t', join(nativeData, 'engine.lock')]).toString().trim().split('\n').filter(Boolean).map(Number)
+  } catch {
+    return []
+  }
+}
+// Room to spare: a sample under build load can take well over its second, and a window that quit mid-measure dropped
+// out of the sum (27 Nov: negative CPU and one process in 8 of 21 runs). The window is closed once measured.
+const child = spawn(BINARY, ['--bench', frame, '--bench-seconds', String(WARM + SECONDS + 120), '--bench-conversation', CONVERSATION], {
+  env: { ...process.env, HOME: home, LOCUST_NATIVE_DATA: nativeData },
   stdio: 'ignore'
 })
+const exited = new Promise((done) => child.once('exit', done))
 await sleep(WARM * 1000)
-const native = await measure(child.pid, SECONDS)
-say(`Rust: ${JSON.stringify(native)}`)
-await new Promise((done) => child.once('exit', done))
+// Asked once: `lsof` on every sample made each sample slower than its second.
+const engineSeen = enginePids()
+const native = await measure([child.pid, ...engineSeen], SECONDS)
+const stillUp = alive(child.pid)
+say(`Rust: ${JSON.stringify(native)}${stillUp ? '' : ' (the window quit before the measure ended: not a valid run)'}`)
+if (stillUp) child.kill('SIGTERM')
+const hard = setTimeout(() => child.kill('SIGKILL'), 10000)
+await exited
+clearTimeout(hard)
 const firstFrame = JSON.parse(await readFile(frame, 'utf8')).first_frame_ms
 // The Rust bench's proof that it showed the conversation (written once it opened, with how many items it showed).
 const rustOpened = await readFile(join(OUT, 'native-frame.opened'), 'utf8').then(JSON.parse).catch(() => null)
@@ -174,7 +206,7 @@ const result = {
   size: SIZE,
   idleSeconds: SECONDS,
   electron: { behind: electron, inFront: electronFront, appMiB: Math.round(du(electronApp) / 1024), showsConversation: electronShown, packaged: PACKAGED },
-  rust: { ...native, firstFrameMs: Math.round(firstFrame), binaryMiB: Math.round(statSync(BINARY).size / 1048576), showsConversation: rustOpened }
+  rust: { ...native, engineCounted: engineSeen.length > 0, validRun: stillUp, firstFrameMs: Math.round(firstFrame), binaryMiB: Math.round(statSync(BINARY).size / 1048576), showsConversation: rustOpened }
 }
 await writeFile(join(OUT, 'result.json'), JSON.stringify(result, null, 2))
 say(JSON.stringify(result, null, 2))
