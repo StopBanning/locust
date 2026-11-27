@@ -121,7 +121,7 @@ fn after_an_approval_is_answered_every_orb_turns_again() {
 }
 
 /// REVIEW-ui-changes-2026-11-26.md change 7: once Stop is pressed the orb goes still until the agent answers, and stays
-/// on screen; a stop that fails lets it turn again.
+/// on screen.
 #[test]
 fn a_pressed_stop_holds_the_orb_still_until_it_lands() {
     let mut rt = window(crate::scenes::live_shell_scene, false, false);

@@ -132,4 +132,8 @@ fn the_buttons_use_one_verb() {
         assert!(said.contains(&button), "{button}: {said:?}");
     }
     assert!(!said.iter().any(|t| t.starts_with("Approve") || t.starts_with("Yes")), "{said:?}");
+    // The note under the buttons says "Always" lasts until this run ends (approval::card_note): only the session's
+    // button may say Always; the saved rule, which outlasts the run, says so in its own words.
+    assert_eq!(said.iter().filter(|t| t.starts_with("Always")).count(), 1, "{said:?}");
+    assert!(said.contains(&"Allow this command from now on"), "{said:?}");
 }

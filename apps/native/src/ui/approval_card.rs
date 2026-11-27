@@ -367,7 +367,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         })
                 })
                 .child(if approval::can_save_allow_rule(card) {
-                    crate::look::controls::ghost_button(&l, "Always allow this command")
+                    crate::look::controls::ghost_button(&l, "Allow this command from now on")
                         .key("dont-ask-again")
                         .on_press(|s: &mut State| {
                             if let Some(card) = s.pending_approval.clone() {
