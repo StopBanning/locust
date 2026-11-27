@@ -1,6 +1,8 @@
 //! Conversations as a board — port of `renderer/src/conversationBoard.ts`.
 
 use crate::conversation_list::{SidebarMission, by_live_then_recent, conversation_keys};
+use crate::look::controls::Look;
+use rune::{El, TextStyle, col, el, row, text};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -244,6 +246,141 @@ pub fn under_title(parent_title: &str) -> String {
 
 pub fn in_where(where_: &str) -> String {
     format!("in {where_}")
+}
+
+// ---- The Board as Electron draws it (BoardScreen.tsx 0.882, shell.css `.lc-teamboard`, `.lc-boardsection`,
+// `.lc-convgrid`, `.lc-convcard`). Pieces the Board's view is built from: the header, a column, a card, the row of
+// columns, and which runs are never on it. The live hour (26 Nov, row 41) found one full-width column of tall rows (title,
+// teammate and state on three lines), "Done 74" counting Scout's own runs, and "all quiet" floating mid-header.
+
+/// A run Electron never lists (App.tsx:2016-2018 `isHiddenRun`): a judge's, Scout's own, a question on the side
+/// (App.tsx:8250), and a panel's own run (shared/panel-runs.ts `isPanelRunKind`: a commit message, a walk through).
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn is_hidden_run(started_by_kind: Option<&str>) -> bool {
+    matches!(started_by_kind, Some("judge" | "scout" | "side" | "commit-draft" | "walkthrough"))
+}
+
+/// The conversations the Board draws: a conversation every one of whose turns is a hidden run is not one
+/// (`sidebarMissions` drops those runs before rows are made, App.tsx:8248-8250).
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn without_hidden_runs(missions: &[SidebarMission], kind_of: impl Fn(&str) -> Option<String>) -> Vec<SidebarMission> {
+    missions
+        .iter()
+        .filter(|row| !conversation_keys(row).iter().all(|id| is_hidden_run(kind_of(id).as_deref())))
+        .cloned()
+        .collect()
+}
+
+/// A card's one line under its title (BoardScreen.tsx:196-202, `.lc-convcard__meta > span + span::before`): who, what
+/// it is under, and its state, joined by " · ".
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn card_meta_line(who: Option<&str>, under: Option<&str>, state: &str) -> String {
+    who.into_iter().chain(under).chain(std::iter::once(state)).filter(|part| !part.is_empty()).collect::<Vec<_>>().join(" · ")
+}
+
+/// The data name of a column (`data-column`), for keys.
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn column_name(key: ConversationBoardKey) -> &'static str {
+    match key {
+        ConversationBoardKey::NeedsYou => "needs-you",
+        ConversationBoardKey::Working => "working",
+        ConversationBoardKey::ToLookAt => "to-look-at",
+        ConversationBoardKey::Done => "done",
+    }
+}
+
+/// `.lc-screen__header` with BoardScreen.tsx:305-308: "Board", then its meta right beside it (shell.css:11538, the title
+/// 20/650 at 26240, the meta 13 at 26062). Nothing pushes the meta to the middle.
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn board_header(l: &Look, meta: &str) -> El {
+    row()
+        .key("board-header")
+        .w_full()
+        .h(60.0)
+        .px(24.0)
+        .gap(12.0)
+        .center_y()
+        .fill(l.c("bg-chrome"))
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+        .child(text(BOARD_TITLE).key("board-title").font(TextStyle::new(20.0, 650.0).tracking(-0.3)).color(l.c("text-primary")))
+        .child(text(meta.to_owned()).key("board-meta").font(TextStyle::new(13.0, 400.0)).color(l.c("text-muted")))
+}
+
+/// `.lc-convcard` (shell.css:11983-12056): the face spanning two lines, the title on the first, the meta line on the
+/// second; hairline border (amber-tinted in Needs you), raised ground, the whole card pressed to open.
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn conv_card(l: &Look, column: ConversationBoardKey, mission_id: &str, face: Option<El>, title: &str, meta: &str) -> El {
+    let needs = column == ConversationBoardKey::NeedsYou;
+    let mark = face.unwrap_or_else(|| {
+        // `.lc-conv__nobody`: an empty ring where a face would be.
+        el().size(20.0, 20.0).radius(10.0).border(1.0, l.c("border-control")).a11y_hidden()
+    });
+    row()
+        .key(format!("board-card-{mission_id}"))
+        .w_full()
+        .min_w(0.0)
+        .px(16.0)
+        .py(12.0)
+        .gap(24.0)
+        .center_y()
+        .radius(l.t.px("radius-card"))
+        .border(1.0, if needs { l.c("amber-tint") } else { l.c("border-hairline") })
+        .fill(l.c("bg-raised"))
+        .hover(l.c("hover-surface"))
+        .role("button")
+        .label(title.to_owned())
+        .child(mark)
+        .child(
+            col()
+                .grow(1.0)
+                .shrink()
+                .min_w(0.0)
+                .gap(4.0)
+                .child(text(title.to_owned()).key(format!("board-card-title-{mission_id}")).font(TextStyle::new(13.0, 400.0)).color(l.c("text-primary")).truncate())
+                .child(
+                    text(meta.to_owned())
+                        .key(format!("board-card-meta-{mission_id}"))
+                        .font(TextStyle::new(12.0, 400.0))
+                        .color(if needs { l.c("amber-text") } else { l.c("text-muted") })
+                        .truncate(),
+                ),
+        )
+}
+
+/// `.lc-boardsection` with its title (BoardScreen.tsx:270-297): the coloured mark, the column's name in the section-label
+/// voice, its count; then its cards one under another (`.lc-convgrid`), Done's in a grid of 240-wide cards. A column is
+/// 256 wide at rest and 232 at least; Done takes what is left (`.lc-convboard .lc-boardsection--done { flex: 1 1 256px }`).
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn board_column(l: &Look, key: ConversationBoardKey, count: usize, cards: Vec<El>) -> El {
+    let name = column_name(key);
+    let mark = match key {
+        ConversationBoardKey::NeedsYou => l.c("amber"),
+        ConversationBoardKey::Working => l.c("lime"),
+        ConversationBoardKey::ToLookAt => l.c("green"),
+        ConversationBoardKey::Done => l.c("text-muted"),
+    };
+    let ink = if key == ConversationBoardKey::NeedsYou { l.c("amber-text") } else { l.c("text-muted") };
+    let title = row()
+        .key(format!("board-column-title/{name}"))
+        .gap(6.0)
+        .center_y()
+        .child(el().size(7.0, 7.0).radius(3.5).fill(mark).a11y_hidden())
+        .child(text(key.title().to_uppercase()).font(l.ty.label).color(ink))
+        .child(text(count.to_string()).key(format!("board-{name}-count")).font(l.ty.label).color(ink).opacity(0.7));
+    let grid = if key == ConversationBoardKey::Done {
+        cards.into_iter().fold(row().w_full().gap(8.0).flex_wrap(), |grid, card| grid.child(el().min_w(240.0).grow(1.0).w(240.0).child(card)))
+    } else {
+        cards.into_iter().fold(col().w_full().gap(8.0), |grid, card| grid.child(card))
+    };
+    let section = col().key(format!("board-column/{name}")).role("group").label(key.title()).gap(8.0).min_w(232.0).child(title).child(grid);
+    if key == ConversationBoardKey::Done { section.w(256.0).grow(1.0) } else { section.w(256.0).shrink() }
+}
+
+/// `.lc-teamboard.lc-convboard` (shell.css:11863): the columns side by side, wrapping onto a new line only when the
+/// window is too narrow for them, tops aligned.
+#[allow(dead_code)] // home_panel.rs `board_view` is to be built from it (notes/PAGES-NOTES.md, row 41)
+pub fn board_columns(columns: Vec<El>) -> El {
+    columns.into_iter().fold(row().key("board-columns").w_full().gap(16.0).flex_wrap().items_start(), |board, column| board.child(column))
 }
 
 #[cfg(test)]
@@ -682,3 +819,7 @@ mod review_parity_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "board_shape_tests.rs"]
+mod board_shape_tests;
