@@ -214,6 +214,53 @@ fn a_card_answered_sits_between_a_runs_events_without_disturbing_their_numbering
     assert_eq!(mission["issues"], json!([]));
 }
 
+fn approval_record(schema: u64, sequence: u64, approval: Value) -> Value {
+    json!({
+        "schemaVersion": schema,
+        "recordType": "mission.approval",
+        "ledgerSequence": sequence,
+        "occurredAt": approval["occurredAt"],
+        "approval": approval
+    })
+}
+
+// case: is read as damage in a file written before version 20
+#[test]
+fn approvals_before_version_20_leave_the_header_but_not_an_answer() {
+    let (_t, store) = temp("approval-v19");
+    let path = older(&store, 19, &[approval_record(19, 2, allowed())]);
+    let before = std::fs::read(&path).unwrap();
+    let mission = recovered(&path);
+    assert_eq!(mission["schemaVersion"], 19);
+    assert_eq!(mission["metadata"]["missionId"], "mission_1");
+    assert_eq!(mission["approvals"], json!([]));
+    assert_eq!(mission["issues"], json!(["invalid-record"]));
+    assert_eq!(mission["ledgerSequence"], 1);
+    assert_eq!(std::fs::read(&path).unwrap(), before, "read-only legacy file");
+}
+
+// case: reads an answer by an earlier Always in a v20 file as damage, not as an answer
+#[test]
+fn version_20_keeps_the_valid_receipt_before_earlier_always_and_ignores_its_tail() {
+    let (_t, store) = temp("approval-v20");
+    let mut after = denied_by_rule();
+    after["occurredAt"] = json!("2026-10-04T01:00:21.000Z");
+    let path = older(&store, 20, &[
+        approval_record(20, 2, allowed()),
+        approval_record(20, 3, by_earlier_always()),
+        approval_record(20, 4, after),
+    ]);
+    let before = std::fs::read(&path).unwrap();
+    let mission = recovered(&path);
+    assert_eq!(mission["schemaVersion"], 20);
+    assert_eq!(mission["approvals"], json!([allowed()]));
+    assert_eq!(mission["issues"], json!(["invalid-record"]));
+    assert_eq!(mission["ledgerSequence"], 2);
+    assert_eq!(mission["lastUpdatedAt"], "2026-10-04T01:00:00.000Z");
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+// case: refuses an answer or an answerer it does not know
 #[test]
 fn a_card_answer_or_answerer_nobody_defined_is_refused() {
     let (_t, store) = temp("approval");
@@ -226,6 +273,13 @@ fn a_card_answer_or_answerer_nobody_defined_is_refused() {
     assert_eq!(writer.append_approval(&teammate).unwrap_err().to_string(), "Approval answerer is invalid");
     drop(writer);
     assert_eq!(recovered(&path)["approvals"], json!([]));
+    for (bad, tag) in [(maybe, "bad-answer"), (teammate, "bad-answerer")] {
+        let (_t, store) = temp(tag);
+        let path = older(&store, 27, &[approval_record(27, 2, bad)]);
+        let mission = recovered(&path);
+        assert_eq!(mission["approvals"], json!([]));
+        assert_eq!(mission["issues"], json!(["invalid-record"]));
+    }
 }
 
 #[test]
