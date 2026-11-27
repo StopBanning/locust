@@ -5,6 +5,16 @@ use crate::conversation_list::{
 use crate::conversation_search::missions_matching;
 use crate::settled::is_put_away;
 
+/// A run that is never a conversation: Scout's own looks and a comparison's judge (App.tsx `isHiddenRun`). Scout names
+/// its looks' turns in its state (`lookIds`); a turn that says it was started by Scout or a judge is one too.
+pub(super) fn is_background_run(s: &State, id: &str) -> bool {
+    s.scout.state.as_ref().is_some_and(|scout| scout.look_ids.iter().any(|look| look == id))
+        || matches!(
+            s.ledger_summaries.get(id).and_then(|m| m.started_by_kind.as_deref()),
+            Some("scout" | "judge")
+        )
+}
+
 pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
     let judges = locust_core::compare::judge_mission_ids(&s.compare.compares);
     let reruns = locust_core::compare::rerun_mission_ids(&s.compare.compares);
@@ -12,7 +22,7 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
     let by_id: HashMap<_, _> = s.recent.iter().map(|m| (m.id.as_str(), m)).collect();
     let mut groups: Vec<(String, Vec<&ConversationRow>)> = Vec::new();
     for item in &s.recent {
-        if judges.contains(&item.id) || reruns.contains(&item.id) {
+        if judges.contains(&item.id) || reruns.contains(&item.id) || is_background_run(s, &item.id) {
             continue;
         }
         let mut root = item.id.as_str();
@@ -950,9 +960,9 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .label(words.to_owned())
     };
     let mut places = col().key("sidebar-places").w_full().px(10.0).pb(6.0).gap(1.0)
-        .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::missions_screen::open))
-        .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::room_screen::open_list))
-        .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::routines_panel::open));
+        .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::pages::opening(crate::missions_screen::open)))
+        .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::pages::opening(crate::room_screen::open_list)))
+        .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::pages::opening(crate::routines_panel::open)));
     let cloud_count = crate::cloud_tasks::sidebar_count(s);
     if cloud_count > 0 {
         places = places.child(
@@ -969,7 +979,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
-        places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
+        places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").key("sidebar-place-benchmarks").on_press(crate::pages::opening(crate::benchmarks_panel::open)));
     }
     let missions = sidebar_missions_now(s);
     let all_rows: Vec<SidebarMission> = recent_as_missions(s).into_iter().filter(|m| comparison_row_visible(s, m)).collect();
@@ -1642,7 +1652,7 @@ fn faces_strip(s: &State, p: &Palette, l: &crate::look::controls::Look, owned: &
                 .role("button")
                 .label(format!("{rest} more on the team — open the roster"))
                 .help(format!("{rest} more on the team — open the roster"))
-                .on_press(crate::people_panel::open),
+                .on_press(crate::pages::opening(crate::people_panel::open)),
         );
     }
     // `.lc-faces__team`: pushed to the end, so however many faces there are the way to the roster does not move.
@@ -1652,7 +1662,7 @@ fn faces_strip(s: &State, p: &Palette, l: &crate::look::controls::Look, owned: &
             .child(text("Team").font(rune::TextStyle::new(11.5, 400.0)).color(l.c("text-muted")))
             .role("button")
             .label("Team")
-            .on_press(crate::people_panel::open),
+            .on_press(crate::pages::opening(crate::people_panel::open)),
     );
     Some(strip)
 }
@@ -1678,7 +1688,7 @@ fn footer(l: &crate::look::controls::Look) -> El {
             .role("button")
             .label(words)
             .key(format!("sidebar-footer-{}", words.to_lowercase()))
-            .on_press(press)
+            .on_press(crate::pages::opening(press))
     };
     row()
         .key("sidebar-footer")
@@ -2208,3 +2218,7 @@ mod name_and_group_kept_tests;
 #[cfg(test)]
 #[path = "groups_hold_tests.rs"]
 mod groups_hold_tests;
+
+#[cfg(test)]
+#[path = "scout_runs_kept_out_tests.rs"]
+mod scout_runs_kept_out_tests;

@@ -123,7 +123,7 @@ fn primary(label: impl Into<String>, p: &Palette) -> El {
 }
 
 pub(super) fn open_home(s: &mut State) {
-    crate::room_screen::close(s);
+    crate::pages::close_all(s);
     s.home.home_open = true;
     s.home.board_open = false;
     s.home.boot_open = false;
@@ -139,7 +139,7 @@ pub(super) fn open_home(s: &mut State) {
 }
 
 pub(super) fn open_board(s: &mut State) {
-    crate::room_screen::close(s);
+    crate::pages::close_all(s);
     s.home.board_teammate = None;
     s.home.board_open = true;
     s.home.home_open = false;
@@ -148,6 +148,7 @@ pub(super) fn open_board(s: &mut State) {
 }
 
 pub(super) fn open_boot(s: &mut State) {
+    crate::pages::close_all(s);
     s.home.boot_open = true;
     s.home.home_open = false;
     s.home.board_open = false;
@@ -1267,46 +1268,36 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         body = body.child(home_agents(s, p));
     }
 
-    // Folder strip
-    let folder_line = s
-        .home
-        .folder_path
-        .clone()
-        .unwrap_or_else(|| NO_FOLDER_CHOSEN.into());
-    body = body.child(
-        col()
-            .w_full()
-            .gap(6.0)
-            .padding(12.0)
-            .fill(l.c("bg-raised"))
-            .border(1.0, l.c("border-card"))
-            .radius(10.0)
-            .child(
-                row()
-                    .gap(8.0)
-                    .center_y()
-                    .child(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 14.0, Some(l.c("text-muted"))))
-                    .child(text(folder_line).font(l.ty.control).color(l.c("text-primary")).wrap()),
-            )
-            .child(text(FOLDER_LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
-            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|s: &mut State, tx: &mut Tx| {
-                crate::restored_folders_card::choose_workspace(s, tx);
-            }))),
-    );
-    if s.home.folder_invented {
+    // The folder strip is for the two cases that need it (FirstLaunch.tsx `teamAndFolder`): no folder chosen, which would
+    // invite a conversation that cannot start, and a folder Locust made itself, which the person did not pick. A folder
+    // that is open is shown in the composer's foot and Settings, not here (live hour 1, fault 12).
+    let strip = match (&s.home.folder_path, s.home.folder_invented) {
+        (None, _) => Some((NO_FOLDER_CHOSEN, FOLDER_LEDE.to_owned())),
+        (Some(path), true) => Some((MADE_FOLDER, folders::made_folder_note(path))),
+        (Some(_), false) => None,
+    };
+    if let Some((label, lede)) = strip {
         body = body.child(
-            text(MADE_FOLDER.to_owned())
-                .font(type_::LABEL)
-                .color(p.amber),
+            col()
+                .key("home-folder-strip")
+                .w_full()
+                .gap(6.0)
+                .padding(12.0)
+                .fill(l.c("bg-raised"))
+                .border(1.0, l.c("border-card"))
+                .radius(10.0)
+                .child(
+                    row()
+                        .gap(8.0)
+                        .center_y()
+                        .child(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 14.0, Some(l.c("text-muted"))))
+                        .child(text(label.to_owned()).font(l.ty.control).color(l.c("text-primary")).wrap()),
+                )
+                .child(text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|s: &mut State, tx: &mut Tx| {
+                    crate::restored_folders_card::choose_workspace(s, tx);
+                }))),
         );
-        if let Some(path) = &s.home.folder_path {
-            body = body.child(
-                text(folders::made_folder_note(path))
-                    .font(type_::LABEL)
-                    .color(p.amber)
-                    .wrap(),
-            );
-        }
     }
 
     // Away
@@ -3026,3 +3017,7 @@ mod home_issue_starter_tests {
         assert!(!s.home.home_open, "and Home is not drawn over it");
     }
 }
+
+#[cfg(test)]
+#[path = "home_folder_strip_tests.rs"]
+mod home_folder_strip_tests;

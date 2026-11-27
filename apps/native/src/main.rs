@@ -320,6 +320,10 @@ mod usage_line;
 mod agent_card_ui;
 #[path = "ui/cancellation_card.rs"]
 mod cancellation_card;
+#[path = "ui/failed_turn_cards.rs"]
+mod failed_turn_cards;
+#[path = "ui/pages.rs"]
+mod pages;
 #[path = "ui/own_models_card.rs"]
 mod own_models_card;
 #[path = "ui/key_card.rs"]
@@ -549,13 +553,7 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     s.composer_mode = None;
     s.mode_menu = false;
     // Choosing a teammate opens their conversation, whatever screen was open (Electron's onSelectTeammate).
-    room_screen::close(s);
-    s.home.board_open = false;
-    s.home.home_open = false;
-    s.settings_panel.open = false;
-    s.people_panel.open = false;
-    s.routines.open = false;
-    missions_screen::close(s);
+    pages::close_all(s);
     // Cancel any in-flight request from the previous conversation when switching teammates.
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
@@ -2903,6 +2901,37 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
         .body_font(type_::BODY)
 }
 
+/// Every page whose flag is set, in the order the view tries them. Every entry closes the others first
+/// (`pages::close_all`), so a window that is working holds one.
+fn open_pages(s: &State) -> Vec<pages::Page> {
+    use pages::Page;
+    let changes_open = s.changes.open
+        && s.changes_repo
+            .as_ref()
+            .is_none_or(|(path, yes)| path == &s.changes.folder && *yes);
+    [
+        (changes_open, Page::Changes),
+        (s.routines.open, Page::Routines),
+        (s.home.boot_open, Page::Boot),
+        (s.home.board_open, Page::Board),
+        (s.home.home_open, Page::Home),
+        (s.settings_panel.open, Page::Settings),
+        (s.people_panel.open, Page::Team),
+        (s.benchmarks_open, Page::Benchmarks),
+        (s.missions.open, Page::Missions),
+        (s.compare.active_id.is_some(), Page::Compare),
+        (s.rooms.active != room_screen::RoomView::None, Page::Rooms),
+    ]
+    .into_iter()
+    .filter_map(|(open, page)| open.then_some(page))
+    .collect()
+}
+
+/// The page the main pane shows: the first one set, else the conversation.
+fn page_shown(s: &State) -> pages::Page {
+    open_pages(s).first().copied().unwrap_or(pages::Page::Conversation)
+}
+
 fn view(s: &State, cx: &mut Cx<State>) -> El {
     s.reduced_motion.set(cx.is_reduced_motion());
     s.bot_stage.begin_frame();
@@ -2930,38 +2959,26 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         // The wide sidebar's faces open the same card (Sidebar.tsx `railEnter` on `.lc-faces__one`).
         s.rail_open.as_ref().and_then(|id| cx.layout(&format!("teammate-{id}"))).map(|r| r[1])
     };
-    let changes_open = s.changes.open
-        && s.changes_repo
-            .as_ref()
-            .is_none_or(|(path, yes)| path == &s.changes.folder && *yes);
-    let mut thread = if changes_open {
-        changes_panel::view(s, &p)
-    } else if s.routines.open {
-        routines_panel::view(s, &p)
-    } else if s.home.boot_open {
-        home_panel::boot_view_ui(s, &p)
-    } else if s.home.board_open {
-        home_panel::board_view(s, &p)
-    } else if s.home.home_open {
+    let mut thread = match page_shown(s) {
+        pages::Page::Changes => changes_panel::view(s, &p),
+        pages::Page::Routines => routines_panel::view(s, &p),
+        pages::Page::Boot => home_panel::boot_view_ui(s, &p),
+        pages::Page::Board => home_panel::board_view(s, &p),
         // With a conversation to send in, Home is drawn inside the thread column, above its message box.
-        if selected_conversation(s).is_some() { thread_view(s, &p) } else { home_panel::home_view(s, &p) }
-    } else if s.settings_panel.open {
-        settings_panel::view(s, &p)
-    } else if s.people_panel.open {
-        people_panel::view(s, &p)
-    } else if s.benchmarks_open {
-        benchmarks_panel::view(s, &p)
-    } else if s.missions.open {
-        let narrow = cx
-            .layout_with("missions-rows", |r| if r[2] < missions_screen::NARROW_BELOW { 1.0 } else { 0.0 })
-            .is_some_and(|n| n > 0.5);
-        missions_screen::view(s, &p, narrow)
-    } else if s.compare.active_id.is_some() {
-        compare_view::view(s, &p)
-    } else if s.rooms.active != room_screen::RoomView::None {
-        room_screen::view(s, &p)
-    } else {
-        thread_view(s, &p)
+        pages::Page::Home if selected_conversation(s).is_some() => thread_view(s, &p),
+        pages::Page::Home => home_panel::home_view(s, &p),
+        pages::Page::Settings => settings_panel::view(s, &p),
+        pages::Page::Team => people_panel::view(s, &p),
+        pages::Page::Benchmarks => benchmarks_panel::view(s, &p),
+        pages::Page::Missions => {
+            let narrow = cx
+                .layout_with("missions-rows", |r| if r[2] < missions_screen::NARROW_BELOW { 1.0 } else { 0.0 })
+                .is_some_and(|n| n > 0.5);
+            missions_screen::view(s, &p, narrow)
+        }
+        pages::Page::Compare => compare_view::view(s, &p),
+        pages::Page::Rooms => room_screen::view(s, &p),
+        pages::Page::Conversation => thread_view(s, &p),
     };
     if let Some(find) = thread_find_bar(s, &p) {
         thread = col()
@@ -3006,14 +3023,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         right = right.child(cloud);
     }
     // The title bar above both columns; its toggles only while no conversation fills the window (TitleBar.tsx).
-    let thread_shown = !(changes_open
-        || s.routines.open
-        || s.home.boot_open
-        || s.home.board_open
-        || s.home.home_open
-        || s.settings_panel.open
-        || s.people_panel.open
-        || s.missions.open);
+    let thread_shown = matches!(
+        page_shown(s),
+        pages::Page::Conversation | pages::Page::Benchmarks | pages::Page::Compare | pages::Page::Rooms
+    );
     let running = sidebar_missions_now(s).iter().filter(|m| m.phase == "running").count();
     let mut body = row()
         .key("app-body")

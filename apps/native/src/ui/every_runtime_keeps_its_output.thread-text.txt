@@ -8,34 +8,34 @@ Replay the recorded run. Print the required value from the shell Wren ACP-OK-7 P
 Replay the recorded run. Thought: The user wants me to run a simple shell command: `echo ACP-PROBE`. Th… 1 declined (time) · 1 declined
 
 ## agy-2026-10-02/answered-then-unavailable.jsonl
-Replay the recorded run. Read note.txt Wren hello from a file DONE warning: Google's service was unavailable for Antigravity's last call, after this answer (code 503). The answer and its changes are kept. If it was not finished, send "continue". (time) · 1 tool call
+Replay the recorded run. Read note.txt Wren hello from a file DONE Google's service was unavailable for Antigravity's last call, after this answer (code 503). The answer and its changes are kept. If it was not finished, send "continue". (time) · 1 tool call
 
 ## agy-2026-10-02/ask-command-denied-done.jsonl
-Replay the recorded run. 1 step 1 refused warning: It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. (time) · 1 refused
+Replay the recorded run. 1 step 1 refused It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. (time) · 1 refused
 
 ## agy-2026-10-02/ask-command-denied-then-said.jsonl
-Replay the recorded run. 1 step 1 refused Wren I was not allowed to run git status here. warning: It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. (time) · 1 refused
+Replay the recorded run. 1 step 1 refused Wren I was not allowed to run git status here. It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. (time) · 1 refused
 
 ## agy-2026-10-02/command-allowed.jsonl
 Replay the recorded run. Ran node -e "console.log(40+2)" Wren 42 (time) · ran node -e "console.log(40+2)"
 
 ## agy-2026-10-02/conversation-not-found.jsonl
-Replay the recorded run. error: Antigravity CLI does not have this conversation: it began in the Antigravity app. Send it again and it starts fresh, with the conversation so far.
+Replay the recorded run. Antigravity CLI does not have this conversation: it began in the Antigravity app. Send it again and it starts fresh, with the conversation so far. DURABLE RECEIPT FAILED restored from local ledger antigravity / recorded · no checkpoints · record readable
 
 ## agy-2026-10-02/edit-then-command-denied.jsonl
-Replay the recorded run. Edited made.txt 1 refused warning: It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. Edited 1 file …/agy-probe/made.txt · change not reported (time) · 1 refused
+Replay the recorded run. Edited made.txt 1 refused It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. Edited 1 file …/agy-probe/made.txt · change not reported (time) · 1 refused
 
 ## agy-2026-10-02/plan-mode-writes-its-plan.jsonl
-Replay the recorded run. Read a file, edited a file Wren I have inspected words (which contains hi ) and prepared the implementation plan without running any commands. Please review the plan in plan.md and let me know if you would like me to proceed with creating greet.js . greet.js 1 step 1 refused warning: Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. Edited 1 file …/462c9e8d-e735-42be-a44a-6ce9f7689a1f/plan.md · change not reported (time) · 2 tool calls · 1 refused words plan.md
+Replay the recorded run. Read a file, edited a file Wren I have inspected words (which contains hi ) and prepared the implementation plan without running any commands. Please review the plan in plan.md and let me know if you would like me to proceed with creating greet.js . greet.js 1 step 1 refused Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. Edited 1 file …/462c9e8d-e735-42be-a44a-6ce9f7689a1f/plan.md · change not reported (time) · 2 tool calls · 1 refused words plan.md
 
 ## agy-2026-10-02/reads-a-file.jsonl
 Replay the recorded run. Read note.txt Wren hello from a file DONE (time) · 1 tool call
 
 ## agy-2026-10-02/unknown-model.jsonl
-Replay the recorded run. error: Antigravity could not run it: invalid model selection (--model "no-such-model" --effort ""): model no-such-model is not recognized as a known model or custom model in settings Nothing had started, so running this again cannot repeat anything. Run it again
+Replay the recorded run. Antigravity could not run it: invalid model selection (--model "no-such-model" --effort ""): model no-such-model is not recognized as a known model or custom model in settings Nothing had started, so running this again cannot repeat anything. Run it again DURABLE RECEIPT FAILED restored from local ledger antigravity / recorded · no checkpoints · record readable
 
 ## agy-2026-10-02/write-denied.jsonl
-Replay the recorded run. 1 step 1 refused warning: It stopped there. Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. (time) · 1 tool call · 1 refused
+Replay the recorded run. 1 step 1 refused It stopped there. Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. (time) · 1 tool call · 1 refused
 
 ## antigravity/transcript-plain-reply.jsonl
 Replay the recorded run. Wren OK
@@ -65,7 +65,7 @@ Replay the recorded run. Wren I’ll run the exact command once, then return its
 Replay the recorded run. Wren OK
 
 ## copilot/policy-denied.jsonl
-Replay the recorded run. error: Copilot CLI ended without a terminal result record. warning: Third-party MCP servers are disabled by your organization's Copilot policy. Only built-in servers are available. Nothing had started, so running this again cannot repeat anything. Run it again
+Replay the recorded run. Copilot CLI ended without a terminal result record. Third-party MCP servers are disabled by your organization's Copilot policy. Only built-in servers are available. Nothing had started, so running this again cannot repeat anything. Run it again DURABLE RECEIPT FAILED restored from local ledger copilot / recorded · no checkpoints · record readable
 
 ## copilot/read-only-tools-denied.jsonl
 Replay the recorded run. Ran Set-Content -Path '.\blocked.txt' -Valu… 2 failed Wren Unable to create blocked.txt because file-writing tools are blocked. blocked.txt (time) · ran Set-Content -Path '.\blocked.txt' -Value 'hi' -NoNewline · it exited non-zero · 1 other tool call
@@ -80,7 +80,7 @@ Replay the recorded run. Wren marmalade-4471
 Replay the recorded run. Edited notes.txt +2 Wren DONE Edited 1 file C:/work/pebble/cp-write/notes.txt MODIFIED +2 Open Copy Show (time)
 
 ## copilot/write-mode-view-then-edit.jsonl
-Replay the recorded run. Read a file, edited a file +1 −1 Wren DONE warning: A Copilot record could not be parsed. Edited 1 file C:/work/pebble/notes.ts MODIFIED +1 −1 Open Copy Show (time) · 1 tool call
+Replay the recorded run. Read a file, edited a file +1 −1 Wren DONE A Copilot record could not be parsed. Edited 1 file C:/work/pebble/notes.ts MODIFIED +1 −1 Open Copy Show (time) · 1 tool call
 
 ## cursor/edit-result-too-large.jsonl
 Replay the recorded run. Edited 4 files Edited 4 files src/app.ts · change not reported src/view.ts · change not reported src/main.ts · change not reported src/notes.ts · change not reported (time)
@@ -98,7 +98,7 @@ Replay the recorded run. PLAN 3 of 3 done Create a.txt containing alpha Create b
 Replay the recorded run. Thought: Creating NOTES.md with the word hello. Running dir to count files. Wren Creating NOTES.md and listing the folder contents. NOTES.md Created a file, listed a folder +1 1 failed Thought: The 'dir' command was rejected, likely due to sandbox restrictions. I… Retrying the dir command. Listed a folder 1 failed Listed files, listed a folder 1 failed Listed a folder Listed a folder 1 failed Thought: The `dir` command was rejected. I will provide the file count from th… Done. NOTES.md was created with exactly: hello I tried to run dir , but that command was blocked in this environment. Using an equivalent directory listing instead, this folder contains 2 files: 1. NOTES.md (the file I just created) 2. README.md (already present) NOTES.md README.md Edited 1 file C:\work\scratch\NOTES.md ADDED +1 Open Copy Show (time) · ran 5 commands · 4 exited non-zero · 1 other tool call
 
 ## muse/echo-provider-run.jsonl
-Replay the recorded run. Wren echo: Reply with exactly PING info: Muse Code's own reminder.agent.verify-reminder did not run: invalid run configuration: provider does not support base instructions
+Replay the recorded run. Wren echo: Reply with exactly PING Muse Code's own reminder.agent.verify-reminder did not run: invalid run configuration: provider does not support base instructions
 
 ## muse/wonder-tool-run-1.4.6.jsonl
 Replay the recorded run. Ran 3 searches Wren There are 2 files in this folder: • tool-run.err • tool-run.jsonl tool-run.err tool-run.jsonl (time) · 3 tool calls
@@ -107,7 +107,7 @@ Replay the recorded run. Ran 3 searches Wren There are 2 files in this folder: �
 Replay the recorded run. Wren Let me read all the files one at a time. Read a.txt Now reading b.txt: Read b.txt The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary. Read 4 files Wren I'll use tail -1 on each file to get the last line efficiently. Read 2 files Here are the last lines of all six files: File Last Line a.txt FINAL-A-2511 b.txt FINAL-B-4560 c.txt FINAL-C-1132 d.txt FINAL-D-7308 e.txt FINAL-E-8330 f.txt FINAL-F-7891 Task complete — all six files have been read and their last lines reported. (time) · ran 6 commands: tail · 2 other tool calls
 
 ## opencode/context-overflow-recovered.jsonl
-Replay the recorded run. The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary. Wren RECOVERED-ANSWER info: The request was longer than the model accepts, so OpenCode is summarizing the conversation to try again.
+Replay the recorded run. The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary. Wren RECOVERED-ANSWER The request was longer than the model accepts, so OpenCode is summarizing the conversation to try again.
 
 ## opencode/plan-agent-text-only.jsonl
 Replay the recorded run. Wren In PLAN MODE — read-only, cannot create blocked.txt yet. Plan to execute once in build mode: 1. Verify working directory exists. 2. Create file blocked.txt with content hi . 3. Verify content. Switch to build mode to execute, or I can provide the exact command for you to run. blocked.txt

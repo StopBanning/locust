@@ -135,10 +135,12 @@ fn place(l: &crate::look::controls::Look, icon: &'static rune::Icon, words: &str
         .hover(l.c("hover-surface"))
         .child(crate::look::controls::glyph(l, icon, 14.0, Some(l.c("text-secondary"))))
         .role("button")
+        .key(format!("rail-place-{}", words.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-")))
         .label(words.to_owned())
         .help(words.to_owned())
         .on_press(move |s: &mut State| {
             close(s);
+            crate::pages::close_all(s);
             press(s);
         })
 }
