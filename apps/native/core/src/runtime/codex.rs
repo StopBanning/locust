@@ -299,6 +299,10 @@ impl Codex {
         self.queued.push_back(terminal);
         diagnostic
     }
+    /// The standing goal the server last said this thread holds (`thread/goal/updated`), none once it said it cleared.
+    pub fn standing_goal(&self) -> Option<&super::goal::ThreadGoal> {
+        self.normal.goal.as_ref()
+    }
     /// The end of the server's stderr as it stands now (`stderrTail`): empty, not missing, for a server that said nothing.
     pub fn stderr_tail(&self) -> String {
         crate::invariants::lock(&self.stderr).clone()
@@ -1021,3 +1025,7 @@ mod codex_replay_case_tests;
 #[cfg(test)]
 #[path = "codex_file_change_rows_tests.rs"]
 mod codex_file_change_rows_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_goal_tests.rs"]
+mod codex_goal_tests;

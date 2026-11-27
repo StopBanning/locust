@@ -17,6 +17,7 @@ pub mod cursor;
 pub mod cursor_events;
 pub mod discovery;
 pub mod events;
+pub mod goal;
 pub mod kilo;
 pub mod muse;
 pub mod muse_events;

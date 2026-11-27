@@ -209,6 +209,8 @@ pub struct Normalizer {
     compactions: usize,
     /// Whether this turn carried a message of the person's (0.428): a compaction in a turn without one was asked for.
     asked: bool,
+    /// The standing goal the server last said this thread holds (`thread/goal/updated`), none once it cleared it.
+    pub goal: Option<super::goal::ThreadGoal>,
 }
 
 /// app-server-events.ts APP_SERVER_COMPACTED: the conversation outgrew the context inside a turn.
@@ -279,6 +281,16 @@ impl Normalizer {
     pub fn malformed(&mut self, line: &str) -> Event {
         let (raw, redacted) = malformed_raw(line);
         self.event("adapter.diagnostic", json!({"level":"warning","code":"codex.malformed_json","message":"Codex emitted a malformed JSONL record","terminal":false,"evidence":{"raw":raw,"redacted":redacted}}))
+    }
+    /// What the server said of this thread's standing goal; another thread's is not this one's.
+    pub fn goal_said(&mut self, said: super::goal::GoalEvent) {
+        if self.thread.as_deref().is_some_and(|own| own != said.thread_id()) {
+            return;
+        }
+        self.goal = match said {
+            super::goal::GoalEvent::Updated(goal) => Some(goal),
+            super::goal::GoalEvent::Cleared { .. } => None,
+        };
     }
     pub fn diagnostic(&mut self, method: &str, message: &str) -> Event {
         self.event("adapter.diagnostic", json!({"level":"warning","code":"app.warning","message":text(message,16384),"terminal":false,"evidence":{"runtimeEventType":method,"redacted":true}}))
@@ -634,6 +646,12 @@ impl Normalizer {
                     }
                 }
                 return out;
+            }
+            "thread/goal/updated" | "thread/goal/cleared" => {
+                if let Some(said) = super::goal::from_notification(method, p) {
+                    self.goal_said(said);
+                }
+                return vec![];
             }
             "thread/compacted" => {
                 self.compaction_notices += 1;
