@@ -133,7 +133,7 @@ fn maps_the_product_answers_onto_the_protocol() {
     assert_eq!(protocol_decision_for(&Decision::ApproveOnce), "accept");
     // Session-scoped, never durable: a forever-grant is a Settings decision.
     assert_eq!(protocol_decision_for(&Decision::ApproveAlways), "acceptForSession");
-    assert_eq!(protocol_decision_for(&Decision::Deny), "reject");
+    assert_eq!(protocol_decision_for(&Decision::Deny), "decline");
 }
 
 // ---- the approval round trip ----
@@ -159,7 +159,7 @@ fn ignores_a_decision_for_an_unknown_or_already_answered_approval() {
     // A double click on the card must not take the run down.
     assert!(decide(&host, &card, Decision::ApproveOnce).is_err());
     assert!(host.channel.decide(Answer::Decision { approval_id: "nope".into(), decision: Decision::ApproveOnce, reason: None }).is_err());
-    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "reject"})));
+    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "decline"})));
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn refuses_rather_than_queueing_without_limit_when_too_many_are_waiting() {
     assert_eq!(said, "Locust denied an action because 64 approvals are already waiting on you. Answer some of them and ask again.");
     host.channel.release("mission_1");
     for a in asked {
-        assert_eq!(decision_of(a.join().unwrap()), "reject");
+        assert_eq!(decision_of(a.join().unwrap()), "decline");
     }
 }
 
@@ -266,13 +266,13 @@ fn will_not_let_a_question_be_answered_with_a_decision_or_the_reverse() {
     let card = cards(&host, 1).remove(0);
     let said = decide(&host, &card, Decision::ApproveOnce).unwrap_err();
     assert!(said.contains("answered rather than approved"), "{said}");
-    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "reject"})));
+    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "decline"})));
     // And the reverse: answers sent to an authorization.
     let waiting = ask(&host, "mission_1", COMMAND, json!({"command": "ls"}), None);
     let card = cards(&host, 1).remove(0);
     let said = host.channel.decide(Answer::Answers { approval_id: card.approval_id.clone(), answers: vec![("q1".into(), vec!["main".into()])] }).unwrap_err();
     assert!(said.contains("belongs to a question"), "{said}");
-    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "reject"})));
+    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "decline"})));
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn releases_what_a_finished_run_was_still_asking_so_no_card_waits_forever() {
     let waiting = ask(&host, "mission_1", COMMAND, json!({"command": "x"}), None);
     let card = cards(&host, 1).remove(0);
     host.channel.release("mission_1");
-    assert_eq!(decision_of(waiting.join().unwrap()), "reject");
+    assert_eq!(decision_of(waiting.join().unwrap()), "decline");
     assert_eq!(host.channel.pending_count(), 0);
     // And the card is dead: answering it now changes nothing.
     assert!(decide(&host, &card, Decision::ApproveOnce).is_err());
@@ -304,7 +304,7 @@ fn releases_only_the_run_that_ended_and_leaves_another_run_its_waiting_card() {
     let other = ask(&host, "mission_2", COMMAND, json!({"command": "y"}), None);
     cards(&host, 2);
     host.channel.release("mission_1");
-    assert_eq!(decision_of(ending.join().unwrap()), "reject");
+    assert_eq!(decision_of(ending.join().unwrap()), "decline");
     // Wren's is still waiting on the person, and only the person may answer.
     assert_eq!(host.channel.pending_count(), 1);
     let left = cards(&host, 1).remove(0);

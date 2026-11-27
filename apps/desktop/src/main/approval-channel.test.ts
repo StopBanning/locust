@@ -119,7 +119,7 @@ describe('decisions', () => {
     expect(protocolDecisionFor('approve-once')).toBe('accept')
     // Session-scoped, never durable: a forever-grant is a Settings decision.
     expect(protocolDecisionFor('approve-always')).toBe('acceptForSession')
-    expect(protocolDecisionFor('deny')).toBe('reject')
+    expect(protocolDecisionFor('deny')).toBe('decline')
   })
 })
 
@@ -153,7 +153,7 @@ describe('the approval round trip', () => {
 
   it('refuses a request it does not understand rather than guessing', async () => {
     const { approvals, updates, handler } = channel()
-    await expect(ask(handler, 'item/futureThing/requestApproval')).resolves.toEqual({ decision: 'reject' })
+    await expect(ask(handler, 'item/futureThing/requestApproval')).resolves.toEqual({ decision: 'decline' })
     // And it never reaches the person, because the card could not describe it.
     expect(approvals).toHaveLength(0)
     // Said out loud: an unattributed denial is the one outcome that must not
@@ -170,7 +170,7 @@ describe('the approval round trip', () => {
       expect(approvals).toHaveLength(16)
     })
     await expect(ask(handler, 'item/commandExecution/requestApproval', { command: 'one too many' }))
-      .resolves.toEqual({ decision: 'reject' })
+      .resolves.toEqual({ decision: 'decline' })
     expect(instance.pendingCount).toBe(16)
     expect(JSON.stringify(updates)).toMatch(/already waiting on you/)
   })
@@ -187,7 +187,7 @@ describe('the approval round trip', () => {
     // not validate the shape -- it deserializes, fails quietly, and
     // substitutes an empty answer -- so this is the only place it is caught.
     expect(instance.decide({ approvalId: approvals[0]!.approvalId, decision: 'approve-once' })).toBe(false)
-    await expect(waiting).resolves.toEqual({ decision: 'reject' })
+    await expect(waiting).resolves.toEqual({ decision: 'decline' })
     expect(JSON.stringify(updates)).toMatch(/answered rather than approved/)
   })
 
@@ -211,7 +211,7 @@ describe('the approval round trip', () => {
       expect(approvals).toHaveLength(1)
     })
     instance.release('run_1')
-    await expect(waiting).resolves.toEqual({ decision: 'reject' })
+    await expect(waiting).resolves.toEqual({ decision: 'decline' })
     expect(instance.pendingCount).toBe(0)
     // And the card is dead: answering it now changes nothing.
     expect(instance.decide({ approvalId: approvals[0]!.approvalId, decision: 'approve-once' })).toBe(false)
@@ -237,7 +237,7 @@ describe('the approval round trip', () => {
       expect(approvals).toHaveLength(2)
     })
     instance.release('run_1')
-    await expect(ending).resolves.toEqual({ decision: 'reject' })
+    await expect(ending).resolves.toEqual({ decision: 'decline' })
     // Wren's is still waiting on the person, and only the person may answer.
     expect(instance.pendingCount).toBe(1)
   })

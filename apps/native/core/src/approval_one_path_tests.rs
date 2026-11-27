@@ -385,7 +385,7 @@ fn gives_codex_the_exact_command_key_and_same_rule_always_and_reach_verdicts() {
 
     // Saved deny rule overrides both.
     rules.add_rule(RuleEffect::Deny, "git push:*");
-    assert_eq!(ask_codex_cmd(&ch, "m1", "git push origin main").join().unwrap().unwrap(), json!({"decision": "reject"}));
+    assert_eq!(ask_codex_cmd(&ch, "m1", "git push origin main").join().unwrap().unwrap(), json!({"decision": "decline"}));
     assert_eq!(ch.take_recorded_for("m1").last().unwrap().by, "saved-rule");
 
     // Reaching command asks again even if the key was somehow remembered.

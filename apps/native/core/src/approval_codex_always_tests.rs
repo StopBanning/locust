@@ -57,7 +57,7 @@ fn an_always_on_a_codex_command_is_answered_once_and_kept_by_locust_for_that_com
     let other = ask(&ch, "git push origin release");
     let asked = answer_first(&ch, Decision::Deny);
     assert_eq!(asked.always_key.as_deref(), Some("codex:command:git push origin release"));
-    assert_eq!(other.join().unwrap().unwrap(), json!({"decision": "reject"}));
+    assert_eq!(other.join().unwrap().unwrap(), json!({"decision": "decline"}));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn a_saved_rule_still_denies_a_codex_command_after_always() {
     )
     .unwrap();
     let again = ask(&ch, "npm publish").join().unwrap().unwrap();
-    assert_eq!(again["decision"], "reject", "{again}");
+    assert_eq!(again["decision"], "decline", "{again}");
     assert_eq!(ch.take_recorded_for("mission_1").last().unwrap().by, "saved-rule");
     let _ = std::fs::remove_dir_all(&root);
 }

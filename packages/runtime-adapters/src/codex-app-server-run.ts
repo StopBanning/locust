@@ -12,6 +12,36 @@ import type {
 } from "./process-runner.js";
 
 /**
+ * CODEX'S "NO", IN CODEX'S OWN WORDS (Codex 0.172.0's generated schemas).
+ *
+ * The v2 approvals (`item/commandExecution/requestApproval`,
+ * `item/fileChange/requestApproval`) take `decline` or `cancel` for a denial.
+ * Locust sent `"reject"`, which neither has. `decline` lets the turn carry on
+ * without the action; `cancel` also interrupts it. A person's Deny is "don't
+ * do that, carry on" -- its reason reaches the run as the turn's next input
+ * (index.ts `onDeniedSaying`), which needs the turn still running -- so a
+ * refusal is `decline`.
+ *
+ * The legacy approvals (`execCommandApproval`, `applyPatchApproval`) take a
+ * `ReviewDecision`, where a denial is `{ denied: { rejection } }` -- there is
+ * no bare `"denied"` -- and `"abort"` stops the agent until the person's next
+ * message, which is `cancel`'s meaning, not Deny's. Locust never puts one on a
+ * card, so it is refused in that shape.
+ *
+ * Every value is checked against the checked-in schemas by
+ * `a-codex-deny-is-in-codexs-schema.test.ts`.
+ */
+export const CODEX_DECLINE = "decline";
+export const CODEX_LEGACY_REFUSAL_SAYS = "Locust answers only Codex's current approval requests, so it did not allow this one.";
+const CODEX_LEGACY_APPROVALS: ReadonlySet<string> = new Set(["execCommandApproval", "applyPatchApproval"]);
+
+/** Locust's own refusal of an approval it does not put to a person, in the shape the asking method takes. */
+export function codexRefusalFor(method: string): JsonValue {
+  if (CODEX_LEGACY_APPROVALS.has(method)) return { decision: { denied: { rejection: CODEX_LEGACY_REFUSAL_SAYS } } };
+  return { decision: CODEX_DECLINE };
+}
+
+/**
  * One Codex turn over `codex app-server`, shaped like a process run.
  *
  * WHY THIS EXISTS. `codex exec --json` never streams an agent message. Run
@@ -330,7 +360,7 @@ ${said}` : why;
     // anyway is answered with a refusal rather than left waiting, because an
     // unanswered request stalls the turn forever and the person would see a
     // run that never ends.
-    onRequest: options.onRequest ?? (async () => ({ decision: "reject" }) as JsonValue),
+    onRequest: options.onRequest ?? (async (request) => codexRefusalFor(request.method)),
     onDiagnostic: (diagnostic) => {
       if (diagnostic.code === "buffer-overflow" || diagnostic.code === "line-too-long") {
         lose(diagnostic.message, true);

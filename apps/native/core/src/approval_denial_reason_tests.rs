@@ -54,10 +54,10 @@ fn keeps_a_denials_reason_in_one_line_and_bounded_and_nothing_when_there_is_none
     let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(
         taken(json!({"approvalId": "a", "decision": "deny", "reason": "  use the\nbuild script instead  "})),
-        ("reject".into(), Some("use the build script instead".into()))
+        ("decline".into(), Some("use the build script instead".into()))
     );
-    assert_eq!(taken(json!({"approvalId": "a", "decision": "deny", "reason": "   "})), ("reject".into(), None));
-    assert_eq!(taken(json!({"approvalId": "a", "decision": "deny"})), ("reject".into(), None));
+    assert_eq!(taken(json!({"approvalId": "a", "decision": "deny", "reason": "   "})), ("decline".into(), None));
+    assert_eq!(taken(json!({"approvalId": "a", "decision": "deny"})), ("decline".into(), None));
     let long = taken(json!({"approvalId": "a", "decision": "deny", "reason": "x".repeat(2_000)})).1.unwrap();
     assert_eq!(long.encode_utf16().count(), MAX_DENY_REASON);
     assert_eq!(MAX_DENY_REASON, 500);
@@ -71,7 +71,7 @@ fn keeps_a_denials_reason_in_one_line_and_bounded_and_nothing_when_there_is_none
 fn never_lets_a_reason_ride_an_approval_or_turn_a_malformed_answer_into_anything_but_a_denial() {
     let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(taken(json!({"approvalId": "a", "decision": "approve-once", "reason": "sure"})), ("accept".into(), None));
-    assert_eq!(taken(json!({"approvalId": "a", "decision": "yes please", "reason": "no"})), ("reject".into(), Some("no".into())));
+    assert_eq!(taken(json!({"approvalId": "a", "decision": "yes please", "reason": "no"})), ("decline".into(), Some("no".into())));
     // An approval given a reason anyway reaches the runtime's adapter as a plain approval, and nothing is steered.
     let channel = Channel::new();
     let ch = channel.clone();
@@ -102,7 +102,7 @@ fn on_codex_the_reply_is_the_plain_protocol_reject_and_the_reason_goes_to_the_ru
     let _rules = crate::native::hooks::no_saved_rules();
     let (channel, reply) = denied_on("codex", Some("use the build script instead"));
     // Exactly what Codex's app-server expects: no field it does not know.
-    assert_eq!(reply, json!({"decision": "reject"}));
+    assert_eq!(reply, json!({"decision": "decline"}));
     // Only to the run that asked.
     assert_eq!(channel.take_denied_saying("run_other"), vec![]);
     assert_eq!(
@@ -130,12 +130,12 @@ fn on_opencode_the_reason_rides_the_reject_itself_and_nothing_is_steered() {
 fn without_a_reason_a_plain_reject_everywhere_and_nothing_steered() {
     let _rules = crate::native::hooks::no_saved_rules();
     let (codex, on_codex) = denied_on("codex", None);
-    assert_eq!(on_codex, json!({"decision": "reject"}));
+    assert_eq!(on_codex, json!({"decision": "decline"}));
     let (open, on_open) = denied_on("opencode", None);
     assert_eq!(open_code_reply_for(&on_open), json!("reject"));
     // Only spaces is no reason at all.
     let (blank, on_blank) = denied_on("codex", Some("   "));
-    assert_eq!(on_blank, json!({"decision": "reject"}));
+    assert_eq!(on_blank, json!({"decision": "decline"}));
     assert_eq!(codex.take_denied_saying("run_1"), vec![]);
     assert_eq!(open.take_denied_saying("run_1"), vec![]);
     assert_eq!(blank.take_denied_saying("run_1"), vec![]);

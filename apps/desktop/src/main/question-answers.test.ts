@@ -151,6 +151,6 @@ describe('what goes back on the wire', () => {
     expect(protocolAnswerFor({ approvalId: 'ap_1', decision: 'approve-always' })).toEqual({
       decision: 'acceptForSession'
     })
-    expect(protocolAnswerFor({ approvalId: 'ap_1', decision: 'deny' })).toEqual({ decision: 'reject' })
+    expect(protocolAnswerFor({ approvalId: 'ap_1', decision: 'deny' })).toEqual({ decision: 'decline' })
   })
 })
