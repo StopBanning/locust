@@ -57,7 +57,7 @@ describe('a denial with a reason', () => {
     await Promise.resolve()
     expect(instance.decide({ approvalId: approvals[0]!.approvalId, decision: 'deny', reason: 'use the build script instead' })).toBe(true)
     // Exactly what Codex's app-server expects: no field it does not know.
-    expect(await waiting).toEqual({ decision: 'reject' })
+    expect(await waiting).toEqual({ decision: 'decline' })
     expect(steered).toEqual([{ runId: 'run_1', missionId: 'mission_1', reason: 'use the build script instead' }])
   })
 
@@ -75,7 +75,7 @@ describe('a denial with a reason', () => {
     const onCodex = codex.ask()
     await Promise.resolve()
     codex.instance.decide({ approvalId: codex.approvals[0]!.approvalId, decision: 'deny' })
-    expect(await onCodex).toEqual({ decision: 'reject' })
+    expect(await onCodex).toEqual({ decision: 'decline' })
     const open = channel('opencode')
     const onOpen = open.ask()
     await Promise.resolve()

@@ -1,4 +1,4 @@
-import { createAppServerClient, MUSE_EFFORTS, openCodeUsesAcp, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
+import { codexRefusalFor, createAppServerClient, MUSE_EFFORTS, openCodeUsesAcp, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
 import type { ClaudeListedModel, MissionRuntimeId, RuntimeDiscovery } from '@teammate/runtime-adapters'
 
 import type { PublicModel, ModelCatalogResponse } from '../shared/ipc.js'
@@ -655,7 +655,7 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
       onNotification: () => undefined,
       // Nothing should be able to ask this probe for permission: it starts no
       // turn. Refusing is the only correct answer.
-      onRequest: async () => ({ decision: 'reject' }),
+      onRequest: async (request) => codexRefusalFor(request.method),
       requestTimeoutMs: PROBE_TIMEOUT_MS
     })
     child.onData((chunk) => client.accept(chunk))

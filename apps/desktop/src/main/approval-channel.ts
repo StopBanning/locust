@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { acpCallIsShell, acpShownTool, toolPatchFrom } from '@teammate/runtime-adapters'
+import { acpCallIsShell, acpShownTool, CODEX_DECLINE, codexRefusalFor, toolPatchFrom } from '@teammate/runtime-adapters'
 import type {
   AcpPermissionAnswer,
   AcpPermissionRequest,
@@ -448,13 +448,18 @@ export function acpAnswerFor(result: JsonValue): AcpPermissionAnswer {
   return 'reject_once'
 }
 
-/** The protocol decision for each of the product's three authorization answers. */
+/**
+ * The protocol decision for each of the product's three authorization answers.
+ *
+ * Deny is Codex's `decline` (0.172's schemas; `codexRefusalFor` says why not
+ * `cancel`). It was `'reject'`, a value Codex does not have.
+ */
 export function protocolDecisionFor(decision: MissionApprovalDecision): string {
   if (decision === 'approve-once') return 'accept'
   // Session-scoped, never durable: a forever-grant is a Settings decision, not
   // one to take mid-run under time pressure.
   if (decision === 'approve-always') return 'acceptForSession'
-  return 'reject'
+  return CODEX_DECLINE
 }
 
 /**
@@ -642,7 +647,7 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
     for (const [approvalId, pending] of approvals) {
       if (pending.runId !== runId) continue
       approvals.delete(approvalId)
-      pending.resolve({ decision: 'reject' })
+      pending.resolve({ decision: protocolDecisionFor('deny') })
     }
   }
 
@@ -652,7 +657,8 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
       return async (request) => {
         const refuse = (why: string): JsonValue => {
           options.emitUpdate?.({ kind: 'relay-notice', runId, missionId, message: why })
-          return { decision: 'reject' }
+          // In the shape the asking method takes: a legacy request's refusal is not a v2 one.
+          return codexRefusalFor(request.method)
         }
         const described = describeApproval(request)
         if (described === undefined) {
