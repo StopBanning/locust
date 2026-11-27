@@ -21,6 +21,9 @@ import sys
 import time
 
 HOME = os.path.expanduser("~")
+# Whether the caller chose a folder must be read before the default fills it in: a chosen folder is one slot, its own
+# (27 Nov: reading it after the setdefault made every lane's folder two slots, the second "<folder>-2" one cold).
+CHOSEN = "CARGO_TARGET_DIR" in os.environ
 TARGET = os.environ.setdefault("CARGO_TARGET_DIR", f"{HOME}/work/scratch/native-target")
 os.environ.setdefault("CARGO_BUILD_JOBS", "4")
 os.environ.setdefault("LOCUST_TEST_TS_READER", f"{HOME}/work/locust/packages/mission-store/dist/index.js")
@@ -45,7 +48,7 @@ def _take_a_slot():
     old folder and lock, so a lane still on the old wrapper only ever waits for slot 1. Slot 2 is taken only while the
     Mac has room (load under 8), so two runs never push it to the freeze of 16 Nov."""
     global TARGET
-    if "CARGO_TARGET_DIR" in os.environ and os.environ["CARGO_TARGET_DIR"] != TARGET:
+    if CHOSEN:
         slots = [os.environ["CARGO_TARGET_DIR"]]  # someone chose a folder: one slot, theirs
     else:
         slots = [TARGET, TARGET.rstrip("/") + "-2"]
