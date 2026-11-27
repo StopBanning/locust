@@ -377,20 +377,13 @@ impl Codex {
     }
     fn answer_question(&mut self, method: &str, params: &Value, wire_id: Value) -> io::Result<Value> {
         // Another thread's question, or no card to put it on: answered with nothing, said in the thread.
-        let unanswered = |questions: &[crate::approval::Question]| {
-            let mut map = serde_json::Map::new();
-            for q in questions {
-                map.insert(q.id.clone(), json!({"answers": []}));
-            }
-            json!({"answers": map})
-        };
         let questions = crate::approval::questions_of(params);
         if super::events::thread_id(params).is_some_and(|id| self.normal.thread.as_ref() != Some(&id)) {
-            return Ok(unanswered(&questions));
+            return Ok(crate::approval::codex_unanswered_questions(&questions));
         }
         let Some(channel) = self.approvals.clone() else {
             self.queued.push_back(self.normal.diagnostic(method, "Codex asked a question, and there was nowhere to show it."));
-            return Ok(unanswered(&questions));
+            return Ok(crate::approval::codex_unanswered_questions(&questions));
         };
         let (mission, run, cancel) = (self.mission_id.clone(), self.run_id.clone(), self.cancel.clone());
         let is_cancelled = move || crate::run_cli::interrupted() || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed));
@@ -407,7 +400,7 @@ impl Codex {
             Ok(result) => Ok(result),
             Err(message) => {
                 self.queued.push_back(self.normal.diagnostic(method, &message));
-                Ok(unanswered(&questions))
+                Ok(crate::approval::codex_unanswered_questions(&questions))
             }
         }
     }
@@ -1102,3 +1095,7 @@ mod codex_goal_tests;
 #[cfg(all(test, unix))]
 #[path = "codex_decision_schema_tests.rs"]
 mod codex_decision_schema_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_question_refusal_tests.rs"]
+mod codex_question_refusal_tests;

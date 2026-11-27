@@ -645,6 +645,14 @@ pub fn codex_legacy_refusal() -> Value {
     json!({"decision": {"denied": {"rejection": CODEX_LEGACY_REFUSAL_SAYS}}})
 }
 
+/// A ToolRequestUserInputResponse with no answers supplied by the person.
+pub(super) fn codex_unanswered_questions(questions: &[Question]) -> Value {
+    let answers: serde_json::Map<_, _> = questions.iter()
+        .map(|question| (question.id.clone(), json!({"answers": []})))
+        .collect();
+    json!({"answers": answers})
+}
+
 /// Codex JSON-RPC result for one answer.
 pub fn protocol_answer_for(answer: &Answer) -> Value {
     match answer {
@@ -1103,6 +1111,11 @@ impl Channel {
                 }
                 other => other,
             };
+            // Release and wrong-kind replies use a denial within the channel.
+            // On Codex's wire the pending request, not that denial, chooses the result type.
+            if codex && method == "item/tool/requestUserInput" && matches!(answer, Answer::Decision { .. }) {
+                return codex_unanswered_questions(&questions_of(params));
+            }
             let mut result = protocol_answer_for(&answer);
             // OpenCode's reject carries a message the model reads, so a reason rides the denial itself; read by
             // `open_code_reply_for`, it never reaches Codex.

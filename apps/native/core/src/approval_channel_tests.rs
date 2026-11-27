@@ -266,7 +266,7 @@ fn will_not_let_a_question_be_answered_with_a_decision_or_the_reverse() {
     let card = cards(&host, 1).remove(0);
     let said = decide(&host, &card, Decision::ApproveOnce).unwrap_err();
     assert!(said.contains("answered rather than approved"), "{said}");
-    assert_eq!(waiting.join().unwrap(), Ok(json!({"decision": "decline"})));
+    assert_eq!(waiting.join().unwrap(), Ok(json!({"answers": {"q1": {"answers": []}}})));
     // And the reverse: answers sent to an authorization.
     let waiting = ask(&host, "mission_1", COMMAND, json!({"command": "ls"}), None);
     let card = cards(&host, 1).remove(0);
