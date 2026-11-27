@@ -4287,25 +4287,39 @@ mod a_streamed_batch_is_written_tests;
 
 // case: refuses a forbidden Cursor effort variant before recording or dispatching a turn
 #[test]
-fn refuses_a_forbidden_cursor_effort_variant_before_recording_or_dispatching_a_turn() {
+fn b07_refuses_a_forbidden_cursor_variant_before_writing_the_handoff_file() {
+    use crate::engine_api::{EngineApi, InProcess};
+
     let t = Temp::new();
     let store = t.store();
-    let _hooks = hooks::install(store.clone(), fake("success"));
+    let work = t.0.join("work");
+    fs::write(t.electron().join("workspace.json"), json!({"schemaVersion": 1, "path": work}).to_string()).unwrap();
+    let _hook = hooks::install(store, codex_commands_hook(&t));
+    // Long tasks go by file. The forbidden target must not leave this task in the project.
+    let mut initial = job(&t, None, &"Build the habit tracker exactly as described. ".repeat(140));
+    initial.model = Some("gpt-5.6-luna".into());
+    let first = InProcess.send(initial, Origin::default()).unwrap().conversation_id;
+    finished(&first);
+    let before = fs::read(path_of(&t, &first)).unwrap();
+    let handoff = work.join(format!(".locust/attachments/conversation-{first}.md"));
+    assert!(!handoff.exists(), "the first run wrote no handoff file");
     let _managed = ManagedHere::with(json!({"allowedModels": {"cursor": ["family-low"]}}));
     use_cursor_catalog_on_this_thread(Some(vec![json!({"id": "family-low", "runtime": "cursor", "variants": {"low": "family-low", "high": "family-high"}})]));
     struct Forget;
     impl Drop for Forget {
-        fn drop(&mut self) {
-            use_cursor_catalog_on_this_thread(None);
-        }
+        fn drop(&mut self) { use_cursor_catalog_on_this_thread(None); }
     }
     let _forget = Forget;
-    let mut asked = job(&t, None, "Work");
-    asked.teammate.runtime = Some("cursor".into());
-    asked.teammate.runs_in = "accept-edits".into();
-    asked.model = Some("family-low".into());
-    asked.effort = Some("high".into());
-    let refused = send(asked).err().expect("refused");
-    assert!(refused.contains("(allowedModels in /admin/policy.json)"), "{refused}");
-    assert_eq!(turns_recorded(&store), 0, "nothing was recorded");
+    let refusal = InProcess.send(
+        Send { model: Some("family-low".into()), effort: Some("high".into()), ..job(&t, Some(&first), "Continue.") },
+        Origin { runtime: Some("cursor".into()), mode: Some(Mode::AcceptEdits), ..Default::default() },
+    ).err().expect("the effort variant was forbidden");
+    assert!(refusal.contains("(allowedModels in /admin/policy.json)"), "{refusal}");
+    assert!(!handoff.exists(), "no handoff file may be written");
+    assert_eq!(codex_requests(&t).iter().filter(|r| r["method"] == "turn/start").count(), 1);
+    assert_eq!(fs::read(path_of(&t, &first)).unwrap(), before);
+    assert_eq!(ledgers(&t).len(), 1);
 }
+
+#[path = "b07_start_route_tests.rs"]
+mod b07_start_route;
