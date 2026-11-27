@@ -1691,6 +1691,25 @@ fn a_teammate_on_an_own_api_route_runs_natively_through_its_opencode_provider() 
 }
 
 #[test]
+fn a_follow_up_to_a_turn_whose_process_is_gone_is_not_refused_as_running() {
+    // SOAK-NOTES row 3: a fresh ledger with no ending, written by a process that is gone, is not running for the
+    // follow-up either, as the list and the reader already show it.
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let begin = |id: &str| {
+        let mut w = LedgerWriter::create_continuing(&t.store(), id, "p", "m", "x", None).unwrap();
+        w.append("run.started", json!({"runtimeThreadId":"t1"}), None).unwrap();
+    };
+    begin("mission_native_4194999_1");
+    let gone = prior_of("mission_native_4194999_1").unwrap();
+    assert!(!gone.running, "its process is gone, so the turn has ended");
+    assert_eq!(gone.thread.as_deref(), Some("t1"), "and the follow-up resumes its session");
+    // A turn of a live process (launchd) with no ending is still running.
+    begin("mission_native_1_1");
+    assert!(prior_of("mission_native_1_1").unwrap().running);
+}
+
+#[test]
 fn a_turn_whose_process_is_gone_is_not_running() {
     // This process, not running it: ended without its last record.
     assert!(orphaned(&format!("mission_native_{}_1", std::process::id())));
@@ -3466,6 +3485,84 @@ fn codexs_init_is_a_turn_carrying_locusts_words_for_it_and_a_command_it_has_no_r
     assert_eq!(methods(&codex_requests(&t)).iter().filter(|m| **m == "thread/compact/start").count(), 0);
 }
 
+// ---- a Codex teammate's standing goal in the conversation's record ------------------------------------------------
+
+fn kept_green(status: &str, used: u64) -> Value {
+    json!({"threadId": "thread_fake", "objective": "Keep the test suite green", "status": status, "tokenBudget": 200000,
+        "tokensUsed": used, "timeUsedSeconds": 42, "createdAt": 1764200000, "updatedAt": 1764200042})
+}
+
+/// The conversation's goal records, by code, oldest first.
+fn goal_records(t: &Temp, id: &str) -> Vec<Value> {
+    records(&path_of(t, id))
+        .into_iter()
+        .filter(|r| r["event"]["type"] == "adapter.diagnostic")
+        .filter(|r| r["event"]["payload"]["code"].as_str().is_some_and(|c| c.starts_with("codex.goal_")))
+        .map(|r| r["event"]["payload"].clone())
+        .collect()
+}
+
+#[test]
+fn a_codex_goal_set_a_status_change_and_a_clear_each_write_one_event_in_the_conversations_record() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    let notice = |method: &str, goal: Option<Value>| match goal {
+        Some(goal) => json!({"method": method, "params": {"goal": goal}}),
+        None => json!({"method": method, "params": {}}),
+    };
+    let reply = json!({"goal_notices": [
+        notice("thread/goal/updated", Some(kept_green("active", 100))),
+        notice("thread/goal/updated", Some(kept_green("active", 900))),
+        notice("thread/goal/updated", Some(kept_green("paused", 1000))),
+        notice("thread/goal/updated", Some(kept_green("paused", 1001))),
+        notice("thread/goal/cleared", None),
+        notice("thread/goal/cleared", None),
+    ]});
+    fs::write(t.0.join("work/commands-reply.json"), reply.to_string()).unwrap();
+    let run = send(job(&t, None, "Keep at it.")).unwrap();
+    finished(&run.conversation_id);
+    let written = goal_records(&t, &run.conversation_id);
+    let codes: Vec<&str> = written.iter().map(|p| p["code"].as_str().unwrap()).collect();
+    assert_eq!(codes, ["codex.goal_set", "codex.goal_status", "codex.goal_cleared"]);
+    assert_eq!(written[0]["message"], "Codex holds a standing goal: Keep the test suite green");
+    assert_eq!(written[0]["goal"], kept_green("active", 100));
+    assert_eq!(written[1]["message"], "Codex's standing goal is paused: Keep the test suite green");
+    assert_eq!(written[1]["goal"]["status"], "paused");
+    assert_eq!(written[2]["message"], "Codex's standing goal was cleared.");
+    assert_eq!(kinds(&path_of(&t, &run.conversation_id)).last().map(String::as_str), Some("run.completed"));
+}
+
+#[test]
+fn a_reopened_codex_conversation_asks_thread_goal_get_on_resume_and_writes_only_what_changed() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    let first = send(job(&t, None, "Look around.")).unwrap();
+    finished(&first.conversation_id);
+    assert!(!methods(&codex_requests(&t)).contains(&"thread/goal/get"), "a new thread has no goal to ask after");
+    // Codex holds the goal set last time; this turn it is complete.
+    let reply = json!({"goal": kept_green("active", 100), "goal_notices": [
+        {"method": "thread/goal/updated", "params": {"goal": kept_green("active", 500)}},
+        {"method": "thread/goal/updated", "params": {"goal": kept_green("complete", 600)}},
+    ]});
+    fs::write(t.0.join("work/commands-reply.json"), reply.to_string()).unwrap();
+    let next = send(job(&t, Some(&first.conversation_id), "Carry on.")).unwrap();
+    finished(&next.conversation_id);
+    let asked = codex_requests(&t);
+    let named = methods(&asked);
+    let at = |m: &str| named.iter().rposition(|a| *a == m).unwrap_or_else(|| panic!("{m} not asked: {named:?}"));
+    assert!(at("thread/resume") < at("thread/goal/get") && at("thread/goal/get") < at("turn/start"), "{named:?}");
+    assert_eq!(asked[at("thread/goal/get")]["params"], json!({"threadId": "thread_fake"}));
+    // The follow-up's run has a ledger of its own.
+    let first_ledger = path_of(&t, &first.conversation_id);
+    let resumed = ledgers(&t).into_iter().find(|l| *l != first_ledger).expect("the follow-up's ledger");
+    let goal_of = |path: &Path| -> Vec<String> {
+        records(path).iter().filter_map(|r| r["event"]["payload"]["code"].as_str().filter(|c| c.starts_with("codex.goal_")).map(str::to_owned)).collect()
+    };
+    assert!(goal_of(&first_ledger).is_empty());
+    let codes = goal_of(&resumed);
+    assert_eq!(codes, ["codex.goal_status"], "the goal it held is learned, not written again");
+}
+
 fn opencode_mate(t: &Temp) -> Teammate {
     fs::create_dir_all(t.0.join("work")).unwrap();
     Teammate { runtime: Some("opencode".into()), model: Some("opencode/beam-free".into()), id: "tm_open".into(), name: "Open".into(), ..codex(t) }
@@ -4190,25 +4287,39 @@ mod a_streamed_batch_is_written_tests;
 
 // case: refuses a forbidden Cursor effort variant before recording or dispatching a turn
 #[test]
-fn refuses_a_forbidden_cursor_effort_variant_before_recording_or_dispatching_a_turn() {
+fn b07_refuses_a_forbidden_cursor_variant_before_writing_the_handoff_file() {
+    use crate::engine_api::{EngineApi, InProcess};
+
     let t = Temp::new();
     let store = t.store();
-    let _hooks = hooks::install(store.clone(), fake("success"));
+    let work = t.0.join("work");
+    fs::write(t.electron().join("workspace.json"), json!({"schemaVersion": 1, "path": work}).to_string()).unwrap();
+    let _hook = hooks::install(store, codex_commands_hook(&t));
+    // Long tasks go by file. The forbidden target must not leave this task in the project.
+    let mut initial = job(&t, None, &"Build the habit tracker exactly as described. ".repeat(140));
+    initial.model = Some("gpt-5.6-luna".into());
+    let first = InProcess.send(initial, Origin::default()).unwrap().conversation_id;
+    finished(&first);
+    let before = fs::read(path_of(&t, &first)).unwrap();
+    let handoff = work.join(format!(".locust/attachments/conversation-{first}.md"));
+    assert!(!handoff.exists(), "the first run wrote no handoff file");
     let _managed = ManagedHere::with(json!({"allowedModels": {"cursor": ["family-low"]}}));
     use_cursor_catalog_on_this_thread(Some(vec![json!({"id": "family-low", "runtime": "cursor", "variants": {"low": "family-low", "high": "family-high"}})]));
     struct Forget;
     impl Drop for Forget {
-        fn drop(&mut self) {
-            use_cursor_catalog_on_this_thread(None);
-        }
+        fn drop(&mut self) { use_cursor_catalog_on_this_thread(None); }
     }
     let _forget = Forget;
-    let mut asked = job(&t, None, "Work");
-    asked.teammate.runtime = Some("cursor".into());
-    asked.teammate.runs_in = "accept-edits".into();
-    asked.model = Some("family-low".into());
-    asked.effort = Some("high".into());
-    let refused = send(asked).err().expect("refused");
-    assert!(refused.contains("(allowedModels in /admin/policy.json)"), "{refused}");
-    assert_eq!(turns_recorded(&store), 0, "nothing was recorded");
+    let refusal = InProcess.send(
+        Send { model: Some("family-low".into()), effort: Some("high".into()), ..job(&t, Some(&first), "Continue.") },
+        Origin { runtime: Some("cursor".into()), mode: Some(Mode::AcceptEdits), ..Default::default() },
+    ).err().expect("the effort variant was forbidden");
+    assert!(refusal.contains("(allowedModels in /admin/policy.json)"), "{refusal}");
+    assert!(!handoff.exists(), "no handoff file may be written");
+    assert_eq!(codex_requests(&t).iter().filter(|r| r["method"] == "turn/start").count(), 1);
+    assert_eq!(fs::read(path_of(&t, &first)).unwrap(), before);
+    assert_eq!(ledgers(&t).len(), 1);
 }
+
+#[path = "b07_start_route_tests.rs"]
+mod b07_start_route;

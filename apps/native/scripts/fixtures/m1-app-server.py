@@ -369,6 +369,10 @@ for line in sys.stdin:
                 'secondary': {'usedPercent': 71, 'windowDurationMins': 10080, 'resetsAt': 1790363478 + 86400},
                 'credits': {'hasCredits': False, 'unlimited': False, 'balance': '0'},
                 'planType': 'plus'}}))
+    elif method == 'thread/goal/get':
+        # A reopened thread asks after its standing goal; this one holds none.
+        assert p == {'threadId':'thread_fake'}, p
+        send(dict(id=msg['id'], result={'goal': None}))
     elif method == 'turn/interrupt':
         assert p == {'threadId':'thread_fake','turnId':'turn_fake'}
         send(dict(id=msg['id'],result={}))

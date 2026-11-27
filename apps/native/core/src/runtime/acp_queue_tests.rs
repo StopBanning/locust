@@ -66,9 +66,7 @@ fn acp_burst_over_the_queue_bound_fails_without_losing_the_reason() {
     let events = drain_turn(start_without_draining("flood"));
     let terminal = events.last().unwrap();
     assert_eq!(terminal.kind, "run.failed");
-    assert_eq!(
-        terminal.payload["message"],
-        "ACP notification queue overflow; run stopped"
-    );
+    // Electron's sentence (acp-run.ts `lose`), the one Claude Code's and Codex's readers say (SOAK-NOTES row 2a).
+    assert_eq!(terminal.payload["message"], OVERFLOW_MESSAGE);
     assert_eq!(terminal.payload["process"]["outputLimitExceeded"], true);
 }

@@ -1,5 +1,5 @@
 //! A denial's reason on a Codex app server, end to end (Electron's index.ts `onDeniedSaying`, codex-app-server-run.ts
-//! `steer`): the reply is the plain reject, and the reason goes to the running turn as `turn/steer`, in the person's
+//! `steer`): the reply is the plain decline, and the reason goes to the running turn as `turn/steer`, in the person's
 //! words. The cases are in `approval_denial_reason_tests.rs`; this is the wire they ride.
 use super::*;
 
@@ -78,7 +78,7 @@ const NOT_PASSED_ON: &str = "Your reason was not passed on: the run could not ta
 #[test]
 fn codex_is_sent_the_plain_reject_and_then_the_reason_as_the_turns_next_input() {
     let (sent, said) = run_denying("ok", Some("turn_1"), Some("use the build script instead"));
-    assert_eq!(sent[0], json!({"jsonrpc": "2.0", "id": 9, "result": {"decision": "reject"}}));
+    assert_eq!(sent[0], json!({"jsonrpc": "2.0", "id": 9, "result": {"decision": "decline"}}));
     assert_eq!(sent[1]["method"], "turn/steer");
     assert_eq!(
         sent[1]["params"],
@@ -91,7 +91,7 @@ fn codex_is_sent_the_plain_reject_and_then_the_reason_as_the_turns_next_input() 
 #[test]
 fn codex_is_steered_nothing_after_a_denial_without_a_reason() {
     let (sent, said) = run_denying("ok", Some("turn_1"), None);
-    assert_eq!(sent, vec![json!({"jsonrpc": "2.0", "id": 9, "result": {"decision": "reject"}})]);
+    assert_eq!(sent, vec![json!({"jsonrpc": "2.0", "id": 9, "result": {"decision": "decline"}})]);
     assert!(!said.iter().any(|m| m == NOT_PASSED_ON), "{said:?}");
 }
 

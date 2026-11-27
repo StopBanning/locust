@@ -143,7 +143,7 @@ fn the_recorded_approval_arrives_with_its_command_and_is_declined() {
     assert_eq!(run.cards.len(), 1);
     assert!(run.cards[0].detail.contains("FIXTURE_APPROVAL") || run.cards[0].summary.contains("FIXTURE_APPROVAL"), "{:?}", run.cards[0]);
     // The person's no goes back as Codex's own word for it.
-    assert!(run.writes.iter().any(|m| m["id"] == 0 && m["result"]["decision"] == "reject"), "{:?}", run.writes);
+    assert!(run.writes.iter().any(|m| m["id"] == 0 && m["result"]["decision"] == "decline"), "{:?}", run.writes);
     assert!(run.events.iter().any(|e| e.kind == "tool.failed" && e.payload["status"] == "declined"));
     assert!(of(&run.events, "tool.completed").is_empty());
     let said = last_message(&run.events);

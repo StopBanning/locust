@@ -2642,7 +2642,7 @@ mod review_tests {
             .map(|h| h.join().unwrap().unwrap())
             .collect();
         assert!(decisions.iter().any(|v| v["decision"] == "accept"));
-        assert!(decisions.iter().any(|v| v["decision"] == "reject"));
+        assert!(decisions.iter().any(|v| v["decision"] == "decline"));
         for mission in ["board_one", "board_two"] {
             assert_eq!(channel.take_recorded_for(mission).len(), 1);
         }

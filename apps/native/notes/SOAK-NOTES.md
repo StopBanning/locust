@@ -97,6 +97,11 @@ leave a gap in its record. Sending it again usually works." Every run past 20,00
 output overflow" (runtime/opencode_serve.rs:975, `next_event` sees the overflow flag first); slow, the same burst ends
 with Electron's sentence. One overflow, two wordings, depending on who notices first. 3 of 3 held runs.
 
+**2a and 2b fixed (Soak fixes 1):** ACP says Electron's sentence (`acp::OVERFLOW_MESSAGE`, acp-run.ts `lose`) and still
+marks the output limit; OpenCode 1 ends on `opencode_events::OUTPUT_LIMIT_MESSAGE` whoever notices the overflow first,
+with the server's tail kept in the process's stderr, not the message. `burst_acp_short` and `burst_opencode_serve_short`
+run in the suite.
+
 ### Fault 2c: ACP and OpenCode 1 read a long answer in time that grows with its square
 
 `bursts_scale_long` (ignored, failing). Held reader, a burst under the bound, milliseconds in the engine's `next_event`:
@@ -114,6 +119,12 @@ runtime/opencode_serve.rs:685 `held.text = super::events::text(&held.text, 26214
 ordinary one when an agent streams a token or two a chunk, costs ~46 s of engine time in a debug build (release will be
 several times faster, still quadratic); the turn shows nothing new meanwhile. It stays under the 60 s hang line here, so
 it is reported as a fault of its own, not as a hang.
+
+**2c fixed (Soak fixes 1):** both now hold a growing answer as Electron's acp-events.ts `heldText` does
+(`runtime/held_text.rs`): each chunk is appended and measured on its own, the whole cut to both ends only once it passes
+four ends, and scrubbed and bounded when it is written (the message's close; for OpenCode 1 the normalizer, per delta
+and at the finished part). Held reader, same machine: 1,250 / 19,000 records, ms a record, acp 0.024 / 0.014, opencode
+serve 0.017 / 0.005 (19,000 ACP chunks: ~270 ms in the engine, was ~45,900). `bursts_scale_long` runs in the suite (~40 s).
 
 Seen in the code, not run (other users of the records.rs bound, beside the four rows asked): Copilot says "Copilot
 notification queue overflow (2048 records); terminating run" (runtime/copilot.rs:229) and Antigravity "Antigravity
@@ -149,6 +160,10 @@ still running in that conversation. Wait for it or stop it first." `native::send
 minutes; native.rs:1332 `running: transcript.running && fresh`) and never asks `orphaned`, while `list_recent`
 (native.rs:977) and the reader (ledger.rs:2545) do. Only an app's carry-on (`allow_cut_off`) gets past it. So after the
 engine crashes, for 15 minutes the window says the turn has ended and refuses to continue it, in words that say it runs.
+
+**Fixed (Soak fixes 1):** `prior_of` now reads the turn as running only while its process lives (`fresh && !orphaned`),
+as the list and the reader do; the test runs in the suite, and `native::tests::a_follow_up_to_a_turn_whose_process_is_gone_is_not_refused_as_running`
+checks it in a moment.
 
 ## Row 4: two at once (`two_at_once.rs`)
 
@@ -194,3 +209,26 @@ in proportion to the whole conversation instead of the bytes that arrived. The w
 continuously, so a 300-turn conversation left open keeps a core busy in a debug build (several times less in release,
 still growing with every turn). Not chased into the code (tests and notes only); `ledger::Session::poll`
 (ledger.rs:2396) is where to look: the per-poll rebuild of the snapshot over every reader in the chain.
+
+**Partly fixed (Soak fixes 1).** Three costs found in `ledger::Session::poll`: (1) every turn walked the conversation
+back (`conversation_turns`) to check a condition that is always true, so a poll cost the square of the turns; (2) the
+folder scan (`chain`) cloned every file's header and looked for each turn's follow-up among all files (files x turns),
+and ran on every poll of an ended tip; (3) every poll rebuilt the snapshot from every turn. Now the seam alone is asked;
+`chain` reads the cached headers in place and walks a children index; an ended tip's folders are scanned again only when
+one changed (a follow-up is a new file), trusting a folder's time only once its granule has passed (2 s for a whole-second
+time, else 100 ms) and keeping the 2 s rescan as a backstop; and a poll that finds nothing new, with nothing on the clock
+(a running tip, a diff waiting for its checkpoint, the start's label minute), gives the last snapshot again.
+
+Same container, debug, thirds medians in ms (was -> now):
+
+| measure | short (60) | long (300) |
+|---|---|---|
+| idle | 0.49 / 4.06 (8.3x) -> 0.14 / 0.14 (1.0x) | 3.31 / 59.39 (17.9x, notes above) -> 0.16 / 0.58 (3.6x) |
+| tail | 1.32 / 4.85 (3.7x) -> 1.32 / 2.83 (2.1x) | 4.30 / 58.81 -> 2.68 / 11.19 (4.2x) |
+| open | 7.94 / 39.04 (4.9x) -> 7.75 / 33.84 (4.4x) | 31.70 / 199.41 -> 32.30 / 176.35 (5.5x) |
+
+Left: opening fresh reads every turn's ledger and every file's header, so it is linear in the turns and cannot meet a
+3x rule over turns 1-20 against 41-60 without a cache shared across sessions; at 300 turns the idle poll is the copy of
+the snapshot `poll` returns by value (~1 us an item; returning a shared one changes the window crate's API) and the tail
+poll after a turn still rebuilds every turn once. `long_conversation_read_short` stays ignored (open only), as does the
+long form.

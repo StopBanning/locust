@@ -25,6 +25,7 @@ interface FakeAnswers {
 
 function fakeCodex(answers: FakeAnswers = {}) {
   const asked: Asked[] = []
+  const replies: Record<string, unknown>[] = []
   let onData: (chunk: string) => void = () => undefined
   let onExit: () => void = () => undefined
   let killed = false
@@ -49,7 +50,11 @@ function fakeCodex(answers: FakeAnswers = {}) {
   const child: AppServerProcess = {
     write: (line) => {
       const message = JSON.parse(line) as { id?: number; method?: string; params?: Record<string, unknown>; result?: unknown }
-      if (message.method === undefined) { asked.push({ method: `answer:${String(message.id)}`, params: message.result as Record<string, unknown> }); return }
+      if (message.method === undefined) {
+        replies.push(message)
+        asked.push({ method: `answer:${String(message.id)}`, params: message.result as Record<string, unknown> })
+        return
+      }
       asked.push({ method: message.method, params: message.params ?? {} })
       if (message.id === undefined) return
       if (message.method === 'config/read' && answers.config === 'fail') { say({ id: message.id, error: { code: -32000, message: 'no config' } }); return }
@@ -60,7 +65,7 @@ function fakeCodex(answers: FakeAnswers = {}) {
     onData: (listener) => { onData = listener },
     onExit: (listener) => { onExit = listener }
   }
-  return { child, asked, killed: () => killed, say }
+  return { child, asked, replies, killed: () => killed, say }
 }
 
 const NO_TOOLS = { 'features.shell_tool': false, 'features.browser_use': false, 'features.browser_use_external': false, 'features.in_app_browser': false, 'features.computer_use': false } as const
@@ -144,6 +149,37 @@ describe('a voice call', () => {
     expect(fake.asked.map((entry) => entry.method)).toContain('thread/realtime/stop')
     expect(fake.killed()).toBe(true)
     expect(sent.at(-1)).toEqual({ kind: 'ended' })
+  })
+
+  const legacyRefusal = { decision: { denied: { rejection: "Locust answers only Codex's current approval requests, so it did not allow this one." } } }
+  const legacy = { conversationId: 'thread_1', callId: 'call_1' }
+  const turn = { threadId: 'thread_1', turnId: 'turn_1' }
+  it.each([
+    ['execCommandApproval', { ...legacy, command: ['ls'], cwd: ACME, parsedCmd: [] }, { result: legacyRefusal }],
+    ['applyPatchApproval', { ...legacy, fileChanges: { 'new.txt': { type: 'add', content: 'hello' } } }, { result: legacyRefusal }],
+    ['item/tool/requestUserInput', { ...turn, itemId: 'item_1', isBlocking: true, questions: [
+      { id: 'q', header: 'Continue', question: 'Continue?', options: null }
+    ] }, { result: { answers: {} } }],
+    ['item/permissions/requestApproval', {
+      ...turn, itemId: 'item_1', startedAtMs: 1, cwd: ACME, permissions: { network: { enabled: true } }
+    }, { result: { permissions: {}, scope: 'turn' } }],
+    ['item/tool/call', { ...turn, callId: 'call_1', tool: 'lookup', arguments: {} }, { result: { success: false, contentItems: [] } }],
+    ['account/chatgptAuthTokens/refresh', { reason: 'unauthorized' }, { error: { code: -32601 } }],
+    ['attestation/generate', {}, { error: { code: -32601 } }],
+    ['unknown/request', {}, { error: { code: -32601 } }]
+  ])('refuses fallback %s in its own shape', async (method, params, expected) => {
+    const { fake, voice } = one()
+    await voice.start('v=0\r\noffer')
+    try {
+      fake.say({ id: 99, method, params })
+      await vi.waitFor(() => {
+        const reply = fake.replies.find((message) => message.id === 99)
+        expect(reply).toMatchObject({ jsonrpc: '2.0', id: 99, ...expected })
+        expect(Object.hasOwn(reply!, 'result')).toBe(Object.hasOwn(expected, 'result'))
+      })
+    } finally {
+      await voice.stop()
+    }
   })
 
   it('is not placed on an API key, and says how to fix it', async () => {

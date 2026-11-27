@@ -2,7 +2,7 @@
 //! a-running-codex-turn-can-be-steered, app-server, codex-events): like Electron's `fakeServer`, it records every line
 //! Locust writes and answers on cue. The cue is a plan: for each method Locust asks (or `method#2` for its second ask),
 //! the steps to take; `$start` runs before anything is read, `answer` on each reply Locust sends to a server request.
-//! A step is `{"result": ..}`, `{"error": "words"}` (the server's refusal), `{"send": message}`, `{"raw": "text"}`
+//! A step is `{"result": ..}`, `{"error": "words"}` (the server's refusal, its code -32600 unless `"code"` says another), `{"send": message}`, `{"raw": "text"}`
 //! (written as it is), `{"sleep": seconds}`, `{"stderr": "text"}`, `{"exit": code}`, or `{"silent": true}`.
 use super::*;
 use std::path::PathBuf;
@@ -20,7 +20,7 @@ def out(text):
 def act(steps, msg):
     for a in steps:
         if 'result' in a: out(json.dumps({'jsonrpc': '2.0', 'id': msg.get('id'), 'result': a['result']}) + '\n')
-        elif 'error' in a: out(json.dumps({'jsonrpc': '2.0', 'id': msg.get('id'), 'error': {'code': -32600, 'message': a['error']}}) + '\n')
+        elif 'error' in a: out(json.dumps({'jsonrpc': '2.0', 'id': msg.get('id'), 'error': {'code': a.get('code', -32600), 'message': a['error']}}) + '\n')
         elif 'send' in a: out(json.dumps(a['send']) + '\n')
         elif 'raw' in a: out(a['raw'])
         elif 'sleep' in a: time.sleep(a['sleep'])

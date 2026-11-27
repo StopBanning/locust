@@ -2244,6 +2244,17 @@ pub struct Session {
     headers: HashMap<PathBuf, (u64, Metadata)>,
     rescan: Duration,
     listed: bool,
+    /// What the last poll gave, given again by a poll that finds nothing new (`poll`).
+    last: Option<Snapshot>,
+    /// Each folder as the last scan found it (when it was last changed; None when it could not be read), and when
+    /// that scan began: a folder changes when a file is made in it, so an ended tip's follow-up shows as a change.
+    folders_seen: Vec<Option<SystemTime>>,
+    scan_began: Option<SystemTime>,
+    /// Folder scans made, and snapshots built, for tests.
+    #[cfg(test)]
+    scans: usize,
+    #[cfg(test)]
+    builds: usize,
 }
 
 impl Session {
@@ -2259,6 +2270,13 @@ impl Session {
             headers: HashMap::new(),
             rescan: RESCAN,
             listed: false,
+            last: None,
+            folders_seen: Vec::new(),
+            scan_began: None,
+            #[cfg(test)]
+            scans: 0,
+            #[cfg(test)]
+            builds: 0,
         }
     }
 
@@ -2401,8 +2419,15 @@ impl Session {
             .readers
             .last()
             .is_none_or(|r| !r.transcript.running && r.tail.offset > 0);
-        if self.scanned.is_none_or(|at| at.elapsed() >= self.rescan) || tip_finished {
+        // Whether this poll found anything the last snapshot does not hold: a file joined or left the chain, or a
+        // reader read something new.
+        let mut changed = self.last.is_none();
+        // An ended tip is re-scanned as soon as a folder changes (its follow-up is a new file), not on every poll: the
+        // scan lists and stats every ledger in the folders, which an open conversation's idle polls paid for each time.
+        if self.scanned.is_none_or(|at| at.elapsed() >= self.rescan) || (tip_finished && !self.folders_unchanged()) {
             let paths = self.chain()?;
+            changed |= paths.len() != self.readers.len()
+                || paths.iter().zip(&self.readers).any(|((id, _), r)| *id != r.id);
             let mut old: HashMap<_, _> =
                 self.readers.drain(..).map(|r| (r.id.clone(), r)).collect();
             for (id, path) in paths {
@@ -2417,13 +2442,7 @@ impl Session {
             self.scanned = Some(Instant::now());
         }
 
-        let mut snapshot = Snapshot::default();
         let count = self.readers.len();
-        let mut by_id = HashMap::new();
-        // The plan the turn before ended with: a turn's card shows its own steps (Thread.tsx carriedPlan).
-        let mut carried: Vec<PlanStep> = Vec::new();
-        // What an earlier turn already said, which a later one does not say again (Thread.tsx `saidBefore`).
-        let mut said: HashSet<String> = HashSet::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -2446,6 +2465,7 @@ impl Session {
                 let empty_poll = records.is_empty();
                 if reader.tail.reset || !empty_poll {
                     reader.edits = None;
+                    changed = true;
                 }
                 reader.transcript.apply(records);
                 if !is_tip
@@ -2456,6 +2476,32 @@ impl Session {
                     reader.drained = true;
                 }
             }
+        }
+        // Nothing new, and nothing the snapshot shows that changes with the clock alone (a tip still running goes quiet
+        // or loses its engine; a turn's diff waits for its checkpoint; the start's label is to the minute): the last
+        // snapshot stands. An open conversation is polled continuously, and rebuilding it from every turn's records
+        // made each idle poll cost the whole conversation (SOAK-NOTES row 5).
+        if !changed
+            && let Some(last) = &self.last
+            && last.started_label_minute == chrono::Utc::now().timestamp().div_euclid(60)
+            && self.readers.last().is_some_and(|r| !r.transcript.running)
+            && self.readers.iter().all(|r| r.edits.is_some())
+        {
+            return Ok(last.clone());
+        }
+
+        #[cfg(test)]
+        {
+            self.builds += 1;
+        }
+        let mut snapshot = Snapshot::default();
+        let mut by_id = HashMap::new();
+        // The plan the turn before ended with: a turn's card shows its own steps (Thread.tsx carriedPlan).
+        let mut carried: Vec<PlanStep> = Vec::new();
+        // What an earlier turn already said, which a later one does not say again (Thread.tsx `saidBefore`).
+        let mut said: HashSet<String> = HashSet::new();
+        for (index, reader) in self.readers.iter_mut().enumerate() {
+            let is_tip = index + 1 == count;
             if index == 0 {
                 snapshot.started_at = reader.transcript.metadata.as_ref().map(|m| m.created_at.clone()).unwrap_or_default();
                 snapshot.started_label_minute = chrono::Utc::now().timestamp().div_euclid(60);
@@ -2465,9 +2511,9 @@ impl Session {
             let mut stitched = false;
             if let Some(m) = &reader.transcript.metadata {
                 by_id.insert(m.mission_id.clone(), m.clone());
-                let turns = crate::conversation_turns::conversation_turns(m, &by_id);
-                stitched = crate::conversation_turns::stitched_handoff(m, &by_id).is_some()
-                    && turns.last().is_some_and(|t| t.mission_id == m.mission_id);
+                // `conversation_turns(m)` ends with m's own turn, so only the seam is asked. Walking the conversation
+                // back from every turn made each poll cost the square of its length (SOAK-NOTES row 5).
+                stitched = crate::conversation_turns::stitched_handoff(m, &by_id).is_some();
                 if stitched && let Some(from) = snapshot.turn_metas.last() {
                     snapshot.items.push(Item::Handoff { from: Box::new(from.clone()), to: Box::new(m.clone()) });
                 }
@@ -2592,6 +2638,7 @@ impl Session {
                 reader.transcript.recovery.clone()
             };
         }
+        self.last = Some(snapshot.clone());
         Ok(snapshot)
     }
 
@@ -2607,9 +2654,36 @@ impl Session {
             .ok_or_else(|| io::ErrorKind::NotFound.into())
     }
 
+    /// Every folder is as the last scan found it, and that scan began late enough after each folder's last change that a
+    /// file made since could not share its timestamp: the granule a folder's time is kept in is taken as 2 s when the
+    /// time is a whole second (HFS+, FAT, some network shares), else as 100 ms (a kernel's coarse clock).
+    fn folders_unchanged(&self) -> bool {
+        let Some(began) = self.scan_began else { return false };
+        let folders: Vec<&PathBuf> = std::iter::once(&self.dir).chain(self.extra.iter()).collect();
+        folders.len() == self.folders_seen.len()
+            && folders.iter().zip(&self.folders_seen).all(|(dir, seen)| {
+                let now = fs::metadata(dir).and_then(|m| m.modified()).ok();
+                now == *seen
+                    && seen.is_none_or(|at| {
+                        let whole = at.duration_since(SystemTime::UNIX_EPOCH).is_ok_and(|d| d.subsec_nanos() == 0);
+                        let granule = if whole { Duration::from_secs(2) } else { Duration::from_millis(100) };
+                        began.duration_since(at).is_ok_and(|after| after >= granule)
+                    })
+            })
+    }
+
     fn chain(&mut self) -> io::Result<Vec<(String, PathBuf)>> {
-        let mut all = HashMap::new();
         self.listed = false;
+        #[cfg(test)]
+        {
+            self.scans += 1;
+        }
+        // Taken before the folders are read, so a file made during the scan is either listed or changes the folder.
+        self.scan_began = Some(SystemTime::now());
+        self.folders_seen = std::iter::once(&self.dir)
+            .chain(self.extra.iter())
+            .map(|dir| fs::metadata(dir).and_then(|m| m.modified()).ok())
+            .collect();
         let mut folders = Vec::new();
         let mut first_error = None;
         for dir in std::iter::once(&self.dir).chain(self.extra.iter()) {
@@ -2626,6 +2700,8 @@ impl Session {
         if !self.listed {
             return Err(first_error.unwrap_or_else(|| io::ErrorKind::NotFound.into()));
         }
+        // Every ledger file with a header, in the order listed, and when it was last written.
+        let mut found: Vec<(PathBuf, SystemTime)> = Vec::new();
         // Fix 3: skip unreadable directory entries instead of failing the whole session.
         for entry in folders.into_iter().flatten() {
             let Ok(entry) = entry else { continue };
@@ -2648,14 +2724,25 @@ impl Session {
                     self.headers.remove(&path);
                 }
             }
-            if let Some((_, m)) = self.headers.get(&path).cloned() {
-                all.insert(
-                    m.mission_id.clone(),
-                    (m, path, meta.modified().unwrap_or(SystemTime::UNIX_EPOCH)),
-                );
+            if self.headers.contains_key(&path) {
+                found.push((path, meta.modified().unwrap_or(SystemTime::UNIX_EPOCH)));
             }
         }
-        if !all.contains_key(&self.anchor) {
+        // Read from the cached headers in place: cloning each file's header, and looking for a turn's follow-ups among
+        // every file, made a scan cost the files times the turns (SOAK-NOTES row 5). A later file with the same
+        // mission id replaces an earlier one, as before.
+        let mut all: HashMap<&str, (&Metadata, &PathBuf, SystemTime)> = HashMap::new();
+        for (path, modified) in &found {
+            let (_, m) = &self.headers[path];
+            all.insert(m.mission_id.as_str(), (m, path, *modified));
+        }
+        let mut children: HashMap<&str, Vec<(&Metadata, &PathBuf, SystemTime)>> = HashMap::new();
+        for v in all.values() {
+            if let Some(parent) = v.0.parent.as_deref() {
+                children.entry(parent).or_default().push(*v);
+            }
+        }
+        if !all.contains_key(self.anchor.as_str()) {
             return Err(io::ErrorKind::NotFound.into());
         }
 
@@ -2664,14 +2751,14 @@ impl Session {
         let mut current = self.anchor.clone();
         let mut seen = HashSet::new();
         while seen.insert(current.clone()) {
-            let Some((m, path, _)) = all.get(&current) else {
+            let Some((m, path, _)) = all.get(current.as_str()) else {
                 break;
             };
-            result.push((current.clone(), path.clone()));
+            result.push((current.clone(), (*path).clone()));
             let Some(parent) = m.parent.as_ref() else {
                 break;
             };
-            if !all.contains_key(parent) || seen.contains(parent) {
+            if !all.contains_key(parent.as_str()) || seen.contains(parent) {
                 break;
             }
             current = parent.clone();
@@ -2679,11 +2766,11 @@ impl Session {
         result.reverse();
 
         let mut tip = self.anchor.clone();
-        while let Some(next) = all
-            .values()
-            .filter(|v| {
-                v.0.parent.as_deref() == Some(tip.as_str()) && !seen.contains(&v.0.mission_id)
-            })
+        while let Some(next) = children
+            .get(tip.as_str())
+            .into_iter()
+            .flatten()
+            .filter(|v| !seen.contains(&v.0.mission_id))
             .max_by(|a, b| {
                 a.2.cmp(&b.2)
                     .then_with(|| a.0.mission_id.cmp(&b.0.mission_id))
@@ -2691,7 +2778,7 @@ impl Session {
         {
             tip = next.0.mission_id.clone();
             seen.insert(tip.clone());
-            result.push((tip.clone(), next.1.clone()));
+            result.push((tip.clone(), next.1.to_path_buf()));
         }
         Ok(result)
     }
@@ -3743,6 +3830,66 @@ mod tests {
         assert_eq!(session.poll().unwrap().tip, "root");
         session.set_rescan(Duration::ZERO);
         assert_eq!(session.poll().unwrap().tip, "child");
+    }
+
+    /// Sets a folder's last change back, as if its last file had been made a while ago.
+    fn age_folder(dir: &Path, by: Duration) {
+        fs::File::open(dir).unwrap().set_modified(SystemTime::now() - by).unwrap();
+    }
+
+    #[test]
+    fn an_ended_conversation_left_open_is_not_scanned_or_rebuilt_again_until_its_folder_changes() {
+        // SOAK-NOTES row 5: an idle poll of an open conversation read only what is new, not the whole conversation.
+        let temp = Temp::new();
+        write(&temp.path("root"), &[created("root", "Root prompt"), event(1, "run.completed", json!({}))]);
+        age_folder(&temp.0, Duration::from_secs(10));
+        let mut session = Session::new(temp.0.clone(), "root".into());
+        let first = session.poll().unwrap();
+        assert_eq!((first.tip.as_str(), first.running, session.scans), ("root", false, 1));
+        for _ in 0..3 {
+            assert_eq!(session.poll().unwrap(), first, "nothing new: the same snapshot");
+        }
+        assert_eq!(session.scans, 1, "an unchanged folder is not listed again for an ended tip");
+        assert_eq!(session.builds, 1, "nor is the snapshot built again from every turn");
+
+        // A follow-up is a new file: the folder changes, and the next poll finds it at once.
+        let mut child = created("child", "Follow-up");
+        child["metadata"]["continuesFrom"] = json!({"missionId":"root"});
+        write(&temp.path("child"), &[child]);
+        let next = session.poll().unwrap();
+        assert_eq!((next.tip.as_str(), session.scans, session.builds), ("child", 2, 2));
+        assert_ne!(next, first);
+    }
+
+    #[test]
+    fn a_running_tip_is_read_again_on_every_poll() {
+        // A running tip goes quiet or loses its engine with the clock alone, so its snapshot is never given again.
+        let temp = Temp::new();
+        write(&temp.path("root"), &[created("root", "Root prompt")]);
+        age_folder(&temp.0, Duration::from_secs(10));
+        let mut session = Session::new(temp.0.clone(), "root".into());
+        assert!(session.poll().unwrap().running);
+        assert!(session.poll().unwrap().running);
+        assert_eq!(session.builds, 2);
+    }
+
+    #[test]
+    fn a_folder_changed_within_its_timestamp_granule_of_the_scan_is_scanned_again() {
+        // A file made in the same tick as the scan could leave the folder's time unchanged: such a scan is not trusted.
+        let temp = Temp::new();
+        write(&temp.path("root"), &[created("root", "Root prompt"), event(1, "run.completed", json!({}))]);
+        let mut session = Session::new(temp.0.clone(), "root".into());
+        session.poll().unwrap();
+        session.poll().unwrap();
+        assert_eq!(session.scans, 2, "the folder changed just before the scan, so it is listed again");
+        // A whole-second time is read as a coarse clock: 1.5 s after it is still within its granule.
+        let whole = SystemTime::UNIX_EPOCH + Duration::from_secs(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() - 60);
+        fs::File::open(&temp.0).unwrap().set_modified(whole).unwrap();
+        session.folders_seen = vec![Some(whole)];
+        session.scan_began = Some(whole + Duration::from_millis(1500));
+        assert!(!session.folders_unchanged());
+        session.scan_began = Some(whole + Duration::from_millis(2000));
+        assert!(session.folders_unchanged());
     }
 
     #[test]

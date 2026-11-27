@@ -1258,6 +1258,8 @@ pub fn read_claude_context(conversation: &str) -> Option<crate::claude_context::
 
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
+/// Running as the list and the reader read it: not once the process that ran it is gone (`orphaned`), so a follow-up
+/// after a crash goes ahead instead of waiting out the file's quiet window.
 pub fn prior_of(tip: &str) -> Result<Prior, String> {
     let path = find_ledger(tip).ok_or("The conversation's ledger could not be found.")?;
     let records = Tail::new(&path, 0).poll();
@@ -1266,7 +1268,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         .ok()
         .and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
         .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
-    prior_from_records(&records, fresh)
+    prior_from_records(&records, fresh && !orphaned(tip))
 }
 
 pub fn prior_from_records(records: &[Value], fresh: bool) -> Result<Prior, String> {
@@ -2378,6 +2380,22 @@ impl NativeRelayHost {
     }
 }
 
+/// The turn's actual route, not today's profile. Imported Electron headers may keep the account only in the route id.
+fn recorded_turn_route(metadata: &Value) -> Option<crate::relay::TurnRoute> {
+    let text = |key: &str| metadata[key].as_str().filter(|s| !s.is_empty());
+    Some(crate::relay::TurnRoute {
+        runtime: text("runtime")?.to_owned(),
+        model: text("model").filter(|m| *m != "account-default").map(str::to_owned),
+        effort: text("effort").map(str::to_owned),
+        account: text("account")
+            .or_else(|| text("resolvedRouteId").and_then(crate::agent_accounts::account_from_route))
+            .map(str::to_owned),
+        mode: text("mode").map(str::to_owned).unwrap_or_else(|| {
+            if metadata["sandbox"] == "workspace-write" { "accept-edits".into() } else { "ask".into() }
+        }),
+    })
+}
+
 impl crate::relay::RelayHost for NativeRelayHost {
     fn enabled(&self) -> bool {
         let Some(store) = store() else { return true };
@@ -2466,33 +2484,7 @@ impl crate::relay::RelayHost for NativeRelayHost {
     }
 
     fn route_of(&self, mission_id: &str) -> Option<crate::relay::TurnRoute> {
-        let rec = turn_records(mission_id)?;
-        let runtime = rec.metadata["runtime"].as_str()?.to_owned();
-        let model = rec.metadata["model"]
-            .as_str()
-            .filter(|m| !m.is_empty() && *m != "account-default")
-            .map(str::to_owned);
-        let account = rec.metadata["account"]
-            .as_str()
-            .filter(|a| !a.is_empty())
-            .map(str::to_owned);
-        let mode = rec.metadata["mode"]
-            .as_str()
-            .map(str::to_owned)
-            .unwrap_or_else(|| {
-                if rec.metadata["sandbox"] == "workspace-write" {
-                    "accept-edits".to_owned()
-                } else {
-                    "ask".to_owned()
-                }
-            });
-        Some(crate::relay::TurnRoute {
-            runtime,
-            model,
-            effort: None,
-            account,
-            mode,
-        })
+        recorded_turn_route(&turn_records(mission_id)?.metadata)
     }
 
     fn out_of_plan(&self, runtime: &str, account: Option<&str>) -> Option<String> {
@@ -2790,12 +2782,35 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let saved = crate::people::team(&store)?;
+    let explicit = origin.runtime.is_some() || job.model.is_some();
+    // The window sends no route pick on an ordinary reply. Read the newest turn before consulting the profile or
+    // the policy. Neither a named override nor a rewind/side request is an ordinary reply.
+    let conversation_route = if !explicit && origin.started_by.is_none() && origin.rewind.is_none() && origin.slot.is_none() {
+        job.conversation.as_deref().map(|conversation| {
+            let tip = real_tip(conversation)?;
+            turn_records(&tip)
+                .and_then(|record| recorded_turn_route(&record.metadata))
+                .map(|route| (tip, route))
+                .ok_or_else(|| "The conversation's route could not be read. Pick a route to continue.".to_owned())
+        }).transpose()?
+    } else {
+        None
+    };
     // ROUTE AUTHORITY AT THE MOMENT OF START (route-at-start.ts): the window's copy of a teammate is not their choice.
     // A turn that names its own route (a pick in the box for this conversation, or the conversation's own route on a
     // follow-up) is that route; any other starts on the route the host keeps for the teammate, its effort and account
     // included; a teammate with none keeps what was asked, or the defaults.
-    {
-        let explicit = origin.runtime.is_some() || job.model.is_some();
+    if let Some((_, route)) = &conversation_route {
+        job.teammate.runtime = Some(route.runtime.clone());
+        job.teammate.model = route.model.clone();
+        job.teammate.account = route.account.clone();
+        if job.effort.is_none() {
+            job.effort = route.effort.clone();
+        }
+        if origin.account.is_none() {
+            origin.account = Some(route.account.clone());
+        }
+    } else if !explicit {
         let kept = crate::route_at_start::saved_route_in(&saved, &job.teammate.id);
         let resolved = crate::route_at_start::route_at_start(
             &crate::route_at_start::StartRouteInput {
@@ -2807,15 +2822,16 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             },
             Some((job.teammate.id.as_str(), kept.as_ref())),
         );
-        if !explicit && kept.is_some() {
+        if kept.is_some() {
             job.teammate.runtime = Some(resolved.runtime);
             job.teammate.model = resolved.model;
             job.teammate.account = resolved.account;
             job.effort = resolved.effort;
         }
     }
-    // The saved effort belongs to the teammate's own agent; another agent's turn (a carry-on) takes its own default.
-    if let Some(entry) = saved["teammates"]
+    // An explicit route's missing effort means the runtime's default, not the teammate's saved level.
+    if !explicit && conversation_route.is_none()
+        && let Some(entry) = saved["teammates"]
         .as_array()
         .and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id))
         && job.effort.is_none()
@@ -2959,6 +2975,49 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         }
         route
     };
+    let model = job
+        .model
+        .clone()
+        .or_else(|| job.teammate.model.clone())
+        .filter(|m| !m.is_empty() && m != "account-default");
+    let model = if runtime_name == "kilo" {
+        Some(crate::runtime::kilo::model_for_run(model.as_deref()))
+    } else {
+        model
+    };
+    // status.ts startRoute (run_effort::start_route): what the runtime is handed for the level. Cursor takes it inside the
+    // model id (a level the family's variants name becomes that variant; one they do not is dropped, never refused), a
+    // model listing no levels is sent none, OpenCode only a level its model lists. Cursor's family is read from this
+    // computer's catalog as before; every other runtime's from the catalogue as read, so a start never waits on a read.
+    let model = if job.effort.is_some() {
+        let catalog = if runtime_name == "cursor" && model.is_some() { cursor_catalog() } else { crate::run_effort::catalog_as_read() };
+        let (sent, effort) = crate::run_effort::start_route(&catalog, runtime_name, model.as_deref(), job.effort.as_deref());
+        job.effort = effort;
+        sent
+    } else {
+        model
+    };
+    // codex-mission.ts: the variant an effort picked crosses the organization's model list too, so a family the policy
+    // allows cannot reach a variant it does not (`family-low` allowed, `high` asked for, `family-high` refused).
+    if runtime_name == "cursor"
+        && let Some(why) = crate::org_policy::turn_refusal(
+            Some(&policy),
+            runtime_name,
+            model.as_deref(),
+            mode.as_str(),
+            false,
+            effective_account.is_some(),
+        )
+    {
+        return Err(why);
+    }
+    // codex-mission.ts: options that cannot be turned into a command are refused before the mission is written, so no
+    // record is left of a run that never existed. Cursor takes no effort level beyond its model's variants.
+    if runtime_name == "cursor"
+        && let Some(why) = crate::runtime::cursor::refusal(mode, job.effort.as_deref())
+    {
+        return Err(why.into());
+    }
     let launch_env = account_launch_env(&store, runtime_name, effective_account.as_deref())?;
     let electron = store.electron().to_path_buf();
     // A reply on ANOTHER agent or account (codex-mission.ts, the route switch): the conversation is reconciled, and a
@@ -2992,6 +3051,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         None => (None, None, None),
         Some(conversation) => {
             let tip = real_tip(conversation)?;
+            if conversation_route.as_ref().is_some_and(|(routed_tip, _)| routed_tip != &tip) {
+                return Err("The conversation moved on before this reply could start. Send it again.".into());
+            }
             let tip_owned = tip.clone();
             let tip = tip.as_str();
             if owns(tip) {
@@ -3070,49 +3132,6 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         continues_folder_mission.as_deref(),
     )?;
     let checkpoint_prompt = job.prompt.clone();
-    let model = job
-        .model
-        .clone()
-        .or_else(|| job.teammate.model.clone())
-        .filter(|m| !m.is_empty() && m != "account-default");
-    let model = if runtime_name == "kilo" {
-        Some(crate::runtime::kilo::model_for_run(model.as_deref()))
-    } else {
-        model
-    };
-    // status.ts startRoute (run_effort::start_route): what the runtime is handed for the level. Cursor takes it inside the
-    // model id (a level the family's variants name becomes that variant; one they do not is dropped, never refused), a
-    // model listing no levels is sent none, OpenCode only a level its model lists. Cursor's family is read from this
-    // computer's catalog as before; every other runtime's from the catalogue as read, so a start never waits on a read.
-    let model = if job.effort.is_some() {
-        let catalog = if runtime_name == "cursor" && model.is_some() { cursor_catalog() } else { crate::run_effort::catalog_as_read() };
-        let (sent, effort) = crate::run_effort::start_route(&catalog, runtime_name, model.as_deref(), job.effort.as_deref());
-        job.effort = effort;
-        sent
-    } else {
-        model
-    };
-    // codex-mission.ts: the variant an effort picked crosses the organization's model list too, so a family the policy
-    // allows cannot reach a variant it does not (`family-low` allowed, `high` asked for, `family-high` refused).
-    if runtime_name == "cursor"
-        && let Some(why) = crate::org_policy::turn_refusal(
-            Some(&policy),
-            runtime_name,
-            model.as_deref(),
-            mode.as_str(),
-            false,
-            effective_account.is_some(),
-        )
-    {
-        return Err(why);
-    }
-    // codex-mission.ts: options that cannot be turned into a command are refused before the mission is written, so no
-    // record is left of a run that never existed. Cursor takes no effort level beyond its model's variants.
-    if runtime_name == "cursor"
-        && let Some(why) = crate::runtime::cursor::refusal(mode, job.effort.as_deref())
-    {
-        return Err(why.into());
-    }
     // A switch starts the new agent with the brief, not the bare reply, and records the brief as the turn's words.
     if let Some(switch) = &switched {
         job.prompt = switch.prompt.clone();
@@ -3599,6 +3618,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         if let Some(version) = cli_version {
             extra["cliVersion"] = json!(version);
         }
+    }
+    if let Some(effort) = &job.effort {
+        extra["effort"] = json!(effort);
     }
     if let Some(acc) = &effective_account {
         extra["account"] = json!(acc);

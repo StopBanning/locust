@@ -27,6 +27,9 @@ const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
 pub const UNKNOWN_RESPONSE: &str = "A response arrived for an unknown request.";
 /// How long a request may go unanswered (app-server.ts `requestTimeoutMs`).
 const ANSWER_WITHIN: Duration = Duration::from_secs(60);
+/// How long a goal request waits: a reopened thread asks before its turn starts, so a server that never answers holds
+/// the turn this long at most.
+const GOAL_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// How long a steer waits for the server to say whether it took it (a2.10 `steer`).
 const STEER_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// One line off the server's stdout: a message, or a line that is not JSON (app-server.ts `unparsable-line`), which is
@@ -299,6 +302,10 @@ impl Codex {
         self.queued.push_back(terminal);
         diagnostic
     }
+    /// The standing goal the server last said this thread holds (`thread/goal/updated`), none once it said it cleared.
+    pub fn standing_goal(&self) -> Option<&super::goal::ThreadGoal> {
+        self.normal.goal.as_ref()
+    }
     /// The end of the server's stderr as it stands now (`stderrTail`): empty, not missing, for a server that said nothing.
     pub fn stderr_tail(&self) -> String {
         crate::invariants::lock(&self.stderr).clone()
@@ -344,7 +351,8 @@ impl Codex {
                 }
                 // A question is answered, in any mode: it authorizes nothing (question-answers.test.ts).
                 "item/tool/requestUserInput" => self.answer_question(&method_owned, &params, wire_id.clone())?,
-                "execCommandApproval" | "applyPatchApproval" => json!({"decision":"denied"}),
+                // The legacy requests are never put on a card; their refusal is their own shape (0.172 schema).
+                "execCommandApproval" | "applyPatchApproval" => crate::approval::codex_legacy_refusal(),
                 _ => {
                     self.send(json!({"jsonrpc":"2.0","id":wire_id,"error":{"code":-32601,"message":"Native does not support this interactive request"}}))?;
                     self.queued.push_back(self.normal.diagnostic(
@@ -369,20 +377,13 @@ impl Codex {
     }
     fn answer_question(&mut self, method: &str, params: &Value, wire_id: Value) -> io::Result<Value> {
         // Another thread's question, or no card to put it on: answered with nothing, said in the thread.
-        let unanswered = |questions: &[crate::approval::Question]| {
-            let mut map = serde_json::Map::new();
-            for q in questions {
-                map.insert(q.id.clone(), json!({"answers": []}));
-            }
-            json!({"answers": map})
-        };
         let questions = crate::approval::questions_of(params);
         if super::events::thread_id(params).is_some_and(|id| self.normal.thread.as_ref() != Some(&id)) {
-            return Ok(unanswered(&questions));
+            return Ok(crate::approval::codex_unanswered_questions(&questions));
         }
         let Some(channel) = self.approvals.clone() else {
             self.queued.push_back(self.normal.diagnostic(method, "Codex asked a question, and there was nowhere to show it."));
-            return Ok(unanswered(&questions));
+            return Ok(crate::approval::codex_unanswered_questions(&questions));
         };
         let (mission, run, cancel) = (self.mission_id.clone(), self.run_id.clone(), self.cancel.clone());
         let is_cancelled = move || crate::run_cli::interrupted() || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed));
@@ -399,7 +400,7 @@ impl Codex {
             Ok(result) => Ok(result),
             Err(message) => {
                 self.queued.push_back(self.normal.diagnostic(method, &message));
-                Ok(unanswered(&questions))
+                Ok(crate::approval::codex_unanswered_questions(&questions))
             }
         }
     }
@@ -413,7 +414,7 @@ impl Codex {
         if super::events::thread_id(params)
             .is_some_and(|id| self.normal.thread.as_ref() != Some(&id))
         {
-            return Ok(json!({"decision":"reject"}));
+            return Ok(crate::approval::codex_refusal());
         }
         // Only Approve-each stops for a card (`codexAppServerPolicy` → untrusted).
         // Ask / other modes auto-decline the way M1 did, even when a channel exists.
@@ -422,7 +423,7 @@ impl Codex {
                 method,
                 "Codex requested approval; native declines approvals outside Approve each.",
             ));
-            return Ok(json!({"decision":"decline"}));
+            return Ok(crate::approval::codex_refusal());
         }
         let channel = self
             .approvals
@@ -453,7 +454,7 @@ impl Codex {
             Err(message) => {
                 self.queued
                     .push_back(self.normal.diagnostic(method, &message));
-                Ok(json!({"decision":"reject"}))
+                Ok(crate::approval::codex_refusal())
             }
         }
     }
@@ -490,6 +491,12 @@ impl Codex {
         self.request_within(method, params, within)
     }
     fn request_within(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Value> {
+        self.answer_within_or_refusal(method, params, within)?.map_err(|refused| {
+            err(refused["message"].as_str().unwrap_or("Codex refused request"))
+        })
+    }
+    /// The server's answer to a request: its result, or its refusal (`error`, code and words) as it sent it.
+    fn answer_within_or_refusal(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Result<Value, Value>> {
         let id = self.begin_request(method, params)?;
         let deadline = Instant::now() + within;
         loop {
@@ -502,14 +509,64 @@ impl Codex {
             let Some(v) = self.receive()? else { continue };
             if v["id"] == id && v["method"].is_null() {
                 if !v["error"].is_null() {
-                    return Err(err(v["error"]["message"]
-                        .as_str()
-                        .unwrap_or("Codex refused request")));
+                    return Ok(Err(v["error"].clone()));
                 }
-                return Ok(v["result"].clone());
+                return Ok(Ok(v["result"].clone()));
             }
             self.notification(v)?;
         }
+    }
+    /// A standing goal on this thread (`thread/goal/set|get|clear`), once the thread exists. A set goes as the person's
+    /// (`origin: "user"`). A Codex that does not know the request keeps no standing goals; any other refusal is said
+    /// in its words. Neither ends the turn.
+    fn ask_goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        use super::goal::{GoalAnswer, GoalAsk, GoalEvent, ThreadGoal};
+        let Some(thread) = self.normal.thread.clone() else {
+            return GoalAnswer::NoThreadYet;
+        };
+        let (method, params) = match &ask {
+            GoalAsk::Set(set) => ("thread/goal/set", super::goal::set_params(&thread, set)),
+            GoalAsk::Get => ("thread/goal/get", json!({"threadId": thread})),
+            GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread, "origin": "user"})),
+        };
+        let within = self.answer_within.min(GOAL_ANSWER_WITHIN);
+        let result = match self.answer_within_or_refusal(method, params, within) {
+            Ok(Ok(result)) => result,
+            Ok(Err(refused)) if super::goal::not_known(&refused) => return GoalAnswer::NoStandingGoals,
+            Ok(Err(refused)) => {
+                return GoalAnswer::Refused(refused["message"].as_str().unwrap_or("Codex refused the goal.").to_owned());
+            }
+            Err(e) => return GoalAnswer::Refused(e.to_string()),
+        };
+        let malformed = || GoalAnswer::Refused(match &ask {
+            GoalAsk::Set(_) => "Codex did not send a valid standing goal after trying to set it.",
+            GoalAsk::Get => "Codex did not send a valid answer about the standing goal.",
+            GoalAsk::Clear => "Codex did not say whether it cleared the standing goal.",
+        }.into());
+        let Some(result) = result.as_object() else {
+            return malformed();
+        };
+        let learning = matches!(ask, GoalAsk::Get);
+        let said = match &ask {
+            GoalAsk::Clear => match result.get("cleared").and_then(Value::as_bool) {
+                Some(true) => GoalEvent::Cleared { thread_id: thread },
+                Some(false) => return GoalAnswer::NotCleared,
+                None => return malformed(),
+            },
+            GoalAsk::Get if result.get("goal").is_none_or(Value::is_null) => GoalEvent::Cleared { thread_id: thread },
+            _ => {
+                let Some(goal) = result.get("goal").and_then(|goal| ThreadGoal::parse_reply(goal, &thread)) else {
+                    return malformed();
+                };
+                GoalEvent::Updated(goal)
+            }
+        };
+        let written = self.normal.goal_said(said, method, learning);
+        self.queued.extend(written);
+        if method == "thread/goal/clear" {
+            return GoalAnswer::Cleared;
+        }
+        GoalAnswer::Held(self.normal.goal.clone())
     }
 }
 pub fn read_only_config(settings: &Value) -> io::Result<Value> {
@@ -651,6 +708,12 @@ impl Runtime for Codex {
         if let Some((_, _, id)) = crate::invariants::lock(&self.approval_lifecycle).as_mut() {
             *id = Some(thread.clone());
         }
+        // A new thread holds no standing goal; a reopened one asks after the goal it holds, before its turn, so what
+        // the turn says of it reads as a change or not. A Codex without goals, or one that says no, leaves the turn be.
+        self.normal.begin_goal_tracking(turn.resume.is_some());
+        if turn.resume.is_some() && !self.fork {
+            let _ = self.ask_goal(super::goal::GoalAsk::Get);
+        }
         match self.slash.as_deref() {
             Some("review") => {
                 let instructions = turn.prompt.trim();
@@ -738,6 +801,9 @@ impl Runtime for Codex {
     }
     /// Taken only when the server says so; before a turn has started, once it is over, or while stopping, no is said
     /// without asking.
+    fn goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        self.ask_goal(ask)
+    }
     fn steer(&mut self, text: &str) -> bool {
         let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) else {
             return false;
@@ -1021,3 +1087,15 @@ mod codex_replay_case_tests;
 #[cfg(test)]
 #[path = "codex_file_change_rows_tests.rs"]
 mod codex_file_change_rows_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_goal_tests.rs"]
+mod codex_goal_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_decision_schema_tests.rs"]
+mod codex_decision_schema_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_question_refusal_tests.rs"]
+mod codex_question_refusal_tests;

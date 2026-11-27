@@ -100,16 +100,17 @@ fn long_conversation_list_short() {
     assert_no_worse_than_three_times(&result, &["list_ms"]);
 }
 
-/// FAULT (SOAK-NOTES row 5): reading a long conversation grows faster than its turns.
+/// FAULT (SOAK-NOTES row 5): reading a long conversation grows faster than its turns. The window's reader now reads
+/// only what is new (idle 1.0x, tail 2.1x here); opening it fresh still reads every turn's ledger, so it grows with them.
 #[test]
-#[ignore = "FAULT: opening a conversation and the window's reader of it slow down more than 3x over its turns (SOAK-NOTES row 5)"]
+#[ignore = "FAULT: opening a conversation fresh slows down more than 3x over its turns, as it reads every turn's ledger (SOAK-NOTES row 5)"]
 fn long_conversation_read_short() {
     let result = soak(60);
     assert_no_worse_than_three_times(&result, &["open_ms", "tail_ms", "idle_ms"]);
 }
 
 #[test]
-#[ignore = "long form (300 follow-ups); fails on the row 5 fault: cargo test -p locust-core long_conversation_long -- --ignored --nocapture"]
+#[ignore = "long form (300 follow-ups); fails on the row 5 fault (open, and at 300 turns the tail rebuild and the idle snapshot's copy): cargo test -p locust-core long_conversation_long -- --ignored --nocapture"]
 fn long_conversation_long() {
     let result = soak(300);
     assert_no_worse_than_three_times(&result, &["list_ms", "open_ms", "tail_ms", "idle_ms"]);

@@ -161,7 +161,7 @@ fn run(scenario: &str) {
     assert_eq!(events.last().unwrap().kind, format!("run.{phase}"));
     if scenario == "flood" {
         let terminal = &events.last().unwrap().payload;
-        assert_eq!(terminal["message"], "ACP notification queue overflow; run stopped", "{terminal}");
+        assert_eq!(terminal["message"], OVERFLOW_MESSAGE, "{terminal}");
         assert_eq!(terminal["process"]["outputLimitExceeded"], true, "{terminal}");
     }
     assert_eq!(

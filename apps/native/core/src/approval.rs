@@ -615,13 +615,42 @@ pub fn codex_always_for(kind: &Kind, params: &Value, changes: Option<&[crate::ap
     Some((format!("codex:files:{}", serde_json::to_string(&paths).unwrap_or_default()), "the same change to these files again".into()))
 }
 
-/// `approval-channel.ts:protocolDecisionFor`
+/// `approval-channel.ts:protocolDecisionFor`: Codex's v2 decision (`CommandExecutionApprovalDecision`,
+/// `FileChangeApprovalDecision`) for each of the person's answers. Every value is checked against Codex 0.172.0's own
+/// schemas (`codex_decision_schema_tests.rs`): Deny was `"reject"`, which no Codex schema has.
 pub fn protocol_decision_for(decision: &Decision) -> &'static str {
     match decision {
         Decision::ApproveOnce => "accept",
         Decision::ApproveAlways => "acceptForSession",
-        Decision::Deny => "reject",
+        // `decline`, not `cancel`: the turn carries on without the action ("don't do that, carry on"), so a reason the
+        // person gave can still reach it as its next input (`take_denied_saying` → `turn/steer`). `cancel` would also
+        // interrupt the turn, and the reason would have nothing to be steered into.
+        Decision::Deny => "decline",
     }
+}
+
+/// Locust's own refusal of a Codex v2 approval it does not put on a card (another thread's, a mode that does not ask,
+/// a card that could not be shown): the person's Deny, so it is the same value on the wire.
+pub fn codex_refusal() -> Value {
+    json!({"decision": protocol_decision_for(&Decision::Deny)})
+}
+
+/// What a legacy refusal tells the model (`codex-app-server-run.ts` `CODEX_LEGACY_REFUSAL_SAYS`).
+pub const CODEX_LEGACY_REFUSAL_SAYS: &str = "Locust answers only Codex's current approval requests, so it did not allow this one.";
+
+/// Locust's refusal of a legacy Codex approval (`execCommandApproval`, `applyPatchApproval`), never put on a card. Their
+/// `ReviewDecision` has no bare `"denied"`: the denied variant is an object carrying its rejection, and the agent tries
+/// something else. `"abort"` would stop the turn until the person's next message, so it matches `cancel`, not Deny.
+pub fn codex_legacy_refusal() -> Value {
+    json!({"decision": {"denied": {"rejection": CODEX_LEGACY_REFUSAL_SAYS}}})
+}
+
+/// A ToolRequestUserInputResponse with no answers supplied by the person.
+pub(super) fn codex_unanswered_questions(questions: &[Question]) -> Value {
+    let answers: serde_json::Map<_, _> = questions.iter()
+        .map(|question| (question.id.clone(), json!({"answers": []})))
+        .collect();
+    json!({"answers": answers})
 }
 
 /// Codex JSON-RPC result for one answer.
@@ -1082,6 +1111,11 @@ impl Channel {
                 }
                 other => other,
             };
+            // Release and wrong-kind replies use a denial within the channel.
+            // On Codex's wire the pending request, not that denial, chooses the result type.
+            if codex && method == "item/tool/requestUserInput" && matches!(answer, Answer::Decision { .. }) {
+                return codex_unanswered_questions(&questions_of(params));
+            }
             let mut result = protocol_answer_for(&answer);
             // OpenCode's reject carries a message the model reads, so a reason rides the denial itself; read by
             // `open_code_reply_for`, it never reaches Codex.
@@ -2084,7 +2118,7 @@ mod question_tests {
         let decision = |d| Answer::Decision { approval_id: "ap_1".into(), decision: d, reason: None };
         assert_eq!(protocol_answer_for(&decision(Decision::ApproveOnce)), json!({"decision": "accept"}));
         assert_eq!(protocol_answer_for(&decision(Decision::ApproveAlways)), json!({"decision": "acceptForSession"}));
-        assert_eq!(protocol_answer_for(&decision(Decision::Deny)), json!({"decision": "reject"}));
+        assert_eq!(protocol_answer_for(&decision(Decision::Deny)), json!({"decision": "decline"}));
     }
 
     #[test]

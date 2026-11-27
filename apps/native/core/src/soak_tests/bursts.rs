@@ -234,13 +234,11 @@ fn burst_codex_short() {
 }
 
 #[test]
-#[ignore = "FAULT: ACP stops at its bound saying \"ACP notification queue overflow; run stopped\", not Electron's sentence (SOAK-NOTES row 2)"]
 fn burst_acp_short() {
     acp(N, Reader::Held).unwrap();
 }
 
 #[test]
-#[ignore = "FAULT: OpenCode 1 stops at its bound saying \"OpenCode output overflow\", not Electron's sentence (SOAK-NOTES row 2)"]
 fn burst_opencode_serve_short() {
     opencode(N, Reader::Held).unwrap();
 }
@@ -248,7 +246,7 @@ fn burst_opencode_serve_short() {
 // ---- long form: every reader, held and slow, past the bound and under it, three times -----------------------------
 
 #[test]
-#[ignore = "long form (every reader x held/slow x past/under its bound x 3); fails on the ACP and OpenCode faults above"]
+#[ignore = "long form (every reader x held/slow x past/under its bound x 3): cargo test -p locust-core bursts_long -- --ignored --nocapture"]
 fn bursts_long() {
     let mut lines = Vec::new();
     let mut faults = Vec::new();
@@ -283,8 +281,8 @@ fn bursts_long() {
 /// in `next_event`, held reader. A reader whose time grows with the square of the records takes most of a minute on a
 /// long answer just under its bound. The rule: a record read at 95% of the bound costs no more than three times what
 /// one costs at a sixteenth of it.
+/// SOAK-NOTES row 2c (fixed): ACP and OpenCode 1 held a growing answer by scrubbing it whole again with every chunk.
 #[test]
-#[ignore = "FAULT: ACP and OpenCode 1 read a burst in time that grows with its square (19,000 chunks: ~47 s in the engine); SOAK-NOTES row 2"]
 fn bursts_scale_long() {
     let readers: [(&str, fn(usize, Reader) -> Result<String, String>, usize); 4] = [
         ("claude", claude, crate::runtime::records::MAX_QUEUED_RECORDS),
