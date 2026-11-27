@@ -72,3 +72,9 @@ rune = { path = "../../vendor/rune/crates/rune" }
 rune-motion = { path = "../../vendor/rune/crates/rune-motion" }
 rune-staging = { path = "../../vendor/rune/crates/rune-staging" }
 rune-taffy = { path = "../../vendor/rune/crates/rune-taffy" }
+
+[profile.test.package.locust-native]
+debug = "line-tables-only"
+
+[profile.test.package.locust-core]
+debug = "line-tables-only"
