@@ -2023,7 +2023,7 @@ apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off 
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	keeps window, routine, relay, compare, voice handoff, CLI and MCP starts on the guarded mission service	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks a handoff target before stopping the existing run and sends resumes through start	yes
-apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	yes
@@ -6572,8 +6572,8 @@ apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	knows each kind by its address, and names it	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes the reply’s own words for a link’s name, and vouches for nothing it does not know	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes
-apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	no
-apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	no
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	yes
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is its last final message’s question, once the run has completed	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is read the same the second time	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is nothing when nothing does	yes
