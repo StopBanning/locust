@@ -949,32 +949,55 @@ mod waits_for_ok {
         r.on_run_ended(mission).unwrap();
     }
 
+    // case: holds before the step, tells the person, and Go ahead starts it with the answer of the step before
     #[test]
     fn holds_before_the_step_tells_the_person_and_go_ahead_starts_it_with_the_answer_of_the_step_before() {
-        let (mem, host) = harness(routine(json!({})));
-        let r = runner(&mem, &host);
-        ok(r.run("rt_ship", None));
-        finish(&host, &r, "mission_1", "Fixed: the total was summed twice.");
+        use crate::routines::progress::StoreRoutines;
+        use crate::store::Store;
+
+        let root = crate::routine_copy::tests::temp("locust-routine-post-ok-");
+        let store = || Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+        store().save_json("routines.json", &json!({
+            "schemaVersion": 1, "routines": [routine(json!({"workspaceId": "ws_test"}))]
+        })).unwrap();
+
+        let (_, host) = harness(routine(json!({})));
+        let open = || RoutineRunner::new(Arc::new(StoreRoutines(store())), host.clone());
+        let read = || crate::routines::progress::get(&store(), "rt_ship").unwrap().unwrap();
+        {
+            let r = open();
+            ok(r.run("rt_ship", None));
+            finish(&host, &r, "mission_1", "Fixed: the total was summed twice.");
+        }
         assert_eq!(host.starts().len(), 1);
-        let waiting = mem.execution("rt_ship");
+        let waiting = read()["execution"].clone();
         for (k, v) in [("status", json!("held")), ("step", json!(1)), ("of", json!(2)), ("canContinue", json!(true)), ("settledAtDispatch", json!(true)), ("waitsForOk", json!(true))] {
             assert_eq!(waiting[k], v, "{k}");
         }
         assert_eq!(waiting["reason"], "Step 2 waits for your OK. Read what step 1 did, then go ahead or stop here.");
         assert_eq!(*host.asks.lock().unwrap(), vec![(Some("Wren".to_owned()), "Ship the fix".to_owned(), 2)]);
         assert_eq!(host.last_notice(), "Routine \"Ship the fix\" is waiting for your OK after step 1 of 2. Go ahead with step 2 under Routines.");
-        // A restart's reconcile leaves a wait the routine asked for alone.
+
+        // Start a new runner over the file: there is no active step or approval in its memory.
+        let r = open();
         r.reconcile().unwrap();
-        assert_eq!((&mem.execution("rt_ship")["status"], &mem.execution("rt_ship")["waitsForOk"]), (&json!("held"), &json!(true)));
-        ok(r.recover(&decide("rt_ship", &waiting["attemptId"], &json!(1), Decision::Continue)));
-        let s = &host.starts()[1];
+        assert_eq!(read()["execution"], waiting);
+        assert_eq!(host.starts().len(), 1, "reconcile does not replay either step");
+        let ahead = decide("rt_ship", &waiting["attemptId"], &json!(1), Decision::Continue);
+        ok(r.recover(&ahead));
+
+        let starts = host.starts();
+        assert_eq!(starts.len(), 2);
+        let s = &starts[1];
         assert_eq!((s.prompt.as_str(), s.follow_up_of.as_deref(), &s.peer), ("Push the branch and open a pull request.", Some("mission_1"), &peer("tm_wren", "Wren")));
-        // The step it started is running, not still waiting.
-        let e = mem.execution("rt_ship");
+        let e = read()["execution"].clone();
         assert_eq!((&e["status"], &e["step"]), (&json!("running"), &json!(2)));
         assert!(e.get("waitsForOk").is_none());
+        assert!(r.recover(&ahead).unwrap().is_err(), "a repeat OK cannot send step 2 again");
+        assert_eq!(host.starts().len(), 2);
         finish(&host, &r, "mission_2", "Opened the pull request.");
-        assert_eq!(mem.runs(), vec!["rt_ship"]);
+        assert_eq!(read()["runs"], 1);
+        assert!(read().get("execution").is_none());
     }
 
     #[test]
