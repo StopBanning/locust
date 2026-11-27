@@ -144,6 +144,9 @@ pub fn command(profile: &Path, folder: &Path, route: Option<&str>) -> io::Result
     Err(err("The configured ACP agent was not found"))
 }
 
+/// The value to ask for, given what the agent lists for a setting (acp-run.ts `resolveConfigValue`).
+pub type ResolveConfig = Arc<dyn Fn(&str, &str, &[String]) -> String + Send + Sync>;
+
 #[derive(Clone)]
 pub struct Profile {
     pub runtime: String,
@@ -153,6 +156,10 @@ pub struct Profile {
     pub named: bool,
     /// When false (Kilo), Locust never raises a card; only Auto allows.
     pub host_permissions: bool,
+    /// Settings set only when the agent offers them and lists the value, after the required ones (acp-run.ts
+    /// `preferredConfig`): agy 1.5.18 offers Flash no `xhigh` and an Orchestrator no effort at all.
+    pub preferred: Vec<(String, String)>,
+    pub resolve: Option<ResolveConfig>,
 }
 impl Default for Profile {
     fn default() -> Self {
@@ -163,8 +170,24 @@ impl Default for Profile {
             deadline: None,
             named: false,
             host_permissions: true,
+            preferred: vec![],
+            resolve: None,
         }
     }
+}
+
+/// The values the agent lists for a setting; none when it does not offer it.
+fn config_choices(session: &Value, id: &str) -> Vec<String> {
+    session["configOptions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|c| c["id"] == id)
+        .and_then(|c| c["options"].as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|o| o["value"].as_str().map(str::to_owned))
+        .collect()
 }
 pub const CANCEL_GRACE: Duration = Duration::from_secs(3);
 const STREAM_CLOSED: &str = "The agent's output stream closed before its turn finished.";
@@ -715,7 +738,13 @@ impl Acp {
             required.push(model);
         }
         let mut session = session;
+        let resolve = self.profile.resolve.clone();
+        let resolved = |session: &Value, config: &str, wanted: String| match &resolve {
+            Some(f) => f(config, &wanted, &config_choices(session, config)),
+            None => wanted,
+        };
         for (config, value) in required {
+            let value = resolved(&session, &config, value);
             let current = session["configOptions"]
                 .as_array()
                 .into_iter()
@@ -746,6 +775,20 @@ impl Acp {
                 if let (Some(held), Some(update)) = (session.as_object_mut(), set.as_object()) {
                     held.extend(update.clone());
                 }
+            }
+        }
+        for (config, value) in self.profile.preferred.clone() {
+            let value = resolved(&session, &config, value);
+            if !config_choices(&session, &config).contains(&value) {
+                continue;
+            }
+            let current = session["configOptions"].as_array().into_iter().flatten().find(|c| c["id"] == config.as_str()).and_then(|c| c["currentValue"].as_str());
+            if current == Some(value.as_str()) {
+                continue;
+            }
+            let set = self.request("session/set_config_option", json!({"sessionId":self.normal.thread,"configId":config,"value":value}), deadline)?;
+            if let (Some(held), Some(update)) = (session.as_object_mut(), set.as_object()) {
+                held.extend(update.clone());
             }
         }
         // A stop that came with the last answer of the handshake sends no prompt.
@@ -886,3 +929,7 @@ mod run_case_tests;
 #[cfg(test)]
 #[path = "acp_stream_close_tests.rs"]
 mod stream_close_tests;
+
+#[cfg(test)]
+#[path = "antigravity_acp_tests.rs"]
+mod antigravity_acp_tests;

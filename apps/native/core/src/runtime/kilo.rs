@@ -245,6 +245,7 @@ impl Runtime for Kilo {
                 deadline: Some(deadline),
                 named: true,
                 host_permissions: false,
+                ..Default::default()
             });
             match rt.startup(t) {
                 Ok(()) => {

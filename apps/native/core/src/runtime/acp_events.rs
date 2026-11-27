@@ -261,7 +261,8 @@ impl AcpNormalizer {
             self.close_thought(&mut out);
             let incoming = string(&v["kind"]);
             let title = string(&v["title"]);
-            let said = string(&v["rawInput"]["command"]);
+            // agy 1.5.18 names a shell's command `CommandLine` (measured 2026-11-27).
+            let said = string(&v["rawInput"]["command"]).or_else(|| string(&v["rawInput"]["CommandLine"]));
             if let Some(open) = self.tools.get_mut(id) {
                 let shell = is_shell(incoming, title.or(open.title.as_deref()), &open.tool_kind, &open.name);
                 if let Some(c) = said {

@@ -264,7 +264,8 @@ fn sign_in_opened_line_notes_in_window_account_switch_only_when_signing_in_again
 #[test]
 fn antigravity_runs_version_and_models_concurrently_and_coalesces() {
     use std::sync::{Arc, Barrier, atomic::{AtomicUsize, Ordering}};
-    let barrier = Arc::new(Barrier::new(2));
+    // `--version`, `models` and, since 27 Nov 2026, `acp --help`: all three at once.
+    let barrier = Arc::new(Barrier::new(3));
     let calls = Arc::new(AtomicUsize::new(0));
     let find = |_: &str| Some(std::path::PathBuf::from("/usr/local/bin/agy"));
     let run = {
@@ -276,6 +277,8 @@ fn antigravity_runs_version_and_models_concurrently_and_coalesces() {
             barrier.wait();
             if args == ["--version"] {
                 Some(Answer { exit: Some(0), stdout: "1.2.17\n".into(), stderr: String::new(), timed_out: false })
+            } else if args == ["acp", "--help"] {
+                Some(Answer { exit: Some(0), stdout: String::new(), stderr: "Usage: agy acp [flags]\n\nStart the Agent Client Protocol (ACP) stdio server\n".into(), timed_out: false })
             } else {
                 Some(Answer { exit: Some(0), stdout: "Fetching available models...\ngemini-3.8-flash-high\tGemini 3.8 Flash (High)\n".into(), stderr: String::new(), timed_out: false })
             }
@@ -285,9 +288,28 @@ fn antigravity_runs_version_and_models_concurrently_and_coalesces() {
     let pending = probe.pending_record(true);
     assert!(pending.installed && !pending.ready && pending.checking && pending.auth == Auth::Unknown);
     let found = probe.discovery_record(&find, &run);
-    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
     assert_eq!(found.status, Probe::Ready);
     assert_eq!(found.version.as_deref(), Some("1.2.17"));
+}
+
+#[test]
+fn antigravity_discovery_keeps_what_agy_acp_help_said_for_the_turn() {
+    // A file that is there but cannot run: what the turn reads afterwards can only be what the sweep kept.
+    let dir = std::env::temp_dir().join(format!("locust-agy-sweep-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let agy = dir.join("agy");
+    std::fs::write(&agy, "not a program").unwrap();
+    let path = agy.clone();
+    let find = move |_: &str| Some(path.clone());
+    let run = |_: &std::path::Path, args: &[&str]| match args {
+        ["--version"] => Some(Answer { exit: Some(0), stdout: "1.5.18\n".into(), stderr: String::new(), timed_out: false }),
+        ["acp", "--help"] => Some(Answer { exit: Some(0), stdout: String::new(), stderr: "Start the Agent Client Protocol (ACP) stdio server\n".into(), timed_out: false }),
+        _ => Some(Answer { exit: Some(0), stdout: "gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n".into(), stderr: String::new(), timed_out: false }),
+    };
+    discover_antigravity_concurrent(&find, &run);
+    assert!(crate::runtime::antigravity::agy_speaks_acp(&agy), "the sweep's reading of `agy acp --help` is kept for the turn");
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

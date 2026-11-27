@@ -300,6 +300,7 @@ impl Runtime for OpenCode {
                 deadline: Some(deadline),
                 named: true,
                 host_permissions: true,
+                ..Default::default()
             });
             match rt.startup(t) {
                 Ok(()) => {

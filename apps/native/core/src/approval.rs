@@ -749,7 +749,8 @@ pub fn acp_permission_request(params: &Value, cwd: &str) -> (String, Value) {
     let text = |v: &Value| v.as_str().filter(|s| !s.is_empty()).map(str::to_owned);
     let call = &params["toolCall"];
     let input = &call["rawInput"];
-    let (title, kind, command) = (text(&call["title"]), text(&call["kind"]), text(&input["command"]));
+    // agy 1.5.18 names a shell's command `CommandLine` (measured 2026-11-27).
+    let (title, kind, command) = (text(&call["title"]), text(&call["kind"]), text(&input["command"]).or_else(|| text(&input["CommandLine"])));
     let diffs: Vec<&Value> = call["content"]
         .as_array()
         .into_iter()
@@ -762,7 +763,8 @@ pub fn acp_permission_request(params: &Value, cwd: &str) -> (String, Value) {
         .collect();
     let mut paths: Vec<String> = call["locations"].as_array().into_iter().flatten().filter_map(|l| text(&l["path"])).collect();
     paths.extend(diffs.iter().filter_map(|d| text(&d["path"])));
-    paths.extend(["path", "file_path", "filePath"].iter().filter_map(|field| text(&input[*field])));
+    // agy 1.5.18's own names for what a file tool is pointed at.
+    paths.extend(["path", "file_path", "filePath", "Path", "AbsolutePath", "TargetFile"].iter().filter_map(|field| text(&input[*field])));
     let mut seen = std::collections::HashSet::new();
     paths.retain(|p| seen.insert(p.clone()));
     let (call_kind, call_title) = (kind.as_deref().unwrap_or(""), title.as_deref().unwrap_or(""));

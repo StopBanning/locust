@@ -835,11 +835,16 @@ pub fn discover_antigravity_concurrent(
     let Some(path) = find("agy") else {
         return antigravity_found(false, None, Auth::Unknown, Probe::Missing, false);
     };
-    let (version_ans, models_ans) = std::thread::scope(|s| {
+    // And whether it speaks the protocol (27 Nov 2026, agy 1.5.18): kept for the turn, which then runs over `agy acp`.
+    let (version_ans, models_ans, acp_ans) = std::thread::scope(|s| {
         let v = s.spawn(|| run(&path, &["--version"]));
         let m = s.spawn(|| run(&path, &["models"]));
-        (v.join().ok().flatten(), m.join().ok().flatten())
+        let a = s.spawn(|| run(&path, &["acp", "--help"]));
+        (v.join().ok().flatten(), m.join().ok().flatten(), a.join().ok().flatten())
     });
+    if let Some(help) = acp_ans.filter(|a| !a.timed_out) {
+        crate::runtime::antigravity::remember_acp_help(&path, &format!("{}\n{}", help.stdout, help.stderr));
+    }
     antigravity_from_answers(version_ans, models_ans)
 }
 

@@ -599,7 +599,6 @@ fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
     let folder = std::path::Path::new("/unused");
     for result in [
         crate::runtime::cursor::command(folder, Mode::ApproveEach, None, None, None),
-        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None, &[], None),
         crate::runtime::muse::command(folder, Mode::ApproveEach, None, None, None),
     ] {
         assert!(
@@ -609,6 +608,12 @@ fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
                 .contains("does not support Approve-each")
         );
     }
+    // Antigravity asks before each action over `agy acp` (27 Nov 2026); its `-p` is refused it, in words that say how
+    // to get there. The protocol's route is closed in tests, so no agy is run or asked.
+    crate::runtime::antigravity::open_acp_route_in_tests(false);
+    let agy = std::path::PathBuf::from("/unused/agy");
+    let refused = crate::runtime::antigravity::command_for(agy, folder, Mode::ApproveEach, None, None, None, &[], None).unwrap_err();
+    assert_eq!(refused.to_string(), crate::runtime::antigravity::NO_APPROVE_EACH_WITHOUT_ACP);
 }
 
 #[test]
