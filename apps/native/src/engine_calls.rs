@@ -22,6 +22,8 @@ fn direct_uses_of_the_engines_turn_state_only_shrink() {
         ("src/ui/home_panel.rs", 1),
         // A test that raises a real card on the shared channel, to see a face wait on the person (teammate_faces.rs).
         ("src/ui/teammate_faces.rs", 1),
+        // A test that raises a real card on the shared channel, to see a browser given the window handed it (phone_section.rs).
+        ("src/ui/phone_section.rs", 1),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = std::collections::BTreeMap::new();

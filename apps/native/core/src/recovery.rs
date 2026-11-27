@@ -55,13 +55,21 @@ pub fn offer(phase: &str, points: &[Value], issues: usize) -> Option<Offer> {
         },
     })
 }
+/// ResumeCard.tsx: the control a Resume offer shows, in Electron's words: "Resume from checkpoint", or "Resume anyway"
+/// when an action never reported back (the caution beside it, `RESUME_CAUTION`). A refusal has none.
+pub fn resume_control(offer: &Offer) -> Option<&'static str> {
+    match offer {
+        Offer::Resume { unverified, .. } if unverified.is_empty() => Some("Resume from checkpoint"),
+        Offer::Resume { .. } => Some("Resume anyway"),
+        Offer::Refused(_) => None,
+    }
+}
+
+/// ResumeCard.tsx: said beside "Resume anyway".
+pub const RESUME_CAUTION: &str = "Check those first — the next run is told to verify them before building on them.";
+
 #[cfg(test)]
 mod tests {
-    /// Native never exposes an actionable resume control, even when the record is whole.
-    fn resume_control_label(offer: &Offer) -> Option<&'static str> {
-        let _ = offer;
-        None
-    }
     use super::*;
     use serde_json::json;
     fn point(epoch: u64, safety: &str, reason: &str) -> Value {
@@ -188,23 +196,17 @@ mod tests {
         ));
     }
 
+    /// ResumeCard.tsx: "Resume from checkpoint" for a whole record, "Resume anyway" beside the caution when an action
+    /// never reported back, and no button for a refusal (a refusal is information, not a resume you cannot click yet).
     #[test]
-    fn resume_offer_never_exposes_a_resume_control() {
-        // Electron would show "Resume from checkpoint" / "Resume anyway".
-        // Native must not: there is no reconciled checkpoint execution, and
-        // an irreversible action must never be re-run from this card.
-        let safe = offer("interrupted", &[point(1, "safe", "shutdown")], 0).unwrap();
-        let doubt = offer(
-            "interrupted",
-            &[point(1, "approval-required", "shutdown")],
-            0,
-        )
-        .unwrap();
-        let refused = offer("interrupted", &[], 0).unwrap();
-        assert_eq!(resume_control_label(&safe), None);
-        assert_eq!(resume_control_label(&doubt), None);
-        assert_eq!(resume_control_label(&refused), None);
-        assert!(matches!(safe, Offer::Resume { unverified, .. } if unverified.is_empty()));
+    fn the_control_is_resume_from_checkpoint_or_resume_anyway_and_a_refusal_has_none() {
+        let safe = offer("cancelled", &[point(1, "safe", "shutdown")], 0).unwrap();
+        let doubt = offer("cancelled", &[point(1, "approval-required", "shutdown")], 0).unwrap();
+        let refused = offer("cancelled", &[point(1, "unsafe", "shutdown")], 0).unwrap();
+        assert_eq!(resume_control(&safe), Some("Resume from checkpoint"));
+        assert_eq!(resume_control(&doubt), Some("Resume anyway"));
+        assert_eq!(resume_control(&refused), None);
         assert!(matches!(doubt, Offer::Resume { unverified, .. } if unverified == ["npm publish"]));
+        assert_eq!(RESUME_CAUTION, "Check those first — the next run is told to verify them before building on them.");
     }
 }

@@ -12,9 +12,14 @@ use locust_core::phone_anywhere::{
     PhoneAnywhereSettings, RelayConnector,
 };
 use locust_core::chat_http::WsClient;
-use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
+use locust_core::desk_host::{
+    DeskHandler, DeskHelloInfo, DeskHost, DeskHostDeps, DeskSender, DeskValue, DeskWindow,
+    MISSION_APPROVAL_CHANNEL, desk_tell_json,
+};
+use locust_core::desk_snapshot::{DeskSnapshot, snapshot_key, snapshot_with};
+use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine, PhoneNotes};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use locust_core::phone_anywhere::{HooksCallbacks, McpCallbacks};
+use locust_core::phone_anywhere::{DeskCallbacks, HooksCallbacks, McpCallbacks};
 use locust_core::remote_mcp::{McpRelay, RemoteMcp, RemoteMcpAsk, RemoteMcpReply};
 use locust_core::routine_hooks::{HookLettersPage, HookRelay, HookRoom, RoutineHooks};
 use locust_core::routine_host::LiveHost;
@@ -74,6 +79,46 @@ pub(crate) struct PhoneAnywhereLink {
     ws_client: Option<Arc<dyn WsClient>>,
     /// The link as the routine links (and other apps) see it.
     shared: SharedLink,
+    /// Locust in a browser (index.ts `createDeskHost`): one per window, made with its first link.
+    desk: Option<Arc<DeskHost>>,
+    /// What this window draws, kept as a browser reads it (desk_snapshot.rs): written on the window's thread each poll,
+    /// read on the line's when a browser asks.
+    desk_view: Arc<Mutex<Option<DeskSnapshot>>>,
+    /// The cover's turns (`cover: coverWindow`), told on the line's thread and drawn on the window's.
+    desk_cover: Arc<Mutex<Vec<bool>>>,
+    /// What the window had heard when a browser holding it was last told (index.ts `mirrorToDesk`).
+    desk_mirror: DeskMirror,
+    /// A test's stand-in for the engine's waiting cards and running post-edit checks.
+    #[cfg(test)]
+    desk_engine: Option<DeskEngineHeard>,
+}
+
+#[cfg(test)]
+type DeskEngineHeard =
+    Arc<dyn Fn() -> (Vec<locust_core::approval::Request>, Vec<(String, String)>) + Send + Sync>;
+
+/// What the window has heard, as far as Electron's `isDeskEvent` channels carry it. Each poll's reading is compared
+/// with the last one; what changed is what Electron's main process would have sent its window, so it is what the
+/// browser holding the window is told.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct DeskHeard {
+    /// Waiting cards, each as the window is told it (`MissionApprovalRequest`), by approval id.
+    cards: Vec<(String, serde_json::Value)>,
+    /// Post-edit checks running: `(mission id, command)`.
+    checks: Vec<(String, String)>,
+    notices: Vec<locust_core::native::RelayNotice>,
+    starting: Option<locust_core::native::RelayStarting>,
+    appearance: serde_json::Value,
+    update: serde_json::Value,
+    pr_news: Option<locust_core::pull_requests::PullRequestNews>,
+    scout: Option<serde_json::Value>,
+}
+
+/// The browser last told, and what the window had heard then.
+#[derive(Default)]
+struct DeskMirror {
+    for_device: Option<String>,
+    heard: DeskHeard,
 }
 
 /// This window's one phone link, as the routine links and other apps reach it (index.ts makes one `phoneAnywhere` and
@@ -109,7 +154,7 @@ impl ServeMcp {
     /// `changed`). Never on the window's thread: the relay may be asked.
     fn follow(&self, phone: &PhoneAnywhereSettings) {
         if !phone.enabled
-            && let Some(remote) = self.remote().filter(|remote| remote.settings().enabled)
+            && let Some(remote) = self.remote().filter(|remote| remote.look().enabled)
         {
             std::thread::spawn(move || {
                 remote.set_enabled(&serde_json::json!(false));
@@ -315,12 +360,304 @@ fn mac_ws_client(link: &PhoneAnywhereLink) -> Option<Arc<dyn WsClient>> {
     Some(Arc::new(locust_core::chat_http::mac::MacUrlSessionClient::new()))
 }
 
+/// shared/appearance.ts `APPEARANCE_GET_CHANNEL`.
+const APPEARANCE_GET: &str = "appearance:get";
+
+/// What a browser that has the window reads of it, answered from what this window draws (the reads index.ts's handlers
+/// give the window: `appearanceNow()` for `appearance:get`).
+const DESK_DRAWN: &[&str] = &[APPEARANCE_GET];
+
+/// The window's appearance as `appearance:get` answers it (`AppearanceState`): no Liquid glass here.
+fn appearance_now(s: &State) -> serde_json::Value {
+    let theme = match s.appearance {
+        Some(true) => "dark",
+        Some(false) => "light",
+        None => "system",
+    };
+    let resolved = if s.appearance.unwrap_or(true) { "dark" } else { "light" };
+    serde_json::json!({ "theme": theme, "resolved": resolved, "look": "standard", "liquidOffered": false, "glassGround": "desktop" })
+}
+
+/// Keeps what this window draws where a browser's read finds it; only a change is written.
+fn publish_desk_view(s: &State) {
+    let key = snapshot_key(APPEARANCE_GET, &[]);
+    let value = appearance_now(s);
+    let mut view = s.phone_anywhere_link.desk_view.lock().unwrap_or_else(|e| e.into_inner());
+    if view.as_ref().and_then(|v| v.answers.get(&key)).is_some_and(|kept| kept.value == value) {
+        return;
+    }
+    *view = Some(snapshot_with(view.as_ref(), &key, value, now_ms().max(0) as u64));
+}
+
+/// One read a browser may make, answered from the kept view by its call and arguments.
+fn drawn_read(view: Arc<Mutex<Option<DeskSnapshot>>>, channel: &'static str) -> DeskHandler {
+    Arc::new(move |_, args| {
+        let view = view.lock().unwrap_or_else(|e| e.into_inner());
+        view.as_ref()
+            .and_then(|v| v.answers.get(&snapshot_key(channel, args)))
+            .map(|kept| DeskValue::Json(kept.value.clone()))
+            .ok_or_else(String::new)
+    })
+}
+
+/// A waiting card as the window hears it (`MissionApprovalRequest`, shared/ipc.ts): for a browser just given the
+/// window, and for one holding it when a card is raised. A native turn's run is `run_<mission>`.
+fn waiting_card(request: &locust_core::approval::Request) -> serde_json::Value {
+    serde_json::json!({
+        "approvalId": request.approval_id,
+        "runId": format!("run_{}", request.mission_id),
+        "missionId": request.mission_id,
+        "runtime": request.runtime,
+        "kind": request.kind.as_str(),
+        "summary": request.summary,
+        "detail": request.detail,
+        "cwd": request.cwd,
+        "requestedAt": request.requested_at,
+    })
+}
+
+/// The update state as the window is told it (`AppUpdateState`, shared/ipc.ts). Electron's `heldBack` names three
+/// reasons; this port's fourth (no feed) has no word there, so it is left out.
+fn app_update_json(st: &locust_core::updates::AppUpdateState) -> serde_json::Value {
+    use locust_core::updates::HeldBack;
+    let mut obj = serde_json::json!({
+        "phase": st.phase.as_str(),
+        "currentVersion": st.current_version,
+        "everyBuild": st.every_build,
+    });
+    if let Some(v) = &st.available_version {
+        obj["availableVersion"] = serde_json::json!(v);
+    }
+    if let Some(u) = &st.download_url {
+        obj["downloadUrl"] = serde_json::json!(u);
+    }
+    if let Some(p) = st.percent {
+        obj["percent"] = serde_json::json!(p);
+    }
+    if let Some(m) = &st.message {
+        obj["message"] = serde_json::json!(m);
+    }
+    if let Some(why) = st.held_back.filter(|why| *why != HeldBack::NoFeed) {
+        obj["heldBack"] = serde_json::json!(why.as_str());
+    }
+    obj
+}
+
+/// The engine's waiting cards and running checks, read once per poll while a browser holds the window.
+fn desk_engine_heard(s: &State) -> (Vec<locust_core::approval::Request>, Vec<(String, String)>) {
+    #[cfg(test)]
+    if let Some(engine) = &s.phone_anywhere_link.desk_engine {
+        return engine();
+    }
+    let _ = s;
+    let api = locust_core::engine_api::api();
+    (api.waiting(), api.running_checks())
+}
+
+fn desk_heard(s: &State) -> DeskHeard {
+    let (waiting, checks) = desk_engine_heard(s);
+    DeskHeard {
+        cards: waiting.iter().map(|r| (r.approval_id.clone(), waiting_card(r))).collect(),
+        checks,
+        notices: s.relay_live.notices.clone(),
+        starting: s.relay_live.starting.clone(),
+        appearance: appearance_now(s),
+        update: app_update_json(&s.settings_panel.update),
+        pr_news: s.pr.news.clone(),
+        scout: s.scout.state.as_ref().map(|st| st.to_json()),
+    }
+}
+
+/// What the window heard between two readings, as Electron's main process sends it: each `(channel, its one arg)`.
+fn desk_news(was: &DeskHeard, now: &DeskHeard) -> Vec<(&'static str, serde_json::Value)> {
+    const MISSION: &str = "codex-mission:update";
+    let mut news = Vec::new();
+    for (id, card) in &now.cards {
+        if !was.cards.iter().any(|(had, _)| had == id) {
+            news.push((MISSION_APPROVAL_CHANNEL, card.clone()));
+        }
+    }
+    for (id, _) in &was.cards {
+        if !now.cards.iter().any(|(has, _)| has == id) {
+            news.push(("mission-approval:withdrawn", serde_json::json!(id)));
+        }
+    }
+    // codex-mission.ts: `{ kind: 'edit-check-started', runId: mission.runId, missionId: mission.missionId, command }`.
+    for (mission, command) in &now.checks {
+        if !was.checks.iter().any(|(had, _)| had == mission) {
+            news.push((
+                MISSION,
+                serde_json::json!({
+                    "kind": "edit-check-started",
+                    "runId": format!("run_{mission}"),
+                    "missionId": mission,
+                    "command": command,
+                }),
+            ));
+        }
+    }
+    for notice in &now.notices {
+        if !was.notices.contains(notice) {
+            let mut said = serde_json::json!({
+                "kind": "relay-notice",
+                "runId": format!("run_{}", notice.mission_id),
+                "missionId": notice.mission_id,
+                "message": notice.message,
+            });
+            if notice.level == "info" || notice.level == "warning" {
+                said["level"] = serde_json::json!(notice.level);
+            }
+            news.push((MISSION, said));
+        }
+    }
+    if was.starting != now.starting {
+        if let Some(was) = &was.starting {
+            news.push((MISSION, serde_json::json!({ "kind": "relay-start-settled", "teammateId": was.teammate_id })));
+        }
+        if let Some(st) = &now.starting {
+            news.push((
+                MISSION,
+                serde_json::json!({
+                    "kind": "relay-starting",
+                    "teammateId": st.teammate_id,
+                    "name": st.name,
+                    "answering": st.answering,
+                    "hop": st.hop,
+                }),
+            ));
+        }
+    }
+    if was.appearance != now.appearance {
+        news.push(("appearance:changed", now.appearance.clone()));
+    }
+    if was.update != now.update {
+        news.push(("app:update-state", now.update.clone()));
+    }
+    if was.pr_news != now.pr_news
+        && let Some(n) = &now.pr_news
+    {
+        news.push((
+            "folder:pull-request-news",
+            serde_json::json!({ "number": n.number, "url": n.url, "said": n.said, "needsWork": n.needs_work }),
+        ));
+    }
+    if was.scout != now.scout
+        && let Some(st) = &now.scout
+    {
+        news.push(("scout:changed", st.clone()));
+    }
+    news
+}
+
+/// THE ONE PLACE A BROWSER HOLDING THE WINDOW HEARS WHAT THE WINDOW HEARS (index.ts:627 `mirrorToDesk`, which wraps
+/// `webContents.send`). This window is not sent messages; it reads the engine and its own state each poll, so what
+/// changed since the last poll is what Electron would have sent. Called at the end of every `poll` (main.rs). Nothing
+/// is read or told while no browser holds the window; a browser just given it starts from what the window shows then
+/// (it asks for the waiting cards itself, `replay`). `DeskHost::mirror` tells only channels `isDeskEvent` allows.
+pub(crate) fn mirror_desk(s: &mut State) {
+    let Some(host) = s.phone_anywhere_link.desk.clone() else {
+        return;
+    };
+    let Some(device) = host.active() else {
+        s.phone_anywhere_link.desk_mirror = DeskMirror::default();
+        return;
+    };
+    let now = desk_heard(s);
+    let mirror = &mut s.phone_anywhere_link.desk_mirror;
+    let news = if mirror.for_device.as_deref() == Some(device.as_str()) {
+        desk_news(&mirror.heard, &now)
+    } else {
+        Vec::new()
+    };
+    *mirror = DeskMirror { for_device: Some(device), heard: now };
+    if news.is_empty() {
+        return;
+    }
+    for (channel, arg) in &news {
+        host.mirror(channel, &[DeskValue::Json(arg.clone())]);
+    }
+    host.flush();
+}
+
+/// The window's desk host (index.ts `createDeskHost`): told through whichever link is live, its cover drawn by this
+/// window, its reads answered from what this window draws.
+fn desk_host(s: &mut State, computer: Arc<dyn Fn() -> Option<String> + Send + Sync>) -> Arc<DeskHost> {
+    if let Some(host) = &s.phone_anywhere_link.desk {
+        return host.clone();
+    }
+    publish_desk_view(s);
+    let link = &s.phone_anywhere_link;
+    let view = link.desk_view.clone();
+    let handlers: std::collections::HashMap<String, DeskHandler> =
+        DESK_DRAWN.iter().map(|&channel| (channel.to_owned(), drawn_read(view.clone(), channel))).collect();
+    let shared = link.shared.clone();
+    let covers = link.desk_cover.clone();
+    let waker = link.waker.clone();
+    let host = Arc::new(DeskHost::new(DeskHostDeps {
+        handlers: Arc::new(Mutex::new(handlers)),
+        window: Arc::new(|| {
+            let sender = DeskSender { id: 1, main_frame_id: 1, process_id: std::process::id(), destroyed: false };
+            Some(DeskWindow { destroyed: false, web_contents: sender })
+        }),
+        tell: Arc::new(move |device, items| {
+            let items: Vec<serde_json::Value> = items.iter().map(desk_tell_json).collect();
+            shared.live().is_some_and(|live| live.tell_desk(device, &items))
+        }),
+        cover: Arc::new(move |on| {
+            covers.lock().unwrap_or_else(|e| e.into_inner()).push(on);
+            if let Some(w) = &waker {
+                w();
+            }
+        }),
+        hello: Arc::new(move || {
+            let resolved = view
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .and_then(|v| v.answers.get(&snapshot_key(APPEARANCE_GET, &[])))
+                .and_then(|kept| kept.value["resolved"].as_str().map(str::to_owned))
+                .unwrap_or_else(|| "dark".to_owned());
+            Ok(DeskHelloInfo {
+                version: env!("CARGO_PKG_VERSION").to_owned(),
+                computer: computer().unwrap_or_default(),
+                theme: resolved,
+            })
+        }),
+        waiting: Arc::new(|| locust_core::engine_api::api().waiting().iter().map(waiting_card).collect()),
+        changed: None,
+    }));
+    let back = host.clone();
+    s.elsewhere_cover.on_take_back = Some(Arc::new(move || {
+        back.take_back();
+        back.flush();
+    }));
+    s.phone_anywhere_link.desk = Some(host.clone());
+    host
+}
+
+/// The desk's news for this window: what it draws is kept for a browser, and the cover goes up or down.
+fn poll_desk(s: &mut State) -> bool {
+    publish_desk_view(s);
+    let turns: Vec<bool> = std::mem::take(&mut *s.phone_anywhere_link.desk_cover.lock().unwrap_or_else(|e| e.into_inner()));
+    let Some(&covered) = turns.last() else {
+        return false;
+    };
+    let active = s.phone_anywhere_link.desk.as_ref().and_then(|host| host.active());
+    let device = active.and_then(|id| {
+        s.phone_anywhere.as_ref().and_then(|a| a.devices.iter().find(|d| d.id == id).map(|d| d.name.clone()))
+    });
+    crate::elsewhere_cover::apply_cover(s, covered, device);
+    true
+}
+
 fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let store = s.data.clone().or_else(locust_core::native::store)?;
     let dir = store.root().to_path_buf();
     let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(now_ms);
     let engine = Arc::new(NativePhoneEngine::new(store));
     let calls = Arc::new(EnginePhoneCalls::new(engine, now.clone()));
+    // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
+    let notes = Arc::new(PhoneNotes::new(calls.clone()));
     let (tx, rx) = std::sync::mpsc::channel::<PhoneAnywhereSettings>();
     let waker = s.phone_anywhere_link.waker.clone();
     s.phone_anywhere_link.rx = Some(rx);
@@ -328,6 +665,14 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let connect = s.phone_anywhere_link.connector.clone().unwrap_or_else(|| default_connector(&s.phone_anywhere_link));
     let github_user = s.phone_anywhere_link.github_user.clone();
     let computer_override = s.phone_anywhere_link.computer_name.clone();
+    let computer: Arc<dyn Fn() -> Option<String> + Send + Sync> = Arc::new(move || {
+        computer_override.clone().or_else(|| {
+            std::env::var("COMPUTERNAME")
+                .or_else(|_| std::env::var("HOSTNAME"))
+                .ok()
+        })
+    });
+    let desk: Arc<dyn DeskCallbacks> = desk_host(s, computer.clone());
     Some(PhoneAnywhere::new(PhoneAnywhereOptions {
         directory: dir,
         calls,
@@ -345,18 +690,15 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         now: Some(now),
         protect_file: None,
         retry_ms: None,
+        // index.ts `away: { forPhone, refresh, letter }` waits on Scout away (scout-away.ts) in Rust: ScoutAway
+        // (core/src/scout_away.rs) has no for-phone key, no catch-up of the letters left while this computer was off
+        // and no told letter, its relay has no `letters`, and this app makes no ScoutAway at all.
         away: None,
         hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
-        desk: None,
-        notes: None,
+        desk: Some(desk),
+        notes: Some(notes),
         github_user,
-        computer_name: Some(Arc::new(move || {
-            computer_override.clone().or_else(|| {
-                std::env::var("COMPUTERNAME")
-                    .or_else(|_| std::env::var("HOSTNAME"))
-                    .ok()
-            })
-        })),
+        computer_name: Some(computer),
         mcp: Some(Arc::new(ServeMcp(s.phone_anywhere_link.shared.mcp.clone()))),
     }))
 }
@@ -407,7 +749,8 @@ pub(crate) fn poll(s: &mut State) -> bool {
     if let Some(next) = latest {
         s.phone_anywhere = Some(next);
     }
-    s.phone_anywhere != before
+    let covered = poll_desk(s);
+    s.phone_anywhere != before || covered
 }
 
 /// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
@@ -1447,6 +1790,7 @@ mod tests {
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         closed: Arc<std::sync::atomic::AtomicBool>,
         github_off: bool,
+        notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl locust_core::phone_anywhere::RelaySocket for FakeRelayLine {
@@ -1458,10 +1802,12 @@ mod tests {
             let reply = match kind {
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
                 "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected"
-                | "mcp-open" | "mcp-close" => {
+                | "mcp-open" | "mcp-close" | "allow" | "pair-close" => {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
                 }
                 "hook-letters" => id.map(|id| serde_json::json!({ "t": "hook-letters", "id": id, "items": [], "lost": 0 })),
+                "notes" => id.map(|id| serde_json::json!({ "t": "notes", "id": id, "items": self.notes.lock().unwrap().clone() })),
+                "notes-collected" => id.map(|id| serde_json::json!({ "t": "done", "id": id })),
                 "github-open" => id.map(|id| {
                     if self.github_off {
                         serde_json::json!({ "t": "err", "id": id, "code": "github-off" })
@@ -1499,6 +1845,7 @@ mod tests {
         closed: Arc<std::sync::atomic::AtomicBool>,
         callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         github_off: bool,
+        notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl FakeRelay {
@@ -1509,6 +1856,7 @@ mod tests {
                 closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 callbacks: Arc::new(std::sync::Mutex::new(None)),
                 github_off: false,
+                notes: Arc::new(std::sync::Mutex::new(Vec::new())),
             }
         }
 
@@ -1524,6 +1872,7 @@ mod tests {
             let closed = Arc::clone(&self.closed);
             let callbacks = Arc::clone(&self.callbacks);
             let github_off = self.github_off;
+            let notes = Arc::clone(&self.notes);
             Arc::new(move |_url: &str| {
                 connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Arc::new(FakeRelayLine {
@@ -1531,6 +1880,7 @@ mod tests {
                     frames: Arc::clone(&frames),
                     closed: Arc::clone(&closed),
                     github_off,
+                    notes: Arc::clone(&notes),
                 }) as Arc<dyn locust_core::phone_anywhere::RelaySocket>)
             })
         }
@@ -1573,6 +1923,9 @@ mod tests {
         s.data = Some(store);
         s.settings_panel.open = true;
         s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        // What a browser holding the window hears comes from a stand-in engine: the process's own is shared by every
+        // test running beside this one, and their cards would be told (and withdrawn) here.
+        s.phone_anywhere_link.desk_engine = Some(Arc::new(|| (Vec::new(), Vec::new())));
         link(&mut s.phone_anywhere_link);
         let mut rt = rune::Runtime::new(
             s,
@@ -1665,6 +2018,158 @@ mod tests {
         assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
     }
 
+    /// A browser paired by Open in your browser's code, over the window's own fake relay: its device and keys.
+    struct DeskBrowser {
+        room: String,
+        device: String,
+        keys: locust_core::relay_crypto::LinkKeys,
+    }
+
+    fn pair_desk_browser(rt: &mut rune::Runtime<State>, relay: &FakeRelay) -> DeskBrowser {
+        use locust_core::relay_crypto::{Direction, LinkSide, aad_of, device_id_of, link_keys, new_pc_keys, pairing_proof, seal_json};
+        let url = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::desk_code).expect("a code for the full window");
+        let parts: Vec<String> = url.split("#p=").nth(1).unwrap().split('.').map(str::to_owned).collect();
+        let (room, pc_key, secret) = (parts[0].clone(), parts[1].clone(), parts[2].clone());
+        let mine = new_pc_keys();
+        let device = device_id_of(&mine.public_key);
+        let keys = link_keys(&mine.private_key, &pc_key, &room, LinkSide::Device).unwrap();
+        let hello = seal_json(
+            &keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "pair", "proof": pairing_proof(&secret), "name": "Chrome" }),
+            &aad_of(&room, &device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.push_frame(serde_json::json!({ "t": "msg", "from": "pairing:p1", "n": hello.n, "c": hello.c, "k": mine.public_key }));
+        pump_until(rt, "the browser paired with the full window", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.devices.iter().any(|d| d.desk == Some(true)))
+        });
+        DeskBrowser { room, device, keys }
+    }
+
+    fn desk_frame(relay: &FakeRelay, browser: &DeskBrowser, q: u64, items: serde_json::Value) {
+        use locust_core::relay_crypto::{Direction, aad_of, seal_json};
+        let boxed = seal_json(
+            &browser.keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "desk", "s": "browser-session", "q": q, "t": now_ms(), "items": items }),
+            &aad_of(&browser.room, &browser.device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.push_frame(serde_json::json!({ "t": "msg", "from": browser.device, "n": boxed.n, "c": boxed.c }));
+    }
+
+    /// The desk frames this computer sent the browser, opened, from the `from`th on.
+    fn told_desk(relay: &FakeRelay, browser: &DeskBrowser, from: usize) -> Vec<serde_json::Value> {
+        use locust_core::relay_crypto::{Direction, aad_of, open_json};
+        let frames = relay.frames.lock().unwrap().clone();
+        frames
+            .iter()
+            .filter(|f| f["t"] == "send" && f["to"] == browser.device.as_str())
+            .skip(from)
+            .filter_map(|f| {
+                open_json(
+                    &browser.keys.open,
+                    f["n"].as_str()?,
+                    f["c"].as_str()?,
+                    &aad_of(&browser.room, &browser.device, Direction::PcToDevice),
+                )
+                .ok()
+            })
+            .filter(|said| said["kind"] == "desk")
+            .collect()
+    }
+
+    #[test]
+    // case: says what the computer is, and who has the window
+    // case: lets the window go when the browser that has it may no longer have it
+    fn a_browser_with_the_full_window_is_answered_by_this_windows_desk_host_and_covers_it_until_let_go() {
+        let (_root, store) = temp_store("desk");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        rt.state.appearance = Some(false);
+        rt.state.phone_anywhere_link.computer_name = Some("DESK-PC".into());
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+
+        desk_frame(
+            &relay,
+            &browser,
+            1,
+            serde_json::json!([
+                { "kind": "hello", "id": "h1" },
+                { "kind": "take", "id": "t1" },
+                { "kind": "call", "id": "c1", "channel": "appearance:get", "args": "[]" }
+            ]),
+        );
+        pump_until(&mut rt, "the browser has the window", |s| s.elsewhere_cover.covered && !told_desk(&relay, &browser, 0).is_empty());
+        assert_eq!(rt.state.elsewhere_cover.device.as_deref(), Some("Chrome"));
+        let told = told_desk(&relay, &browser, 0);
+        assert_eq!(told.len(), 1, "{told:?}");
+        let items = told[0]["items"].as_array().unwrap();
+        let hello: serde_json::Value = serde_json::from_str(items[0]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            hello,
+            serde_json::json!({ "version": env!("CARGO_PKG_VERSION"), "computer": "DESK-PC", "theme": "light", "active": "computer" })
+        );
+        assert_eq!(items[1], serde_json::json!({ "kind": "res", "id": "t1", "ok": true, "value": "true" }));
+        let appearance: serde_json::Value = serde_json::from_str(items[2]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["theme"], "light");
+        assert_eq!(appearance["resolved"], "light");
+
+        // What the window draws is what the browser reads next.
+        rt.state.appearance = Some(true);
+        // The window keeps what it draws on its own poll (publish_desk_view): let it poll before the browser asks, or the
+        // line's thread can answer from the picture before the change (2 of 6 plain `cargo test` runs did).
+        rt.update(|s, tx| {
+            crate::poll(s, 0.0, tx);
+        });
+        // The browser holding the window is told the change as the window is (index.ts:627 `mirrorToDesk`).
+        let changed = told_events(&relay, &browser, 1);
+        assert_eq!(changed.len(), 1, "{changed:?}");
+        assert_eq!((changed[0].0.as_str(), &changed[0].1[0]["resolved"]), ("appearance:changed", &serde_json::json!("dark")));
+        desk_frame(&relay, &browser, 2, serde_json::json!([{ "kind": "call", "id": "c2", "channel": "appearance:get", "args": "[]" }]));
+        pump_until(&mut rt, "the second read", |_| told_desk(&relay, &browser, 2).len() == 1);
+        let again = told_desk(&relay, &browser, 2);
+        let appearance: serde_json::Value = serde_json::from_str(again[0]["items"][0]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["resolved"], "dark");
+
+        // Full window taken away from it: the browser is told this computer has it, and the cover comes down.
+        let live = rt.state.phone_anywhere_link.live.clone().unwrap();
+        live.set_desk(&browser.device, false);
+        pump_until(&mut rt, "the cover down", |s| !s.elsewhere_cover.covered && told_desk(&relay, &browser, 3).len() == 1);
+        let gone = told_desk(&relay, &browser, 3);
+        assert_eq!(gone[0]["items"], serde_json::json!([{ "kind": "taken", "by": "computer" }]));
+    }
+
+    #[test]
+    // case: holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting
+    fn a_note_written_while_this_computer_was_off_goes_through_the_phones_own_send_and_says_why_not() {
+        use locust_core::relay_crypto::{Direction, aad_of, seal_json};
+        let (_root, store) = temp_store("notes");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let phone = pair_desk_browser(&mut rt, &relay);
+        let note = seal_json(
+            &phone.keys.seal,
+            &serde_json::json!({ "v": 1, "kind": "note", "nid": "note-written-offline-1", "missionId": "m_not_in_locust", "text": "Run the tests again", "t": now_ms() }),
+            &aad_of(&phone.room, &phone.device, Direction::DeviceToPc),
+        )
+        .unwrap();
+        relay.notes.lock().unwrap().push(serde_json::json!({
+            "id": format!("{:013}-abcdefgh", now_ms()), "at": now_ms(), "device": phone.device, "n": note.n, "c": note.c
+        }));
+        relay.push_frame(serde_json::json!({ "t": "notes-changed" }));
+        // The phone's own send reads the conversation, finds none, and starts nothing: held as failed, for the phone.
+        let collected = || relay.frames.lock().unwrap().iter().find(|f| f["t"] == "notes-collected").cloned();
+        pump_until(&mut rt, "the note collected", |_| collected().is_some());
+        let said = collected().unwrap();
+        assert_eq!(said["notes"], serde_json::json!([]));
+        assert_eq!(said["held"][0]["why"], "failed");
+        assert_eq!(said["held"][0]["note"], relay.notes.lock().unwrap()[0]["id"]);
+    }
+
     /// A box that keeps a key by turning it round: never the keychain.
     struct TurnedRound;
     impl locust_core::own_models::SecretBox for TurnedRound {
@@ -1723,6 +2228,112 @@ mod tests {
         let made = hooks.state(&id, false).unwrap();
         let prefix = format!("https://relay.test/v1/room/{room}/hook/");
         assert!(made.url.as_deref().is_some_and(|url| url.starts_with(&prefix)), "the link is this room's");
+    }
+
+    /// A browser given the window, over a window whose appearance is the system's: `theme` says so (shared/appearance.ts).
+    #[test]
+    fn a_window_that_follows_the_system_theme_says_system_to_a_browser_that_reads_its_appearance() {
+        let (_root, store) = temp_store("desk-system");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        rt.state.appearance = None;
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+        desk_frame(
+            &relay,
+            &browser,
+            1,
+            serde_json::json!([
+                { "kind": "take", "id": "t1" },
+                { "kind": "call", "id": "c1", "channel": "appearance:get", "args": "[]" }
+            ]),
+        );
+        pump_until(&mut rt, "the read answered", |_| !told_desk(&relay, &browser, 0).is_empty());
+        let told = told_desk(&relay, &browser, 0);
+        let appearance: serde_json::Value = serde_json::from_str(told[0]["items"][1]["value"].as_str().unwrap()).unwrap();
+        assert_eq!(appearance["theme"], "system");
+        assert!(matches!(appearance["resolved"].as_str(), Some("light" | "dark")), "{appearance}");
+    }
+
+    /// This computer takes the window back from the browser that has it: the browser is told, the host lets go.
+    #[test]
+    fn taking_the_window_back_on_this_computer_tells_the_browser_that_had_it() {
+        let (_root, store) = temp_store("desk-take-back");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+        desk_frame(&relay, &browser, 1, serde_json::json!([{ "kind": "take", "id": "t1" }]));
+        pump_until(&mut rt, "the browser has the window", |s| s.elsewhere_cover.covered && !told_desk(&relay, &browser, 0).is_empty());
+        let host = rt.state.phone_anywhere_link.desk.clone().expect("the window's desk host");
+        assert_eq!(host.active().as_deref(), Some(browser.device.as_str()));
+
+        crate::elsewhere_cover::take_back(&mut rt.state);
+        pump_until(&mut rt, "the browser told", |_| told_desk(&relay, &browser, 1).len() == 1);
+        let gone = told_desk(&relay, &browser, 1);
+        assert_eq!(gone[0]["items"], serde_json::json!([{ "kind": "taken", "by": "computer" }]));
+        assert_eq!(host.active(), None);
+        assert!(!rt.state.elsewhere_cover.covered);
+    }
+
+    /// A browser just given the window is handed the approval cards already waiting on this computer
+    /// (desk-host.ts `replay: 'approvals'`, with what the window hears as `MissionApprovalRequest`).
+    #[test]
+    fn a_browser_given_the_window_is_handed_the_cards_already_waiting_on_this_computer() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        // The card is the whole process's, and the window counts a card's conversation as live: hold the engine, as every
+        // test that runs a turn does, so no other test's window sees it.
+        let (_engine_dir, engine_store) = crate::org::tests::temp_store();
+        let _engine = locust_core::native::hooks::install(engine_store, None);
+        let (_root, store) = temp_store("desk-waiting");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        let stop = Arc::new(AtomicBool::new(false));
+        let asking = {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let _ = locust_core::native::approvals_channel().ask_browser("m_desk_waiting", "Open a page", "https://example.test/", &|| stop.load(Ordering::SeqCst));
+            })
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while !locust_core::engine_api::api().waiting().iter().any(|r| r.mission_id == "m_desk_waiting") {
+                assert!(std::time::Instant::now() < deadline, "the card never waited");
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            click_key(&mut rt, "phone-switch");
+            pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+            let browser = pair_desk_browser(&mut rt, &relay);
+            desk_frame(
+                &relay,
+                &browser,
+                1,
+                serde_json::json!([{ "kind": "take", "id": "t1" }, { "kind": "replay", "id": "r1", "what": "approvals" }]),
+            );
+            let card = |relay: &FakeRelay, browser: &DeskBrowser| {
+                told_desk(relay, browser, 0)
+                    .iter()
+                    .flat_map(|said| said["items"].as_array().cloned().unwrap_or_default())
+                    .filter(|item| item["kind"] == "ev" && item["channel"] == "mission-approval:request")
+                    .filter_map(|item| serde_json::from_str::<serde_json::Value>(item["args"].as_str()?).ok())
+                    .map(|args| args[0].clone())
+                    .find(|card| card["missionId"] == "m_desk_waiting")
+            };
+            pump_until(&mut rt, "the waiting card told", |_| card(&relay, &browser).is_some());
+            let card = card(&relay, &browser).unwrap();
+            assert_eq!(card["runtime"], "browser");
+            assert_eq!(card["kind"], "connector");
+            assert_eq!(card["summary"], "Open a page");
+            assert_eq!(card["detail"], "https://example.test/");
+            assert!(card["approvalId"].as_str().is_some_and(|id| !id.is_empty()), "{card}");
+        }));
+        stop.store(true, Ordering::SeqCst);
+        asking.join().unwrap();
+        if let Err(panic) = result {
+            std::panic::resume_unwind(panic);
+        }
     }
 
     /// What the PC answered the relay for one app's request.
@@ -1802,7 +2413,7 @@ mod tests {
         relay.push_frame(serde_json::json!({ "t": "mcp-ask", "ask": "Ask_one-16-chars", "kind": "connect", "body": connect.to_string() }));
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         let card = loop {
-            if let Some(card) = remote.settings().asking.first().cloned() {
+            if let Some(card) = remote.look().asking.first().cloned() {
                 break card;
             }
             assert!(std::time::Instant::now() < deadline, "no card");
@@ -1831,11 +2442,11 @@ mod tests {
         // From anywhere off turns this off too (index.ts `changed`).
         click_key(&mut rt, "phone-switch");
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while remote.settings().enabled {
+        while remote.look().enabled {
             assert!(std::time::Instant::now() < deadline, "still on after From anywhere was turned off");
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        assert!(remote.settings().apps.is_empty());
+        assert!(remote.look().apps.is_empty());
     }
 
     #[test]
@@ -1984,4 +2595,352 @@ mod tests {
         let signed_out_text = all_text(&rt.elements());
         assert!(signed_out_text.contains("Sign in with GitHub"), "{signed_out_text}");
     }
+
+    // ---- A browser holding the window hears what the window hears (index.ts:627 `mirrorToDesk`) ----------------------
+
+    /// Electron's `DESK_EVENTS` (shared/desk-calls.ts:354), word for word: every channel a browser may be told.
+    const ELECTRON_DESK_EVENTS: &[&str] = &[
+        "appearance:changed",
+        "app:update-state",
+        "away:since-changed",
+        "codex-mission:update",
+        "mission-approval:request",
+        "mission-approval:withdrawn",
+        "folder:pull-request-news",
+        "runtime-discovery:event",
+        "runtime:install-progress",
+        "runtime-updates:changed",
+        "scout:away-changed",
+        "scout:changed",
+        "voice:progress",
+    ];
+
+    type Cards = Arc<Mutex<Vec<locust_core::approval::Request>>>;
+    type Checks = Arc<Mutex<Vec<(String, String)>>>;
+
+    /// A window whose engine is a stand-in, with a browser paired by Open in your browser's code (not yet holding it).
+    fn mirrored_window(tag: &str) -> (TempRoot, FakeRelay, rune::Runtime<State>, DeskBrowser, Cards, Checks) {
+        let (root, store) = temp_store(tag);
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        rt.state.appearance = Some(false);
+        let cards: Cards = Arc::new(Mutex::new(Vec::new()));
+        let checks: Checks = Arc::new(Mutex::new(Vec::new()));
+        let (c, k) = (cards.clone(), checks.clone());
+        rt.state.phone_anywhere_link.desk_engine =
+            Some(Arc::new(move || (c.lock().unwrap().clone(), k.lock().unwrap().clone())));
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected));
+        let browser = pair_desk_browser(&mut rt, &relay);
+        (root, relay, rt, browser, cards, checks)
+    }
+
+    fn take_window(rt: &mut rune::Runtime<State>, relay: &FakeRelay, browser: &DeskBrowser) {
+        desk_frame(relay, browser, 1, serde_json::json!([{ "kind": "take", "id": "t1" }]));
+        pump_until(rt, "the browser holds the window", |s| s.elsewhere_cover.covered);
+        poll_once(rt);
+    }
+
+    fn poll_once(rt: &mut rune::Runtime<State>) {
+        rt.update(|s, tx| {
+            crate::poll(s, 0.0, tx);
+        });
+    }
+
+    /// The events (`kind: 'ev'`) in the desk frames from the `from`th on: each channel and its args, decoded.
+    fn told_events(relay: &FakeRelay, browser: &DeskBrowser, from: usize) -> Vec<(String, serde_json::Value)> {
+        told_desk(relay, browser, from)
+            .iter()
+            .flat_map(|frame| frame["items"].as_array().cloned().unwrap_or_default())
+            .filter(|item| item["kind"] == "ev")
+            .map(|item| {
+                let args = serde_json::from_str(item["args"].as_str().unwrap()).unwrap();
+                (item["channel"].as_str().unwrap().to_owned(), args)
+            })
+            .collect()
+    }
+
+    fn card(id: &str, mission: &str) -> locust_core::approval::Request {
+        locust_core::approval::Request {
+            approval_id: id.to_owned(),
+            mission_id: mission.to_owned(),
+            runtime: "codex".to_owned(),
+            kind: locust_core::approval::Kind::Command,
+            summary: "Run tests".to_owned(),
+            detail: "npm test".to_owned(),
+            cwd: Some("/repo".to_owned()),
+            requested_at: "2026-11-26T12:00:00Z".to_owned(),
+            always_covers: None,
+            always_key: None,
+            data_sent_says: None,
+            reversible_says: None,
+            patch: None,
+            claude_input: None,
+            skippable: false,
+            answer_in: None,
+            questions: Vec::new(),
+        }
+    }
+
+    #[test]
+    // case: a browser holding the window is told a new approval card and a mission update, in Electron's shapes
+    fn a_browser_holding_the_window_is_told_a_new_approval_card_and_a_mission_update_as_electron_tells_its_window() {
+        let (_root, relay, mut rt, browser, cards, checks) = mirrored_window("desk-mirror-told");
+        // A card raised before the browser took the window is the replay's to tell (`replay: 'approvals'`), not news.
+        cards.lock().unwrap().push(card("ap_before", "m_before"));
+        take_window(&mut rt, &relay, &browser);
+        let after_take = told_desk(&relay, &browser, 0).len();
+        poll_once(&mut rt);
+        assert!(told_events(&relay, &browser, after_take).is_empty(), "nothing new, nothing told");
+
+        cards.lock().unwrap().push(card("ap_live", "m_live"));
+        checks.lock().unwrap().push(("m_live".to_owned(), "npm run lint".to_owned()));
+        poll_once(&mut rt);
+        let told = told_events(&relay, &browser, after_take);
+        // shared/ipc.ts MissionApprovalRequest; codex-mission.ts:1393 `edit-check-started`.
+        assert_eq!(
+            told,
+            vec![
+                (
+                    "mission-approval:request".to_owned(),
+                    serde_json::json!([{
+                        "approvalId": "ap_live",
+                        "runId": "run_m_live",
+                        "missionId": "m_live",
+                        "runtime": "codex",
+                        "kind": "command",
+                        "summary": "Run tests",
+                        "detail": "npm test",
+                        "cwd": "/repo",
+                        "requestedAt": "2026-11-26T12:00:00Z",
+                    }])
+                ),
+                (
+                    "codex-mission:update".to_owned(),
+                    serde_json::json!([{
+                        "kind": "edit-check-started",
+                        "runId": "run_m_live",
+                        "missionId": "m_live",
+                        "command": "npm run lint",
+                    }])
+                ),
+            ]
+        );
+
+        // The card answered elsewhere goes: `mission-approval:withdrawn` with its id (index.ts:2473).
+        let before = told_desk(&relay, &browser, 0).len();
+        cards.lock().unwrap().retain(|c| c.approval_id != "ap_live");
+        rt.state.appearance = Some(true);
+        poll_once(&mut rt);
+        assert_eq!(
+            told_events(&relay, &browser, before),
+            vec![
+                ("mission-approval:withdrawn".to_owned(), serde_json::json!(["ap_live"])),
+                (
+                    "appearance:changed".to_owned(),
+                    serde_json::json!([{
+                        "theme": "dark",
+                        "resolved": "dark",
+                        "look": "standard",
+                        "liquidOffered": false,
+                        "glassGround": "desktop",
+                    }])
+                ),
+            ]
+        );
+        for (channel, _) in told_events(&relay, &browser, 0) {
+            assert!(ELECTRON_DESK_EVENTS.contains(&channel.as_str()), "{channel} is not one isDeskEvent allows");
+        }
+    }
+
+    #[test]
+    // case: a browser that does not hold the window is told nothing the window hears
+    fn a_browser_that_does_not_hold_the_window_is_told_nothing_the_window_hears() {
+        let (_root, relay, mut rt, browser, cards, checks) = mirrored_window("desk-mirror-not-held");
+        cards.lock().unwrap().push(card("ap_1", "m_1"));
+        checks.lock().unwrap().push(("m_1".to_owned(), "npm test".to_owned()));
+        rt.state.appearance = Some(true);
+        poll_once(&mut rt);
+        assert!(told_desk(&relay, &browser, 0).is_empty(), "paired, never took it: told nothing");
+
+        // Taken, then taken back by this computer: told `taken`, and nothing the window hears after.
+        take_window(&mut rt, &relay, &browser);
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().take_back();
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().flush();
+        let after_back = told_desk(&relay, &browser, 0).len();
+        cards.lock().unwrap().push(card("ap_2", "m_2"));
+        checks.lock().unwrap().push(("m_2".to_owned(), "npm run lint".to_owned()));
+        rt.state.appearance = Some(false);
+        poll_once(&mut rt);
+        poll_once(&mut rt);
+        assert!(told_desk(&relay, &browser, after_back).is_empty(), "the window is this computer's again");
+    }
+
+    #[test]
+    // case: a channel isDeskEvent refuses is never told to the browser holding the window
+    fn a_channel_is_desk_event_refuses_is_never_told_to_the_browser_holding_the_window() {
+        let (_root, relay, mut rt, browser, cards, _checks) = mirrored_window("desk-mirror-refused");
+        take_window(&mut rt, &relay, &browser);
+        let after_take = told_desk(&relay, &browser, 0).len();
+        // What Electron tells only this computer's window (shared/desk-calls.ts WINDOW_ONLY_EVENTS), through the very
+        // host the window's poll tells, alongside a card the browser may hear.
+        let host = rt.state.phone_anywhere_link.desk.clone().unwrap();
+        host.mirror("locust:github-sign-in-code", &[DeskValue::Json(serde_json::json!({ "code": "ABCD-1234" }))]);
+        host.mirror("terminal:event", &[DeskValue::Json(serde_json::json!({ "data": "secret-scrollback" }))]);
+        cards.lock().unwrap().push(card("ap_ok", "m_ok"));
+        poll_once(&mut rt);
+        let told = told_events(&relay, &browser, after_take);
+        assert_eq!(told.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(), ["mission-approval:request"], "{told:?}");
+        let sent = format!("{:?}", told_desk(&relay, &browser, 0));
+        assert!(!sent.contains("ABCD-1234") && !sent.contains("secret-scrollback"), "{sent}");
+    }
+
+    /// Lane check of desk-3 row 2: `mirror_desk` runs on every window poll, so at rest it must cost nothing. Electron's
+    /// `mirrorToDesk` (index.ts:627) only forwards what `webContents.send` was already sending, and only to a browser
+    /// holding the window: no browser holding it, nothing is read from the engine and nothing is told. Counted with a
+    /// stand-in engine: none paired, one paired but not holding, and one that held the window and was taken back.
+    #[test]
+    fn at_rest_the_mirror_asks_the_engine_nothing_on_any_poll() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let asked = Arc::new(AtomicUsize::new(0));
+        let counting = |asked: &Arc<AtomicUsize>| -> DeskEngineHeard {
+            let asked = asked.clone();
+            Arc::new(move || {
+                asked.fetch_add(1, Ordering::SeqCst);
+                (vec![card("ap_1", "m_1")], vec![("m_1".to_owned(), "npm test".to_owned())])
+            })
+        };
+
+        // No phone link at all: no desk host.
+        let mut s = State::default();
+        s.phone_anywhere_link.desk_engine = Some(counting(&asked));
+        for _ in 0..5 {
+            mirror_desk(&mut s);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "no desk host: the engine is never asked");
+
+        // A browser paired but not holding the window, through the window's own poll.
+        let (_root, relay, mut rt, browser, _cards, _checks) = mirrored_window("desk-mirror-at-rest");
+        rt.state.phone_anywhere_link.desk_engine = Some(counting(&asked));
+        for _ in 0..5 {
+            poll_once(&mut rt);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "paired, not holding: the engine is never asked");
+        assert!(told_desk(&relay, &browser, 0).is_empty(), "and nothing is told");
+
+        // Holding it, the engine is asked once a poll (the counter is wired)...
+        take_window(&mut rt, &relay, &browser);
+        let held = asked.load(Ordering::SeqCst);
+        assert!(held >= 1, "holding the window, the engine is read");
+        poll_once(&mut rt);
+        assert_eq!(asked.load(Ordering::SeqCst), held + 1, "once a poll while held");
+
+        // ...and taken back, never again.
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().take_back();
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().flush();
+        let back = asked.load(Ordering::SeqCst);
+        let told_back = told_desk(&relay, &browser, 0).len();
+        for _ in 0..5 {
+            poll_once(&mut rt);
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), back, "taken back: the engine is never asked");
+        assert_eq!(told_desk(&relay, &browser, 0).len(), told_back, "and nothing more is told");
+    }
+
+    /// Lane check of desk-3 row 2: index.ts:627 `mirrorToDesk` forwards only what `webContents.send` sends while the
+    /// browser holds the window. Taken back, then taken again, the browser is told nothing of what changed in between
+    /// as news (cards waiting then reach it only by its own `replay: 'approvals'`); what changes after it holds the
+    /// window again is told.
+    #[test]
+    fn a_browser_taking_the_window_again_is_not_told_what_changed_while_it_did_not_hold_it() {
+        let (_root, relay, mut rt, browser, cards, _checks) = mirrored_window("desk-mirror-retake");
+        take_window(&mut rt, &relay, &browser);
+        poll_once(&mut rt);
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().take_back();
+        rt.state.phone_anywhere_link.desk.as_ref().unwrap().flush();
+        poll_once(&mut rt);
+
+        // While this computer has the window: a card is raised and the window turns light.
+        cards.lock().unwrap().push(card("ap_gap", "m_gap"));
+        rt.state.appearance = Some(true);
+        poll_once(&mut rt);
+
+        let before = told_desk(&relay, &browser, 0).len();
+        desk_frame(&relay, &browser, 2, serde_json::json!([{ "kind": "take", "id": "t2" }]));
+        pump_until(&mut rt, "the browser holds the window again", |s| s.elsewhere_cover.covered);
+        poll_once(&mut rt);
+        poll_once(&mut rt);
+        assert!(told_events(&relay, &browser, before).is_empty(), "{:?}", told_events(&relay, &browser, before));
+
+        cards.lock().unwrap().push(card("ap_new", "m_new"));
+        poll_once(&mut rt);
+        let told = told_events(&relay, &browser, before);
+        assert_eq!(told.iter().map(|(c, a)| (c.as_str(), a[0]["approvalId"].clone())).collect::<Vec<_>>(), [("mission-approval:request", serde_json::json!("ap_new"))]);
+    }
+
+    #[test]
+    // case: what the window hears between two polls, said as Electron's main process says it
+    fn what_the_window_hears_between_two_polls_is_said_as_electrons_main_process_says_it() {
+        let was = DeskHeard::default();
+        let mut now = DeskHeard {
+            appearance: was.appearance.clone(),
+            update: was.update.clone(),
+            notices: vec![locust_core::native::RelayNotice {
+                mission_id: "m_1".into(),
+                message: "Ada replied.".into(),
+                level: "info".into(),
+            }],
+            starting: Some(locust_core::native::RelayStarting {
+                teammate_id: "tm_ada".into(),
+                name: "Ada".into(),
+                answering: "m_1".into(),
+                hop: 2,
+            }),
+            pr_news: Some(locust_core::pull_requests::PullRequestNews {
+                number: 42,
+                url: "https://github.com/o/r/pull/42".into(),
+                said: "2 of 9 checks failed".into(),
+                needs_work: true,
+            }),
+            ..DeskHeard::default()
+        };
+        let said = desk_news(&was, &now);
+        // shared/ipc.ts CodexMissionUpdate `relay-notice` / `relay-starting`; shared/pull-request.ts PullRequestNews.
+        assert_eq!(
+            said,
+            vec![
+                (
+                    "codex-mission:update",
+                    serde_json::json!({
+                        "kind": "relay-notice", "runId": "run_m_1", "missionId": "m_1", "message": "Ada replied.", "level": "info"
+                    })
+                ),
+                (
+                    "codex-mission:update",
+                    serde_json::json!({ "kind": "relay-starting", "teammateId": "tm_ada", "name": "Ada", "answering": "m_1", "hop": 2 })
+                ),
+                (
+                    "folder:pull-request-news",
+                    serde_json::json!({ "number": 42, "url": "https://github.com/o/r/pull/42", "said": "2 of 9 checks failed", "needsWork": true })
+                ),
+            ]
+        );
+        let then = now.clone();
+        now.starting = None;
+        assert_eq!(
+            desk_news(&then, &now),
+            vec![("codex-mission:update", serde_json::json!({ "kind": "relay-start-settled", "teammateId": "tm_ada" }))]
+        );
+        assert!(desk_news(&now, &now).is_empty(), "nothing changed, nothing said");
+
+        // shared/ipc.ts AppUpdateState: heldBack is one of Electron's three reasons, or absent.
+        let mut update = locust_core::updates::AppUpdateState::default();
+        assert!(app_update_json(&update).get("heldBack").is_none(), "{}", app_update_json(&update));
+        update.held_back = Some(locust_core::updates::HeldBack::Development);
+        assert_eq!(
+            app_update_json(&update),
+            serde_json::json!({ "phase": "unsupported", "currentVersion": "0.1.0", "everyBuild": false, "heldBack": "development" })
+        );
+    }
 }
+

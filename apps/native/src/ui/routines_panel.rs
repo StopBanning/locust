@@ -345,8 +345,10 @@ fn read_hook(s: &mut State, id: &str, replace: bool) {
 fn sync_hooks_async(s: &mut State) {
     let Some(engine) = engine(s) else { return };
     let hooks = engine.host.hooks().clone();
+    // index.ts's `syncHooks`: a sync that fails is written to locust-errors.log in Electron's words.
+    let log_root = engine.host.store().root().to_path_buf();
     std::thread::spawn(move || {
-        let _ = hooks.sync();
+        hooks.sync_or_note(&log_root);
     });
 }
 fn result(s: &mut State, r: Result<(), String>) {
@@ -358,6 +360,11 @@ fn result(s: &mut State, r: Result<(), String>) {
         Err(e) => s.routines.error = e,
     }
 }
+/// `.lc-ghostbutton`: the routine row's actions (AutomationsScreen.tsx:347-417), boxed, at the row's far end.
+fn ghost(label: &str, p: &Palette) -> El {
+    crate::look::controls::ghost_button(&crate::look::controls::Look::new(p.dark), label)
+}
+
 fn button(label: &str, p: &Palette) -> El {
     text(label.to_owned())
         .font(type_::BODY)
@@ -483,54 +490,10 @@ fn runner_choice(s: &State, p: &Palette) -> El {
 
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let panel = &s.routines;
-    let mut body = col()
-        .w_full()
-        .padding(22.0)
-        .gap(12.0)
-        .child(
-            row()
-                .gap(12.0)
-                // Called what every control on it already calls the object (routines-shelf.test.tsx): Save as routine,
-                // Edit routine, routineRunSummary. The count beside it, as Electron's ScreenHeader meta says it.
-                .child(
-                    text("Routines")
-                        .key("routines-heading")
-                        .font(type_::TITLE)
-                        .color(p.text),
-                )
-                .child(text(shelf_meta(&panel.file)).key("routines-meta").font(type_::LABEL).color(p.muted).grow(1.0))
-                .child(button("Close", p).on_press(|s: &mut State| s.routines.open = false)),
-        );
-    let owner = s.teammates.get(s.selected).map(|t| t.id.clone());
-    let mut top_actions = row().gap(8.0);
-    if let Some(owner) = owner {
-        top_actions = top_actions.child(
-            button("New routine", p)
-                .key("routine-new")
-                .on_press(move |s: &mut State| {
-                    edit(s, json!({"name":"","steps":[""],"teammateId":owner}))
-                }),
-        );
-    }
-    top_actions = top_actions
-        .child(
-            button("Start from a template", p)
-                .key("routine-templates-open")
-                .on_press(|s: &mut State| {
-                    s.routines.templates_open = !s.routines.templates_open;
-                }),
-        )
-        .child(
-            button("Import routine", p)
-                .key("routine-import-file")
-                .role("button")
-                .on_press_tx(|_s: &mut State, tx: &mut Tx| {
-                    open_routine_file(tx);
-                }),
-        );
-    body = body.child(top_actions);
+    let mut body = col().key("routines-body").w_full().px(24.0).pt(14.0).pb(22.0).gap(12.0);
+    // AutomationsScreen.tsx:280-282 opens `RoutineTemplateDialog` from the add row; drawn first, over the list.
     if panel.templates_open {
-        body = body.child(templates_view(s, p));
+        body = body.child(templates_dialog(p));
     }
     if let Some(preview) = &panel.import_preview {
         body = body.child(import_preview_view(s, preview, p));
@@ -806,9 +769,6 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     if let Some(rs) = panel.file["routines"].as_array() {
         if rs.is_empty() {
             body = body.child(empty_shelf(s, p));
-            if !panel.templates_open {
-                body = body.child(templates_view(s, p));
-            }
         }
         let known = known_folders(s);
         for r in rs {
@@ -857,12 +817,15 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             let missed_now = r["missedAt"].is_string() && r.get("execution").filter(|e| !e.is_null()).is_none_or(|e| e["status"] == "abandoned");
             card = card.child(
                 row()
-                    .gap(10.0)
-                    .child(button("Edit", p).on_press(move |s: &mut State| edit(s, entry.clone())))
-                    .child(button("Save as file", p).key(format!("routine-export-{id}")).role("button").label(format!("Export {}", r["name"].as_str().unwrap_or("Routine"))).on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                    .key(format!("routine-actions-{id}"))
+                    .w_full()
+                    .justify_end()
+                    .gap(6.0)
+                    .child(ghost("Edit", p).on_press(move |s: &mut State| edit(s, entry.clone())))
+                    .child(ghost("Save as file", p).key(format!("routine-export-{id}")).role("button").label(format!("Export {}", r["name"].as_str().unwrap_or("Routine"))).on_press_tx(move |s: &mut State, tx: &mut Tx| {
                         begin_export_routine(s, export_entry.clone(), tx);
                     }))
-                    .child(button(if paused { "Resume" } else { "Pause" }, p).on_press(
+                    .child(ghost(if paused { "Resume" } else { "Pause" }, p).on_press(
                         move |s: &mut State| {
                             let at = chrono::Utc::now()
                                 .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
@@ -876,7 +839,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             result(s, r);
                         },
                     ))
-                    .child(button("Remove", p).on_press(move |s: &mut State| {
+                    .child(ghost("Remove", p).on_press(move |s: &mut State| {
                         let r = s
                             .data
                             .as_ref()
@@ -955,10 +918,80 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     .on_press(move |s: &mut State| on_save(s, &first_id)),
             );
         }
+        // The starter routines stay a row away once the shelf has routines (AutomationsScreen.tsx:470-478): the add row
+        // names the first few and opens the picker.
+        let shipped = locust_core::routine_templates::list_shipped_templates();
+        if !rs.is_empty() && !shipped.is_empty() {
+            body = body.child(
+                row()
+                    .key("routine-templates-open")
+                    .role("button")
+                    .label("Start from a template")
+                    .w_full()
+                    .padding(12.0)
+                    .gap(10.0)
+                    .center_y()
+                    .fill(p.raised)
+                    .hover(p.selected)
+                    .child(text("+").font(type_::BODY).color(p.secondary).a11y_hidden())
+                    .child(
+                        col()
+                            .gap(2.0)
+                            .grow(1.0)
+                            .child(text("Start from a template").font(type_::BODY).color(p.text))
+                            .child(text(locust_core::routine_templates::templates_line(&shipped)).key("routine-templates-line").font(type_::LABEL).color(p.muted)),
+                    )
+                    .on_press(|s: &mut State| s.routines.templates_open = true),
+            );
+        }
         body = body.child(login_note(s, p));
     }
-    body.key("routines-shelf").label("Routines").scroll(ScrollSpec { stick_bottom: false }).h_full()
+    col()
+        .key("routines-shelf")
+        .label("Routines")
+        .w_full()
+        .h_full()
+        .child(routines_header(s, p))
+        .child(col().key("routines-scroll").w_full().grow(1.0).scroll(ScrollSpec { stick_bottom: false }).child(body))
 }
+
+/// `ScreenHeader` (Screens.tsx:155-162, AutomationsScreen.tsx:152-179): the title, its count beside it, and the
+/// screen's two actions, Import routine and New routine, as ghost buttons at the far end (`.lc-screen__actions`,
+/// `margin-left: auto`). No Close: a screen is left from the sidebar, as every other one is.
+fn routines_header(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut actions = row().key("routines-actions").gap(6.0).center_y().child(
+        crate::look::controls::ghost_button(&l, "Import routine")
+            .key("routine-import-file")
+            .on_press_tx(|_s: &mut State, tx: &mut Tx| open_routine_file(tx)),
+    );
+    if let Some(owner) = s.teammates.get(s.selected).map(|t| t.id.clone()) {
+        actions = actions.child(
+            crate::look::controls::ghost_button(&l, "New routine")
+                .key("routine-new")
+                .on_press(move |s: &mut State| edit(s, json!({"name":"","steps":[""],"teammateId":owner}))),
+        );
+    }
+    row()
+        .key("routines-header")
+        .w_full()
+        .h(60.0)
+        .px(24.0)
+        .gap(12.0)
+        .center_y()
+        .fill(l.c("bg-chrome"))
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+        // Called what every control on it already calls the object (routines-shelf.test.tsx): Save as routine,
+        // Edit routine, routineRunSummary.
+        .child(text("Routines").key("routines-heading").font(crate::conversation_board::SCREEN_TITLE).color(l.c("text-primary")))
+        .child(text(shelf_meta(&s.routines.file)).key("routines-meta").font(crate::conversation_board::SCREEN_META).color(l.c("text-muted")))
+        .child(el().grow(1.0))
+        .child(actions)
+}
+
+/// The empty shelf's reading column (shell.css:26122-26133 `max-width: 680px; margin: 0 auto`). The list of routines is
+/// not in one: `.lc-automations > .lc-routinelist` spans the page with 24 either side.
+pub const EMPTY_SHELF_COLUMN: f32 = 680.0;
 
 /// The header's count (AutomationsScreen meta): "none saved", or how many, how many go on a schedule, and how many of
 /// those are paused -- a paused one is not going on its own, so it is counted apart.
@@ -979,7 +1012,8 @@ fn shelf_meta(file: &Value) -> String {
 /// newest finished conversations, each with Save as routine. With none, the one honest line -- unless there are starter
 /// templates to offer instead, and then they are the material.
 fn empty_shelf(s: &State, p: &Palette) -> El {
-    let mut shelf = col().gap(8.0).w_full().key("routines-empty").child(
+    // One 680 column in the middle, read from its left edge (shell.css:26122-26133 `.lc-empty:has(> .lc-savable)`).
+    let mut shelf = col().gap(8.0).w_full().max_w(EMPTY_SHELF_COLUMN).self_center().key("routines-empty").child(
         text("A routine is a job a teammate does again: steps you write, or the turns of a conversation you save, replayed when you press Run or on a schedule.")
             .font(type_::BODY).color(p.text).wrap(),
     );
@@ -1014,7 +1048,7 @@ fn empty_shelf(s: &State, p: &Palette) -> El {
     }
     if offered {
         let head = if s.routines.savable.is_empty() { "Start from a template, or press New routine to write your own." } else { "Or start from a template." };
-        shelf = shelf.child(text(head).font(type_::LABEL).color(p.secondary));
+        shelf = shelf.child(text(head).key("routines-templates-head").font(type_::LABEL).color(p.secondary)).child(template_list(p));
     }
     shelf
 }
@@ -1242,7 +1276,7 @@ fn run_refusal(s: &State, r: &Value) -> Option<Option<&'static str>> {
 }
 
 fn run_button(s: &State, r: &Value, label: &str, p: &Palette) -> El {
-    let b = button(label, p).role("button");
+    let b = ghost(label, p).role("button");
     match run_refusal(s, r) {
         None => b,
         Some(why) => {
@@ -1654,7 +1688,8 @@ pub(super) fn poll(s: &mut State) -> bool {
                     tick = true;
                 }
                 if tick {
-                    let _ = host.hooks().sync();
+                    // index.ts's `tickRoutines` starts with `syncHooks()`, which notes a sync that fails.
+                    host.hooks().sync_or_note(host.store().root());
                 }
                 let result = if tick { runner.tick(locust_core::routine_runner::Host::now(&*host)).map(|_| ()) } else if ended { runner.ended() } else { Ok(()) };
                 if let Err(e) = result {
@@ -1988,77 +2023,104 @@ fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
     )
 }
 
-fn templates_view(_s: &State, p: &Palette) -> El {
-    let list = locust_core::routine_templates::list_shipped_templates();
-    let mut box_el = col()
+/// Each opens as a preview; a chain opens in the editor (App.tsx `openRoutineTemplate`).
+fn use_template(s: &mut State, tid: &str) {
+    let ws = s.home.folder_path.as_deref().map(std::path::Path::new).map(locust_core::people::workspace_id);
+    match s.routines.io.preview_template(tid, ws.as_deref(), &[]) {
+        // App.tsx openRoutineTemplate: a CHAIN opens in the editor, a teammate proposed for each step from this roster,
+        // not in the preview that gives every step to one.
+        Ok(preview) if preview.hand_off_checks.iter().any(|c| *c) => {
+            s.routines.templates_open = false;
+            open_chain_draft(s, &preview);
+        }
+        Ok(preview) => {
+            s.routines.templates_open = false;
+            s.routines.import_preview = Some(ImportPreviewState { preview, teammate_id: String::new(), error: String::new(), from_template: true });
+        }
+        Err(e) => s.routines.error = e,
+    }
+}
+
+/// `RoutineTemplateList` (RoutineTemplates.tsx:34-54, `.lc-templates` shell.css:3119-3178): one card of rows, each row
+/// the whole button: the name with its facts at the far end, and what it does under them. No "Use template": the row
+/// is what is pressed.
+fn template_list(p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut list = col()
+        .key("routine-templates")
         .w_full()
-        .padding(12.0)
-        .gap(8.0)
-        .fill(p.field)
-        .radius(10.0)
+        .padding(2.0)
+        .radius(l.t.px("radius-card"))
+        .fill(l.c("bg-raised"))
+        .border(1.0, l.c("border-card"));
+    for (at, info) in locust_core::routine_templates::list_shipped_templates().into_iter().enumerate() {
+        let tid = info.id.clone();
+        let mut entry = col()
+            .key(format!("routine-use-template-{}", info.id))
+            .role("button")
+            .label(info.name.clone())
+            .focusable(true)
+            .w_full()
+            .px(8.0)
+            .py(6.0)
+            .gap(2.0)
+            .radius(l.t.px("radius-control"))
+            .hover(l.c("hover-surface"))
+            .child(
+                row()
+                    .w_full()
+                    .gap(24.0)
+                    .center_y()
+                    .child(text(info.name.clone()).font(l.ty.control).color(l.c("text-primary")).truncate().grow(1.0).shrink())
+                    .child(text(locust_core::routine_templates::template_meta(&info)).key(format!("routine-template-meta-{}", info.id)).font(type_::LABEL).color(l.c("text-muted"))),
+            )
+            .child(text(info.summary.clone()).key(format!("routine-template-what-{}", info.id)).font(l.ty.body).color(l.c("text-muted")).wrap());
+        if !info.asks.is_empty() {
+            entry = entry.help(format!("It asks: {}", info.asks.join(" · ")));
+        }
+        if at > 0 {
+            entry = entry.border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"));
+        }
+        list = list.child(entry.on_press(move |s: &mut State| use_template(s, &tid)));
+    }
+    list
+}
+
+/// `RoutineTemplateDialog` (RoutineTemplates.tsx:56-77): "Start from a template", its one × to close, the note, and
+/// the list. It holds the keyboard as `useModal` does; Escape closes it.
+fn templates_dialog(p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    col()
+        .key("routine-templates-dialog")
+        .role("dialog")
+        .label("Start from a template")
+        .w_full()
+        .max_w(560.0)
+        .self_center()
+        .padding(16.0)
+        .gap(10.0)
+        .radius(l.t.px("radius-card"))
+        .fill(l.c("bg-raised"))
+        .border(1.0, l.c("border-card"))
         .child(
             row()
                 .w_full()
-                .child(text("Starter templates").font(type_::TITLE).color(p.text).grow(1.0))
+                .center_y()
+                .child(text("Start from a template").key("routine-templates-title").font(rune::TextStyle { weight: 600.0, ..l.ty.control }).color(l.c("text-primary")).grow(1.0))
                 .child(
-                    text(locust_core::routine_templates::templates_line(&list))
-                        .font(type_::LABEL)
-                        .color(p.muted),
-                )
-                .child(button("Close", p).on_press(|s: &mut State| {
-                    s.routines.templates_open = false;
-                })),
-        );
-    for info in list {
-        let tid = info.id.clone();
-        let meta = locust_core::routine_templates::template_meta(&info);
-        box_el = box_el.child(
-            row()
-                .w_full()
-                .padding(8.0)
-                .gap(8.0)
-                .fill(p.raised)
-                .radius(6.0)
-                .child(
-                    col()
-                        .grow(1.0)
-                        .gap(2.0)
-                        .child(text(info.name.clone()).font(type_::BODY).color(p.text))
-                        .child(text(meta).font(type_::LABEL).color(p.muted)),
-                )
-                .child(
-                    button("Use template", p)
-                        .key(format!("routine-use-template-{}", info.id))
-                        .on_press(move |s: &mut State| {
-                            let ws = s
-                                .home
-                                .folder_path
-                                .as_deref()
-                                .map(std::path::Path::new)
-                                .map(locust_core::people::workspace_id);
-                            match s.routines.io.preview_template(&tid, ws.as_deref(), &[]) {
-                                // App.tsx openRoutineTemplate: a CHAIN opens in the editor, a teammate proposed for
-                                // each step from this roster, not in the preview that gives every step to one.
-                                Ok(preview) if preview.hand_off_checks.iter().any(|c| *c) => {
-                                    s.routines.templates_open = false;
-                                    open_chain_draft(s, &preview);
-                                }
-                                Ok(preview) => {
-                                    s.routines.templates_open = false;
-                                                                        s.routines.import_preview = Some(ImportPreviewState {
-                                        preview,
-                                        teammate_id: String::new(),
-                                        error: String::new(),
-                                        from_template: true,
-                                    });
-                                }
-                                Err(e) => s.routines.error = e,
-                            }
-                        }),
+                    text("×")
+                        .key("routine-templates-close")
+                        .role("button")
+                        .label("Close")
+                        .font(l.ty.control)
+                        .color(l.c("text-muted"))
+                        .px(6.0)
+                        .on_press(|s: &mut State| s.routines.templates_open = false),
                 ),
-        );
-    }
-    box_el
+        )
+        .child(text("Each opens as a preview. Nothing is added until you give it to a teammate.").key("routine-templates-note").font(l.ty.body).color(l.c("text-muted")).wrap())
+        .child(template_list(p))
+        .modal(true, |s: &mut State| s.routines.templates_open = false)
 }
 
 /// The editor, opened on a chain template (`chainDraftFrom`): who takes each step proposed from the team, the checker
@@ -2678,3 +2740,7 @@ mod machine_words_ui_tests;
 #[cfg(test)]
 #[path = "routine_waiting_on_board_tests.rs"]
 mod routine_waiting_on_board_tests;
+
+#[cfg(test)]
+#[path = "routines_page_tests.rs"]
+mod routines_page_tests;

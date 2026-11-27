@@ -649,37 +649,62 @@ fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
         section = section.child(card);
     }
     if set.enabled {
-        let mut by_hand = col()
-            .w_full()
-            .gap(10.0)
-            .padding(10.0)
-            .child(text("Add Locust to Claude Code, Codex or OpenClaw by hand").font(l.ty.control).color(l.c("text-primary")));
-        if let Some(line) = &door.claude_command {
-            by_hand = by_hand.child(setup_block(&l, "Claude Code \u{2014} run this in Terminal:", "the Claude Code command", line));
-        }
-        if let Some(config) = &door.codex_config {
-            by_hand = by_hand.child(setup_block(&l, "Codex \u{2014} add this to ~/.codex/config.toml:", "the Codex settings", config));
-        }
-        if let Some(line) = &door.openclaw_command {
-            by_hand = by_hand.child(setup_block(
-                &l,
-                "OpenClaw \u{2014} run this in Terminal. It checks the connection first, and its tool policy decides which of its chats can use it:",
-                "the OpenClaw command",
-                line,
-            ));
-        }
-        by_hand = by_hand.child(
-            text("Locust changes another app\u{2019}s settings only when you press Add to the Claude app; it keeps a copy of the file first, and Remove takes its entry out again. Turning this off stops new requests, not turns already running.")
-                .font(l.ty.body)
-                .color(l.c("text-muted"))
-                .wrap(),
-        );
-        section = section.child(by_hand);
+        section = section.child(by_hand_fold(s, &l, door));
     }
     if let Some(message) = &door.message {
         section = section.child(text(message.clone()).font(l.ty.body).color(l.c("amber-text")).wrap().padding(10.0));
     }
-    section
+    // One block of lines on the pane with hairlines between, as Electron's CSS draws them (pinned by settings_read_like_claudes_tests).
+    section.key("door-card").mb(12.0)
+}
+
+/// The key under which `settings_panel.folds` keeps whether "by hand" is open.
+pub(crate) const BY_HAND_KEY: &str = "door-by-hand";
+pub(crate) const BY_HAND: &str = "Add Locust to Claude Code, Codex or OpenClaw by hand";
+
+/// "Add Locust to Claude Code, Codex or OpenClaw by hand" (LocustMcpSettings.tsx `<More>`): one line that opens onto the
+/// lines to paste, shut until pressed. Open by default it stood as a tall block of commands in the middle of General,
+/// pushing "Your account" a screen down.
+fn by_hand_fold(s: &State, l: &crate::look::controls::Look, door: &locust_core::door::State) -> El {
+    let open = s.settings_panel.folds.is_open(BY_HAND_KEY);
+    let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+    let summary = row()
+        .key(BY_HAND_KEY)
+        .role("button")
+        .label(BY_HAND)
+        .expanded(open)
+        .focusable(true)
+        .focus_ring(2.0, 2.0, l.c("focus-ring"))
+        .gap(6.0)
+        .center_y()
+        .child(text(BY_HAND).font(l.ty.control).color(l.c("text-secondary")))
+        .child(crate::look::controls::glyph(l, chevron, 10.0, Some(l.c("text-muted"))))
+        .on_press(|s: &mut State| s.settings_panel.folds.toggle(BY_HAND_KEY));
+    let mut by_hand = col().w_full().gap(10.0).padding(10.0).child(summary);
+    if !open {
+        return by_hand;
+    }
+    if let Some(line) = &door.claude_command {
+        by_hand = by_hand.child(setup_block(l, "Claude Code \u{2014} run this in Terminal:", "the Claude Code command", line));
+    }
+    if let Some(config) = &door.codex_config {
+        by_hand = by_hand.child(setup_block(l, "Codex \u{2014} add this to ~/.codex/config.toml:", "the Codex settings", config));
+    }
+    if let Some(line) = &door.openclaw_command {
+        by_hand = by_hand.child(setup_block(
+            l,
+            "OpenClaw \u{2014} run this in Terminal. It checks the connection first, and its tool policy decides which of its chats can use it:",
+            "the OpenClaw command",
+            line,
+        ));
+    }
+    by_hand = by_hand.child(
+        text("Locust changes another app\u{2019}s settings only when you press Add to the Claude app; it keeps a copy of the file first, and Remove takes its entry out again. Turning this off stops new requests, not turns already running.")
+            .font(l.ty.body)
+            .color(l.c("text-muted"))
+            .wrap(),
+    );
+    by_hand
 }
 
 fn set_plan(s: &mut State, plan: Option<locust_core::carry_on::PlanRunsOut>) {
@@ -1387,6 +1412,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         p,
                         check_command.as_deref(),
                     ));
+                } else if heading == help_section::HEADING {
+                    body = body.child(help_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1448,6 +1475,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         body = body.child(remote);
                     }
                     body = body.child(more(s, p, "agents"));
+                } else if heading == own_agents_section::HEADING {
+                    body = body.child(own_agents_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1866,6 +1895,17 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
     body
 }
 
+/// The version this window runs: the one Home was told, else the one it was built as.
+fn running_version(s: &State) -> String {
+    if s.home.current_version.is_empty() { env!("CARGO_PKG_VERSION").to_owned() } else { s.home.current_version.clone() }
+}
+
+/// Beside "Settings" (Screens.tsx `ScreenHeader meta`): "Locust 0.882.0 · local only", with " · development build" in
+/// front of "local only" when it is not an installed build.
+pub(crate) fn settings_meta(version: &str, development: bool) -> String {
+    format!("Locust {version}{} · local only", if development { " · development build" } else { "" })
+}
+
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let query = s.settings_panel.search.text.trim().to_owned();
     let mut nav = col().w(200.0).gap(2.0).padding(8.0);
@@ -1951,10 +1991,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 .padding(12.0)
                 .gap(8.0)
                 .center_y()
+                .child(text(SETTINGS_TITLE.to_owned()).font(type_::TITLE).color(p.text))
                 .child(
-                    text(SETTINGS_TITLE.to_owned())
-                        .font(type_::TITLE)
-                        .color(p.text)
+                    text(settings_meta(&running_version(s), cfg!(debug_assertions)))
+                        .key("settings-meta")
+                        .font(type_::LABEL)
+                        .color(p.muted)
                         .grow(1.0),
                 )
                 .child(button("Close", p).on_press(|s: &mut State| s.settings_panel.open = false)),
@@ -2625,3 +2667,13 @@ mod voice_call_disclosure_tests {
         assert!(words.contains("Your microphone sends audio while the call is on."));
     }
 }
+
+#[path = "own_agents_section.rs"]
+pub(crate) mod own_agents_section;
+
+#[path = "help_section.rs"]
+pub(crate) mod help_section;
+
+#[cfg(test)]
+#[path = "settings_general_tests.rs"]
+mod settings_general_tests;

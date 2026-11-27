@@ -645,6 +645,9 @@ pub fn agents_for_store(store: &crate::store::Store) -> Vec<AcpAgent> {
 
 pub struct AcpAgentsStore {
     directory: PathBuf,
+    /// Read while `directory` has no `acp-agents.json` of its own (Electron's, read-only); the first change writes the
+    /// list it read into `directory`, so an agent added in Electron is kept rather than hidden by the new file.
+    fallback: Option<PathBuf>,
     locate: Box<dyn Fn(&str) -> Option<AcpExecutableLaunch> + Send + Sync>,
     scratch: Option<Box<dyn Fn() -> io::Result<PathBuf> + Send + Sync>>,
     timeout: Duration,
@@ -658,6 +661,7 @@ impl AcpAgentsStore {
     ) -> Self {
         Self {
             directory,
+            fallback: None,
             locate: Box::new(locate),
             scratch: None,
             timeout: TEST_TIMEOUT,
@@ -666,16 +670,32 @@ impl AcpAgentsStore {
     }
 
     pub fn for_store(store: &crate::store::Store) -> Self {
-        Self::new(store.root().to_path_buf(), |program| {
-            let path = crate::runtime::discovery::find_named(program).ok()?;
-            let s = path.to_string_lossy().into_owned();
-            Some(AcpExecutableLaunch {
-                command_name: program.to_owned(),
-                executable_path: s,
-                prefix_args: Vec::new(),
-                env: BTreeMap::new(),
-            })
+        Self::new(store.root().to_path_buf(), Self::find_program).with_fallback(store.electron().to_path_buf())
+    }
+
+    fn find_program(program: &str) -> Option<AcpExecutableLaunch> {
+        let path = crate::runtime::discovery::find_named(program).ok()?;
+        let s = path.to_string_lossy().into_owned();
+        Some(AcpExecutableLaunch {
+            command_name: program.to_owned(),
+            executable_path: s,
+            prefix_args: Vec::new(),
+            env: BTreeMap::new(),
         })
+    }
+
+    /// The list to read while this store has none of its own (`agents_for_store`'s rule).
+    pub fn with_fallback(mut self, directory: PathBuf) -> Self {
+        self.fallback = Some(directory);
+        self
+    }
+
+    /// The saved agents: this store's own file, else the fallback's.
+    fn read(&self) -> Vec<AcpAgent> {
+        match &self.fallback {
+            Some(fallback) if !self.directory.join(ACP_AGENTS_FILE).is_file() => read_saved_agents(fallback),
+            _ => read_saved_agents(&self.directory),
+        }
     }
 
     pub fn with_scratch(
@@ -700,7 +720,7 @@ impl AcpAgentsStore {
     }
 
     pub fn list(&self) -> Result<Vec<AcpAgent>, String> {
-        Ok(read_saved_agents(&self.directory))
+        Ok(self.read())
     }
 
     pub fn test(&self, command_line: &str) -> Result<AcpAgentAnswer, String> {
@@ -719,7 +739,7 @@ impl AcpAgentsStore {
         let Some(clean) = clean_agent_name(name) else {
             return Err("Give it a name of up to 40 letters.".into());
         };
-        let mut agents = read_saved_agents(&self.directory);
+        let mut agents = self.read();
         if agents.len() >= MAX_ACP_AGENTS {
             return Err(format!(
                 "Locust keeps up to {MAX_ACP_AGENTS} of your own agents. Remove one first."
@@ -747,14 +767,14 @@ impl AcpAgentsStore {
 
     pub fn remove(&self, id: &str) -> Result<Vec<AcpAgent>, String> {
         let _lock = crate::invariants::lock(&self.serial);
-        let agents = read_saved_agents(&self.directory);
+        let agents = self.read();
         let kept: Vec<AcpAgent> = agents.into_iter().filter(|a| a.id != id).collect();
         self.write_agents(&kept)?;
         Ok(kept)
     }
 
     pub fn resolve(&self, agent_id: &str) -> Result<ResolvedAcpAgent, String> {
-        let agents = read_saved_agents(&self.directory);
+        let agents = self.read();
         let Some(agent) = agents.into_iter().find(|a| a.id == agent_id) else {
             return Err(
                 "That agent is not in Settings > AI agents > Your own agents any more.".into(),

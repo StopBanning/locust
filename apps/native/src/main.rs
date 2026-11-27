@@ -108,6 +108,15 @@ mod effort_slider;
 #[path = "ui/route_picker_tests.rs"]
 mod route_picker_tests;
 #[cfg(test)]
+#[path = "ui/the_chip_is_the_run_tests.rs"]
+mod the_chip_is_the_run_tests;
+#[cfg(test)]
+#[path = "ui/the_chip_names_the_route_tests.rs"]
+mod the_chip_names_the_route_tests;
+#[cfg(test)]
+#[path = "ui/the_mode_chip_says_the_mode_tests.rs"]
+mod the_mode_chip_says_the_mode_tests;
+#[cfg(test)]
 #[path = "ui/managed_controls_tests.rs"]
 mod managed_controls_tests;
 #[path = "ui/look_picker.rs"]
@@ -363,7 +372,7 @@ mod starters;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;
-use rune::tok::type_;
+use crate::look::type_;
 use rune::{
     Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, ImageCache, Key, KeyEvent, Latest,
     ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,
@@ -1131,8 +1140,13 @@ fn send(s: &mut State, _: &mut Tx) {
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
     let native_job = (s.engine == Some(Kind::Native)).then(|| flight_teammate(s, &teammate_id));
-    // The mode chosen on the message box, when one was; else the engine takes the teammate's own.
-    let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
+    // The mode the mode chip shows, read with thread_view.rs's inputs (composer_mode.rs `mode_shown`): chosen here, else
+    // the open conversation's newest turn's, else the teammate's own, else App.tsx's first. Electron's send carries it.
+    let recorded = s.ledger.as_ref().filter(|p| p.header.id == teammate_id).and_then(|p| p.snapshot.turn_metas.last()).and_then(|t| t.mode.as_deref());
+    let header = s.flight.as_ref().and_then(|f| f.header.as_ref());
+    let runtime = pick.as_ref().and_then(|p| p.runtime.as_deref()).or(header.and_then(|h| h.runtime.as_deref())).unwrap_or("codex");
+    let shown = locust_core::composer_mode::mode_shown(s.composer_mode.as_deref(), recorded, header.map_or("", |h| h.runs_in.as_str()), runtime);
+    let mode = locust_core::approval::Mode::parse(&shown);
     let references = reference_chips::ids(s);
     let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
     let left_out_by_you = if crosses_runtimes { left_out_by_you } else { Vec::new() };
@@ -1667,6 +1681,8 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
         s.own_turn = None;
         s.picks.remove(LEDGER_TARGET);
         s.model_menu = None;
+        // A mode picked in the conversation left behind is not this one's (App.tsx `followRouteOf` replaces it).
+        s.composer_mode = None;
         // The teammate the conversation belongs to, from the owners both apps record (missionOwners): its name, face,
         // mode and folder, on the agent and model the conversation is on now. Never guessed from a model; with no
         // owner on record it stays a conversation of that agent.
@@ -1715,6 +1731,7 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
     s.picks.remove(LEDGER_TARGET);
     s.picks.remove(&id);
     s.model_menu = None;
+    s.composer_mode = None;
     s.ledger = None;
     s.thread_away = false;
     s.prompt_rail.reset();
@@ -2750,6 +2767,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
         changed = true;
     }
+    phone_section::mirror_desk(s);
     changed
 }
 
@@ -3372,6 +3390,8 @@ fn cutover_flag(args: &[String], out: &mut dyn std::io::Write) -> Option<i32> {
     match args.get(1).map(String::as_str) {
         Some("--seed-from-electron") => Some(seed_from_electron(out)),
         Some("--check-history") => Some(check_history(args.get(2).map(String::as_str), out)),
+        // Which build this is, "0.883.0 (1a2b3c4d)" or "0.883.0 (dev)": a print and nothing else.
+        Some("--version") => Some(writeln!(out, "{}", locust_core::build_info::line()).map_or(1, |()| 0)),
         _ => None,
     }
 }
@@ -3466,7 +3486,7 @@ fn main() {
         std::process::exit(0);
     }
     // Cutover 1: `--seed-from-electron` copies Electron's current files into the Rust data folder again, says what it
-    // did and exits.
+    // did and exits. `--version` says which build this is and exits, before anything slow.
     if let Some(code) = cutover_flag(&std::env::args().collect::<Vec<_>>(), &mut std::io::stdout()) {
         std::process::exit(code);
     }
@@ -3599,7 +3619,7 @@ fn main() {
     // The record a tester can send back (diagnostic_log.rs): the panic hook, the run's first line and the watch on a
     // window that stops answering, all before the window opens, since a crash at startup is one worth catching.
     if !headless && let Some(store) = locust_core::native::store() {
-        locust_core::diagnostic_log::begin(store.root(), env!("CARGO_PKG_VERSION"), !cfg!(debug_assertions));
+        locust_core::diagnostic_log::begin(store.root(), locust_core::build_info::version(), !cfg!(debug_assertions));
     }
     let placement = if headless {
         locust_core::window_bounds::OpeningPlacement {
@@ -3765,6 +3785,7 @@ fn main() {
     })
     .maximized(placement.maximized)
     .window_options(window_glass::window_options(std::env::consts::OS))
+    .font_smoothing(crate::look::type_::SMOOTHING)
     .chrome(WINDOW_CHROME)
     .on_close(on_close)
     .on_open_url(link_open::opened)

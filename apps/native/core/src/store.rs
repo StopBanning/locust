@@ -404,7 +404,13 @@ pub const SEEDED_FILES: [&str; 9] = [
     "folder-cautions.json",
 ];
 
-/// What `Store::reseed_from_electron` did, file by file.
+/// Settings the Rust app reads from its own folder without ever seeding them (the door's switches, "Let apps see your
+/// conversations", and the apps let in from anywhere): only seeding again carries them over, or they stay Off. Neither
+/// holds a sign-in: remote-mcp.json keeps only hashes of an app's keys, never a key. Sign-in, token, key and account
+/// files (own-models.json, agent-accounts, teammate-keys.json) are not here and are never copied.
+pub const SEEDED_SETTINGS: [&str; 2] = ["locust-mcp.json", "remote-mcp.json"];
+
+/// What `Store::reseed_from_electron` did, file by file. A pet Electron has is named `pets/<id>`.
 #[derive(Debug, Default, PartialEq)]
 pub struct Reseeded {
     /// Copied fresh from Electron's folder.
@@ -420,10 +426,12 @@ pub struct Reseeded {
 }
 
 impl Store {
-    /// Seed again from Electron (Cutover 1): each of `SEEDED_FILES` that Electron's folder has, readable and JSON,
-    /// replaces the Rust copy, and the replaced copy is moved into `<root>/seeded-before-<stamp>/`, never deleted.
-    /// Every Electron file is read and checked before anything is replaced; one that cannot be read or is not JSON
-    /// leaves its Rust copy as it is. Electron's folder is only read. Refused while an engine holds this data folder,
+    /// Seed again from Electron (Cutover 1): each of `SEEDED_FILES` and `SEEDED_SETTINGS` that Electron's folder has,
+    /// readable and JSON, replaces the Rust copy, and the replaced copy is moved into `<root>/seeded-before-<stamp>/`,
+    /// never deleted. Every Electron file is read and checked before anything is replaced; one that cannot be read or
+    /// is not JSON leaves its Rust copy as it is. The pets Electron's `pets/` folder holds (the looks the teammates
+    /// chose) are carried the same way, a whole pet at a time, each held to the rules a pet read here is held to.
+    /// Electron's folder is only read. Refused while an engine holds this data folder,
     /// which would write its own copies back over these.
     pub fn reseed_from_electron(&self, stamp: &str) -> Result<Reseeded, String> {
         use std::io::{Read, Write};
@@ -444,7 +452,7 @@ impl Store {
         }
         let mut done = Reseeded::default();
         let mut fresh = Vec::new();
-        for name in SEEDED_FILES {
+        for name in SEEDED_FILES.into_iter().chain(SEEDED_SETTINGS) {
             let mut body = Vec::new();
             let read = std::fs::File::open(self.electron.join(name))
                 .and_then(|file| file.take(LIMIT as u64 + 1).read_to_end(&mut body));
@@ -508,8 +516,85 @@ impl Store {
                 Err(why) => done.skipped.push((name.to_owned(), why)),
             }
         }
+        self.reseed_pets(stamp, &mut done);
         drop(lock);
         Ok(done)
+    }
+
+    /// The pets Electron's `pets/` folder holds, copied into this one's: one that reads (its pet.json and its sheet are
+    /// checked by `PetLibrary`, links and oversize refused) and differs from the Rust copy replaces it, the Rust pet
+    /// moved into `<aside>/pets/<id>`; one already the same is left alone. A pet only Rust has stays.
+    fn reseed_pets(&self, stamp: &str, done: &mut Reseeded) {
+        use crate::bot_spec::PetSource;
+        use crate::pet_library::{PET_JSON_MAX, PetLibrary};
+        let theirs = self.electron.join("pets");
+        let library = |root: PathBuf| PetLibrary::new(root, self.root.join("pets-bundled"), None, None);
+        let from = library(theirs.clone());
+        for pet in from.list().into_iter().filter(|pet| pet.source == PetSource::Gallery) {
+            let name = format!("pets/{}", pet.id);
+            let outcome = (|| -> Result<Option<bool>, String> {
+                let (sheet, _) = from.sheet(PetSource::Gallery, &pet.id)?;
+                let meta_path = theirs.join(&pet.id).join("pet.json");
+                let meta = match std::fs::symlink_metadata(&meta_path) {
+                    Ok(info) if info.is_file() && info.len() <= PET_JSON_MAX => std::fs::read(&meta_path).map_err(|e| e.to_string())?,
+                    _ => return Err("Electron's pet.json is not a plain file of a pet's size".into()),
+                };
+                let ours = self.check(&self.root.join("pets")).map_err(|e| e.to_string())?;
+                let path = self.check(&ours.join(&pet.id)).map_err(|e| e.to_string())?;
+                let old = match std::fs::symlink_metadata(&path) {
+                    Ok(info) if info.is_dir() => {
+                        if std::fs::read(path.join("pet.json")).ok().as_deref() == Some(meta.as_slice())
+                            && std::fs::read(path.join("spritesheet.webp")).ok().as_deref() == Some(sheet.as_slice())
+                        {
+                            return Ok(None);
+                        }
+                        true
+                    }
+                    Ok(_) => return Err("the Rust copy is not a folder".into()),
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => false,
+                    Err(e) => return Err(format!("the Rust copy could not be read ({e})")),
+                };
+                std::fs::create_dir_all(&ours).map_err(|e| e.to_string())?;
+                let incoming = ours.join(format!(".incoming-{}-{}", pet.id, crate::native::uuid_v4().map_err(|e| e.to_string())?));
+                let kept = (|| -> Result<(), String> {
+                    std::fs::create_dir(&incoming).map_err(|e| e.to_string())?;
+                    let write = |file: &str, bytes: &[u8]| -> Result<(), String> {
+                        use std::io::Write;
+                        let mut file = std::fs::File::create_new(incoming.join(file)).map_err(|e| e.to_string())?;
+                        file.write_all(bytes).and_then(|()| file.sync_all()).map_err(|e| e.to_string())
+                    };
+                    write("spritesheet.webp", &sheet)?;
+                    write("pet.json", &meta)?;
+                    if old {
+                        let aside = self
+                            .check(&self.root.join(format!("seeded-before-{stamp}")).join("pets"))
+                            .map_err(|e| e.to_string())?;
+                        std::fs::create_dir_all(&aside).map_err(|e| e.to_string())?;
+                        let to = aside.join(&pet.id);
+                        if to.symlink_metadata().is_ok() {
+                            return Err(format!("{} already holds one", aside.display()));
+                        }
+                        std::fs::rename(&path, &to).map_err(|e| e.to_string())?;
+                        done.aside = Some(self.root.join(format!("seeded-before-{stamp}")));
+                    }
+                    std::fs::rename(&incoming, &path).map_err(|e| e.to_string())
+                })();
+                if kept.is_err() {
+                    let _ = std::fs::remove_dir_all(&incoming);
+                }
+                kept.map(|()| Some(old))
+            })();
+            match outcome {
+                Ok(None) => done.unchanged.push(name),
+                Ok(Some(moved)) => {
+                    if moved {
+                        done.moved_aside.push(name.clone());
+                    }
+                    done.copied.push(name);
+                }
+                Err(why) => done.skipped.push((name, why)),
+            }
+        }
     }
 }
 

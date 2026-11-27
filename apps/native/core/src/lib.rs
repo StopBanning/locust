@@ -17,6 +17,7 @@ mod approval_patch_content_tests;
 mod status_case_tests;
 pub mod approval_record_note;
 pub mod mode_facts;
+pub mod composer_mode;
 pub mod approval_rule_store;
 pub mod approval_rules;
 pub mod attachments;
@@ -194,6 +195,8 @@ pub mod limits;
 pub mod linux_install;
 pub mod login_item;
 pub mod mac_self_update;
+#[cfg(all(test, target_os = "macos"))]
+mod bundle_mac_tests;
 pub mod mission_export;
 pub mod models;
 pub mod model_lists;
@@ -243,6 +246,7 @@ pub mod recovery;
 pub mod references;
 pub mod relay;
 pub mod relay_socket;
+pub mod build_info;
 pub mod report_problem;
 pub mod diagnostic_log;
 pub mod room_exchange;
@@ -608,6 +612,7 @@ mod slow_agent_tests;
 mod live_line_tests;
 // Reasoning effort in words and as Claude Code's slider (exec/native-picker).
 pub mod effort_levels;
+pub mod run_effort;
 // The model picker's rows: order, fold, free tag, the free model to offer (exec/native-picker).
 pub mod route_rows;
 pub mod mission_strip;

@@ -19,6 +19,7 @@ pub mod puppets;
 pub mod lockup;
 pub mod select_keys;
 pub mod stop_beam;
+pub mod type_;
 
 use rune::{Color, Shadow, TextStyle};
 use rune_kit::{Kit, PaletteSeed, StateColors, Type, css};

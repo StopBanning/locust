@@ -165,3 +165,19 @@ fn a_model_of_your_own_is_named_by_its_own_name_on_every_surface_that_names_a_ro
     assert_eq!(model_display_name("opencode", acme), "Acme 70b");
     assert_eq!(route("opencode", acme), "Acme 70b");
 }
+
+// Live hour 1, fault 20: a Team card's route, read with the names Colin's catalogues give.
+#[test]
+fn a_team_card_route_is_the_runtime_and_the_models_own_name() {
+    use crate::teammate_tooltip::{is_own_route, remember_own_models, route_label};
+    remember_own_models([
+        ("codex", "gpt-6.1-sol", "GPT-6.1-Sol"),
+        ("opencode", "own-bf9f2516/claude-sonnet-5-5", "Claude API"),
+    ]);
+    assert_eq!(route_label("codex", "gpt-6.1-sol"), "Codex / GPT-6.1-Sol");
+    assert_eq!(route_label("opencode", "opencode/deepseek-v4.1-flash-free"), "OpenCode / DeepSeek V4.1 Flash Free");
+    assert_eq!(route_label("opencode", "own-bf9f2516/claude-sonnet-5-5"), "Claude API");
+    assert_eq!(route_label("codex", "account-default"), "Codex");
+    assert_eq!(route_label("claude", ""), "Claude");
+    assert!(is_own_route("own-bf9f2516/claude-sonnet-5-5") && !is_own_route("opencode/deepseek-v4.1-flash-free"));
+}

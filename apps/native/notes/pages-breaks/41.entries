@@ -1,0 +1,8 @@
+src/conversation_board.rs|||    matches!(started_by_kind, Some("judge" | "scout" | "side" | "commit-draft" | "walkthrough")) ==>     matches!(started_by_kind, Some("judge" | "side" | "commit-draft" | "walkthrough"))
+src/conversation_board.rs|||        .filter(|row| !conversation_keys(row).iter().all(|id| is_hidden_run(kind_of(id).as_deref()))) ==>         .filter(|row| !conversation_keys(row).iter().any(|id| is_hidden_run(kind_of(id).as_deref())))
+src/conversation_board.rs|||        .child(text(BOARD_TITLE).key("board-title").font(SCREEN_TITLE).color(l.c("text-primary"))) ==>         .child(text(BOARD_TITLE).key("board-title").font(SCREEN_TITLE).color(l.c("text-primary")).grow(1.0))
+src/conversation_board.rs|||    columns.into_iter().fold(row().key("board-columns").w_full().gap(16.0).flex_wrap().items_start(), ==>     columns.into_iter().fold(col().key("board-columns").w_full().gap(16.0).items_start(),
+src/conversation_board.rs|||    if key == ConversationBoardKey::Done { section.w(256.0).grow(1.0) } else { section.w(256.0).shrink() } ==>     if key == ConversationBoardKey::Done { section.w(256.0) } else { section.w(256.0).shrink() }
+src/conversation_board.rs|||        .px(16.0)\n        .py(12.0)\n        .gap(24.0)\n        .center_y() ==>         .px(16.0)\n        .py(12.0)\n        .gap(24.0)\n        .center_y()\n        .h(96.0)
+src/conversation_board.rs|||    who.into_iter().chain(under).chain(std::iter::once(state)) ==>     who.into_iter().chain(std::iter::once(state)).chain(under)
+src/conversation_board.rs|||        .child(text(count.to_string()).key(format!("board-{name}-count")) ==>         .child(text((count + 1).to_string()).key(format!("board-{name}-count"))

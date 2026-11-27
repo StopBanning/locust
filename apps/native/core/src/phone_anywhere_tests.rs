@@ -2255,6 +2255,96 @@ fn takes_a_browsers_frames_only_once_full_window_is_on_in_order_once_each_and_in
     pc.dispose();
 }
 
+#[test]
+// case: answers a call with the window’s own handler, made as from the window, once it has the window
+// case: lets the window go when the browser that has it may no longer have it
+fn the_desk_host_answers_a_browser_through_the_phone_link_and_lets_the_window_go_when_full_window_is_turned_off() {
+    use crate::desk_host::{DeskHandler, DeskHelloInfo, DeskHost, DeskHostDeps, DeskSender, DeskValue, DeskWindow, desk_tell_json};
+
+    let relay = MemoryRelay::new(None);
+    let dir = TempDir::new("locust-desk-host");
+    let line: Arc<Mutex<Option<PhoneAnywhere>>> = Arc::new(Mutex::new(None));
+    let covers = Arc::new(Mutex::new(Vec::new()));
+    let mut handlers: HashMap<String, DeskHandler> = HashMap::new();
+    handlers.insert(
+        "appearance:get".into(),
+        Arc::new(|_, _| Ok(DeskValue::Json(json!({ "theme": "system", "resolved": "dark" })))),
+    );
+    let told_line = line.clone();
+    let cover_seen = covers.clone();
+    let host = Arc::new(DeskHost::new(DeskHostDeps {
+        handlers: Arc::new(Mutex::new(handlers)),
+        window: Arc::new(|| {
+            let sender = DeskSender { id: 1, main_frame_id: 1, process_id: 1, destroyed: false };
+            Some(DeskWindow { destroyed: false, web_contents: sender })
+        }),
+        tell: Arc::new(move |device, items| {
+            let items: Vec<Value> = items.iter().map(desk_tell_json).collect();
+            told_line.lock().unwrap().as_ref().is_some_and(|pc| pc.tell_desk(device, &items))
+        }),
+        cover: Arc::new(move |on| cover_seen.lock().unwrap().push(on)),
+        hello: Arc::new(|| Ok(DeskHelloInfo { version: "0.883.0".into(), computer: "DESK-PC".into(), theme: "dark".into() })),
+        waiting: Arc::new(Vec::new),
+        changed: None,
+    }));
+    let pc = make_pc(&relay, dir.path().clone(), FakeCalls::new(), None, None, Some(host.clone()), None);
+    *line.lock().unwrap() = Some(pc.clone());
+    pc.set_enabled(true);
+    until(3_000, || pc.settings().connected);
+    let phone = pair_phone(&relay, &pc.desk_code().expect("a code for the full window"), None).unwrap();
+    until(3_000, || pc.settings().devices.len() == 1);
+    assert_eq!(pc.settings().devices[0].desk, Some(true));
+    let mut device = PhoneSession::open(&relay, &phone, 0);
+    let session = random_text(9);
+    let boxed = seal_json(
+        &phone.keys.seal,
+        &json!({ "v": 1, "kind": "desk", "s": session, "q": 1, "t": now_ms(), "items": [
+            { "kind": "hello", "id": "h1" },
+            { "kind": "take", "id": "t1" },
+            { "kind": "call", "id": "c1", "channel": "appearance:get", "args": "[]" },
+            { "kind": "call", "id": "c2", "channel": "terminal:create", "args": "[]" },
+            { "kind": "nonsense", "id": "x1" }
+        ] }),
+        &aad_of(&phone.room, &phone.device, Direction::DeviceToPc),
+    )
+    .unwrap();
+    device.line.send(json!({ "t": "send", "to": "pc", "n": boxed.n, "c": boxed.c }).to_string()).unwrap();
+    let read_desk = |dev: &mut PhoneSession| -> Value {
+        let f = dev.reader.next_matching(3_000, |f| f.get("t").and_then(Value::as_str) == Some("msg")).unwrap();
+        open_json(
+            &phone.keys.open,
+            f["n"].as_str().unwrap(),
+            f["c"].as_str().unwrap(),
+            &aad_of(&phone.room, &phone.device, Direction::PcToDevice),
+        )
+        .unwrap()
+    };
+    let said = read_desk(&mut device);
+    assert_eq!(said["kind"], "desk");
+    let items = said["items"].as_array().unwrap();
+    assert_eq!(items.len(), 4, "{said}");
+    let hello: Value = serde_json::from_str(items[0]["value"].as_str().unwrap()).unwrap();
+    assert_eq!(hello, json!({ "version": "0.883.0", "computer": "DESK-PC", "theme": "dark", "active": "computer" }));
+    assert_eq!(items[1], json!({ "kind": "res", "id": "t1", "ok": true, "value": "true" }));
+    assert_eq!(items[2]["id"], "c1");
+    assert_eq!(items[2]["ok"], true);
+    assert_eq!(serde_json::from_str::<Value>(items[2]["value"].as_str().unwrap()).unwrap()["resolved"], "dark");
+    assert_eq!(
+        items[3],
+        json!({ "kind": "res", "id": "c2", "ok": false, "message": "This works in Locust on your computer.", "refused": true })
+    );
+    assert_eq!(host.active().as_deref(), Some(phone.device.as_str()));
+    assert_eq!(covers.lock().unwrap().as_slice(), [true]);
+
+    // Full window turned off for it: the browser is told the computer has it, and the cover comes down.
+    assert_eq!(pc.set_desk(&phone.device, false).devices[0].desk, None);
+    let gone = read_desk(&mut device);
+    assert_eq!(gone["items"], json!([{ "kind": "taken", "by": "computer" }]));
+    assert_eq!(host.active(), None);
+    assert_eq!(covers.lock().unwrap().as_slice(), [true, false]);
+    pc.dispose();
+}
+
 // ---- Offline notes helper -------------------------------------------------------------------------------------------
 
 struct OffWithAPhone {
@@ -2396,6 +2486,88 @@ fn holds_one_written_more_than_twelve_hours_ago_for_the_phone_to_decide_and_send
             .any(|item| item.get("held").and_then(Value::as_str) == Some("old"))
     });
     assert!(deliver.1.lock().unwrap().is_empty());
+    pc.dispose();
+}
+
+/// The phone's own send, as a conversation answers it: m1 takes it, `busy` is still working, `broken` fails to start.
+struct SendAnswers(Mutex<Vec<(String, String)>>);
+
+impl PhoneCalls for SendAnswers {
+    fn state(&self) -> PhoneState {
+        PhoneState { waiting: Vec::new(), conversations: Vec::new(), scout: None }
+    }
+    fn turns(&self, _mission_id: &str) -> Option<Vec<PhoneTurn>> {
+        None
+    }
+    fn answer_card(&self, _approval_id: &str, _approve: bool) -> bool {
+        false
+    }
+    fn send(&self, mission_id: &str, text: &str) -> PhoneSent {
+        self.0.lock().unwrap().push((mission_id.to_owned(), text.to_owned()));
+        match mission_id {
+            "busy" => PhoneSent::Err { message: crate::phone_calls::STILL_WORKING.to_owned() },
+            "broken" => PhoneSent::Err { message: "Codex could not start.".to_owned() },
+            _ => PhoneSent::Ok,
+        }
+    }
+}
+
+#[test]
+// case: sends a message left while the PC was off once it is back, through the phone's own path
+// case: holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting
+fn a_note_goes_through_the_phones_own_send_once_and_one_whose_send_failed_is_held_never_sent_again() {
+    let relay = MemoryRelay::new(None);
+    let mut off = off_with_a_phone(&relay);
+    let sent_note = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "m1", "text": "  Run the tests again  ", "t": now_ms() }),
+        None,
+        "n1",
+    );
+    let busy = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "busy", "text": "Still working", "t": now_ms() }),
+        None,
+        "n2",
+    );
+    let broken = off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "broken", "text": "Try it", "t": now_ms() }),
+        None,
+        "n3",
+    );
+    let calls = Arc::new(SendAnswers(Mutex::new(Vec::new())));
+    let notes = Arc::new(crate::phone_calls::PhoneNotes::new(calls.clone()));
+    let pc = make_pc(&relay, off.dir.path().clone(), calls.clone(), None, None, None, Some(notes));
+    pc.load();
+    let mut ask_n = 1;
+    let mut latest = Vec::new();
+    until(3_000, || {
+        ask_n += 1;
+        latest = off.session.my_notes(&format!("chk{ask_n}"));
+        latest.len() == 2 && latest.iter().any(|i| i.get("held").and_then(Value::as_str) == Some("failed"))
+    });
+    let states: HashMap<String, String> = latest
+        .iter()
+        .map(|item| {
+            let held = item.get("held").and_then(Value::as_str).unwrap_or("waiting");
+            (item["id"].as_str().unwrap().to_owned(), held.to_owned())
+        })
+        .collect();
+    assert!(!states.contains_key(&sent_note), "{states:?}");
+    assert_eq!(states.get(&busy).map(String::as_str), Some("waiting"));
+    assert_eq!(states.get(&broken).map(String::as_str), Some("failed"));
+    let first: Vec<(String, String)> = calls.0.lock().unwrap().clone();
+    assert!(first.contains(&("m1".to_owned(), "Run the tests again".to_owned())), "{first:?}");
+    assert_eq!(first.iter().filter(|(m, _)| m == "broken").count(), 1);
+
+    // Another note while it is on: the relay says there is news, and the held one is not sent a second time.
+    off.session.send_note(
+        json!({ "nid": random_text(16), "missionId": "m2", "text": "And this", "t": now_ms() }),
+        None,
+        "n4",
+    );
+    until(3_000, || calls.0.lock().unwrap().iter().any(|(m, _)| m == "m2"));
+    let after = calls.0.lock().unwrap().clone();
+    assert_eq!(after.iter().filter(|(m, _)| m == "broken").count(), 1, "{after:?}");
+    assert_eq!(after.iter().filter(|(m, _)| m == "m1").count(), 1, "{after:?}");
     pc.dispose();
 }
 

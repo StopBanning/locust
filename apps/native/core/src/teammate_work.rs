@@ -12,6 +12,12 @@ pub struct Work<'a> {
     pub cost: Option<RunCost>,
     pub recent: Vec<Recent<'a>>,
 }
+/// How many conversations the record gives `id` (Screens.tsx `owned`): every `missionOwners` entry that names them, whether
+/// or not this window has read the conversation itself. A card's Runs says this; `Work::mission_count` only counts
+/// the ones read, so it reads 0 for a teammate whose history lives in Electron's record.
+pub fn owned_runs(owners: &HashMap<String, String>, id: &str) -> usize {
+    owners.values().filter(|owner| owner.as_str() == id).count()
+}
 pub fn teammate_work<'a>(
     id: &str,
     missions: &'a [Summary],
@@ -118,6 +124,15 @@ mod tests {
     fn counts_only_the_missions_the_host_recorded_as_theirs() {
         assert_eq!(work("tm_atlas", &missions()).mission_count, 3);
         assert_eq!(work("tm_bramble", &missions()).mission_count, 1);
+    }
+    #[test]
+    fn runs_are_the_ones_the_record_names_even_when_none_is_read() {
+        // The three the record gives atlas, with no mission read: Work counts none, the card still says 3.
+        assert_eq!(work("tm_atlas", &[]).mission_count, 0);
+        assert_eq!(owned_runs(&owners(), "tm_atlas"), 3);
+        assert_eq!(owned_runs(&owners(), "tm_bramble"), 1);
+        assert_eq!(owned_runs(&owners(), "tm_nobody"), 0);
+        assert_eq!(owned_runs(&HashMap::new(), "tm_atlas"), 0);
     }
     #[test]
     fn takes_the_last_run_from_the_newest_mission_not_the_first_in_the_list() {

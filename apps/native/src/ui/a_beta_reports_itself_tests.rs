@@ -20,6 +20,14 @@ impl Drop for Dirs {
 }
 
 fn data() -> (Dirs, Store, native::hooks::Guard) {
+    let (dirs, store) = own_data();
+    let hook = native::hooks::install(store.clone(), None);
+    (dirs, store, hook)
+}
+
+/// A data folder of this test's own that the engine is never pointed at: no history read the window makes, in this
+/// test or one still running from another, reads it.
+fn own_data() -> (Dirs, Store) {
     let root = std::env::temp_dir().join(format!(
         "locust-report-{}-{}",
         std::process::id(),
@@ -28,8 +36,7 @@ fn data() -> (Dirs, Store, native::hooks::Guard) {
     std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
     let store = Store::new(root.join("native"), root.join("electron")).unwrap();
     std::fs::create_dir_all(store.ledger_dir().unwrap()).unwrap();
-    let hook = native::hooks::install(store.clone(), None);
-    (Dirs(root), store, hook)
+    (Dirs(root), store)
 }
 
 fn log(root: &Path) -> String {
@@ -180,15 +187,26 @@ fn show_the_log_takes_no_path() {
 // ---- a mission that comes back says so ----
 
 // case: remembers what it deleted
+//
+// The list is one per process, and every history read checks itself against it. This test's store is its own and
+// never the engine's (it holds no hook), so a history read another test left running (a `refresh_recent` job reads
+// whichever store the engine holds) cannot list this conversation back off it. The read below is one: begun before
+// the delete, checked after it, as an unfinished read from another test would be. Pointed at this test's store, it
+// lists the conversation and takes it off the list, which is how this test failed in a whole-package run.
 #[test]
 fn a_delete_is_remembered_and_written() {
-    let (_dirs, store, _hook) = data();
-    record(&store, "m_gone_1", "Plan the launch");
+    let (_dirs, store) = own_data();
+    let id = format!("m_gone_{}", locust_core::native::uuid_v4().unwrap());
+    record(&store, &id, "Plan the launch");
+    let in_flight = native::list_recent(native::MAX_LISTED_MISSIONS, true);
     let mut s = State::default();
     s.data = Some(store.clone());
-    crate::sidebar::delete_conversation(&mut s, &store, &["m_gone_1".to_owned()]).unwrap();
-    assert!(diagnostic_log::this_session().knows("m_gone_1"));
-    assert!(log(store.root()).contains("mission-deleted: m_gone_1\n"));
+    crate::sidebar::delete_conversation(&mut s, &store, std::slice::from_ref(&id)).unwrap();
+    if let (Some(listed), Some(engine)) = (in_flight, native::store()) {
+        diagnostic_log::this_session().check_read(engine.root(), listed.summaries.iter().map(|m| m.mission_id.as_str()));
+    }
+    assert!(diagnostic_log::this_session().knows(&id));
+    assert!(log(store.root()).contains(&format!("mission-deleted: {id}\n")), "{}", log(store.root()));
 }
 
 // case: checks every history read against that list
@@ -231,3 +249,32 @@ fn the_deleted_list_is_in_memory_only() {
     }
 }
 
+
+// ---- a report says which build it came from ----
+
+/// The commit this build was given in the shell that built it (LOCUST_BUILD_COMMIT), or "dev" when it was given none.
+fn this_builds_commit() -> &'static str {
+    option_env!("LOCUST_BUILD_COMMIT").map(str::trim).filter(|c| !c.is_empty()).unwrap_or("dev")
+}
+
+// shared/report-problem.ts's body line, `Locust ${facts.version} on ${systemName(facts)}`, with the version said as
+// `--version` says it: "0.883.0 (dev)". Saved, emailed and sent alike.
+#[test]
+fn a_saved_or_sent_report_says_the_version_and_the_commit() {
+    let said = format!("Locust {} ({}) on ", env!("CARGO_PKG_VERSION"), this_builds_commit());
+    let mut s = State::default();
+    s.feedback_dialog.suppress_os_open = true;
+    s.feedback_dialog.description.text = "The plan card stayed empty.".into();
+    let mut rt = Runtime::new(s, |_, _| rune::col(), (400.0, 300.0), Env::new(true, 1.0));
+    rt.update(|s, tx| save_file(s, tx));
+    let Some(FeedbackSent::File(file)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("saved") };
+    assert!(file.contains(&said), "{file}");
+    rt.update(|s, _| send_issue(s));
+    let Some(FeedbackSent::Issue(url)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("sent") };
+    let body = url::Url::parse(&url).unwrap().query_pairs().next().unwrap().1.into_owned();
+    assert!(body.contains(&said), "{body}");
+    rt.update(|s, _| send_email(s));
+    let Some(FeedbackSent::Email(mail)) = rt.state.feedback_dialog.last_sent.clone() else { panic!("emailed") };
+    let commit_part = format!("({})%20on%20", this_builds_commit());
+    assert!(mail.contains(&commit_part), "{mail}");
+}

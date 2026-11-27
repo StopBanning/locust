@@ -273,6 +273,21 @@ fn a_tune_says_a_skill_costs_nothing_on_a_turn_it_does_not_fit() {
     );
 }
 
+// Lane check: tune-drafts.ts writes the whole of its skill sentence, not only its first half: how to write "knows" as a
+// skill, the name's and body's limits (MAX_SKILL_NAME 64, MAX_SKILL_BODY 8_000 in shared/tune.ts), and how to keep
+// things as they are. Electron's words, with its reply key "knows" said as this prompt's reply format names it, "know".
+#[test]
+fn a_tune_says_the_whole_of_how_to_write_what_it_knows_as_a_skill_and_how_to_keep_things_as_they_are() {
+    let electron = "This teammate runs on Codex, which loads a skill only when the work matches the skill's description, so a skill costs nothing on turns it does not fit. Write \"knows\" as one skill instead of an edit of the standing instructions, which stay as they are in that setup. Its name is at most 64 characters of lower-case words or digits joined by single hyphens; its description is one sentence saying when to use it, in the words of the work it fits; its body holds the checks, at most 8000 characters. To keep things as they are instead, write \"knows\" as {\"instructions\": a copy of the current instructions, \"why\": why no edit is warranted}.";
+    let expected = electron.replace("\"knows\"", "\"know\"");
+    let prompt = crate::tune::tune_draft_prompt("Be concise.", &[], true, Some("Codex"));
+    assert!(prompt.contains(&expected), "{prompt}");
+    // The reply format this prompt asks for names that alternative "know", so the sentence names it the same way.
+    assert!(prompt.contains(r#""know": {"skill":"#), "{prompt}");
+    // A teammate whose agent takes no skills is told none of it.
+    assert!(!crate::tune::tune_draft_prompt("Be concise.", &[], false, Some("Codex")).contains("as one skill instead"));
+}
+
 #[test]
 fn ends_a_plain_name_at_a_comment_after_a_space_or_a_tab_and_not_at_a_hash_inside_a_word() {
     assert_eq!(skill_name_in("---\nname: review # a comment\n---\n").as_deref(), Some("review"));

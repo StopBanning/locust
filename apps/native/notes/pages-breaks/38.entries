@@ -1,0 +1,8 @@
+src/ui/routines_panel.rs|||        .child(routines_header(s, p)) ==>         .child(routines_header(s, p).child(button("Close", p)))
+src/ui/routines_panel.rs|||        .child(el().grow(1.0))\n ==> \n
+src/ui/routines_panel.rs|||        shelf = shelf.child(text(head).key("routines-templates-head").font(type_::LABEL).color(p.secondary)).child(template_list(p)); ==>         shelf = shelf.child(text(head).key("routines-templates-head").font(type_::LABEL).color(p.secondary));
+src/ui/routines_panel.rs|||            .child(text(info.summary.clone()).key(format!("routine-template-what-{}", info.id)) ==>             .child(text(String::new()).key(format!("routine-template-what-{}", info.id))
+src/ui/routines_panel.rs|||                    .child(text(info.name.clone()).font(l.ty.control).color(l.c("text-primary")).truncate().grow(1.0).shrink()) ==>                     .child(text(info.name.clone()).font(l.ty.control).color(l.c("text-primary")).truncate().shrink())
+src/ui/routines_panel.rs|||        list = list.child(entry.on_press(move |s: &mut State| use_template(s, &tid))); ==>         list = list.child(entry.child(button("Use template", p).on_press(move |s: &mut State| use_template(s, &tid))));
+src/ui/routines_panel.rs|||                    .justify_end()\n ==> \n
+src/ui/routines_panel.rs|||        .child(text("Each opens as a preview. Nothing is added until you give it to a teammate.") ==>         .child(text("Pick a template.")

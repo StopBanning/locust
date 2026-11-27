@@ -178,8 +178,15 @@ fn new_claude_turn_without_teammate_uses_the_for_new_signed_in_account() {
         .map(|l| serde_json::from_str(l).unwrap())
         .collect();
     assert_eq!(logged.len(), 3);
-    assert!(logged[1]["CLAUDE_CONFIG_DIR"].is_null());
-    assert!(logged[2]["CLAUDE_CONFIG_DIR"].is_null());
+    // This Mac's sign-in is the one Claude Code finds in Locust's own environment (Electron passes `process.env` on
+    // and adds no account's variables): the child's CLAUDE_CONFIG_DIR is the environment's own -- none when it has
+    // none -- and never the for-new account's home. Read from this process, so a CLAUDE_CONFIG_DIR set where the tests
+    // run is that sign-in, not a failure.
+    let own = std::env::var("CLAUDE_CONFIG_DIR").ok();
+    for (turn, said) in [(1, "This Mac's turn"), (2, "This Mac's reply")] {
+        assert_eq!(logged[turn]["CLAUDE_CONFIG_DIR"].as_str(), own.as_deref(), "{said} adds no account's CLAUDE_CONFIG_DIR");
+        assert_ne!(logged[turn]["CLAUDE_CONFIG_DIR"].as_str(), Some(account_home.to_string_lossy().as_ref()), "{said} is not on the for-new account");
+    }
 
     // Verify accounts_for sees the ready account too.
     let listed = accounts_for(&store).list().unwrap();

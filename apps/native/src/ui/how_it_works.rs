@@ -138,6 +138,14 @@ pub(crate) const FOLDS: &[(&str, &str, &[&str])] = &[
         ],
     ),
     (
+        "acp-agents",
+        "Your own agents",
+        &[
+            "Goose, Qwen Code, Kimi CLI, Mistral Vibe, Factory Droid and many more start in this protocol with a command like goose acp or qwen --acp; each says which in its own documentation. Install the agent and sign in to it as it asks first.",
+            "Test starts it in an empty folder, asks its name and the models it offers, and stops it. No message is sent, so nothing is spent. It runs in Approve each: every action it asks to take is a card you answer. Which actions it asks about is the agent’s own setting — OpenCode, for one, changes files without asking unless its permission settings say ask. Locust offers it no files and no terminal of its own, and runs the command directly, never through a shell.",
+        ],
+    ),
+    (
         "auto-mode",
         "Auto mode",
         &[

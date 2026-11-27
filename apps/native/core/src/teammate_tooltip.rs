@@ -64,6 +64,21 @@ fn own_route_bare(model_id: &str) -> Option<&str> {
     (hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) && !name.is_empty()).then_some(name)
 }
 
+/// `routeName.ts` `isOwnRoute`: a route on one of the person's own models, `own-<8 hex>/<model>`.
+pub fn is_own_route(model_id: &str) -> bool {
+    own_route_bare(model_id).is_some()
+}
+
+/// A teammate's route as a Team card says it (Screens.tsx `routeChrome(runtime, model, routeModelName(runtime, model))`):
+/// "Codex / GPT-6.1-Sol", "OpenCode / DeepSeek V4.1 Flash Free", and a model of the person's own by its own name alone
+/// ("Claude API"), never the id the record holds. No model chosen is the runtime's name alone.
+pub fn route_label(runtime: &str, model_id: &str) -> String {
+    if model_id.is_empty() {
+        return short_runtime_name(runtime).to_owned();
+    }
+    route_chrome(runtime, model_id, &route_model_name(runtime, model_id), " / ")
+}
+
 /// `routeName.ts` `routeChrome`: a route as the composer's chip says it. A model of the person's own by its name alone;
 /// a name that already starts with the runtime's says it once ("Kilo Auto Free"); the account's own default is the
 /// runtime's name alone ("Codex"), keeping what follows it ("Codex · Medium"); else runtime, `separator`, model.
