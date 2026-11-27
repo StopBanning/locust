@@ -1,6 +1,22 @@
 use super::*;
 
+const QUEUED_SEND_NOT_ACKNOWLEDGED: &str = "not sent — press Send to try again";
+
+fn keep_unacknowledged_queue_row(s: &mut State, row: composer::QueuedRow) {
+    // Keep the original queue words in memory even if saving the recovery fails. The row is held, not retried.
+    s.queue_rows.insert(0, row);
+    persist_queue(s);
+}
+
 pub(super) fn restore_failed_draft(s: &mut State, message: String) {
+    // Detaching can drop the acknowledgement. Offer the original queued words back, but never dispatch them again
+    // without another press. Keep text typed after dispatch in the composer.
+    if s.queue_in_flight.as_ref().is_some_and(|row| row.held.as_deref() == Some(QUEUED_SEND_NOT_ACKNOWLEDGED))
+        && let Some(row) = s.queue_in_flight.take()
+    {
+        keep_unacknowledged_queue_row(s, row);
+        return;
+    }
     // Fix: restore only failed sends; never overwrite text typed after dispatch.
     let text = if s.draft.text.is_empty() {
         message
@@ -12,11 +28,15 @@ pub(super) fn restore_failed_draft(s: &mut State, message: String) {
 
 /// A message the queue sent that the host refused as busy goes back in front of the line, pointed at the conversation
 /// it was typed in and not tried again before its retry time (App.tsx `startMission`'s `requeue`, `retriedAfterBusy`).
-/// True when it did, so the words are not also put back in the box. Any other failure is the box's, as before.
+/// An explicit Send instead goes back held on any refusal. True means its words should not also enter the draft.
 pub(super) fn requeued_after_busy(s: &mut State, error: &str) -> bool {
     let Some(row) = s.queue_in_flight.take() else {
         return false;
     };
+    if row.held.as_deref() == Some(QUEUED_SEND_NOT_ACKNOWLEDGED) {
+        keep_unacknowledged_queue_row(s, row);
+        return true;
+    }
     if !error.contains("already running") {
         return false;
     }
@@ -765,25 +785,45 @@ pub(super) fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
         return;
     }
     let (going, rest) = composer::take_next(&s.queue_rows, &key);
-    let Some(going) = going else {
+    let Some(mut going) = going else {
         return;
     };
+    // A folded row can exceed the size of one saved row. Do not remove the originals when the flight slot could
+    // not put that fold back safely. Recovering every original row across the acknowledgement needs a wider change.
+    if composer::queue_store::serialize_queued(std::slice::from_ref(&going)).is_err() {
+        s.queue_send_now = None;
+        if let Some(front) = s.queue_rows.iter_mut().find(|row| row.key == key) {
+            front.held = Some(QUEUED_SEND_NOT_ACKNOWLEDGED.into());
+        }
+        s.queue_error = Some("These queued messages cannot be sent together. Edit them to send smaller messages. Nothing was sent.".into());
+        return;
+    }
     let draft = s.draft.text.clone();
     s.draft
         .replace_text(composer::with_attachments(&going.text, &going.attachments));
-    if !can_send(s) {
+    if !can_send(s) || s.compare.composer_mode != compare_view::CompareComposerMode::Direct
+        || crate::folder_confirmation::hold_send(s)
+    {
         s.draft.replace_text(draft);
         return;
     }
     let before = std::mem::replace(&mut s.queue_rows, rest);
     if !persist_queue(s) {
         s.queue_rows = before;
+        // A failed removal consumed the button press, not the row. Fixing the disk must not send it.
+        s.queue_send_now = None;
+        if let Some(front) = s.queue_rows.iter_mut().find(|row| row.key == key) {
+            front.held = Some(QUEUED_SEND_NOT_ACKNOWLEDGED.into());
+        }
         s.draft.replace_text(draft);
         return;
     }
-    // Remove durably BEFORE dispatch. An uncertain transport result must never retry itself; a busy refusal, which
-    // says nothing started, goes back in line (requeued_after_busy).
+    // Remove durably BEFORE dispatch. An explicit Send that wasn't acknowledged is offered back held.
+    // A fresh automatic send explicitly refused as busy still uses the existing retry backoff.
     s.queue_send_now = None;
+    if forced {
+        going.held = Some(QUEUED_SEND_NOT_ACKNOWLEDGED.into());
+    }
     s.queue_in_flight = Some(going);
     send(s, tx);
     if s.flight.is_none() {
@@ -807,3 +847,7 @@ mod composer_counts_tests;
 #[cfg(test)]
 #[path = "queued_conversation_owner_tests.rs"]
 mod queued_conversation_owner_tests;
+
+#[cfg(test)]
+#[path = "queue_durability_tests.rs"]
+mod queue_durability_tests;
