@@ -13,6 +13,8 @@ use std::sync::OnceLock;
 
 pub(crate) const HEADING: &str = "Your account";
 const SWITCH_LABEL: &str = "Keep a copy on Locust\u{2019}s relay";
+/// What the switch said off, once a key is kept (YourAccountSettings.tsx:99), after its "Off.": under its More.
+pub(crate) const SYNC_OFF: &str = "Your copy stays as it was; turning sync on again needs no new code.";
 
 #[derive(Default)]
 pub(crate) struct AccountPanelState {
@@ -280,7 +282,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
         });
         format!("{sync_part}{storage_part}")
     } else if status.has_key {
-        "Off. Your copy stays as it was; turning sync on again needs no new code.".to_owned()
+        String::new()
     } else {
         "Each file is sealed on this computer before it leaves, with a key only your computers hold, so the relay cannot read it. Agent sign-ins and keys are never sent.".to_owned()
     };
@@ -308,7 +310,13 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
                         .color(l.c("text-primary"))
                         .wrap(),
                     )
-                    .child(text(note).font(l.ty.body).color(l.c("text-secondary")).wrap()),
+                    .child(if !on && status.has_key {
+                        // Off with a key: the line above says what the switch does, and what "Off." went on to say is
+                        // under More (review change 6).
+                        crate::settings_panel::switch_more(s, &l, "account-sync", &[SYNC_OFF])
+                    } else {
+                        text(note).font(l.ty.body).color(l.c("text-secondary")).wrap()
+                    }),
             )
             .child(switch),
     );

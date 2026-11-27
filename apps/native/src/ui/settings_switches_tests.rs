@@ -84,6 +84,8 @@ fn and_the_two_between_teammates_say_their_name_before_their_state() {
 #[test]
 fn auto_mode_says_what_on_and_off_mean_and_a_press_flips_it() {
     let mut rt = page(SettingsPageId::Teammates, false);
+    // What on and off mean is under the switch's More (review change 6).
+    press(&mut rt, "more-auto-mode");
     assert!(said(&rt).contains(AUTO_OFF));
     assert!(!said(&rt).contains(AUTO_ON));
     press(&mut rt, "settings-auto-mode");

@@ -22,6 +22,10 @@ use locust_core::scout::view::{
 };
 use rune_kit::Checkbox;
 
+/// Scout's switch in one line of what it does (review change 6); core's on or off words, after their "On." or "Off.",
+/// are under its More.
+pub(crate) const SCOUT_LINE: &str = "Scout watches your pull requests, their checks and reviews, and tells you on Home what needs you.";
+
 fn platform_name() -> &'static str {
     match std::env::consts::OS {
         "macos" => "darwin",
@@ -374,7 +378,8 @@ pub(super) fn section_at(
                 .font(type_::TITLE)
                 .color(p.text),
         )
-        .child(text(lede).font(type_::LABEL).color(p.secondary).wrap());
+        .child(text(SCOUT_LINE).font(type_::LABEL).color(p.secondary).wrap())
+        .child(crate::settings_panel::switch_more(s, &l, "scout", &[crate::settings_panel::without_state(&lede)]));
 
     if let Some(st) = st {
         if st.settings.on {

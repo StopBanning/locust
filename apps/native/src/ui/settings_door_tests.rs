@@ -16,6 +16,7 @@ fn drawn(door_state: door::State) -> (String, Vec<(String, bool)>) {
     state.settings_panel.door = Some(door_state);
     // Electron's `<More>` holds the lines in the page whether or not it is open; here they are drawn once it is.
     state.settings_panel.folds.toggle(BY_HAND_KEY);
+    open_every_switch_more(&mut state);
     let mut rt = Runtime::new(state, view, (900.0, 900.0), Env::new(true, 1.0));
     rt.frame(0.0);
     let all = rt.elements();
@@ -27,6 +28,13 @@ fn drawn(door_state: door::State) -> (String, Vec<(String, bool)>) {
         .filter_map(|n| n.label.clone().map(|l| (l, n.fill == look.c("switch-on"))))
         .collect();
     (words, switches)
+}
+/// Each switch's words after its one line are under its More (review change 6); Electron's paragraphs were always on
+/// the page, so these cases read them with every More open.
+fn open_every_switch_more(state: &mut State) {
+    for key in ["more-door", "more-door-own-mode", "more-door-editor-answers", "more-door-conversations"] {
+        state.settings_panel.folds.toggle(key);
+    }
 }
 fn enabled_door() -> door::State {
     door::State {
@@ -41,7 +49,7 @@ fn enabled_door() -> door::State {
 #[test]
 fn shows_no_setup_while_off() {
     let (said, switches) = drawn(door::State::default());
-    assert!(said.contains("Off. No local server is listening."), "{said}");
+    assert!(said.contains("No local server is listening."), "{said}");
     assert!(switches.iter().any(|(l, on)| l == DOOR_HEADING && !on));
     assert!(!said.contains("mcp_servers"));
 }
@@ -109,6 +117,7 @@ impl Pressing {
         let mut state = State::default();
         state.settings_panel.door = Some(first);
         state.settings_panel.folds.toggle(BY_HAND_KEY);
+        open_every_switch_more(&mut state);
         let mut rt = Runtime::new(state, view, (900.0, 1400.0), Env::new(true, 1.0));
         rt.frame(0.0);
         Pressing { rt, asked }
@@ -148,7 +157,7 @@ impl Drop for Pressing {
 #[test]
 fn loads_the_actual_setting_makes_no_enable_request_on_mount_and_shows_no_setup_while_off() {
     let p = Pressing::new(door::State::default(), |_| enabled_door());
-    assert!(p.said().contains("Off. No local server is listening."));
+    assert!(p.said().contains("No local server is listening."));
     assert!(!p.on(DOOR_HEADING));
     assert!(!p.said().contains("mcp_servers"));
     assert!(p.asked.borrow().is_empty(), "drawing asked the door for {:?}", p.asked.borrow());

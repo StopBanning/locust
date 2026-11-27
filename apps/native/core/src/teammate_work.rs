@@ -18,6 +18,55 @@ pub struct Work<'a> {
 pub fn owned_runs(owners: &HashMap<String, String>, id: &str) -> usize {
     owners.values().filter(|owner| owner.as_str() == id).count()
 }
+/// When each teammate last ran, read from the records themselves (review, Words 1): for every conversation `owners`
+/// gives a teammate, the time its record (`<id>.jsonl` in any of `dirs`) was last written, the newest per teammate, as
+/// RFC 3339. A card's Runs counts every conversation the record names (`owned_runs`), but the conversation list leaves out
+/// what is not a conversation of the person's own (Scout's looks, side chats) and stops at its cap, so a teammate whose
+/// runs are all of that kind had runs and no last run: "Runs 167 · Last run never". The time on disk is the record's
+/// last write, as every update appends (`ledger::list_recent` picks the newest files by it). Only file times are read.
+pub fn recorded_last_runs(owners: &HashMap<String, String>, dirs: &[std::path::PathBuf]) -> HashMap<String, String> {
+    let mut newest: HashMap<String, std::time::SystemTime> = HashMap::new();
+    for (mission, owner) in owners {
+        if !crate::ledger::safe_id(mission) {
+            continue;
+        }
+        let written = dirs
+            .iter()
+            .filter_map(|dir| std::fs::metadata(dir.join(format!("{mission}.jsonl"))).ok()?.modified().ok())
+            .max();
+        if let Some(at) = written {
+            let kept = newest.entry(owner.clone()).or_insert(at);
+            if at > *kept {
+                *kept = at;
+            }
+        }
+    }
+    newest
+        .into_iter()
+        .map(|(owner, at)| (owner, chrono::DateTime::<chrono::Utc>::from(at).to_rfc3339_opts(chrono::SecondsFormat::Millis, true)))
+        .collect()
+}
+
+/// The later of two RFC 3339 times: the listed conversations' newest and the records' (`recorded_last_runs`). One that
+/// cannot be read loses to one that can; either alone is the answer.
+pub fn last_run<'a>(listed: Option<&'a str>, recorded: Option<&'a str>) -> Option<&'a str> {
+    let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).ok().map(|d| d.timestamp_millis());
+    match (listed, recorded) {
+        (Some(a), Some(b)) => Some(if at(b) > at(a) { b } else { a }),
+        (a, b) => a.or(b),
+    }
+}
+
+/// What a card's "Last run" says (Screens.tsx:795): how long ago, from `ago`; "never" only for a teammate with no runs;
+/// "unknown" for a time that cannot be read, or runs whose records are gone, so a card with runs never says "never".
+pub fn last_run_words(runs: usize, at: Option<&str>, ago: impl Fn(&str) -> Option<String>) -> String {
+    match at {
+        Some(at) => ago(at).unwrap_or_else(|| "unknown".into()),
+        None if runs == 0 => "never".into(),
+        None => "unknown".into(),
+    }
+}
+
 pub fn teammate_work<'a>(
     id: &str,
     missions: &'a [Summary],
@@ -84,6 +133,9 @@ pub fn teammate_work<'a>(
         recent,
     }
 }
+#[cfg(test)]
+#[path = "teammate_last_run_tests.rs"]
+mod teammate_last_run_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

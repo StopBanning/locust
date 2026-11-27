@@ -3724,9 +3724,11 @@ fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
         s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
     });
     pump(&mut rt, "the switch read", |s| s.remote_control.is_some());
+    // What the switch's state says is under its More (review change 6).
+    rt.update(|s, _| s.settings_panel.folds.toggle("more-remote-control"));
     settle(&mut rt);
     let off = text_in(&rt, "remote-control").join(" | ");
-    assert!(off.contains("Let me start sessions on this computer from claude.ai") && off.contains("Off. When on, you can start Claude Code sessions") && off.contains("It needs your claude.ai sign-in; API keys do not work."), "{off}");
+    assert!(off.contains("Let me start sessions on this computer from claude.ai") && off.contains("When on, you can start Claude Code sessions") && off.contains("It needs your claude.ai sign-in; API keys do not work."), "{off}");
     assert!(rt.find("remote-control-output").is_none());
 
     // Through the switch's own handler: other cards on this page (another test's stand-ins) can push it out of view.
@@ -3738,7 +3740,7 @@ fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
     pump(&mut rt, "the output read", |s| s.remote_control.as_ref().is_some_and(|r| !r.stdout.is_empty()));
     settle(&mut rt);
     let on = text_in(&rt, "remote-control").join(" | ");
-    assert!(on.contains("On. Start a session in this folder") && on.contains("Claude Code output") && on.contains("  https://claude.ai/code/session_fake\r\n"), "{on}");
+    assert!(on.contains("Start a session in this folder") && on.contains("Claude Code output") && on.contains("  https://claude.ai/code/session_fake\r\n"), "{on}");
 
     // A trust question: the server ends, nothing answers it, and the person finishes setup themselves.
     running_events.output(Stream::Stderr, b"Workspace not trusted");

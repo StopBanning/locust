@@ -16,8 +16,10 @@ use std::sync::{Arc, Mutex};
 static SERVICE: Mutex<Option<Arc<RemoteMcp>>> = Mutex::new(None);
 
 pub const HEADING: &str = "Use from anywhere";
-pub const LEDE_ON: &str = "On. Claude on the web, Claude Duet and other apps that take a remote MCP server can use your team through Locust\u{2019}s relay, by the same rules as an app on this computer. Each one connects only after you allow it on a card here.";
-pub const LEDE_OFF: &str = "Off. Turn on to use your team from Claude on the web, Claude Duet, or any app that takes a remote MCP server.";
+/// Its one line (review change 6); what it used to say after "On." or "Off." is under its More.
+pub const LINE: &str = "Lets Claude on the web, Claude Duet and other apps that take a remote MCP server use your team.";
+pub const LEDE_ON: &str = "Claude on the web, Claude Duet and other apps that take a remote MCP server can use your team through Locust\u{2019}s relay, by the same rules as an app on this computer. Each one connects only after you allow it on a card here.";
+pub const LEDE_OFF: &str = "Turn on to use your team from Claude on the web, Claude Duet, or any app that takes a remote MCP server.";
 pub const SWITCH_LABEL: &str = "Use your team from anywhere";
 pub const ADDRESS_HELP: &str = "In Claude, open Settings, then Connectors, choose Add custom connector, and paste this address:";
 pub const OPEN_WHILE_USED: &str = "Locust must be open on this computer while an app uses it.";
@@ -190,7 +192,8 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
                 .grow(1.0)
                 .gap(4.0)
                 .child(text(HEADING).font(l.ty.control).color(l.c("text-primary")))
-                .child(text(if on { LEDE_ON } else { LEDE_OFF }).font(l.ty.body).color(l.c("text-secondary")).wrap().role("status")),
+                .child(text(LINE).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                .child(crate::settings_panel::switch_more(s, &l, "remote-mcp", &[if on { LEDE_ON } else { LEDE_OFF }])),
         ).child(switch),
     );
     if let (true, Some(address)) = (on, &state.address) {
@@ -325,7 +328,9 @@ mod tests {
         let options = Options::new(dir.join(REMOTE_MCP_FILE), Arc::new(Relay(Mutex::new(address.map(str::to_owned)))), Arc::new(|_: &str, _: &serde_json::Value| locust_core::door_tools::ToolResult::refused("No tools here.")));
         (Arc::new(RemoteMcp::new(options)), dir)
     }
-    fn words(s: State) -> String {
+    fn words(mut s: State) -> String {
+        // What on and off say is under the switch's More (review change 6): read with it open.
+        s.settings_panel.folds.toggle("more-remote-mcp");
         let mut rt = rune::Runtime::new(
             s,
             |s, _| col().w_full().children(section(s, &Palette::new(true))).children(card(s, &Palette::new(true))),

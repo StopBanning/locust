@@ -18,8 +18,16 @@ struct Drawn {
 }
 
 fn drawn(state: RemoteControlState) -> Drawn {
+    drawn_with(state, false)
+}
+
+/// Drawn with the switch's More open (`more_open`): on or off, what Claude Code's state says is there (review change 6).
+fn drawn_with(state: RemoteControlState, more_open: bool) -> Drawn {
     let mut s = State::default();
     s.remote_control = Some(state);
+    if more_open {
+        s.settings_panel.folds.toggle("more-remote-control");
+    }
     let mut rt = Runtime::new(s, view, (900.0, 900.0), Env::new(true, 1.0));
     rt.frame(0.0);
     let all = rt.elements();
@@ -40,7 +48,7 @@ fn off() -> RemoteControlState {
 
 #[test]
 fn the_off_switch_explains_its_lifetime_and_account_requirements() {
-    let d = drawn(off());
+    let d = drawn_with(off(), true);
     let all = d.texts.join("\n");
     assert!(all.contains("Let me start sessions on this computer from claude.ai"), "{all}");
     assert_eq!(d.checked, Some(false));
@@ -51,9 +59,12 @@ fn the_off_switch_explains_its_lifetime_and_account_requirements() {
 
 #[test]
 fn off_it_reads_as_one_switch_its_state_opens_its_own_line_and_nothing_sits_under_it() {
+    // Review change 6: off, the line says what the switch does; what "Off." went on to say opens its More.
     let d = drawn(off());
-    let status = d.status.expect("its state, said as a status");
-    assert!(status.starts_with("Off. When on, you can start Claude Code sessions in this folder from claude.ai"), "{status}");
+    assert!(d.texts.iter().any(|t| t == LINE), "{:?}", d.texts);
+    assert!(!d.texts.iter().any(|t| t.starts_with("Off.")), "{:?}", d.texts);
+    let open = drawn_with(off(), true);
+    assert!(open.texts.iter().any(|t| t.starts_with("When on, you can start Claude Code sessions in this folder from claude.ai")), "{:?}", open.texts);
     for under in ["remote-control-output", "remote-control-errors", "remote-control-problem"] {
         assert!(!d.keys.iter().any(|k| k == under), "{under} drawn while off");
     }

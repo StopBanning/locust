@@ -9,6 +9,9 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 static SERVICE: Mutex<Option<RemoteControl>> = Mutex::new(None);
 
+/// The switch's one line while it is on or off (review change 6), core's `says` for that state under its More.
+pub(crate) const LINE: &str = "Lets you start Claude Code sessions in this folder from claude.ai or the Claude app while Locust is open.";
+
 /// This computer's server, in the folder on screen when it starts. Tests never run Claude Code: without a stand-in of
 /// their own there is no switch.
 fn service(s: &State) -> Option<RemoteControl> {
@@ -76,7 +79,12 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
     let state: &RemoteControlState = s.remote_control.as_ref()?;
     let l = crate::look::controls::Look::new(p.dark);
     let managed = managed();
-    let lede = format!("{} {NEEDS_SIGN_IN}", says(state));
+    // On or off, the line says what the switch does and what the state went on to say is under More (review change 6);
+    // starting, stopping, ended or failed, the state is news, and is said where it was.
+    let settled = matches!(state.phase, Phase::Running | Phase::Off);
+    let lede = if settled { LINE.to_owned() } else { format!("{} {NEEDS_SIGN_IN}", says(state)) };
+    let said = says(state);
+    let more = crate::settings_panel::switch_more(s, &l, "remote-control", &[crate::settings_panel::without_state(&said), NEEDS_SIGN_IN]);
     let switch = crate::look::controls::switch(&l, !managed && state.enabled, REMOTE_CONTROL_LABEL, managed || state.phase == Phase::Stopping)
         .key("remote-control-switch")
         .on_press(toggle);
@@ -91,7 +99,8 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
                     .grow(1.0)
                     .gap(4.0)
                     .child(text(REMOTE_CONTROL_LABEL).font(l.ty.control).color(l.c("text-primary")))
-                    .child(text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap().role("status")),
+                    .child(if settled { text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap() } else { text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap().role("status") })
+                    .children(settled.then_some(more)),
             )
             .child(switch),
     );
