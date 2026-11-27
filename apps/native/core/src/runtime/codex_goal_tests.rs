@@ -128,11 +128,11 @@ fn a_get_asks_thread_goal_get_and_holds_what_it_answers_a_goal_or_none() {
 fn a_clear_asks_thread_goal_clear_on_the_thread_and_holds_nothing() {
     let (mut codex, told) = started(json!({
         "thread/goal/set": [{"result": {"goal": kept_green("active")}}],
-        "thread/goal/clear": [{"result": {}}],
+        "thread/goal/clear": [{"result": {"cleared": true}}],
     }));
     codex.goal(GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() }));
     assert_eq!(codex.goal(GoalAsk::Clear), GoalAnswer::Cleared);
-    assert_eq!(told.params_of("thread/goal/clear").unwrap(), json!({"threadId": "thread_9"}));
+    assert_eq!(told.params_of("thread/goal/clear").unwrap(), json!({"threadId": "thread_9", "origin": "user"}));
     assert_eq!(codex.standing_goal(), None);
 }
 
@@ -265,7 +265,7 @@ fn a_new_objective_is_a_new_goal_set() {
 fn a_clear_writes_one_event_however_many_times_the_server_says_it() {
     let (mut codex, _told) = started(json!({
         "thread/goal/set": [{"result": {"goal": kept_green("active")}}],
-        "thread/goal/clear": [{"result": {}}, cleared_notice(), cleared_notice(), turn_ends()],
+        "thread/goal/clear": [{"result": {"cleared": true}}, cleared_notice(), cleared_notice(), turn_ends()],
     }));
     codex.goal(GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() }));
     codex.goal(GoalAsk::Clear);
@@ -274,6 +274,53 @@ fn a_clear_writes_one_event_however_many_times_the_server_says_it() {
     let cleared = events.iter().find(|e| e.payload["code"] == "codex.goal_cleared").unwrap();
     assert_eq!(cleared.payload["message"], "Codex's standing goal was cleared.");
     assert!(cleared.payload.get("goal").is_none());
+}
+
+#[test]
+fn clear_false_and_malformed_replies_do_not_claim_a_clear_or_discard_a_held_goal() {
+    let (mut codex, _told) = started(json!({
+        "thread/goal/set": [{"result": {"goal": kept_green("active")}}],
+        "thread/goal/clear#1": [{"result": {"cleared": false}}],
+        "thread/goal/clear#2": [{"result": {}}],
+        "thread/goal/clear#3": [{"result": {"cleared": "true"}}, turn_ends()],
+    }));
+    codex.goal(GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() }));
+    assert_eq!(codex.goal(GoalAsk::Clear), GoalAnswer::NotCleared, "false means no clear was performed");
+    for _ in 0..2 {
+        assert!(matches!(codex.goal(GoalAsk::Clear), GoalAnswer::Refused(_)), "a malformed reply must be refused");
+    }
+    assert_eq!(codex.standing_goal().map(|goal| goal.status), Some(GoalStatus::Active));
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_set"]);
+}
+
+#[test]
+fn a_confirmed_clear_is_written_once_even_if_no_goal_was_cached() {
+    let (mut codex, _told) = started(json!({
+        "thread/goal/clear": [{"result": {"cleared": true}}, cleared_notice(), turn_ends()],
+    }));
+    assert!(codex.standing_goal().is_none());
+    assert_eq!(codex.goal(GoalAsk::Clear), GoalAnswer::Cleared);
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_cleared"]);
+}
+
+#[test]
+fn malformed_get_and_set_replies_do_not_discard_a_held_goal() {
+    let mut no_usage = kept_green("paused");
+    no_usage.as_object_mut().unwrap().remove("tokensUsed");
+    let (mut codex, _told) = started(json!({
+        "thread/goal/set#1": [{"result": {"goal": kept_green("active")}}],
+        "thread/goal/get#1": [{"result": null}],
+        "thread/goal/get#2": [{"result": {"goal": {"status": "paused"}}}],
+        "thread/goal/set#2": [{"result": {"goal": null}}],
+        "thread/goal/set#3": [{"result": {"goal": no_usage}}, turn_ends()],
+    }));
+    let set = GoalAsk::Set(GoalSet { objective: Some("Keep the test suite green".into()), ..Default::default() });
+    codex.goal(set.clone());
+    for ask in [GoalAsk::Get, GoalAsk::Get, set.clone(), set] {
+        assert!(matches!(codex.goal(ask), GoalAnswer::Refused(_)), "a malformed reply must be refused");
+        assert_eq!(codex.standing_goal().map(|goal| goal.status), Some(GoalStatus::Active));
+    }
+    assert_eq!(goal_codes(&to_the_end(&mut codex)), ["codex.goal_set"]);
 }
 
 #[test]

@@ -534,7 +534,7 @@ impl Codex {
         let (method, params) = match &ask {
             GoalAsk::Set(set) => ("thread/goal/set", super::goal::set_params(&thread, set)),
             GoalAsk::Get => ("thread/goal/get", json!({"threadId": thread})),
-            GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread})),
+            GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread, "origin": "user"})),
         };
         let within = self.answer_within.min(GOAL_ANSWER_WITHIN);
         let result = match self.answer_within_or_refusal(method, params, within) {
@@ -545,13 +545,30 @@ impl Codex {
             }
             Err(e) => return GoalAnswer::Refused(e.to_string()),
         };
-        let learning = matches!(ask, GoalAsk::Get);
-        let said = match ask {
-            GoalAsk::Clear => Some(GoalEvent::Cleared { thread_id: thread }),
-            GoalAsk::Get if result["goal"].is_null() => Some(GoalEvent::Cleared { thread_id: thread }),
-            _ => ThreadGoal::parse(&result["goal"], Some(&thread)).map(GoalEvent::Updated),
+        let malformed = || GoalAnswer::Refused(match &ask {
+            GoalAsk::Set(_) => "Codex did not send a valid standing goal after trying to set it.",
+            GoalAsk::Get => "Codex did not send a valid answer about the standing goal.",
+            GoalAsk::Clear => "Codex did not say whether it cleared the standing goal.",
+        }.into());
+        let Some(result) = result.as_object() else {
+            return malformed();
         };
-        let written = said.and_then(|said| self.normal.goal_said(said, method, learning));
+        let learning = matches!(ask, GoalAsk::Get);
+        let said = match &ask {
+            GoalAsk::Clear => match result.get("cleared").and_then(Value::as_bool) {
+                Some(true) => GoalEvent::Cleared { thread_id: thread },
+                Some(false) => return GoalAnswer::NotCleared,
+                None => return malformed(),
+            },
+            GoalAsk::Get if result.get("goal").is_none_or(Value::is_null) => GoalEvent::Cleared { thread_id: thread },
+            _ => {
+                let Some(goal) = result.get("goal").and_then(|goal| ThreadGoal::parse_reply(goal, &thread)) else {
+                    return malformed();
+                };
+                GoalEvent::Updated(goal)
+            }
+        };
+        let written = self.normal.goal_said(said, method, learning);
         self.queued.extend(written);
         if method == "thread/goal/clear" {
             return GoalAnswer::Cleared;

@@ -337,7 +337,9 @@ impl Normalizer {
                 Some(self.event("adapter.diagnostic", json!({"level":"info","code":code,"terminal":false,"message":message,"goal":payload,"evidence":evidence})))
             }
             GoalEvent::Cleared { .. } => {
-                if known && before.is_none() {
+                // A successful clear reply confirms an actual deletion, even
+                // if our cache was empty. A following notice is still a duplicate.
+                if known && before.is_none() && method != "thread/goal/clear" {
                     return None;
                 }
                 Some(self.event("adapter.diagnostic", json!({"level":"info","code":"codex.goal_cleared","terminal":false,"message":"Codex's standing goal was cleared.","evidence":evidence})))

@@ -72,6 +72,26 @@ impl ThreadGoal {
             updated_at: goal["updatedAt"].as_i64().unwrap_or(0),
         })
     }
+
+    /// Replies must carry the required 0.172 fields and name the thread we asked about.
+    /// Notifications retain their more tolerant parser. A new status word still reads as Unknown.
+    pub(super) fn parse_reply(goal: &Value, thread: &str) -> Option<Self> {
+        let fields = goal.as_object()?;
+        if fields.get("threadId")?.as_str()? != thread {
+            return None;
+        }
+        fields.get("status")?.as_str()?;
+        for name in ["tokensUsed", "timeUsedSeconds"] {
+            u64::try_from(fields.get(name)?.as_i64()?).ok()?;
+        }
+        for name in ["createdAt", "updatedAt"] {
+            fields.get(name)?.as_i64()?;
+        }
+        if let Some(budget) = fields.get("tokenBudget").filter(|value| !value.is_null()) {
+            u64::try_from(budget.as_i64()?).ok()?;
+        }
+        Self::parse(goal, None)
+    }
 }
 
 /// What a goal notification says happened on a thread.
@@ -123,6 +143,8 @@ pub enum GoalAnswer {
     /// The goal the thread holds, none when it holds none.
     Held(Option<ThreadGoal>),
     Cleared,
+    /// Codex said the request did not clear a goal.
+    NotCleared,
     /// A runtime, or a Codex, that keeps no standing goals.
     NoStandingGoals,
     /// Asked before the runtime has a thread to hold one on.
