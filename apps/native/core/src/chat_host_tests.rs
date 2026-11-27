@@ -453,13 +453,16 @@ fn a_card_answered_in_the_window_says_so_and_one_whose_turn_ended_says_that() {
     assert_eq!(edits.len(), 1, "{edits:?}");
     assert!(edits[0].1.contains("Open the billing page") && edits[0].1.ends_with("*Denied in Locust.*"), "{}", edits[0].1);
 
-    // The turn ends with the other card unanswered: the run-end step says so, and the watch adds nothing.
+    // The turn ends with the other card unanswered: the watch leaves it to the run-end step, however long that takes
+    // to come, and the run-end step says so.
     h.channel.release("mission_1");
     h.live.lock().unwrap().remove("mission_1");
-    h.link.on_run_ended("mission_1");
     for _ in 0..=GONE_AFTER_LOOKS {
         h.look();
     }
+    assert_eq!(h.edits().len(), 1, "{:?}", h.edits());
+    h.link.on_run_ended("mission_1");
+    h.look();
     let edits = h.edits();
     assert_eq!(edits.len(), 2, "{edits:?}");
     assert!(edits[1].1.contains("Edit README.md") && edits[1].1.ends_with("*The turn ended before this was answered.*"), "{}", edits[1].1);
