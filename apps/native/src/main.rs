@@ -1234,6 +1234,14 @@ fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
     s.picks.remove(teammate)
 }
 
+/// Setup's read of which runtimes are at their limit (`limits_job`, started in `load_composer_store`), once it lands.
+/// Until then the composer treats no runtime as limited, as it does with no ledger.
+fn take_limits(s: &mut State) -> bool {
+    let Some(limited) = s.limits_job.take() else { return false };
+    s.limited_runtimes = limited;
+    true
+}
+
 fn open_models(s: &mut State, id: String) {
     if s.demo {
         return;
@@ -2333,6 +2341,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= agent_card_ui::poll(s);
+    changed |= take_limits(s);
     changed |= people_panel::poll(s);
     changed |= own_models_card::poll(s);
     changed |= key_card::poll(s);
@@ -4009,3 +4018,6 @@ mod every_runtime_keeps_its_output_tests;
 #[cfg(test)]
 #[path = "ui/list_read_holds_tests.rs"]
 mod list_read_holds_tests;
+#[cfg(test)]
+#[path = "ui/limits_off_launch_tests.rs"]
+mod limits_off_launch_tests;

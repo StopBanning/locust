@@ -244,6 +244,9 @@ pub(super) struct State {
     /// Every account's latest usage reading (`usage_ledger::usage_windows`), for the model chip's card.
     pub(super) usage_readings: HashMap<String, String>,
     pub(super) usage_readings_job: Latest<HashMap<String, String>>,
+    /// Which runtimes are at their usage limit, read from every ledger off the window's thread at launch (setup's
+    /// `load_composer_store`), set into `limited_runtimes` by poll (main.rs `take_limits`).
+    pub(super) limits_job: Latest<HashMap<String, String>>,
     /// The pointer is on the model chip.
     pub(super) chip_hover: bool,
     pub(super) hover: crate::hover::HoverState,
@@ -633,6 +636,7 @@ impl Default for State {
             usage_line_job: Latest::default(),
             usage_readings: HashMap::new(),
             usage_readings_job: Latest::default(),
+            limits_job: Latest::default(),
             chip_hover: false,
             hover: Default::default(),
             stopped_by_you: None,

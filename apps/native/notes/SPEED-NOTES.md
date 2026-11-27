@@ -419,20 +419,31 @@ failed a room_screen source check, because row 4's test counter then stood above
 file up to its first test attribute); the counter was moved below the code before either row was committed.
 No new public function (`list_read_holds` is private to main.rs, called from `poll`).
 
-## Row 3: what setup's limits cost, measured; not changed
+## Row 3: setup's limits read runs off the window's thread (composer_wiring.rs `limits_job`, main.rs `take_limits`)
 
-An experiment build (`bins/exp-nolimits`, never committed: the one line in `composer_wiring.rs` that sets
-`s.limited_runtimes` taken out) shows what moving that read off the main thread would buy, three runs:
+Setup read every ledger on the window's thread to learn which runtimes are at their usage limit
+(`load_composer_store` -> `limits::limited_runtimes`). Colin allowed the two files outside this lane's (27 Nov):
+`load_composer_store` now starts that read as a `Latest` job (`limits_job`, one field in app_state.rs) and poll sets
+`limited_runtimes` when it lands (`take_limits`, main.rs). Until it lands the composer treats no runtime as limited, as
+it does with no ledger; opening the model menu and the agents screen still read it again on the spot, as before.
+
+An experiment build first (`bins/exp-nolimits`, never committed: the line taken out) showed what moving it would buy;
+then the change itself (`bins/r3`, HEAD 96e98bd8 + this change, 1 rustc running beside it), three runs each:
 
 | run | setup | first frame | listed | opened |
 |---|---|---|---|---|
-| without setup's limits read | 6-132 | 11-320 | 2506-3042 | 2847-3401 |
+| before (row 2's build) | 1202-1801 | 1206-1972 | 3635-4177 | 3984-4521 |
+| without setup's limits read (experiment) | 6-132 | 11-320 | 2506-3042 | 2847-3401 |
+| after (row 3) | 6-195 | 10-489 | 3004-3329 | 3418-3762 |
 
-First frame 11-320 ms against 1168-2114 ms: under the 0.8 s target with room to spare, and the list read starts about
-a second sooner (load_team comes after `load_composer_store` in setup), which takes the open to 2.8-3.4 s. The fix is
-to compute `limited_runtimes` in a `Latest` job started from setup and set it in poll; until it lands the composer
-treats no runtime as limited, as it does with no ledger. That is `composer_wiring.rs` (the line) and `app_state.rs`
-(the job's field), both outside this lane's files, so it was not done (see "Left").
+First frame 10-489 ms (the 489 is the first run after the data was copied, cold disk) against 1.2-2.0 s: **under the
+0.8 s target**. The list read starts sooner too (load_team comes after `load_composer_store` in setup), which takes the
+open to 3.4-3.8 s; the rest is row 2's cold parse (below).
+
+Test (src/ui/limits_off_launch_tests.rs, in a child process with `LOCUST_NATIVE_DATA` on a ledger holding a codex
+limit, through `poll`, the call site): `setup_leaves_the_limits_read_to_a_job_and_poll_sets_what_it_found` (no limit
+known when setup returns, codex limited after polls). Breaks: 3/3 KILLED (`~/work/scratch/evidence/speed-2/row3.entries`,
+`row3.out`), one on the call site in poll. No new public function (`take_limits` is private to main.rs).
 
 ## Row 4: a resting window never builds the drawn list (sidebar.rs `shimmering`)
 
@@ -475,12 +486,10 @@ handed between builds and the face's drawing to be redone from the poll:
 
 0. **One moving face rebuilds the whole window** (row 1, above): needs `src/look/faces.rs` (about ten lines) beside
    the Rune and bot_stage.rs work.
-1. **Setup parses every ledger before the first frame** (row 3): `s.limited_runtimes` in a `Latest` job
-   (`composer_wiring.rs` one line, `app_state.rs` one field, main.rs setup and poll). Measured to take the first frame
-   from 1.2-2.1 s to 0.01-0.3 s in this build.
+1. (done, row 3) Setup's limits read now runs off the window's thread.
 2. **A launch still parses the ledger folder three times** (row 2's rest): the list (history_cache.rs, cold at every
    launch: the cache lives in memory only), the usage windows (usage_ledger.rs, read again in full on each
-   `refresh_recent` that is not already running one) and setup's limits (above). `limited_runtimes` and
+   `refresh_recent` that is not already running one) and the limits job (row 3, now off the window's thread). `limited_runtimes` and
    `usage_windows` both come from `collect_missions` over the same files and could share one read; the list needs only
    summaries for all but the newest 20 rows yet parses every record of every file. Those files (history_cache.rs,
    usage_ledger.rs, limits.rs, agent_card_ui.rs) are outside this lane's.
