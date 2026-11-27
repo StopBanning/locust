@@ -30,16 +30,62 @@ pub(super) struct Entry {
 fn key(s: &State) -> String {
     conversation_draft_key(s).unwrap_or_default()
 }
+// Only the creation record is needed. A shell's folder does not depend on reading the rest of the turn.
+fn recorded_workspace(id: &str) -> Option<String> {
+    use std::io::{BufRead, Read};
+    let file = std::fs::File::open(native::find_ledger(id)?).ok()?;
+    let mut line = String::new();
+    std::io::BufReader::new(file.take(1024 * 1024)).read_line(&mut line).ok()?;
+    let row: serde_json::Value = serde_json::from_str(&line).ok()?;
+    (row["recordType"] == "mission.created" && row["metadata"]["missionId"] == id)
+        .then(|| row["metadata"]["workspaceId"].as_str().map(str::to_owned))
+        .flatten()
+}
+
 fn folder(s: &State) -> Option<std::path::PathBuf> {
-    let (teammate, _) = selected_conversation(s)?;
-    // Same host resolution the engine uses for turns (teammate → workspace.json → ~/Documents/Locust).
-    let electron = s
-        .data
-        .as_ref()
-        .map(|store| store.electron().to_path_buf())
-        .or_else(|| native::store().map(|store| store.electron().to_path_buf()))
-        .or_else(engine::default_data_folder)?;
-    native::folder_for(teammate, &electron).ok()
+    use locust_core::{folders, people, worktrees};
+    let store = s.data.clone().or_else(native::store)?;
+    let selection = selected_conversation(s);
+    let context = terminal::TerminalContext {
+        mission_id: s.ledger.as_ref().map(|pane| pane.snapshot.tip.as_str()).filter(|tip| !tip.is_empty())
+            .or_else(|| selection.and_then(|(_, conversation)| conversation.conversation_id.as_deref()))
+            .map(str::to_owned),
+        teammate_id: selection.map(|(teammate, _)| teammate.id.clone()),
+    };
+    // Resolve the selected turn through the receipt, folder registry and roster. The window's current
+    // project is only the starting point before a message; opening a shell never makes a worktree.
+    let result = terminal::terminal_folder(&context, &terminal::TerminalFolderFacts {
+        current: &|| native::open_folder().map(|path| path.to_string_lossy().into_owned()),
+        mission: &recorded_workspace,
+        folder_of: &|id| folders::path_of(&store, id).ok().flatten(),
+        owner_of: &|id| people::owner_of(&store, id),
+        teammates: &|| {
+            people::team(&store).ok().and_then(|team| {
+                Some(team["teammates"].as_array()?.iter().filter_map(|row| Some(terminal::TerminalTeammate {
+                    teammate_id: row["teammateId"].as_str()?.to_owned(),
+                    folder: row["folder"].as_str().map(str::to_owned),
+                    worktree: row["worktree"] == true,
+                })).collect())
+            }).unwrap_or_default()
+        },
+        trees: &|root| {
+            let Some(root) = existing_folder(root) else { return vec![]; };
+            worktrees::run_git(&["worktree", "list", "--porcelain"], &root, Duration::from_secs(2)).ok()
+                .map(|out| worktrees::parse_worktree_list(&out, &root, worktrees::WORKTREE_DIR)
+                    .into_iter().map(|tree| (tree.teammate_id, tree.path)).collect())
+                .unwrap_or_default()
+        },
+    })?;
+    existing_folder(&result)
+}
+
+fn existing_folder(path: &str) -> Option<std::path::PathBuf> {
+    let path = std::path::Path::new(path);
+    if !path.is_absolute() {
+        return None;
+    }
+    let path = path.canonicalize().ok()?;
+    (path.is_dir() && !path.ancestors().any(|p| p.join("resources/app.asar").is_file())).then_some(path)
 }
 fn add(s: &mut State) {
     if s.terminal.tabs.len() >= 8 {
