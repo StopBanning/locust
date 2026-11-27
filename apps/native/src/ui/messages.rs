@@ -172,6 +172,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
             continue;
         }
+        // What the usage-limit card already says: the error line repeating it, and the carry-on card now inside it.
+        if crate::failed_turn_cards::said_by_the_limit_card(items, index) {
+            continue;
+        }
         let conversation = s
             .ledger
             .as_ref()
@@ -233,91 +237,20 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 body
             }
             ledger::Item::CarryOn { conversation_id, from, why } => {
-                if s.flight.is_some()
-                    || s.sending.is_pending()
-                    || s.ledger
-                        .as_ref()
-                        .is_some_and(|pane| pane.snapshot.running || pane.after_tip.is_some())
-                {
+                if crate::failed_turn_cards::carry_on_held_back(s) {
                     continue;
                 }
-                let id = conversation_id.clone();
                 let l = crate::look::controls::Look::new(p.dark);
                 // `.lc-rerun`: the reason in muted words beside one press for the agent Locust suggests, on a green
-                // rule; every other agent is behind "Choose another agent".
-                let mut line = row()
-                    .w_full()
-                    .gap(12.0)
-                    .center_y()
-                    .child(
-                        col()
-                            .grow(1.0)
-                            .child(text(locust_core::carry_on::stopped_sentence(from, why)).font(l.ty.body).color(l.c("text-muted")).wrap()),
-                    );
-                if let Some((runtime, model)) = &s.carry_offer {
-                    let label = format!(
-                        "Carry on with {}",
-                        model.clone().unwrap_or_else(|| locust_core::carry_on::display_name(runtime).to_owned())
-                    );
-                    let (id, runtime, model) = (id.clone(), runtime.clone(), model.clone().unwrap_or_default());
-                    line = line.child(
-                        crate::look::controls::button(&l, &label, crate::look::controls::Tone::Neutral, false)
-                            .on_press(move |s: &mut State| carry(s, id.clone(), runtime.clone(), model.clone())),
-                    );
-                }
-                // Indented 36 inside the thread's width: a row whose first cell is the indent, so nothing runs past.
-                let mut card = col()
+                // rule; every other agent is behind "Choose another agent". Indented 36 inside the thread's width: a
+                // row whose first cell is the indent, so nothing runs past.
+                let sentence = locust_core::carry_on::stopped_sentence(from, why);
+                let card = col()
                     .grow(1.0)
-                    .gap(6.0)
                     .py(8.0)
                     .pl(12.0)
                     .border_sides([0.0, 0.0, 0.0, 2.0], l.c("green-border"))
-                    .child(line)
-                    .child(
-                        text("Choose another agent")
-                            .font(l.ty.body)
-                            .color(l.c("text-muted"))
-                            .hover(l.c("hover-surface"))
-                            .py(2.0)
-                            .role("button")
-                            .on_press(|s: &mut State| open_models(s, CARRY_TARGET.into())),
-                    );
-                if s.model_menu.as_deref() == Some(CARRY_TARGET) {
-                    if let Some(agents) = s.models.get(CARRY_TARGET).filter(|a| !a.is_empty()) {
-                        let mut list = col()
-                            .key(format!("{key}-carry-menu"))
-                            .w_full()
-                            .max_h(180.0)
-                            .scroll(ScrollSpec {
-                                stick_bottom: false,
-                            })
-                            .gap(4.0);
-                        for agent in agents.iter().filter(|a| a.runtime != *from) {
-                            for model in &agent.models {
-                                let (id, runtime, model_id) =
-                                    (id.clone(), agent.runtime.clone(), model.id.clone());
-                                list = list.child(
-                                    el().padding(8.0)
-                                        .disabled(s.flight.is_some())
-                                        .child(
-                                            text(format!(
-                                                "{} · {}",
-                                                engine::runtime_name(&runtime),
-                                                model.name
-                                            ))
-                                            .color(p.text),
-                                        )
-                                        .on_press(move |s: &mut State| {
-                                            carry(s, id.clone(), runtime.clone(), model_id.clone())
-                                        }),
-                                );
-                            }
-                        }
-                        card = card.child(list);
-                    } else {
-                        card = card.child(text("Loading models…").color(p.muted));
-                    }
-                }
+                    .child(crate::failed_turn_cards::carry_on_body(s, conversation_id, from, &sentence, &key, p));
                 row().w_full().child(el().w(36.0)).child(card)
             }
             ledger::Item::User(body) => {
@@ -559,7 +492,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
             // A limit the run ended on is Electron's red card; a notice with a level is its line in its colour, never
             // "error: ..." (Thread.tsx `limit`, DiagnosticLine; live hour 1, faults 15-16).
-            ledger::Item::Limit { kind, text: body } => crate::failed_turn_cards::limit(kind, body, p),
+            ledger::Item::Limit { .. } => crate::failed_turn_cards::limit(s, items, index, &key, p),
             ledger::Item::Note { level, text: body } if !level.is_empty() => crate::failed_turn_cards::diagnostic(level, body, p),
             ledger::Item::Note { text: body, .. } => text(body.clone())
                 .font(type_::LABEL)
@@ -807,7 +740,7 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
         messages = messages.child(text(tv::DAMAGED_RECORD_NOTE).key("damaged-record-note").font(type_::LABEL).color(p.muted).w_full().wrap());
     }
     // The durable receipt closes the thread, under the notes and the offers (Thread.tsx `ReceiptCard`, fault 17).
-    if !turn_running(s) && let Some(card) = crate::failed_turn_cards::receipt(s, p) {
+    if !turn_running(s) && let Some(card) = crate::failed_turn_cards::receipt(s, items, p) {
         messages = messages.child(card);
     }
     messages

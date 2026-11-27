@@ -4,30 +4,147 @@
 //! was cut off, or whose record could not be read to its end.
 
 use super::*;
+use locust_core::ledger::Item;
 use locust_core::inspector::{checkpoint_label, ledger_verification_label, runtime_display_name, short_mission_id};
 
-/// The title of a limit card (`Thread.tsx`, `item.type === 'limit'`).
-pub(super) const LIMIT_TITLE: &str = "Usage limit reached";
+/// The turn an item belongs to: from the person's words before it to the next person's words.
+fn turn_of(items: &[Item], index: usize) -> std::ops::Range<usize> {
+    let from = items[..index].iter().rposition(|i| matches!(i, Item::User(_))).map_or(0, |at| at + 1);
+    let to = items[index..].iter().position(|i| matches!(i, Item::User(_))).map_or(items.len(), |n| index + n);
+    from..to
+}
 
-/// A limit the run ended on: `temporary-rate-limit` is a warning in amber; anything else is the red card, its tag the
-/// kind the ledger recorded. The reset is the ledger's instant; a person reads a local time (`usageWindowLabel`).
-pub(super) fn limit(kind: &str, said: &str, p: &Palette) -> El {
-    let l = crate::look::controls::Look::new(p.dark);
-    let said = locust_core::usage_words::usage_window_label(said, chrono::Utc::now());
-    if kind == "temporary-rate-limit" {
-        return diagnostic("warning", &said, p);
+fn is_the_limit(item: &Item) -> bool {
+    matches!(item, Item::Limit { kind, .. } if kind != "temporary-rate-limit")
+}
+
+/// Whether the turn this item is in ended on a usage limit (`quota-exhausted`): the run could not go on, and says so once.
+pub(super) fn ended_on_limit(items: &[Item], index: usize) -> bool {
+    items[turn_of(items, index)].iter().any(is_the_limit)
+}
+
+/// An item the limit card already says: the error line repeating the limit, and the carry-on card that now sits inside
+/// the limit card (review change 2: "no second line repeating the limit").
+pub(super) fn said_by_the_limit_card(items: &[Item], index: usize) -> bool {
+    match &items[index] {
+        Item::Note { level, .. } if level == "error" => ended_on_limit(items, index),
+        Item::CarryOn { why, .. } if why == "plan" => ended_on_limit(items, index),
+        _ => false,
     }
-    col()
+}
+
+/// The agent the turn this item is in ran on, as Locust names it in a sentence.
+fn agent_of(s: &State, items: &[Item], index: usize) -> String {
+    let metas = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.as_slice()).unwrap_or(&[]);
+    let person_turns = items[..index].iter().filter(|i| matches!(i, Item::User(_))).count();
+    let meta = person_turns
+        .checked_sub(1)
+        .and_then(|ui| metas.iter().filter(|m| locust_core::conversation_turns::fix_of_turn(m).is_none()).nth(ui))
+        .or_else(|| metas.last());
+    match meta.map(|m| m.runtime.as_str()).filter(|r| !r.is_empty()) {
+        Some(runtime) => locust_core::carry_on::display_name(runtime).to_owned(),
+        None => "The agent".to_owned(),
+    }
+}
+
+/// "Claude Code reached its 5-hour limit · resets Wed 8:30 PM": the window that ran out, from the ledger's own
+/// reading, and its reset said once in a person's words (`usageWindowLabel`).
+pub(super) fn limit_sentence(agent: &str, said: &str, now: chrono::DateTime<chrono::Utc>) -> String {
+    let windows = locust_core::usage_words::usage_windows_of(said, now);
+    let fullest = windows.iter().max_by_key(|w| w.percent);
+    let which = fullest.map(|w| w.name.trim_end_matches(" window").to_lowercase()).filter(|w| !w.is_empty());
+    let mut line = match which {
+        Some(which) => format!("{agent} reached its {which} limit"),
+        None => format!("{agent} reached its usage limit"),
+    };
+    if let Some(resets) = fullest.and_then(|w| w.resets.as_deref()) {
+        line.push_str(&format!(" \u{b7} resets {resets}"));
+    }
+    line
+}
+
+/// Whether the carry-on offer is held back: a turn is under way, or about to be.
+pub(super) fn carry_on_held_back(s: &State) -> bool {
+    s.flight.is_some() || s.sending.is_pending() || s.ledger.as_ref().is_some_and(|pane| pane.snapshot.running || pane.after_tip.is_some())
+}
+
+/// What carrying a stopped turn on says and offers: the sentence, one press for the agent Locust suggests, "Choose
+/// another agent", and that menu when it is open. Under a limit it sits inside the limit card; after any other stop it
+/// is the card of its own (messages.rs).
+pub(super) fn carry_on_body(s: &State, conversation_id: &str, from: &str, sentence: &str, key: &str, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut line = row().w_full().gap(12.0).center_y().child(col().grow(1.0).child(text(sentence.to_owned()).font(l.ty.body).color(l.c("text-muted")).wrap()));
+    if let Some((runtime, model)) = &s.carry_offer {
+        let label = format!("Carry on with {}", model.clone().unwrap_or_else(|| locust_core::carry_on::display_name(runtime).to_owned()));
+        let (id, runtime, model) = (conversation_id.to_owned(), runtime.clone(), model.clone().unwrap_or_default());
+        line = line.child(
+            crate::look::controls::button(&l, &label, crate::look::controls::Tone::Neutral, false)
+                .key("carry-on-button")
+                .on_press(move |s: &mut State| crate::carry(s, id.clone(), runtime.clone(), model.clone())),
+        );
+    }
+    let mut body = col().w_full().gap(6.0).child(line).child(
+        text("Choose another agent")
+            .font(l.ty.body)
+            .color(l.c("text-muted"))
+            .hover(l.c("hover-surface"))
+            .py(2.0)
+            .role("button")
+            .on_press(|s: &mut State| crate::open_models(s, crate::CARRY_TARGET.into())),
+    );
+    if s.model_menu.as_deref() == Some(crate::CARRY_TARGET) {
+        if let Some(agents) = s.models.get(crate::CARRY_TARGET).filter(|a| !a.is_empty()) {
+            let mut list = col().key(format!("{key}-carry-menu")).w_full().max_h(180.0).scroll(ScrollSpec { stick_bottom: false }).gap(4.0);
+            for agent in agents.iter().filter(|a| a.runtime != from) {
+                for model in &agent.models {
+                    let (id, runtime, model_id) = (conversation_id.to_owned(), agent.runtime.clone(), model.id.clone());
+                    list = list.child(
+                        el().padding(8.0)
+                            .disabled(s.flight.is_some())
+                            .child(text(format!("{} \u{b7} {}", crate::engine::runtime_name(&agent.runtime), model.name)).color(p.text))
+                            .on_press(move |s: &mut State| crate::carry(s, id.clone(), runtime.clone(), model_id.clone())),
+                    );
+                }
+            }
+            body = body.child(list);
+        } else {
+            body = body.child(text("Loading models\u{2026}").color(p.muted));
+        }
+    }
+    body
+}
+
+/// A limit the run ended on: `temporary-rate-limit` is only a warning line; anything else is the ONE amber card, with
+/// the carry-on offer inside it when the turn can be carried on. A limit is a wait, not a fault: red stays for errors.
+pub(super) fn limit(s: &State, items: &[Item], index: usize, key: &str, p: &Palette) -> El {
+    let Item::Limit { kind, text: said } = &items[index] else { return el() };
+    let l = crate::look::controls::Look::new(p.dark);
+    let now = chrono::Utc::now();
+    if kind == "temporary-rate-limit" {
+        return diagnostic("warning", &locust_core::usage_words::usage_window_label(said, now), p);
+    }
+    let mut card = col()
         .key("limit-card")
         .w_full()
+        .gap(8.0)
+        .padding(12.0)
         .radius(l.t.px("radius-card"))
-        .border(1.0, l.c("red-border"))
-        .child(
-            row().w_full().py(8.0).px(12.0).gap(8.0).center_y()
-                .child(text(LIMIT_TITLE).font(l.ty.control).color(l.c("text-primary")).grow(1.0))
-                .child(text(kind.to_uppercase()).key("limit-tag").font(type_::LABEL.mono()).color(l.c("red-text"))),
-        )
-        .child(col().w_full().px(12.0).pb(12.0).child(text(said).key("limit-said").font(l.ty.body).color(l.c("text-secondary")).wrap_anywhere()))
+        .fill(l.c("amber-tint"))
+        .border(1.0, l.c("amber-border"))
+        .child(text(limit_sentence(&agent_of(s, items, index), said, now)).key("limit-said").font(l.ty.control).color(l.c("text-primary")).wrap_anywhere());
+    // The carry-on offer for this turn, when its card was about to follow: inside, not beside, this card.
+    let span = turn_of(items, index);
+    let offer = items[span.start..span.end].iter().find_map(|i| match i {
+        Item::CarryOn { conversation_id, from, why } if why == "plan" => Some((conversation_id.as_str(), from.as_str(), why.as_str())),
+        _ => None,
+    });
+    if let Some((id, from, why)) = offer.filter(|_| !carry_on_held_back(s)) {
+        let sentence = locust_core::carry_on::stopped_sentence(from, why);
+        // The first half of the sentence is the limit, said above: what is left to say is what is kept.
+        let kept = sentence.split_once(". ").map_or(sentence.as_str(), |(_, rest)| rest);
+        card = card.child(carry_on_body(s, id, from, kept, key, p));
+    }
+    card
 }
 
 /// `DiagnosticLine`: the notice's sentence on a rule in its own colour, the shield before it, nothing like "error:" in
@@ -107,8 +224,35 @@ pub(super) fn receipt_line(r: &Receipt) -> String {
     line
 }
 
+/// The durable receipt under the newest turn. Under a usage limit it is folded to "Details" (review change 2: a limit is
+/// a wait, and the receipt folds as a finished turn's does); the press brings the card up under it.
+pub(super) fn receipt(s: &State, items: &[Item], p: &Palette) -> Option<El> {
+    let card = receipt_card(s, p)?;
+    let newest = items.iter().rposition(|i| matches!(i, Item::User(_))).map_or(0, |at| at + 1);
+    if !items[newest..].iter().any(is_the_limit) {
+        return Some(card);
+    }
+    let l = crate::look::controls::Look::new(p.dark);
+    let key = format!("receipt-shown:{}", s.ledger.as_ref()?.snapshot.tip);
+    let shown = s.activity_open.get(&key).copied().unwrap_or(false);
+    let toggle = key.clone();
+    let chevron = if shown { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+    let details = row()
+        .key("receipt-details")
+        .role("button")
+        .gap(4.0)
+        .center_y()
+        .on_press(move |s: &mut State| {
+            let now = s.activity_open.get(&toggle).copied().unwrap_or(false);
+            s.activity_open.insert(toggle.clone(), !now);
+        })
+        .child(text("Details").font(type_::LABEL).color(l.c("text-muted")))
+        .child(crate::look::controls::glyph(&l, chevron, 11.0, Some(l.c("text-muted"))));
+    Some(if shown { col().w_full().gap(8.0).child(details).child(card) } else { col().w_full().child(details) })
+}
+
 /// The durable receipt card (`ReceiptCard`), at rest: its head and its line; the line opens the rest.
-pub(super) fn receipt(s: &State, p: &Palette) -> Option<El> {
+fn receipt_card(s: &State, p: &Palette) -> Option<El> {
     let snap = &s.ledger.as_ref()?.snapshot;
     let r = receipt_of(snap)?;
     let l = crate::look::controls::Look::new(p.dark);

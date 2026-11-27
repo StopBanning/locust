@@ -407,6 +407,10 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title.child(el().size(6.0, 6.0).a11y_hidden().key(format!("conversation-working-{}", item.mission_id)));
     } else if item.phase == "failed" {
         title = title.child(el().size(5.0, 5.0).radius(2.5).fill(p.red));
+    } else if conversation_keys(item).iter().any(|id| s.home.to_look_at.contains(id)) {
+        // A small solid dot until the conversation is opened (Big Brother's review of 26 Nov, change 3: Electron draws
+        // nothing for a clean finish, `Sidebar.tsx:1033-1041`; the Team board's `finishedUnseen`, `Screens.tsx:637`).
+        title = title.child(el().size(6.0, 6.0).radius(3.0).fill(p.green).role("img").label("Finished while you were away").key(format!("conversation-unseen-dot-{}", item.mission_id)));
     }
     let id = item.mission_id.clone();
     // Whose it is goes in the hover with the title, as a second line no longer says it (Sidebar.tsx `hover`).
@@ -2198,6 +2202,9 @@ mod groups_unreadable_line_tests;
 #[cfg(test)]
 #[path = "sidebar_order_tests.rs"]
 mod sidebar_order_tests;
+#[cfg(test)]
+#[path = "sidebar_unseen_tests.rs"]
+mod sidebar_unseen_tests;
 
 #[cfg(test)]
 #[path = "sidebar_pinned_tests.rs"]

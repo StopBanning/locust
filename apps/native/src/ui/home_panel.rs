@@ -5,7 +5,7 @@ use crate::away::{self, AWAY_MINIMUM_MS, AwaySummary};
 use crate::boot_view::{self, BootState, BootView};
 use crate::changelog::{self, ChangelogEntry};
 use crate::conversation_board::{
-    self, ALLOW_ONCE, ANSWER, BOARD_CLEAR, BOARD_CLEAR_LINE, BOARD_TITLE, ConversationBoardFacts,
+    self, ALLOW_ONCE, ANSWER, BOARD_CLEAR, BOARD_CLEAR_LINE, ConversationBoardFacts,
     ConversationBoardKey, DENY, REVIEW, WAITING_ON_YOU, WANTS_TO_RUN, WORKING,
 };
 use crate::folders::{self, CHOOSE_FOLDER, FOLDER_LEDE, MADE_FOLDER, NO_FOLDER_CHOSEN};
@@ -33,6 +33,8 @@ pub(super) struct Panel {
     /// What each away row's run came to, read once when the summary is (AwayList's saidOf).
     pub away_said: HashMap<String, String>,
     pub to_look_at: HashSet<String>,
+    /// `to_look_at` has been read from the data folder (once, on the first finish or open of the session).
+    pub unseen_loaded: bool,
     /// Team roster finishes are cleared by looking at any conversation of that teammate (App.tsx finishedUnseen).
     pub teammates_unseen: HashSet<String>,
     pub asks: HashMap<String, BoardAsk>,
@@ -334,7 +336,39 @@ pub(super) fn mark_seen_if_looking(s: &mut State) -> bool {
     owner.is_some_and(|id| s.home.teammates_unseen.remove(&id))
 }
 
+/// Where the conversations that finished while nobody had them open are kept, so the sidebar's dot outlives the window
+/// (Big Brother's review of 26 Nov, change 3). Electron's `finishedUnseen` is in memory only.
+const UNSEEN_FILE: &str = "unseen_finishes.json";
+/// The most the file keeps: a finish nobody looked at in a month is not news.
+const MAX_UNSEEN: usize = 500;
+
+/// Read the unseen finishes from the data folder, once per window; what this window already recorded stays.
+pub(super) fn load_unseen(s: &mut State) {
+    if s.home.unseen_loaded {
+        return;
+    }
+    let Some(store) = &s.data else { return };
+    s.home.unseen_loaded = true;
+    if let Ok(raw) = std::fs::read_to_string(store.root().join(UNSEEN_FILE))
+        && let Ok(serde_json::Value::Array(ids)) = serde_json::from_str::<serde_json::Value>(&raw)
+    {
+        let ids: Vec<String> = ids.into_iter().filter_map(|v| v.as_str().map(str::to_owned)).take(MAX_UNSEEN).collect();
+        s.home.to_look_at.extend(ids);
+    }
+}
+
+fn save_unseen(s: &State) {
+    let Some(store) = &s.data else { return };
+    let mut ids: Vec<&String> = s.home.to_look_at.iter().collect();
+    ids.sort();
+    ids.truncate(MAX_UNSEEN);
+    let list: Vec<serde_json::Value> = ids.into_iter().cloned().map(serde_json::Value::String).collect();
+    let _ = store.save_json(UNSEEN_FILE, &serde_json::Value::Array(list));
+}
+
 pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
+    load_unseen(s);
+    let before = s.home.to_look_at.len();
     let in_workroom = workroom_visible(s);
     let looking = if in_workroom { selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone()) } else { None };
     let looking_owner = if in_workroom { selected_conversation(s).map(|(mate, _)| mate.id.clone()) } else { None };
@@ -352,6 +386,9 @@ pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
             }
         }
     }
+    if s.home.to_look_at.len() != before {
+        save_unseen(s);
+    }
 }
 
 pub(super) fn opened(s: &mut State, id: &str) {
@@ -365,8 +402,13 @@ pub(super) fn opened(s: &mut State, id: &str) {
         })
         .map(conversation_list::conversation_keys)
         .unwrap_or_else(|| vec![id.to_owned()]);
+    load_unseen(s);
+    let mut seen = false;
     for key in keys {
-        s.home.to_look_at.remove(&key);
+        seen |= s.home.to_look_at.remove(&key);
+    }
+    if seen {
+        save_unseen(s);
     }
     s.home.home_open = false;
     s.home.board_open = false;
@@ -1767,7 +1809,12 @@ pub(super) fn open_board_for(s: &mut State, teammate: &str) {
 }
 
 pub(super) fn board_view(s: &State, p: &Palette) -> El {
-    let mut missions = recent_as_missions(s);
+    let l = crate::look::controls::Look::new(p.dark);
+    // The runs Electron never lists: Scout's own, a judge's, a question on the side, a panel's run (App.tsx:2016
+    // `isHiddenRun`).
+    let mut missions = conversation_board::without_hidden_runs(&recent_as_missions(s), |id| {
+        s.ledger_summaries.get(id).and_then(|m| m.started_by_kind.clone())
+    });
     if let Some(name) = &s.home.board_teammate {
         missions.retain(|m| {
             std::iter::once(&m.mission_id).chain(m.member_ids.iter()).any(|id| s.recent.iter().any(|r| &r.id == id && &r.teammate == name))
@@ -1796,20 +1843,9 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         waits,
     );
     let meta = conversation_board::board_meta_with_extra(board.as_deref(), waits);
-    let mut body = col().w_full().gap(10.0).padding(16.0);
-    body = body.child(
-        row()
-            .w_full()
-            .center_y()
-            .child(
-                text(BOARD_TITLE.to_owned())
-                    .font(type_::TITLE)
-                    .color(p.text)
-                    .grow(1.0),
-            )
-            .child(text(meta).font(type_::LABEL).color(p.muted).grow(1.0))
-            .child(button("Close", p).on_press(|s: &mut State| s.home.board_open = false)),
-    );
+    // Row 8 (docs/REVIEW-ui-changes and apps/native/notes/PAGES-NOTES.md "Row 41"): the header is "Board" with its meta
+    // beside it and no Close, above the scroll; the columns stand side by side (`BoardScreen.tsx`, `.lc-teamboard`).
+    let mut body = col().w_full().gap(16.0).px(24.0).py(20.0);
     if let Some(name) = &s.home.board_teammate {
         body = body.child(
             row()
@@ -1861,176 +1897,116 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         sections => sections,
     };
     let now = chrono::Utc::now();
-    match board {
-        None => {}
-        Some(sections) => {
-            let l = crate::look::controls::Look::new(p.dark);
-            for section in sections {
-                let section_count = if section.key == ConversationBoardKey::NeedsYou {
-                    section.members.len() + waits
-                } else if quiet_count > 0 {
-                    quiet_count
-                } else {
-                    section.members.len()
-                };
-                let column = match section.key {
-                    ConversationBoardKey::NeedsYou => "needs-you",
-                    ConversationBoardKey::Working => "working",
-                    ConversationBoardKey::ToLookAt => "to-look-at",
-                    ConversationBoardKey::Done => "done",
-                };
-                let mut sec_header = row()
-                    .key(format!("board-column/{column}"))
-                    .w_full()
-                    .gap(8.0)
-                    .center_y()
-                    .padding(4.0)
-                    .child(text(section.title.to_owned()).font(type_::TITLE).color(p.text));
-                // Every column counts its cards; Needs you's count is amber.
-                if section.key == ConversationBoardKey::NeedsYou && section_count > 0 {
-                    sec_header = sec_header.child(
-                        text(section_count.to_string())
-                            .font(type_::LABEL)
-                            .color(l.c("amber-text"))
-                            .key("board-needs-you-count"),
-                    );
-                } else if section.key != ConversationBoardKey::NeedsYou {
-                    sec_header = sec_header.child(
-                        text(section_count.to_string()).font(type_::LABEL.mono()).color(p.muted).key(format!("board-{column}-count")),
-                    );
+    if let Some(sections) = board {
+        let mut columns: Vec<El> = Vec::new();
+        for section in sections {
+            let count = if section.key == ConversationBoardKey::NeedsYou {
+                section.members.len() + waits
+            } else if quiet_count > 0 {
+                quiet_count
+            } else {
+                section.members.len()
+            };
+            let mut cards: Vec<El> = Vec::new();
+            if section.key == ConversationBoardKey::NeedsYou {
+                for card in &scout_waits {
+                    cards.push(crate::scout_cards::board_wait_card(s, card, &l));
                 }
-                body = body.child(sec_header);
-                if section.key == ConversationBoardKey::NeedsYou {
-                    for card in &scout_waits {
-                        body = body.child(crate::scout_cards::board_wait_card(s, card, &l));
-                    }
-                    for (id, name) in &routine_waits {
-                        body = body.child(crate::routines_panel::board_wait_card(s, id, name, &l));
-                    }
-                }
-                for card in section.members {
-                    let mission_id = card.row.mission_id.clone();
-                    let title = card.row.title.clone();
-                    let under = card.parent_id.as_ref().and_then(|parent| {
-                        missions
-                            .iter()
-                            .find(|m| m.mission_id == *parent)
-                            .map(|m| conversation_board::under_title(&m.title))
-                    });
-                    let ask = s.home.asks.get(&mission_id).cloned().or_else(|| {
-                        card.row
-                            .member_ids
-                            .iter()
-                            .find_map(|id| s.home.asks.get(id).cloned())
-                    });
-                    let state_line = match section.key {
-                        ConversationBoardKey::NeedsYou => s
-                            .home
-                            .waiting_for
-                            .get(&mission_id)
-                            .cloned()
-                            .unwrap_or_else(|| WAITING_ON_YOU.into()),
-                        ConversationBoardKey::Working => WORKING.into(),
-                        // BoardScreen.tsx stateOf: the word for how it ended, then how long ago.
-                        key => {
-                            let word = match card.row.phase.as_str() {
-                                "completed" if key == ConversationBoardKey::ToLookAt => "finished",
-                                "completed" => "done",
-                                "failed" => "failed",
-                                "running" => WORKING,
-                                _ => "stopped",
-                            };
-                            match card.row.last_at.as_deref().and_then(|at| locust_core::home_team_state::ago_label(at, now)) {
-                                Some(ago) => format!("{word} · {ago}"),
-                                None => word.to_owned(),
-                            }
-                        }
-                    };
-                    // The card's words, beside its teammate's face (built below).
-                    let mut card_el = col().grow(1.0).shrink().gap(4.0);
-                    // Whose conversation it is: BoardView's face beside the title, the name under it.
-                    let who = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone());
-                    let mate = who.as_ref().and_then(|name| s.teammates.iter().find(|t| &t.name == name));
-                    let l = crate::look::controls::Look::new(p.dark);
-                    let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 26.0, s.settings_panel.settings.terminal_faces, &l));
-                    card_el = card_el.child(text(title).font(type_::BODY).color(p.text).truncate());
-                    if let Some(who) = who {
-                        card_el = card_el.child(text(who).font(type_::LABEL).color(p.secondary));
-                    }
-                    if let Some(under) = under {
-                        card_el = card_el.child(text(under).font(type_::LABEL).color(p.muted));
-                    }
-                    if let Some(ask) = ask {
-                        let state = if ask.command.is_some() {
-                            WANTS_TO_RUN.into()
-                        } else {
-                            state_line.clone()
-                        };
-                        // The request's own mark (BoardScreen.tsx `data-board-ask`), on the line that says what it needs.
-                        card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber).key(format!("board-request-{}", ask.approval_id)));
-                        if let Some(command) = &ask.command {
-                            card_el = card_el.child(
-                                // BoardScreen.tsx: the command held at its flags (`CommandText`).
-                                crate::approval_card::command_text("", command)
-                                    .font(type_::LABEL)
-                                    .color(p.secondary)
-                                    .wrap(),
-                            );
-                        }
-                        if let Some(where_) = &ask.where_ {
-                            card_el = card_el.child(
-                                text(conversation_board::in_where(where_))
-                                    .font(type_::LABEL)
-                                    .color(p.muted),
-                            );
-                        }
-                        let approval_id = ask.approval_id.clone();
-                        if ask.command.is_some() {
-                            let deny_id = approval_id.clone();
-                            card_el = card_el.child(
-                                row()
-                                    .gap(8.0)
-                                    .child(primary(ALLOW_ONCE, p).key(format!("board-allow-{mission_id}")).on_press(move |s: &mut State| {
-                                        answer_board(s, &approval_id, true)
-                                    }))
-                                    .child(button(DENY, p).on_press(move |s: &mut State| {
-                                        answer_board(s, &deny_id, false)
-                                    })),
-                            );
-                        } else {
-                            let label = if ask.kind == "question" {
-                                ANSWER
-                            } else {
-                                REVIEW
-                            };
-                            let open_id = mission_id.clone();
-                            card_el =
-                                card_el.child(button(label, p).on_press(move |s: &mut State| {
-                                    s.opening_conversation = Some(open_id.clone());
-                                    s.home.board_open = false;
-                                }));
-                        }
-                    } else {
-                        card_el = card_el.child(text(state_line).font(type_::LABEL).color(p.muted));
-                    }
-                    let open_id = mission_id.clone();
-                    let mut card_el_ = row().w_full().gap(12.0).padding(10.0).fill(p.raised).radius(8.0);
-                    if let Some(face) = face {
-                        card_el_ = card_el_.child(face);
-                    }
-                    let card_el = card_el_.child(card_el);
-                    body = body.child(card_el.on_press(move |s: &mut State| {
-                        s.opening_conversation = Some(open_id.clone());
-                        s.home.to_look_at.remove(&open_id);
-                        s.home.board_open = false;
-                    }));
+                for (id, name) in &routine_waits {
+                    cards.push(crate::routines_panel::board_wait_card(s, id, name, &l));
                 }
             }
+            for card in section.members {
+                cards.push(board_card(s, p, &l, &missions, section.key, card, now));
+            }
+            columns.push(conversation_board::board_column(&l, section.key, count, cards));
         }
+        body = body.child(conversation_board::board_columns(columns));
     }
-    body.scroll(ScrollSpec {
-        stick_bottom: false,
-    })
+    col()
+        .w_full()
+        .h_full()
+        .child(conversation_board::board_header(&l, &meta))
+        .child(body.scroll(ScrollSpec { stick_bottom: false }).grow(1.0))
+}
+
+/// One conversation on the Board: Electron's two-line card (`conversation_board::conv_card`), its teammate's face at 20
+/// beside the title and the one line `Who · under … · state`; a request the conversation is making keeps its words and
+/// its buttons under the card, as `lc-boardwait` draws them (`answer_board` is the approval path).
+fn board_card(
+    s: &State,
+    p: &Palette,
+    l: &crate::look::controls::Look,
+    missions: &[crate::conversation_list::SidebarMission],
+    column: ConversationBoardKey,
+    card: conversation_board::ConversationCard,
+    now: chrono::DateTime<chrono::Utc>,
+) -> El {
+    let mission_id = card.row.mission_id.clone();
+    let under = card.parent_id.as_ref().and_then(|parent| {
+        missions.iter().find(|m| m.mission_id == *parent).map(|m| conversation_board::under_title(&m.title))
+    });
+    let ask = s.home.asks.get(&mission_id).cloned().or_else(|| card.row.member_ids.iter().find_map(|id| s.home.asks.get(id).cloned()));
+    let state_line = match column {
+        ConversationBoardKey::NeedsYou => s.home.waiting_for.get(&mission_id).cloned().unwrap_or_else(|| WAITING_ON_YOU.into()),
+        ConversationBoardKey::Working => WORKING.into(),
+        // BoardScreen.tsx stateOf: the word for how it ended, then how long ago.
+        key => {
+            let word = match card.row.phase.as_str() {
+                "completed" if key == ConversationBoardKey::ToLookAt => "finished",
+                "completed" => "done",
+                "failed" => "failed",
+                "running" => WORKING,
+                _ => "stopped",
+            };
+            match card.row.last_at.as_deref().and_then(|at| locust_core::home_team_state::ago_label(at, now)) {
+                Some(ago) => format!("{word} \u{b7} {ago}"),
+                None => word.to_owned(),
+            }
+        }
+    };
+    let who = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone()).filter(|name| !name.is_empty());
+    let mate = who.as_ref().and_then(|name| s.teammates.iter().find(|t| &t.name == name));
+    let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 20.0, s.settings_panel.settings.terminal_faces, l));
+    let meta = conversation_board::card_meta_line(who.as_deref(), under.as_deref(), &state_line);
+    let open_id = mission_id.clone();
+    let conv = conversation_board::conv_card(l, column, &mission_id, face, &card.row.title, &meta).on_press(move |s: &mut State| {
+        s.opening_conversation = Some(open_id.clone());
+        load_unseen(s);
+        if s.home.to_look_at.remove(&open_id) {
+            save_unseen(s);
+        }
+        s.home.board_open = false;
+    });
+    let Some(ask) = ask else { return conv };
+    let state = if ask.command.is_some() { WANTS_TO_RUN.into() } else { state_line };
+    // The request's own mark (BoardScreen.tsx `data-board-ask`), on the line that says what it needs.
+    let mut wait = col().w_full().gap(6.0).px(16.0).child(text(state).font(type_::LABEL).color(p.amber).key(format!("board-request-{}", ask.approval_id)));
+    if let Some(command) = &ask.command {
+        // BoardScreen.tsx: the command held at its flags (`CommandText`).
+        wait = wait.child(crate::approval_card::command_text("", command).font(type_::LABEL).color(p.secondary).wrap());
+    }
+    if let Some(where_) = &ask.where_ {
+        wait = wait.child(text(conversation_board::in_where(where_)).font(type_::LABEL).color(p.muted));
+    }
+    let approval_id = ask.approval_id.clone();
+    if ask.command.is_some() {
+        let deny_id = approval_id.clone();
+        wait = wait.child(
+            row()
+                .gap(8.0)
+                .child(primary(ALLOW_ONCE, p).key(format!("board-allow-{mission_id}")).on_press(move |s: &mut State| answer_board(s, &approval_id, true)))
+                .child(button(DENY, p).on_press(move |s: &mut State| answer_board(s, &deny_id, false))),
+        );
+    } else {
+        let label = if ask.kind == "question" { ANSWER } else { REVIEW };
+        let open_id = mission_id.clone();
+        wait = wait.child(button(label, p).on_press(move |s: &mut State| {
+            s.opening_conversation = Some(open_id.clone());
+            s.home.board_open = false;
+        }));
+    }
+    col().w_full().gap(8.0).child(conv).child(wait)
 }
 
 pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
@@ -2939,6 +2915,10 @@ mod changelog_reads_tests;
 #[cfg(test)]
 #[path = "board_drawn_tests.rs"]
 mod board_drawn_tests;
+
+#[cfg(test)]
+#[path = "board_window_tests.rs"]
+mod board_window_tests;
 
 #[cfg(test)]
 #[path = "page_starter_tests.rs"]
