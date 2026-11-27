@@ -96,3 +96,19 @@ fn a_fresh_record_reads_as_just_written() {
     assert!((chrono::Utc::now() - written.with_timezone(&chrono::Utc)).num_seconds() < 60, "{written}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_conversation_recorded_in_both_folders_takes_its_newest_write() {
+    // Review of Words 1: the same conversation can have a record in the Rust app's folder and in Electron's. The last run
+    // is the later write of the two, whichever folder holds it and in either order of folders.
+    let (native, electron) = (folder("both-native"), folder("both-electron"));
+    record(&native, "m_shared", at("2026-11-20T08:00:00.000Z"));
+    record(&electron, "m_shared", at("2026-11-27T09:30:00.000Z"));
+    let owners = owners(&[("m_shared", "tm_atlas")]);
+    for dirs in [[native.clone(), electron.clone()], [electron.clone(), native.clone()]] {
+        let last = recorded_last_runs(&owners, &dirs);
+        assert_eq!(last.get("tm_atlas").map(String::as_str), Some("2026-11-27T09:30:00.000Z"));
+    }
+    let _ = std::fs::remove_dir_all(native);
+    let _ = std::fs::remove_dir_all(electron);
+}
