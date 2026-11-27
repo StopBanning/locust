@@ -77,3 +77,39 @@ fn settings_refuses_a_stale_ready_display_when_the_service_is_gone() {
     assert!(!rt.state.settings_panel.update_installing, "nothing installed without its service");
     assert_eq!(text_of(&rt, "settings-update-refusal").as_deref(), Some("There is no downloaded update to install yet."));
 }
+
+// case: says the installed Locust does, and that a development build never updates
+#[test]
+fn settings_uses_the_reason_a_copy_cannot_update_and_check_now_is_inert() {
+    let copy = "This copy of Locust doesn't update itself. The installed Locust does.";
+    let development = "This copy of Locust doesn't update itself. The installed Locust does. A development build never updates.";
+    for (reason, words) in [(Some(HeldBack::Development), development), (Some(HeldBack::Driven), copy),
+        (Some(HeldBack::Copy), copy), (None, copy)] {
+        let (_, svc) = service(false, reason, Arc::default(), Arc::default());
+        let kept = svc.state();
+        let mut rt = settings_with(kept.clone(), Some(svc.clone()));
+        assert_eq!(text_of(&rt, "settings-update-line").as_deref(), Some(words));
+        assert!(!focusable(&rt, "settings-update-check"));
+        press(&mut rt, "settings-update-check");
+        assert_eq!(svc.state(), kept);
+        assert_eq!(text_of(&rt, "settings-update-line").as_deref(), Some(words));
+    }
+}
+
+// case: never says a Mac cannot update itself (the old sentence, pinned away)
+#[test]
+fn settings_checks_a_supported_copy_instead_of_showing_the_old_mac_refusal() {
+    let (_, svc) = service(true, None, Arc::default(), Arc::default());
+    let mut rt = settings_with(svc.state(), Some(svc.clone()));
+    assert!(focusable(&rt, "settings-update-check"));
+    press(&mut rt, "settings-update-check");
+    assert_eq!(svc.state().phase, AppUpdatePhase::Available);
+    assert_eq!(text_of(&rt, "settings-update-line").as_deref(),
+        Some("Version 0.406.0 is available. Downloading it now."));
+    for el in rt.elements() {
+        if let Some(text) = el.text {
+            assert!(!text.contains("cannot update itself yet"));
+            assert!(!text.contains("Download the newest from the releases page and replace it"));
+        }
+    }
+}
