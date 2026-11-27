@@ -8,6 +8,10 @@ use locust_core::chat_host;
 use locust_core::chat_link::TokenInput;
 use locust_core::chat_slack_fmt::slack_manifest_link;
 
+/// TelegramSettings.tsx: the code a phone's camera reads to open the bot and pair, before a chat is paired and after.
+const TELEGRAM_QR_PAIR: &str = "A code for your phone\u{2019}s camera. It opens your bot in Telegram to pair your chat.";
+const TELEGRAM_QR_PAIR_AGAIN: &str = "A code for your phone\u{2019}s camera. It pairs another Telegram chat in place of this one.";
+
 #[derive(Default)]
 pub(super) struct ChatAppsState {
     pub discord: ChatAppSettings,
@@ -412,8 +416,11 @@ fn pairing_steps(
                 let u1 = link.url.clone();
                 let u2 = link.url.clone();
                 let copied = s.chat_apps.copied == Some(ChatAppId::Telegram);
+                if let Some(code) = crate::phone_section::qr_with_label(&link.url, TELEGRAM_QR_PAIR) {
+                    body = body.child(code);
+                }
                 body = body
-                    .child(text("3. Open the link and press Start. It pairs one chat, once, within ten minutes.".to_owned()).font(type_::LABEL).color(p.secondary).wrap())
+                    .child(text("3. Scan the code with your phone, or open the link here, and press Start. It pairs one chat, once, within ten minutes.".to_owned()).font(type_::LABEL).color(p.secondary).wrap())
                     .child(
                         row()
                             .gap(8.0)
@@ -491,9 +498,19 @@ fn paired_steps(
         body = body.child(text(format!("Send {} to take {}\u{2019}s place, within ten minutes.", spaced_code(&code.code), chat.name)).font(type_::LABEL).color(p.secondary).wrap());
     } else if let Some(ref link) = state.link {
         let u = link.url.clone();
-        body = body.child(btn(l, "Open in Telegram", false).on_press(move |_: &mut State| {
-            open_url(&u);
-        }));
+        if let Some(code) = crate::phone_section::qr_with_label(&link.url, TELEGRAM_QR_PAIR_AGAIN) {
+            body = body.child(code);
+        }
+        body = body
+            .child(
+                text(format!("The chat that presses Start with this link takes the place of {}\u{2019}s, within ten minutes.", chat.name))
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .wrap(),
+            )
+            .child(btn(l, "Open in Telegram", false).on_press(move |_: &mut State| {
+                open_url(&u);
+            }));
     }
 
     let note = match app {
@@ -632,3 +649,7 @@ mod tests {
 #[cfg(test)]
 #[path = "chat_apps_steps_tests.rs"]
 mod steps_tests;
+
+#[cfg(test)]
+#[path = "chat_apps_qr_tests.rs"]
+mod qr_tests;
