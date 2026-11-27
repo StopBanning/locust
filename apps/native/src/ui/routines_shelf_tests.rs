@@ -134,7 +134,9 @@ fn says_the_honest_sentence_when_a_workspace_has_finished_nothing_at_all() {
 
 #[test]
 fn offers_new_routine_written_from_nothing_where_the_screen_is_given_one() {
-    assert_eq!(shown(&draw(shelf()), "routine-new").as_deref(), Some("New routine"));
+    // A boxed ghost button in the header (AutomationsScreen.tsx:167): its words are its name.
+    let all = draw(shelf());
+    assert_eq!(all.iter().find(|e| e.key.as_deref() == Some("routine-new")).and_then(|e| e.label.clone()).as_deref(), Some("New routine"));
     let mut nobody = shelf();
     nobody.teammates.clear();
     assert!(shown(&draw(nobody), "routine-new").is_none());
