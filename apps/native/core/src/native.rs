@@ -3384,7 +3384,20 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         "copilot" | "cursor" | "antigravity" => run_dir.clone(),
         _ => None,
     };
-    let skill_copies: Vec<PathBuf> = crate::skills::copies_of(&claude_plugins, run_skills.as_ref());
+    // The copies and the Codex root go when this start ends, run or refused: the guard is made before the setup below
+    // that can still refuse (a ledger that cannot be written, a command that cannot be built) and moved into the worker,
+    // which lets it go when the run ends. Without it a refused start left the run's skills on disk.
+    struct SkillCopies {
+        copies: Vec<PathBuf>,
+        mission: String,
+    }
+    impl Drop for SkillCopies {
+        fn drop(&mut self) {
+            crate::skills::remove_copies(&self.copies);
+            crate::skills::forget_roots(&self.mission);
+        }
+    }
+    let skill_copies = SkillCopies { copies: crate::skills::copies_of(&claude_plugins, run_skills.as_ref()), mission: id.clone() };
     let kilo_home = match kilo_home {
         None if runtime_name == "kilo" => Some(crate::runtime::kilo::conversation_home(&store, &id).map_err(|e| e.to_string())?.0),
         held => held,
@@ -3808,8 +3821,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             // so a relayed reply or a run started while the disk is still being read is not marked as sharing the folder.
             checkpoint.leave_active();
             // The run's skill copies go with it.
-            crate::skills::remove_copies(&skill_copies);
-            crate::skills::forget_roots(&memory_id);
+            drop(skill_copies);
             let changed = record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
             // Where the seconds before "started" went: one host note after the run's own events.
             if let Ok(path) = memory_store.write_path(&memory_id) {
