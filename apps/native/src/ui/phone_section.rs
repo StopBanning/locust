@@ -109,7 +109,7 @@ impl ServeMcp {
     /// `changed`). Never on the window's thread: the relay may be asked.
     fn follow(&self, phone: &PhoneAnywhereSettings) {
         if !phone.enabled
-            && let Some(remote) = self.remote().filter(|remote| remote.settings().enabled)
+            && let Some(remote) = self.remote().filter(|remote| remote.look().enabled)
         {
             std::thread::spawn(move || {
                 remote.set_enabled(&serde_json::json!(false));
@@ -1802,7 +1802,7 @@ mod tests {
         relay.push_frame(serde_json::json!({ "t": "mcp-ask", "ask": "Ask_one-16-chars", "kind": "connect", "body": connect.to_string() }));
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         let card = loop {
-            if let Some(card) = remote.settings().asking.first().cloned() {
+            if let Some(card) = remote.look().asking.first().cloned() {
                 break card;
             }
             assert!(std::time::Instant::now() < deadline, "no card");
@@ -1831,11 +1831,11 @@ mod tests {
         // From anywhere off turns this off too (index.ts `changed`).
         click_key(&mut rt, "phone-switch");
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while remote.settings().enabled {
+        while remote.look().enabled {
             assert!(std::time::Instant::now() < deadline, "still on after From anywhere was turned off");
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        assert!(remote.settings().apps.is_empty());
+        assert!(remote.look().apps.is_empty());
     }
 
     #[test]

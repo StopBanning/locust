@@ -553,6 +553,22 @@ fn an_apps_last_use_is_written_down_at_most_once_a_minute_not_with_every_call() 
 }
 
 #[test]
+fn the_windows_look_writes_a_due_last_use_before_it_says_the_settings() {
+    let room = world("look");
+    room.remote.set_enabled(&json!(true));
+    let (keys, _) = room.connected();
+    let access = keys["access_token"].as_str().unwrap().to_owned();
+    room.tick(5_000);
+    room.rpc(&access, "ping", None, Some(1));
+    let seen = room.remote.look();
+    assert!(seen.apps[0].used.is_some());
+    assert!(!room.file().contains("\"used\""), "not due yet: no disk write");
+    room.tick(USED_SAVE_MS);
+    room.remote.look();
+    assert!(room.file().contains(&format!("\"used\":{}", START + 5_000)), "the window's look is what writes it down");
+}
+
+#[test]
 fn an_unreadable_request_is_answered_in_json_rpcs_words_and_an_unknown_method_is_not_found() {
     let room = world("rpc-errors");
     room.remote.set_enabled(&json!(true));

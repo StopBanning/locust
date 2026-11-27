@@ -135,8 +135,7 @@ pub(super) fn dispose() {
 /// What the pairing shows, read on every turn of the window's loop: a card must appear on any screen.
 pub(super) fn poll(s: &mut State) -> bool {
     let Some(service) = service(s) else { return false };
-    service.tick();
-    let now = service.settings();
+    let now = service.look();
     if s.remote_mcp.as_ref() == Some(&now) {
         return false;
     }
@@ -387,7 +386,7 @@ mod tests {
         // The pairing changed: what was drawn is thrown away for its new state.
         remote.set_enabled(&json!(true));
         assert!(poll(&mut s));
-        assert_eq!(s.remote_mcp.as_ref(), Some(&remote.settings()));
+        assert_eq!(s.remote_mcp.as_ref(), Some(&remote.look()));
         assert_ne!(s.remote_mcp.as_ref(), Some(&drawn));
         assert!(service(&s).is_some_and(|held| Arc::ptr_eq(&held, &remote)));
         let _ = std::fs::remove_dir_all(dir);
