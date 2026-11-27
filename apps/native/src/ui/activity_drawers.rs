@@ -225,10 +225,7 @@ fn sandbox_badge(s: &State, key: &str, status: ledger::Status, d: &ledger::ToolD
 }
 
 pub(super) fn is_shell_tool(name: &str) -> bool {
-    matches!(
-        name.to_lowercase().as_str(),
-        "bash" | "shell" | "exec_command" | "commandexecution"
-    )
+    locust_core::command_outcomes::is_shell(name)
 }
 
 pub(super) fn thought_headline(text: &str) -> Option<&str> {
@@ -1635,3 +1632,7 @@ mod change_copied_tests;
 #[cfg(test)]
 #[path = "command_took_tests.rs"]
 mod command_took_tests;
+
+#[cfg(test)]
+#[path = "antigravity_rows_read_like_claude_tests.rs"]
+mod antigravity_rows_read_like_claude_tests;
