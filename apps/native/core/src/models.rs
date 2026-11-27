@@ -1085,13 +1085,111 @@ static LOCAL_CATALOG: std::sync::Mutex<Option<(Instant, Vec<Value>)>> = std::syn
 
 /// The catalog for this computer, read once and kept ten minutes (CACHE_MS): models change on release, not hourly.
 pub fn local() -> Vec<Value> {
-    let mut models = kept_catalog(&LOCAL_CATALOG, read_listed_checked);
+    local_over(&LOCAL_CATALOG, read_listed_checked)
+}
+
+/// `local` over its cache and its sweep (apart so a test can hand it a sweep that runs no agent's CLI).
+fn local_over(cache: &std::sync::Mutex<Option<(Instant, Vec<Value>)>>, read: impl FnOnce() -> (Listed, bool)) -> Vec<Value> {
+    let mut models = kept_catalog(cache, read);
     // Your own models under OpenCode and your own ACP agents, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
         models.extend(crate::acp_agents::acp_catalog(&crate::acp_agents::agents_for_store(&store)));
     }
+    keep_for_the_chip(&models);
     models
+}
+
+// ---- the composer's model chip (Composer.tsx) -----------------------------------------------------------------------
+
+/// What the composer's model chip reads off the catalogue for one route (Composer.tsx `shownFamily`): the levels the
+/// model lists, in the catalogue's order, its runtime's own default among them, and the family's name where the route
+/// stands on one of a family's variants (Electron names a Cursor family by the family, not by the variant's id).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChipFamily {
+    pub levels: Vec<String>,
+    pub default_effort: Option<String>,
+    pub family_name: Option<String>,
+}
+
+/// status.ts `modelFamily`: the catalogue row `model` belongs to on `runtime`, by its own id or as one of its family's
+/// variants; None when the catalogue does not list it.
+pub fn chip_family(catalog: &[Value], runtime: &str, model: &str) -> Option<ChipFamily> {
+    let row = catalog.iter().find(|m| {
+        m["runtime"] == runtime && (m["id"] == model || m["variants"].as_object().is_some_and(|v| v.values().any(|id| id == model)))
+    })?;
+    Some(ChipFamily {
+        levels: strings(&row["supportedEfforts"]),
+        default_effort: row["defaultEffort"].as_str().map(str::to_owned),
+        family_name: row["variants"].is_object().then(|| row["displayName"].as_str().map(str::to_owned)).flatten(),
+    })
+}
+
+/// The catalogue `local` read last, as the chip reads it: kept apart from the cache, whose lock a sweep holds for as
+/// long as it reads, so drawing the chip never waits on one. `local` runs on a worker; the chip is drawn on the window's
+/// thread, so in the app it is one for the process.
+#[cfg(not(any(test, feature = "test-hooks")))]
+static FOR_THE_CHIP: std::sync::Mutex<Vec<Value>> = std::sync::Mutex::new(Vec::new());
+
+// Under test, each test thread's own (as run_effort.rs `use_catalog_on_this_thread`): no test reads another's catalogue.
+#[cfg(any(test, feature = "test-hooks"))]
+thread_local! {
+    static FOR_THE_CHIP: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Keeps `models` as the catalogue the chip reads (`chip_family_as_read`): `local` keeps every catalogue it reads.
+pub fn keep_for_the_chip(models: &[Value]) {
+    #[cfg(not(any(test, feature = "test-hooks")))]
+    {
+        *crate::invariants::lock(&FOR_THE_CHIP) = models.to_vec();
+    }
+    #[cfg(any(test, feature = "test-hooks"))]
+    FOR_THE_CHIP.with(|c| *c.borrow_mut() = models.to_vec());
+}
+
+/// `chip_family` over the catalogue this process read last, never read here; None before the first read.
+pub fn chip_family_as_read(runtime: &str, model: &str) -> Option<ChipFamily> {
+    #[cfg(not(any(test, feature = "test-hooks")))]
+    {
+        chip_family(&crate::invariants::lock(&FOR_THE_CHIP), runtime, model)
+    }
+    #[cfg(any(test, feature = "test-hooks"))]
+    {
+        FOR_THE_CHIP.with(|c| chip_family(&c.borrow(), runtime, model))
+    }
+}
+
+/// What the chip may say of a model's levels (Composer.tsx `supportedEfforts`, `effortIsGenuinelyFixed`). `listed` is
+/// the window's own row for the model, given only where its list carries levels (a teammate's own agent, already
+/// narrowed by policy; the door's `list_models` with no teammate, which a conversation with no teammate is drawn from,
+/// names models with no levels at all): its levels, with the catalogue's default and family name. Else the catalogue's
+/// family. None while neither has answered for the model: then nothing is claimed, not even "Fixed".
+pub fn chip_levels(listed: Option<&[String]>, family: Option<ChipFamily>) -> Option<ChipFamily> {
+    match listed {
+        Some(levels) => Some(ChipFamily { levels: levels.to_vec(), ..family.unwrap_or_default() }),
+        None => family,
+    }
+}
+
+/// Composer.tsx `namedModel` then `modelLabel`: the model the chip names. Claude by the version it runs
+/// (`routeModelName`, a finished run's own report `earned` first, never the report's bare id); a family by the family's
+/// name; any other model as `routeModelName` spells it. Before this process has read the catalogue, the window's row
+/// name (`row_name`) stands in for the catalogue's, unless it is only the id. Then the level a name ends in is not said
+/// twice beside the level (`effort`).
+pub fn chip_model_name(runtime: &str, model: &str, family: Option<&ChipFamily>, row_name: Option<&str>, earned: Option<&str>, effort: Option<&str>) -> String {
+    let named = match (family, row_name) {
+        (Some(ChipFamily { family_name: Some(name), .. }), _) => crate::teammate_tooltip::route_model_name_earned(runtime, name, earned),
+        (None, Some(name)) if runtime != "claude" && !name.trim().is_empty() && name != model && !model.ends_with(&format!("/{name}")) => {
+            name.to_owned()
+        }
+        _ => crate::teammate_tooltip::route_model_name_earned(runtime, model, earned),
+    };
+    let word = effort.unwrap_or_default().split('-').next().unwrap_or_default();
+    let trailing = if word.is_empty() { String::new() } else { format!(" {}", capitalised(word)) };
+    match named.strip_suffix(trailing.as_str()) {
+        Some(head) if !trailing.is_empty() && !head.is_empty() => head.to_owned(),
+        _ => named,
+    }
 }
 
 /// The catalog as `local` last read it, however long ago, and never read again here: empty before the first read.
@@ -1106,6 +1204,10 @@ mod tests;
 #[cfg(test)]
 #[path = "muse_models_tests.rs"]
 mod muse_models_tests;
+
+#[cfg(test)]
+#[path = "a_chip_reads_the_catalogue_tests.rs"]
+mod a_chip_reads_the_catalogue_tests;
 
 #[cfg(test)]
 #[path = "codex_usage_is_read_with_the_models_tests.rs"]

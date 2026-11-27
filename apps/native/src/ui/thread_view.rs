@@ -315,6 +315,21 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .then_some(resolved_id)
             .flatten()
             .map(|id| locust_core::teammate_tooltip::route_model_name(rt, id));
+        // Composer.tsx `shownFamily` (status.ts `modelFamily` over the whole catalogue): the window's list of every
+        // agent, which a conversation with no teammate is drawn from, carries no levels, so its rows say nothing of
+        // them and the catalogue this process read answers instead (models.rs `chip_levels`).
+        let chip_row = current.and_then(|a| a.models.iter().find(|m| m.id == model));
+        let listed_levels = chip_row.map(|m| m.efforts.as_slice()).filter(|levels| !levels.is_empty() || id != LEDGER_TARGET);
+        let family = locust_core::models::chip_family_as_read(rt, model);
+        let reading = locust_core::models::chip_levels(listed_levels, family.clone());
+        // Composer.tsx `effortIsGenuinelyFixed`: once the catalog has answered for this model and it lists no levels,
+        // the chip says "Fixed", whatever effort was stored; before it answers, nothing is claimed.
+        let effort_is_fixed = reading.as_ref().is_some_and(|r| r.levels.is_empty());
+        // The level the run is sent (run_effort, App.tsx runEffortFor): the chosen one, else the one a Cursor id names,
+        // else the model's default.
+        let levels_here = reading.as_ref().map_or(&[][..], |r| r.levels.as_slice());
+        let default_here = reading.as_ref().and_then(|r| r.default_effort.as_deref());
+        let shown_effort = locust_core::run_effort::run_effort(rt, model, levels_here, default_here, effort);
         let model_name_owned: String;
         let model_name = if model == locust_core::models::ACCOUNT_DEFAULT {
             if let Some(ref resolved) = default_model_name {
@@ -322,10 +337,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             } else {
                 locust_core::teammate_tooltip::short_runtime_name(rt)
             }
-        } else if let Some(resolved) = resolved_id {
-            resolved
         } else {
-            model_name_owned = model_chip_name(model, current).to_owned();
+            // Named as Electron names it (`namedModel`, `modelLabel`): never the id a run reported, as it stands.
+            model_name_owned = locust_core::models::chip_model_name(
+                rt,
+                model,
+                family.as_ref(),
+                Some(model_chip_name(model, current)),
+                resolved_id,
+                shown_effort.as_deref(),
+            );
             model_name_owned.as_str()
         };
         let (chip_model_name, chip_is_free) = locust_core::route_rows::free_tag_of(model_name);
@@ -341,13 +362,6 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         } else {
             chip_model_name.to_owned()
         };
-        // Composer.tsx `effortIsGenuinelyFixed`: once the catalog has answered for this model and it lists no levels,
-        // the chip says "Fixed", whatever effort was stored; before it answers, nothing is claimed.
-        let effort_is_fixed = current.and_then(|a| a.models.iter().find(|m| m.id == model)).is_some_and(|m| m.efforts.is_empty());
-        // The level the run is sent (run_effort, App.tsx runEffortFor): the chosen one, else the one a Cursor id names,
-        // else the model's default.
-        let levels_here = current.and_then(|a| a.models.iter().find(|m| m.id == model)).map_or(&[][..], |m| m.efforts.as_slice());
-        let shown_effort = locust_core::run_effort::run_effort(rt, model, levels_here, None, effort);
         let effort_text = if effort_is_fixed { Some("Fixed".to_owned()) } else { shown_effort.as_deref().map(locust_core::effort_levels::effort_phrase) };
         let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
         let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
@@ -919,15 +933,23 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 
         // The box, then the chips under it: the mode and the folder on the left, the model on the right (Electron's
         // `.lc-composer__box` and its footer row).
-        // The mode these turns run in: the one chosen here, else the teammate's own (Electron's composer mode).
-        let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
-        let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         let mode_runtime = s
             .picks
             .get(&teammate.id)
             .and_then(|pk| pk.runtime.as_deref())
             .or(teammate.runtime.as_deref())
             .unwrap_or("codex");
+        // The mode these turns run in, as Electron's composer is handed it (composer_mode.rs `mode_shown`): the one
+        // chosen here, else the mode the open conversation's newest turn recorded, else the teammate's own, else
+        // App.tsx's first mode; never one the route's agent cannot run.
+        let recorded_mode = s
+            .ledger
+            .as_ref()
+            .filter(|pane| pane.header.id == teammate.id)
+            .and_then(|pane| pane.snapshot.turn_metas.last())
+            .and_then(|turn| turn.mode.as_deref());
+        let mode_now = locust_core::composer_mode::mode_shown(s.composer_mode.as_deref(), recorded_mode, &teammate.runs_in, mode_runtime);
+        let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         let has_connectors = s.connectors.connectors.as_ref().is_some_and(|c| !c.is_empty());
         let mode_tip = locust_core::mode_facts::connectors_note(mode_runtime, &mode_now, has_connectors)
             .unwrap_or_else(|| "Permission mode".to_owned());
