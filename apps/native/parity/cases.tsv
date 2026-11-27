@@ -1279,6 +1279,7 @@ apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts	is stil
 apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts	gives way to a newer reading	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is asked of Codex on a read-only thread with every add-on off, and the answer comes back	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	says what is said, refuses whatever Codex asks to do, and ends with End	yes
+apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	refuses fallback %s in its own shape	no
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is not placed on an API key, and says how to fix it	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is not placed when the settings cannot be read: nothing is left on by accident (Sol’s #2)	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	says the voice service’s refusal in words, and stops the server	yes
@@ -1449,8 +1450,8 @@ apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts	tre
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	the answer brought back starts the asker on the model picked there, not the one on their profile	no
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	so does a reply written back	no
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	and so does the turn after a meeting, when several were asked at once	no
-apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	its level and account go with it	no
-apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	a turn on the account default starts on the account default	no
+apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	its level and account go with it	yes
+apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	a turn on the account default starts on the account default	yes
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	a teammate with no turn in the exchange answers on their own saved model	no
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	a turn whose route is not known, or cannot be read, continues on the saved one	no
 apps/desktop/src/main/an-fyi-need-not-page-a-model.test.ts	reads when="later" as telling	no
@@ -8293,3 +8294,18 @@ packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	turns every 
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	changes nothing when there is no model of your own	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	refuses an id OpenCode could not take, and an address that is not http(s)	yes
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	passes what Codex 0.172 takes and fails what Locust used to send	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	is in both v2 schemas, for every answer	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	is decline for Deny, so the turn carries on and a reason can still be steered into it	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	is what a Deny on the card sends, with a reason or without	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	is in the schema of the method that asked, v2 and legacy	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	refuses a legacy request it never puts on a card in the legacy shape	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	releases a card a finished run was still asking with a decision Codex takes	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	is what a run with no one to ask sends on the wire, for every kind of approval	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	releases a pending question with no answers when the run ends	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	answers a question with no answers when given an authorization decision	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	declines an authorization when given answers intended for a question	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	answers an overflowed question without an authorization decision	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	declines elicitation that the approval channel does not put on a card	no
+apps/desktop/src/main/a-codex-deny-is-in-codexs-schema.test.ts	reports an unknown request as method not found	no
+packages/runtime-adapters/src/codex-app-server-refusals.test.ts	answers %s	no
