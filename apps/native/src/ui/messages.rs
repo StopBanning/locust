@@ -656,14 +656,18 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
             .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
-        let words = match (&live.action, live.register.as_str()) {
+        // PRESSING STOP SAYS SO AT ONCE (REVIEW-ui-changes-2026-11-26.md change 7, Colin's yes 26 Nov). Electron only dims
+        // the Stop button (Composer.tsx:2315-2333) and its live line goes on saying what it was doing, orb turning, until
+        // the agent answers, which can take seconds; here the line says "Stopping…" and stands still until it does.
+        let stopping = s.stopping.is_pending();
+        let words = if stopping { "Stopping\u{2026}".to_owned() } else { match (&live.action, live.register.as_str()) {
             // What the step under way is doing, in words: "Running npm test", the plan's "Step 2" (live-step `action`).
             (Some(action), _) => action.clone(),
             (None, "connector") => format!("Using a connector · {}", live.label),
             (None, "tool") => format!("Using a tool · {}", live.label),
             // The live word, with its one ellipsis (sweepText): "Working…".
             (None, _) => locust_core::thread_view::sweep_text(&live.label),
-        };
+        } };
         let headline = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
         // Beside the browser the column is ~418px (the-thread-beside-the-browser-keeps-its-parts-whole, 0.867): the
         // words give way to their ellipsis, and the plan's "step 2 of 3" and the time stay whole after them
@@ -677,7 +681,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ).map(|orb| orb.mr(6.0)))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
-            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get())
+            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
                 .key("live-step-label").shrink().truncate().help(headline));
         if let Some(step) = &live.detail {
             line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));

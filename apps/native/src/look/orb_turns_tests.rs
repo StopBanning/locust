@@ -119,3 +119,17 @@ fn after_an_approval_is_answered_every_orb_turns_again() {
     let (drawn, _) = polled(&mut rt, 3.0, 6);
     assert!(drawn >= 3 * 5, "the live line's orb and both of the plan's turn again: {drawn} frames");
 }
+
+/// REVIEW-ui-changes-2026-11-26.md change 7: once Stop is pressed the orb goes still until the agent answers, and stays
+/// on screen; a stop that fails lets it turn again.
+#[test]
+fn a_pressed_stop_holds_the_orb_still_until_it_lands() {
+    let mut rt = window(crate::scenes::live_shell_scene, false, false);
+    assert!(polled(&mut rt, 1.0, 8).0 >= 7, "the turn's orb turns before Stop is pressed");
+    // Stop pressed: the same turn, with a stop on its way that has not landed.
+    rt.update(|s, _| crate::scenes::live_stopping_scene(s));
+    rt.frame(1.0 / FPS);
+    assert!(rt.state.stopping.is_pending());
+    assert_eq!(polled(&mut rt, 2.0, 8).0, 0, "no orb frame while the stop is on its way");
+    assert!(rt.elements().iter().any(|e| e.key.as_deref() == Some("live-step-orb")), "the orb stays, standing still");
+}

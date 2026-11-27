@@ -129,12 +129,14 @@ fn a_read_and_a_helper_say_what_they_do_in_electrons_words() {
     assert!(live_line(&window(live_subagent_scene)).1.starts_with("Asking a helper"));
 }
 
+/// REVIEW-ui-changes-2026-11-26.md change 7 (Colin's yes, 26 Nov), over Composer.tsx:2315-2333 where only the Stop
+/// button dims: once Stop is pressed the live line says "Stopping…", its orb still there, until the stop lands.
 #[test]
-fn stopping_keeps_the_live_line_until_the_stop_lands() {
+fn stopping_says_stopping_until_the_stop_lands() {
     let rt = window(live_stopping_scene);
     assert!(rt.state.stopping.is_pending());
-    let (orb, words, _) = live_line(&rt);
-    assert_eq!((orb, words.as_str()), ("connecting", "Running npm test"));
+    let (orb, words, time) = live_line(&rt);
+    assert_eq!((orb, words.as_str(), time), ("connecting", "Stopping\u{2026}", true));
 }
 
 #[test]

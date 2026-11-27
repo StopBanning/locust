@@ -87,7 +87,14 @@ thread_local! {
 /// the set is empty: nothing is drawn and no beat is asked for. Called from the window's poll; true while an orb turns,
 /// so the poll asks to be woken for the next beat.
 pub(crate) fn tick(s: &crate::State, now: f64) -> bool {
-    advance(crate::messages::live_sweeping(s) && !s.reduced_motion.get(), now)
+    advance(crate::messages::live_sweeping(s) && moving(s), now)
+}
+
+/// Whether an orb on screen moves: not under reduced motion, and not once Stop is pressed and the stop has not landed
+/// (REVIEW-ui-changes-2026-11-26.md change 7: "the orb goes still"), so a still orb with "Stopping…" says the press
+/// took.
+fn moving(s: &crate::State) -> bool {
+    !s.reduced_motion.get() && !s.stopping.is_pending()
 }
 
 fn advance(turning: bool, now: f64) -> bool {
@@ -142,7 +149,7 @@ pub(crate) fn view(
     dark: bool,
 ) -> Option<El> {
     let preset = preset(state, surface)?;
-    let turning = !s.reduced_motion.get();
+    let turning = moving(s);
     let width = surface.width();
     let drawing = if preset.size == 20 { 20 } else { width };
     Some(rune::memo::memo(
