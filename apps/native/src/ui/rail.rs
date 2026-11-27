@@ -336,8 +336,11 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
     let id = s.rail_open.as_deref()?;
     let teammate = s.teammates.iter().find(|t| t.id == id)?;
     let l = crate::look::controls::Look::new(p.dark);
-    let busy = teammate.busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id);
-    let status = if busy { format!("{} · working", teammate.role) } else { teammate.role.clone() };
+    // The flyout uses the same live, per-teammate status as the faces. It does not answer anything.
+    let states = crate::teammate_faces::views(s);
+    let (status, status_tone) = states.get(&teammate.id)
+        .map(|view| (view.label.clone(), crate::teammate_faces::tone_color(&l, view.tone)))
+        .unwrap_or_else(|| (teammate.role.clone(), l.c("text-secondary")));
     let route = agent_line(s, teammate);
     let mut route_row = row().w_full().gap(4.0).center_y();
     if let Some(mark) = crate::look::controls::agent_mark(&l, teammate.runtime.as_deref().unwrap_or("codex"), 11.0, l.c("text-muted")) {
@@ -356,7 +359,7 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
                 .grow(1.0)
                 .min_w(0.0)
                 .child(text(teammate.name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")))
-                .child(text(status).font(rune::TextStyle::new(13.0, 400.0)).color(if busy { p.green } else { l.c("text-secondary") }).w_full().truncate())
+                .child(text(status).font(rune::TextStyle::new(13.0, 400.0)).color(status_tone).w_full().truncate())
                 .child(route_row),
         );
     let rule = || el().w_full().h(1.0).fill(l.c("border-hairline"));
@@ -826,3 +829,7 @@ pub(super) fn sidebar_setting_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "rail_can_be_used_tests.rs"]
 mod rail_can_be_used_tests;
+
+#[cfg(all(test, unix))]
+#[path = "attention_rail_tests.rs"]
+mod attention_rail_tests;
