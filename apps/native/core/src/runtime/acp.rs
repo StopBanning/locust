@@ -15,6 +15,9 @@ use std::{
     time::{Duration, Instant},
 };
 const DEFAULT_MAX_QUEUED_RECORDS: usize = 20_000;
+/// Said when the agent's records outran the queue: acp-run.ts `lose`, in Electron's words, as Claude Code's and Codex's
+/// readers say it.
+pub const OVERFLOW_MESSAGE: &str = "The agent sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.";
 
 fn err(s: impl ToString) -> io::Error {
     io::Error::other(s.to_string())
@@ -289,8 +292,7 @@ impl Acp {
                 match tx.try_send(record) {
                     Ok(()) => {}
                     Err(mpsc::TrySendError::Full(_)) => {
-                        *crate::invariants::lock(&fail) =
-                            Some("ACP notification queue overflow; run stopped".into());
+                        *crate::invariants::lock(&fail) = Some(OVERFLOW_MESSAGE.into());
                         dead.store(true, Ordering::Relaxed);
                         kill(pid);
                         break;

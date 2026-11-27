@@ -1,5 +1,5 @@
 //! ACP work updates. Raw frames and hidden thoughts never enter the ledger (PLAN.md).
-use super::{Event, events::text};
+use super::{Event, events::text, held_text::HeldText};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
@@ -11,14 +11,14 @@ pub struct AcpNormalizer {
     pub records: u64,
     started: bool,
     ordinal: usize,
-    message: Option<(String, Option<String>, String)>,
+    message: Option<(String, Option<String>, HeldText)>,
     segments: HashMap<String, usize>,
     tools: HashMap<String, OpenTool>,
     declined: HashSet<String>,
     unknown: HashSet<String>,
     thinking: bool,
     /// What the open thought has said so far: its step's message once it closes (acp-events.ts `closeReasoning`).
-    thought: String,
+    thought: HeldText,
 }
 fn string(v: &Value) -> Option<&str> {
     v.as_str().filter(|s| !s.is_empty())
@@ -141,14 +141,14 @@ impl AcpNormalizer {
         {
             out.push(self.event(
                 "message.delta",
-                json!({"itemId":id,"operation":"replace","text":text(&said,131072),"final":true}),
+                json!({"itemId":id,"operation":"replace","text":text(said.as_str(),131072),"final":true}),
             ));
         }
     }
     fn close_thought(&mut self, out: &mut Vec<Event>) {
         if self.thinking {
             self.thinking = false;
-            let said = text(std::mem::take(&mut self.thought).trim(), 16384);
+            let said = text(self.thought.take().trim(), 16384);
             let mut p = json!({"stepKind":"reasoning","itemId":format!("reasoning_{}",self.ordinal)});
             if !said.is_empty() {
                 p["message"] = json!(said);
@@ -181,8 +181,8 @@ impl AcpNormalizer {
         let mut out = vec![];
         if kind == "agent_thought_chunk" {
             // The words are the step's message; held bounded as they grow, as a message is.
-            self.thought.push_str(&content_text(&v["content"]).unwrap_or_default());
-            self.thought = text(&self.thought, 131072);
+            // acp-events.ts `heldText`: appended as it comes, scrubbed and bounded when the step closes.
+            self.thought.push(&content_text(&v["content"]).unwrap_or_default());
             if self.thinking {
                 return out;
             }
@@ -225,15 +225,16 @@ impl AcpNormalizer {
                     self.ordinal += 1;
                     format!("message_{}", self.ordinal)
                 };
-                self.message = Some((id, agent, String::new()));
+                self.message = Some((id, agent, HeldText::default()));
             }
             let (id, _, held) = self
                 .message
                 .as_mut()
                 // Invariant: message inserted immediately above.
                 .expect("message inserted immediately above");
-            held.push_str(&said);
-            *held = text(held, 131072);
+            // acp-events.ts `heldText`: a chunk costs its own size; the whole is scrubbed and bounded at its close, not
+            // again with every chunk (that made a long answer cost the square of its length, SOAK-NOTES row 2c).
+            held.push(&said);
             let id = id.clone();
             out.push(self.event(
                 "message.delta",
@@ -367,7 +368,7 @@ impl AcpNormalizer {
         let mut out = vec![];
         self.close_thought(&mut out);
         self.close_message(&mut out);
-        let process = json!({"exitCode":if failure.is_none() && !cancelled {json!(0)} else {Value::Null},"signal":null,"stderr":failure.map(|f|text(f,16384)).unwrap_or_default(),"stderrTruncated":false,"recordCount":self.records,"cancelled":cancelled,"inputDeliveryFailed":false,"outputLimitExceeded":failure.is_some_and(|s|s.contains("overflow") || s.contains("exceeds 8 MiB")),"oversizedRecordsDropped":0,"forcedTerminationAttempted":false,"terminationUnconfirmed":false,"startedAt":self.started_at,"finishedAt":crate::ledger_write::now()});
+        let process = json!({"exitCode":if failure.is_none() && !cancelled {json!(0)} else {Value::Null},"signal":null,"stderr":failure.map(|f|text(f,16384)).unwrap_or_default(),"stderrTruncated":false,"recordCount":self.records,"cancelled":cancelled,"inputDeliveryFailed":false,"outputLimitExceeded":failure.is_some_and(output_limit),"oversizedRecordsDropped":0,"forcedTerminationAttempted":false,"terminationUnconfirmed":false,"startedAt":self.started_at,"finishedAt":crate::ledger_write::now()});
         let mut p = json!({"process":process});
         if let Some(thread) = &self.thread {
             p["runtimeThreadId"] = json!(thread);
@@ -417,6 +418,11 @@ impl AcpNormalizer {
         out.push(self.event(terminal, p));
         out
     }
+}
+/// A failure the host made by stopping a run whose output outran it (acp-run.ts `outputLimitExceeded`): the queue's
+/// overflow, said in Electron's words (`acp::OVERFLOW_MESSAGE`), or a record past 8 MiB.
+fn output_limit(failure: &str) -> bool {
+    failure == super::acp::OVERFLOW_MESSAGE || failure.contains("overflow") || failure.contains("exceeds 8 MiB")
 }
 /// A failure that says the CLI is not signed in (acp-events.ts `SIGNED_OUT`:
 /// `/authenticat|not (?:logged|signed) in|\blog ?in\b|\bsign ?in\b/i`), read from lowercased words.
@@ -593,3 +599,22 @@ pub fn patch_of(content: &Value) -> Option<Value> {
 #[cfg(test)]
 #[path = "line_diff_case_tests.rs"]
 mod line_diff_case_tests;
+
+#[cfg(test)]
+mod overflow_words_tests {
+    use super::*;
+
+    /// SOAK-NOTES row 2a: a run the host stopped for outrunning the queue ends in Electron's sentence and is marked as
+    /// the output limit, as acp-run.ts records it.
+    #[test]
+    fn a_queue_overflow_ends_in_electrons_sentence_marked_as_the_output_limit() {
+        let mut normal = AcpNormalizer::default();
+        let out = normal.finish("end_turn", Value::Null, false, Some(super::super::acp::OVERFLOW_MESSAGE), false);
+        let last = out.last().unwrap();
+        assert_eq!(last.kind, "run.failed");
+        assert_eq!(last.payload["message"], super::super::acp::OVERFLOW_MESSAGE);
+        assert_eq!(last.payload["process"]["outputLimitExceeded"], true, "{:?}", last.payload);
+        let other = AcpNormalizer::default().finish("end_turn", Value::Null, false, Some("The agent exited."), false);
+        assert_eq!(other.last().unwrap().payload["process"]["outputLimitExceeded"], false);
+    }
+}

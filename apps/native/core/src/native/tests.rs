@@ -1691,6 +1691,25 @@ fn a_teammate_on_an_own_api_route_runs_natively_through_its_opencode_provider() 
 }
 
 #[test]
+fn a_follow_up_to_a_turn_whose_process_is_gone_is_not_refused_as_running() {
+    // SOAK-NOTES row 3: a fresh ledger with no ending, written by a process that is gone, is not running for the
+    // follow-up either, as the list and the reader already show it.
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let begin = |id: &str| {
+        let mut w = LedgerWriter::create_continuing(&t.store(), id, "p", "m", "x", None).unwrap();
+        w.append("run.started", json!({"runtimeThreadId":"t1"}), None).unwrap();
+    };
+    begin("mission_native_4194999_1");
+    let gone = prior_of("mission_native_4194999_1").unwrap();
+    assert!(!gone.running, "its process is gone, so the turn has ended");
+    assert_eq!(gone.thread.as_deref(), Some("t1"), "and the follow-up resumes its session");
+    // A turn of a live process (launchd) with no ending is still running.
+    begin("mission_native_1_1");
+    assert!(prior_of("mission_native_1_1").unwrap().running);
+}
+
+#[test]
 fn a_turn_whose_process_is_gone_is_not_running() {
     // This process, not running it: ended without its last record.
     assert!(orphaned(&format!("mission_native_{}_1", std::process::id())));

@@ -1258,6 +1258,8 @@ pub fn read_claude_context(conversation: &str) -> Option<crate::claude_context::
 
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
+/// Running as the list and the reader read it: not once the process that ran it is gone (`orphaned`), so a follow-up
+/// after a crash goes ahead instead of waiting out the file's quiet window.
 pub fn prior_of(tip: &str) -> Result<Prior, String> {
     let path = find_ledger(tip).ok_or("The conversation's ledger could not be found.")?;
     let records = Tail::new(&path, 0).poll();
@@ -1266,7 +1268,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         .ok()
         .and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
         .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
-    prior_from_records(&records, fresh)
+    prior_from_records(&records, fresh && !orphaned(tip))
 }
 
 pub fn prior_from_records(records: &[Value], fresh: bool) -> Result<Prior, String> {
