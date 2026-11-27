@@ -1,17 +1,23 @@
 use super::*;
 
-/// `.lc-steps__line`: a quiet line that opens what it names, a chevron before the words in the reading face.
+/// `.lc-steps__line`: a quiet line that opens what it names, its words in the reading face and the arrow after them.
 pub(super) fn disclosure(key: String, label: String, open: bool, p: &Palette) -> El {
+    // ActivityCard.tsx's folded line (`.lc-steps__line`): the words, then the arrow after them, the line only as wide
+    // as what it says, muted, and brighter under the pointer (`:hover { color: var(--lc-text-secondary) }`). The arrow
+    // led the words here, so a row read as a tree, and nothing changed under the pointer (REVIEW-visual finding 10).
+    // Its parts' keys lead with the part, so nothing reading the row's own key as a prefix takes them for more rows.
     let l = crate::look::controls::Look::new(p.dark);
     let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+    let lit = l.c("text-secondary");
     row()
-        .w_full()
+        .key(format!("fold/{key}"))
+        .self_start()
+        .center_y()
         .gap(6.0)
-        .py(4.0)
-        .px(2.0)
-        .radius(5.0)
-        .child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).mt(3.0))
-        .child(text(label.clone()).font(l.ty.control).color(l.c("text-muted")).grow(1.0).shrink().wrap_anywhere())
+        .py(2.0)
+        .hover_group()
+        .child(text(label.clone()).key(format!("fold-words/{key}")).font(l.ty.control).color(l.c("text-muted")).group_color(lit).shrink().truncate())
+        .child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).key(format!("fold-arrow/{key}")).group_color(lit))
         .role("button")
         .label(label)
         .expanded(open)
@@ -146,14 +152,9 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, ba
         ShellBadge::Stalled => (l.c("amber-text"), l.c("amber-tint")),
         ShellBadge::Running => (l.c("text-muted"), l.c("bg-raised-2")),
     };
-    let mut line = row().w_full().gap(6.0).py(4.0).px(2.0).radius(5.0).label(label);
-    if expandable {
-        let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
-        line = line.child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).mt(3.0));
-    } else {
-        // Where the chevron would be, so a command that cannot open starts where the paths and other commands do.
-        line = line.child(el().key(format!("{key}/edge")).w(12.0));
-    }
+    // The command starts at the row's edge, where the paths above it do; the arrow, when there is anything behind the
+    // row, comes after its words, as on every folded line (`disclosure`).
+    let mut line = row().w_full().gap(6.0).py(4.0).radius(5.0).label(label);
     line = line
         .child(text(title).font(type_::LABEL.mono()).color(l.c("text-secondary")).shrink().wrap_anywhere())
         .child(
@@ -165,6 +166,10 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, ba
     }
     if !rest.is_empty() {
         line = line.child(text(rest).font(type_::LABEL).color(l.c("text-muted")).shrink().wrap_anywhere());
+    }
+    if expandable {
+        let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+        line = line.child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).key(format!("arrow/{key}")).mt(3.0));
     }
     if expandable {
         line.key(key.clone()).role("button").on_press(move |s: &mut State| {
@@ -1603,6 +1608,10 @@ mod codex_sandbox_row_tests;
 #[cfg(test)]
 #[path = "activity_drawers_orb_tests.rs"]
 mod activity_drawers_orb_tests;
+
+#[cfg(test)]
+#[path = "folded_rows_tests.rs"]
+mod folded_rows_tests;
 
 #[cfg(test)]
 #[path = "growing_group_tests.rs"]
