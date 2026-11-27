@@ -2038,6 +2038,10 @@ mod tests {
 
     fn pair_desk_browser(rt: &mut rune::Runtime<State>, relay: &FakeRelay) -> DeskBrowser {
         use locust_core::relay_crypto::{Direction, LinkSide, aad_of, device_id_of, link_keys, new_pc_keys, pairing_proof, seal_json};
+        // The window's first poll starts its own read of Scout (`scout_cards::ensure_host`). Landing after a browser took
+        // the window, it is a change the browser is rightly told (`scout:changed`), one desk frame more than a test counts
+        // (harden-1, 27 Nov: 1 of 3 release runs; the read held back 60 ms fails the count every time).
+        pump_until(rt, "the window's own first Scout read", |s| s.scout.state.is_some() && !s.scout.state_job.is_pending());
         let url = rt.state.phone_anywhere_link.live.as_ref().and_then(PhoneAnywhere::desk_code).expect("a code for the full window");
         let parts: Vec<String> = url.split("#p=").nth(1).unwrap().split('.').map(str::to_owned).collect();
         let (room, pc_key, secret) = (parts[0].clone(), parts[1].clone(), parts[2].clone());
