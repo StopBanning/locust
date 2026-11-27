@@ -421,13 +421,16 @@ pub(crate) fn line(l: &crate::look::controls::Look, key: &str, indent: f32, firs
     }
 }
 
-/// One switch with its words (`.lc-settingline`), indented when it belongs to the line above (`--sub`).
-fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: bool, sub: bool, first: bool, press: fn(&mut State)) -> El {
+/// One switch with its words (`.lc-settingline`), indented when it belongs to the line above (`--sub`): its name, one
+/// line of what it does, and the rest under its "More" (`switch_more`, under `fold`).
+#[allow(clippy::too_many_arguments)]
+fn setting_line(s: &State, l: &crate::look::controls::Look, heading: &str, lede: &str, fold: &str, more: &[&str], on: bool, sub: bool, first: bool, press: fn(&mut State)) -> El {
     use crate::look::controls;
     let words = col()
         .gap(4.0)
         .child(text(heading.to_owned()).font(l.ty.control).color(l.c("text-primary")))
-        .child(text(lede.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
+        .child(text(lede.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
+        .child(switch_more(s, l, fold, more));
     let key = format!("settings-line-{}", heading.to_lowercase().replace(' ', "-"));
     line(l, &key, if sub { 34.0 } else { 10.0 }, first, words, controls::switch(l, on, heading, false).on_press(press))
 }
@@ -493,8 +496,10 @@ fn toggle_conversations(s: &mut State) {
 
 /// Screens.tsx "Auto mode": one setting line, the switch named for what it controls. Off unless picked; the
 /// organization can hold it off (`mode_allowed(.., "auto")`), and then the switch is drawn but does nothing.
-pub(super) const AUTO_ON: &str = "On. A run started in Auto goes ahead without asking and is not kept to the project folder.";
-pub(super) const AUTO_OFF: &str = "Off. Teammates may change files inside the project folder and nowhere else.";
+/// Its one line (review change 6), and what it used to say after "On." or "Off.", now under its More.
+pub(super) const AUTO_LINE: &str = "Lets a run started in Auto go ahead without asking, outside the project folder too.";
+pub(super) const AUTO_ON: &str = "A run started in Auto goes ahead without asking and is not kept to the project folder.";
+pub(super) const AUTO_OFF: &str = "Teammates may change files inside the project folder and nowhere else.";
 
 fn auto_mode_section(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
@@ -506,7 +511,9 @@ fn auto_mode_section(s: &State, p: &Palette, first: bool) -> El {
     if managed {
         words = words.child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
     }
-    words = words.child(text(if on { AUTO_ON } else { AUTO_OFF }).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    words = words
+        .child(text(AUTO_LINE).font(l.ty.body).color(l.c("text-secondary")).wrap())
+        .child(switch_more(s, &l, "auto-mode", &[if on { AUTO_ON } else { AUTO_OFF }]));
     let mut knob = crate::look::controls::switch(&l, on, "Auto mode", managed).key("settings-auto-mode");
     if !managed {
         knob = knob.on_press(|s: &mut State| {
@@ -528,6 +535,85 @@ fn more(s: &State, p: &Palette, key: &'static str) -> El {
     })
 }
 
+
+/// What the fold under a switch says (review change 6): the switch shows on or off, so its line says only what it does,
+/// and the rules and exceptions its paragraph used to give wait behind this.
+pub(crate) const MORE: &str = "More";
+
+/// The fold under one switch's line (review change 6): "More" (`more-<key>`, a button that says whether it is open),
+/// and once pressed the words the switch's paragraph used to say (`more-<key>-text`). Shut until pressed; kept open or
+/// shut by `settings_panel.folds` under `more-<key>`, so each switch's fold opens on its own and stays as left.
+pub(crate) fn switch_more(s: &State, l: &crate::look::controls::Look, key: &str, paragraphs: &[&str]) -> El {
+    let fold = format!("more-{key}");
+    let open = s.settings_panel.folds.is_open(&fold);
+    let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+    let summary = row()
+        .key(fold.clone())
+        .role("button")
+        .label(MORE)
+        .expanded(open)
+        .focusable(true)
+        .focus_ring(2.0, 2.0, l.c("focus-ring"))
+        .gap(6.0)
+        .center_y()
+        .child(crate::look::controls::glyph(l, chevron, 10.0, Some(l.c("text-muted"))))
+        .child(text(MORE).font(l.ty.body).color(l.c("text-muted")));
+    let toggle = fold.clone();
+    let mut body = col().w_full().gap(4.0).child(summary.on_press(move |s: &mut State| s.settings_panel.folds.toggle(&toggle)));
+    if open {
+        let mut words = col().key(format!("{fold}-text")).w_full().gap(8.0).pt(4.0);
+        for paragraph in paragraphs.iter().filter(|p| !p.is_empty()) {
+            words = words.child(text((*paragraph).to_owned()).font(l.ty.body).color(l.c("text-muted")).wrap());
+        }
+        body = body.child(words);
+    }
+    body
+}
+
+/// The words of a switch's old paragraph with its first word gone when that word only said the switch's state
+/// ("On. ", "Off. "), as the switch already shows it. Core's words (Scout, Remote Control) still open with it.
+pub(crate) fn without_state(words: &str) -> &str {
+    words.strip_prefix("On. ").or_else(|| words.strip_prefix("Off. ")).unwrap_or(words)
+}
+
+/// The door's four switches (LocustMcpSettings.tsx:56, :66, :80, :90), each in one line of what it does (review change
+/// 6). What each used to say after its "On." or "Off." is under its More, every fact kept (`door_more` and the rest).
+pub(crate) const DOOR_LINE: &str = "Lets other apps on this computer ask your teammates, run your routines and read replies.";
+pub(crate) const OWN_MODE_LINE: &str = "Lets a turn another app starts use the teammate's own mode, so it can edit files.";
+pub(crate) const EDITOR_ANSWERS_LINE: &str = "Lets an editor approve or deny the cards for a turn it started.";
+pub(crate) const CONVERSATIONS_LINE: &str = "Lets an app see and continue your conversations, not only the ones it started.";
+pub(crate) const EDITOR_ANSWERS_ON: &str = "An editor that starts a turn can approve or deny that turn’s cards there. Questions are still answered here, and no app can answer a card for a turn it did not start.";
+pub(crate) const EDITOR_ANSWERS_OFF: &str = "Cards for a turn an editor starts wait in this window, and only you answer them.";
+pub(crate) const CONVERSATIONS_ON: &str = "An app can list, read, continue and stop your conversations, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here.";
+pub(crate) const CONVERSATIONS_OFF: &str = "An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent.";
+
+/// What the door's switch used to say after "On." or "Off.", under its More.
+pub(crate) fn door_more(set: &locust_core::door::Settings) -> String {
+    if set.enabled {
+        format!(
+            "Other apps on this computer can ask teammates, run your routines and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
+            if set.own_mode { "New turns use each teammate's own mode" } else { "New turns are Ask mode (read only)" }
+        )
+    } else {
+        "No local server is listening.".to_owned()
+    }
+}
+
+/// What "Use each teammate's own mode" used to say after "On." or "Off.", under its More.
+pub(crate) fn own_mode_more(set: &locust_core::door::Settings) -> String {
+    if set.own_mode {
+        format!(
+            "A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. {} Auto runs only if Auto is on in Settings.",
+            if set.editor_answers {
+                "Approval cards appear in this window, and an editor can answer the ones for turns it started."
+            } else {
+                "Approval cards appear in this window and only you can answer them."
+            }
+        )
+    } else {
+        "Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to.".to_owned()
+    }
+}
 
 /// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
 /// conversations, and the lines that add it to Claude Code and Codex.
@@ -576,16 +662,12 @@ fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
         );
     }
     section = section.child(setting_line(
+        s,
         &l,
         DOOR_HEADING,
-        &if set.enabled {
-            format!(
-                "On. Other apps on this computer can ask teammates, run your routines and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
-                if set.own_mode { "New turns use each teammate's own mode" } else { "New turns are Ask mode (read only)" }
-            )
-        } else {
-            "Off. No local server is listening.".to_owned()
-        },
+        DOOR_LINE,
+        "door",
+        &[&door_more(set)],
         set.enabled,
         false,
         first,
@@ -594,20 +676,12 @@ fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
     if set.enabled {
         section = section
             .child(setting_line(
+                s,
                 &l,
                 "Use each teammate's own mode",
-                &if set.own_mode {
-                    format!(
-                        "On. A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. {} Auto runs only if Auto is on in Settings.",
-                        if set.editor_answers {
-                            "Approval cards appear in this window, and an editor can answer the ones for turns it started."
-                        } else {
-                            "Approval cards appear in this window and only you can answer them."
-                        }
-                    )
-                } else {
-                    "Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to.".to_owned()
-                },
+                OWN_MODE_LINE,
+                "door-own-mode",
+                &[&own_mode_more(set)],
                 set.own_mode,
                 true,
                 false,
@@ -617,13 +691,12 @@ fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
         // used one reads about it.
         if set.editor_seen || set.editor_answers {
             section = section.child(setting_line(
+                s,
                 &l,
                 "Let editors answer cards for their own turns",
-                if set.editor_answers {
-                    "On. An editor that starts a turn can approve or deny that turn’s cards there. Questions are still answered here, and no app can answer a card for a turn it did not start."
-                } else {
-                    "Off. Cards for a turn an editor starts wait in this window, and only you answer them."
-                },
+                EDITOR_ANSWERS_LINE,
+                "door-editor-answers",
+                &[if set.editor_answers { EDITOR_ANSWERS_ON } else { EDITOR_ANSWERS_OFF }],
                 set.editor_answers,
                 true,
                 false,
@@ -632,13 +705,12 @@ fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
         }
         section = section
             .child(setting_line(
+                s,
                 &l,
                 "Let apps see your conversations",
-                if set.conversations {
-                    "On. An app can list, read, continue and stop your conversations, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here."
-                } else {
-                    "Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent."
-                },
+                CONVERSATIONS_LINE,
+                "door-conversations",
+                &[if set.conversations { CONVERSATIONS_ON } else { CONVERSATIONS_OFF }],
                 set.conversations,
                 true,
                 false,
@@ -718,6 +790,13 @@ fn set_plan(s: &mut State, plan: Option<locust_core::carry_on::PlanRunsOut>) {
     }
 }
 
+/// "Without asking" (Screens.tsx:2779): one line of what it does (review change 6), what it used to say after "On." or
+/// "Off." under its More, and while no agent is picked, why it cannot be pressed.
+pub(super) const WITHOUT_ASKING_LINE: &str = "Carries the work on by itself instead of waiting for your press.";
+pub(super) const WITHOUT_ASKING_ON: &str = "Only for messages you send yourself, never a comparison, a routine or a reply between teammates.";
+pub(super) const WITHOUT_ASKING_OFF: &str = "The card waits for your press.";
+pub(super) const WITHOUT_ASKING_PICK_FIRST: &str = "Pick an agent above first: Locust never moves your work on its own to an agent you did not choose.";
+
 /// Screens.tsx "When an agent cannot go on": First one ready, or one agent; and Without asking once one is picked.
 fn plan_runs_out_section(s: &State, p: &Palette) -> El {
     use locust_core::carry_on::{PlanRunsOut, display_name};
@@ -761,16 +840,16 @@ fn plan_runs_out_section(s: &State, p: &Palette) -> El {
                 }),
         );
     }
-    let without = match &plan {
-        None => "Pick an agent above first: Locust never moves your work on its own to an agent you did not choose.",
-        Some(c) if c.automatic => "On. Only for messages you send yourself, never a comparison, a routine or a reply between teammates.",
-        Some(_) => "Off. The card waits for your press.",
-    };
-    let words = col()
+    let mut words = col()
         .grow(1.0)
         .gap(4.0)
         .child(text("Without asking").font(l.ty.control).color(l.c("text-primary")))
-        .child(text(without).font(l.ty.body).color(l.c("text-secondary")).wrap());
+        .child(text(WITHOUT_ASKING_LINE).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    words = match &plan {
+        // Why the switch cannot be pressed yet: said, not folded.
+        None => words.child(text(WITHOUT_ASKING_PICK_FIRST).font(l.ty.body).color(l.c("text-secondary")).wrap()),
+        Some(c) => words.child(switch_more(s, &l, "without-asking", &[if c.automatic { WITHOUT_ASKING_ON } else { WITHOUT_ASKING_OFF }])),
+    };
     let automatic = plan.as_ref().is_some_and(|c| c.automatic);
     let toggle = crate::look::controls::switch(&l, automatic, "Carry on without asking", plan.is_none()).on_press(|s: &mut State| {
         if let Some(mut c) = s.settings_panel.plan_runs_out.clone() {
@@ -2677,3 +2756,7 @@ pub(crate) mod help_section;
 #[cfg(test)]
 #[path = "settings_general_tests.rs"]
 mod settings_general_tests;
+
+#[cfg(test)]
+#[path = "settings_switch_more_tests.rs"]
+mod settings_switch_more_tests;

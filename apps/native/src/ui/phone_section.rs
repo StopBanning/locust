@@ -28,11 +28,14 @@ use std::sync::{Arc, Mutex, OnceLock, Weak};
 pub(crate) const HEADING: &str = "Your phone";
 const SWITCH_LABEL: &str = "Use Locust from your phone";
 
+/// Its one line (review change 6). What OFF, ON and ON_ANYWHERE used to say after their state is under its More;
+/// NO_NETWORK is a problem to fix, so it stays said.
+pub(crate) const LINE: &str = "Check on your teammates from your phone, answer approval cards and send the next message.";
 pub(crate) const OFF: &str =
-    "Off. Turn it on to check on your teammates from your phone, answer approval cards and send the next message.";
-pub(crate) const ON_ANYWHERE: &str = "On, from anywhere. Your phone reaches Locust through Locust\u{2019}s relay. Every message is locked on this computer and opened on your phone, so the relay passes along what it cannot read.";
+    "Turn it on to check on your teammates from your phone, answer approval cards and send the next message.";
+pub(crate) const ON_ANYWHERE: &str = "From anywhere. Your phone reaches Locust through Locust\u{2019}s relay. Every message is locked on this computer and opened on your phone, so the relay passes along what it cannot read.";
 pub(crate) const NO_NETWORK: &str = "On, but this computer is not on a network Locust can find. Connect it to your Wi-Fi, then turn this off and on again.";
-pub(crate) const ON: &str = "On. Scan the code with your phone\u{2019}s camera to see your conversations, answer approval cards and send the next message. Your phone must be on the same Wi-Fi as this computer.";
+pub(crate) const ON: &str = "Scan the code with your phone\u{2019}s camera to see your conversations, answer approval cards and send the next message. Your phone must be on the same Wi-Fi as this computer.";
 pub(crate) const ANYONE: &str = "Anyone who scans this code can do what you can from your phone. Lost a phone, or shared the code? Make a new one: every phone has to scan again.";
 const QR_LABEL_WIFI: &str = "A code for your phone\u{2019}s camera. It opens Locust on your phone.";
 const QR_LABEL_ANYWHERE: &str = "A code for your phone\u{2019}s camera. It pairs your phone with Locust.";
@@ -1101,7 +1104,12 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
         .grow(1.0)
         .gap(4.0)
         .child(text(HEADING).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
-        .child(text(lede_text).font(l.ty.body).color(l.c("text-secondary")).wrap());
+        .child(text(LINE).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    words = if lede_text == NO_NETWORK {
+        words.child(text(lede_text).font(l.ty.body).color(l.c("text-secondary")).wrap())
+    } else {
+        words.child(crate::settings_panel::switch_more(s, &l, "phone", &[lede_text]))
+    };
     if let Some(message) = &phone.message
         && mode != PhoneMode::Anywhere
     {
@@ -1442,6 +1450,8 @@ mod tests {
         let mut s = State::default();
         s.settings_panel.phone = Some(wifi);
         s.phone_anywhere = Some(anywhere);
+        // What each state says after the switch's one line is under its More (review change 6): read with it open.
+        s.settings_panel.folds.toggle("more-phone");
         let mut rt = rune::Runtime::new(
             s,
             |s, _| section(s, &Palette::new(true)),
@@ -1468,7 +1478,7 @@ mod tests {
         assert_eq!(lede(&settings(true, Some("http://192.168.1.20:47740/#k")), true), OFF);
         assert_eq!(
             OFF,
-            "Off. Turn it on to check on your teammates from your phone, answer approval cards and send the next message."
+            "Turn it on to check on your teammates from your phone, answer approval cards and send the next message."
         );
         assert_eq!(
             NO_NETWORK,
@@ -1493,7 +1503,7 @@ mod tests {
         assert_eq!(switch.label.as_deref(), Some("Use Locust from your phone"));
         assert!(!switch_on(switch));
         let text = all_text(&els);
-        assert!(text.contains("Off. Turn it on to check on your teammates from your phone"), "{text}");
+        assert!(text.contains("Turn it on to check on your teammates from your phone"), "{text}");
         let anywhere_radio = by_key(&els, "phone-way-anywhere").expect("From anywhere radio");
         assert_eq!(anywhere_radio.role, "radio");
         assert!(radio_active(anywhere_radio));
@@ -1513,7 +1523,7 @@ mod tests {
         let switch = by_key(&els, "phone-switch").expect("phone switch");
         assert!(switch_on(switch));
         let text = all_text(&els);
-        assert!(text.contains("On, from anywhere."), "{text}");
+        assert!(text.contains("From anywhere. Your phone reaches Locust"), "{text}");
         assert!(text.contains("the relay passes along what it cannot read"), "{text}");
         let qr = by_key(&els, "phone-code").expect("QR code");
         assert_eq!(qr.label.as_deref(), Some("A code for your phone\u{2019}s camera. It pairs your phone with Locust."));
@@ -1923,6 +1933,7 @@ mod tests {
         s.data = Some(store);
         s.settings_panel.open = true;
         s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        s.settings_panel.folds.toggle("more-phone");
         // What a browser holding the window hears comes from a stand-in engine: the process's own is shared by every
         // test running beside this one, and their cards would be told (and withdrawn) here.
         s.phone_anywhere_link.desk_engine = Some(Arc::new(|| (Vec::new(), Vec::new())));
@@ -2468,7 +2479,7 @@ mod tests {
         });
         assert!(rt.state.phone_anywhere.as_ref().and_then(|a| a.code.as_ref()).is_some());
         let text = all_text(&rt.elements());
-        assert!(text.contains("On, from anywhere."), "{text}");
+        assert!(text.contains("From anywhere. Your phone reaches Locust"), "{text}");
         assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
 
         // Switch OFF in the headless window: drops PhoneAnywhere and updates State to off.
@@ -2477,7 +2488,7 @@ mod tests {
         assert_eq!(rt.state.phone_anywhere.as_ref().map(|a| a.enabled), Some(false));
         assert!(relay.closed.load(std::sync::atomic::Ordering::SeqCst));
         let text_off = all_text(&rt.elements());
-        assert!(text_off.contains("Off. Turn it on to check on your teammates from your phone"), "{text_off}");
+        assert!(text_off.contains("Turn it on to check on your teammates from your phone"), "{text_off}");
     }
 
     #[test]

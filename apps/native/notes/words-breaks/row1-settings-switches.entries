@@ -1,0 +1,12 @@
+# Row 1 (review change 6): each switch one line, the rest under More. Format: path|||old ==> new (paths from apps/native).
+src/ui/settings_panel.rs|||        .child(switch_more(s, &l, "auto-mode", &[if on { AUTO_ON } else { AUTO_OFF }])); ==>         .child(text(if on { AUTO_ON } else { AUTO_OFF }).font(l.ty.body));
+src/ui/settings_panel.rs|||    let open = s.settings_panel.folds.is_open(&fold); ==>     let open = true;
+src/ui/settings_panel.rs|||        "No local server is listening.".to_owned() ==>         "Off. No local server is listening.".to_owned()
+src/ui/settings_panel.rs|||A folder must be one Locust knows or a worktree of one. {} Auto runs ==> {} Auto runs
+src/ui/settings_panel.rs|||    let mut body = col().w_full().gap(4.0).child(summary.on_press(move |s: &mut State| s.settings_panel.folds.toggle(&toggle))); ==>     let mut body = col().w_full().gap(4.0).child(summary.on_press(move |s: &mut State| { let _ = &toggle; s.settings_panel.folds.toggle("more") }));
+src/ui/settings_panel.rs|||    words.strip_prefix("On. ").or_else(|| words.strip_prefix("Off. ")).unwrap_or(words) ==>     words
+src/ui/phone_section.rs|||        words.child(crate::settings_panel::switch_more(s, &l, "phone", &[lede_text])) ==>         words.child(text(lede_text).font(l.ty.body))
+src/ui/remote_control_card.rs|||    let settled = matches!(state.phase, Phase::Running | Phase::Off); ==>     let settled = matches!(state.phase, Phase::Running);
+src/ui/scout_setting.rs|||        .child(text(SCOUT_LINE).font(type_::LABEL).color(p.secondary).wrap()) ==>         .child(text(lede.clone()).font(type_::LABEL).color(p.secondary).wrap())
+src/ui/your_account_section.rs|||                        crate::settings_panel::switch_more(s, &l, "account-sync", &[SYNC_OFF]) ==>                         text(SYNC_OFF).font(l.ty.body)
+src/ui/remote_mcp_card.rs|||                .child(text(LINE).font(l.ty.body).color(l.c("text-secondary")).wrap()) ==>                 .child(text(if on { LEDE_ON } else { LEDE_OFF }).font(l.ty.body).color(l.c("text-secondary")).wrap())
