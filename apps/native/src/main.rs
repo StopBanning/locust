@@ -2280,6 +2280,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     let _answering = locust_core::diagnostic_log::answering();
     s.prompt_rail.tick(std::time::Instant::now());
     let seen = home_panel::mark_seen_if_looking(s) | home_panel::poll_cover(s, tx);
+    // The orb turns behind other windows too, by redrawing its own image (look/orb.rs `tick`); nothing moves at rest.
+    if look::orb::tick(s, now) { tx.wake_after(Duration::from_millis(look::orb::FRAME_MS)); }
     if s.demo {
         return seen;
     }
