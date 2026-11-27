@@ -2792,3 +2792,7 @@ mod routine_waiting_on_board_tests;
 #[cfg(test)]
 #[path = "routines_page_tests.rs"]
 mod routines_page_tests;
+
+#[cfg(test)]
+#[path = "a_routine_runs_on_its_teammates_route_tests.rs"]
+mod a_routine_runs_on_its_teammates_route_tests;
