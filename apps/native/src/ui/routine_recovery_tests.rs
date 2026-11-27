@@ -119,11 +119,79 @@ fn says_a_refused_start_would_be_refused_again_not_that_the_step_before_it_never
     assert!(!said.contains("to be confirmed finished"));
 }
 
-/// In half: the schedule's words. Electron's card also says "Waiting for your review" for a dispatch not yet
-/// resolved; Rust's says "Running · step 2 of 3" (a difference, in the notes for Colin).
+/// In half: this checks the native shelf's schedule and Run protection. Electron also draws the
+/// recovery review itself for an unresolved dispatch; native still shows its Running heading.
 #[test]
 fn an_unresolved_dispatch_promises_no_next_run() {
     let dispatching = with_execution(json!({"status": "dispatching"}));
     let now = chrono::DateTime::parse_from_rfc3339("2026-09-08T00:00:00Z").unwrap().with_timezone(&chrono::Local);
     assert!(locust_core::routines::schedule::summary(&dispatching, now).unwrap().contains("held for review; no automatic retry"));
+    let rt = recovery_shelf(dispatching);
+    let all = rt.elements();
+    let when = all.iter().find(|el| el.key.as_deref() == Some("routine-when-rt_one")).expect("the real shelf shows the schedule");
+    let when = when.text.as_deref().unwrap();
+    assert!(when.contains("held for review; no automatic retry"), "{when}");
+    assert!(!when.contains("due now") && !when.contains("next run"), "{when}");
+    let run = all.iter().find(|el| el.key.as_deref() == Some("routine-run-rt_one")).expect("the real shelf draws Run");
+    assert!(run.opacity < 0.5, "Run is off for an unresolved dispatch");
+    assert!(run.help.is_none(), "Run is held by the attempt, not by a missing teammate");
+}
+
+/// The full native Routines surface, rather than a fixture that calls recovery_card directly.
+fn recovery_shelf(held: Value) -> Runtime<State> {
+    let mut state = State::default();
+    crate::scenes::team_scene(&mut state);
+    state.teammates[0].id = "tm_one".to_owned();
+    state.routines.open = true;
+    state.routines.file = json!({"schemaVersion": 1, "routines": [held]});
+    let mut rt = Runtime::new(state, crate::view, (1000.0, 1800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    rt
+}
+
+fn has_ancestor(elements: &[rune::ElementInfo], at: usize, ancestor: usize) -> bool {
+    let mut parent = elements[at].parent;
+    while let Some(index) = parent {
+        if index == ancestor {
+            return true;
+        }
+        parent = elements[index].parent;
+    }
+    false
+}
+
+// case: is a card of its own, never the row meta the Routines screen crushes into one clipped cell (2026-09-27)
+#[test]
+fn recovery_words_and_decisions_are_on_the_card_below_its_compact_metadata() {
+    let mut rt = recovery_shelf(routine());
+    let (x, y) = rt.find("routine-reviewed-rt_one").expect("the real shelf draws the review acknowledgement");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.016);
+    rt.settle_all();
+    rt.frame(0.0);
+    assert_eq!(rt.state.routines.reviewed.as_deref(), Some("attempt_one"));
+
+    let all = rt.elements();
+    let keyed = |key: &str| all.iter().position(|el| !el.exiting && el.key.as_deref() == Some(key)).unwrap_or_else(|| panic!("missing {key}"));
+    let card = keyed("routine-rt_one");
+    let meta = all[keyed("routine-chain-rt_one")].parent.expect("the compact summary lives in its own row");
+    let regular_actions = keyed("routine-actions-rt_one");
+    let heading = all.iter().position(|el| !el.exiting && el.text.as_deref().is_some_and(|t| t.starts_with("Waiting for your review · Step 2 of 3")))
+        .expect("recovery heading");
+    let reason = all.iter().position(|el| !el.exiting && el.text.as_deref() == Some("The dispatch outcome is uncertain."))
+        .expect("recovery reason");
+    let review = keyed("routine-reviewed-rt_one");
+    let keep = keyed("routine-keep-schedule-rt_one");
+    let abandon = keyed("routine-abandon-rt_one");
+    let bottom = |at: usize| all[at].rect[1] + all[at].rect[3];
+    for at in [heading, reason, review, keep, abandon] {
+        let el = &all[at];
+        assert!(has_ancestor(&all, at, card), "recovery stays in its own routine's card: {el:?}");
+        assert!(!has_ancestor(&all, at, meta), "recovery must not be placed in the compact metadata row: {el:?}");
+        assert!(!has_ancestor(&all, at, regular_actions), "recovery decisions are not the row's normal actions: {el:?}");
+        assert!(el.rect[1] >= bottom(regular_actions) - 0.5, "recovery belongs below the normal row actions: {el:?}");
+        assert!(el.visible[2] >= el.rect[2] - 0.5 && el.visible[3] >= el.rect[3] - 0.5, "recovery words and controls must not be clipped: {el:?}");
+    }
+    assert_eq!(all[keep].parent, all[abandon].parent, "the recovery decisions share their own action row");
 }
