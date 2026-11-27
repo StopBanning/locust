@@ -7355,7 +7355,7 @@ packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	never sends a prompt after the stream was lost during session creation	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps a normal idle followed by EOF successful	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails an empty stream without waiting for the dropped-start watchdog	yes
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps an explicit stream read error as a failure	no
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps an explicit stream read error as a failure	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	preserves cancellation when EOF arrives after the person stops	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a resumed conversation when its new stream closes prematurely	yes
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	fails a command turn on EOF without replaying its command	yes
