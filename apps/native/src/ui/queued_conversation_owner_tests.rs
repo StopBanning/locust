@@ -103,3 +103,20 @@ fn a_completed_selected_snapshot_does_not_borrow_another_search_or_turn_status()
     s.status = "Argon: failed".into();
     assert_eq!(queue_phase(&s), "completed");
 }
+
+#[test]
+fn an_interrupted_selected_snapshot_holds_the_queue_as_interrupted() {
+    // Lane check of B25: a selected conversation whose run was interrupted (the engine went away mid-turn) reads as
+    // interrupted, not as its run end or the worker's phase, and leaves the queued row where it is.
+    let (mut s, _root) = selected_pane(true, None);
+    s.draft.replace_text("Add the integration test.");
+    submit_composer(&mut s, &mut Tx::default(), false);
+
+    let pane = s.ledger.as_mut().unwrap();
+    pane.snapshot.running = false;
+    pane.snapshot.interrupted = true;
+    pane.snapshot.run_end = Some(ledger::RunEnd::Completed);
+    assert_eq!(queue_phase(&s), "interrupted");
+    drain_queue_after_turn(&mut s, &mut Tx::default());
+    assert_eq!(s.queue_rows.len(), 1, "an interrupted selected run must leave its row queued");
+}
