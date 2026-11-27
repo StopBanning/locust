@@ -33,6 +33,8 @@ pub(super) struct Panel {
     /// What each away row's run came to, read once when the summary is (AwayList's saidOf).
     pub away_said: HashMap<String, String>,
     pub to_look_at: HashSet<String>,
+    /// `to_look_at` has been read from the data folder (once, on the first finish or open of the session).
+    pub unseen_loaded: bool,
     /// Team roster finishes are cleared by looking at any conversation of that teammate (App.tsx finishedUnseen).
     pub teammates_unseen: HashSet<String>,
     pub asks: HashMap<String, BoardAsk>,
@@ -337,7 +339,39 @@ pub(super) fn mark_seen_if_looking(s: &mut State) -> bool {
     owner.is_some_and(|id| s.home.teammates_unseen.remove(&id))
 }
 
+/// Where the conversations that finished while nobody had them open are kept, so the sidebar's dot outlives the window
+/// (Big Brother's review of 26 Nov, change 3). Electron's `finishedUnseen` is in memory only.
+const UNSEEN_FILE: &str = "unseen_finishes.json";
+/// The most the file keeps: a finish nobody looked at in a month is not news.
+const MAX_UNSEEN: usize = 500;
+
+/// Read the unseen finishes from the data folder, once per window; what this window already recorded stays.
+pub(super) fn load_unseen(s: &mut State) {
+    if s.home.unseen_loaded {
+        return;
+    }
+    let Some(store) = &s.data else { return };
+    s.home.unseen_loaded = true;
+    if let Ok(raw) = std::fs::read_to_string(store.root().join(UNSEEN_FILE))
+        && let Ok(serde_json::Value::Array(ids)) = serde_json::from_str::<serde_json::Value>(&raw)
+    {
+        let ids: Vec<String> = ids.into_iter().filter_map(|v| v.as_str().map(str::to_owned)).take(MAX_UNSEEN).collect();
+        s.home.to_look_at.extend(ids);
+    }
+}
+
+fn save_unseen(s: &State) {
+    let Some(store) = &s.data else { return };
+    let mut ids: Vec<&String> = s.home.to_look_at.iter().collect();
+    ids.sort();
+    ids.truncate(MAX_UNSEEN);
+    let list: Vec<serde_json::Value> = ids.into_iter().cloned().map(serde_json::Value::String).collect();
+    let _ = store.save_json(UNSEEN_FILE, &serde_json::Value::Array(list));
+}
+
 pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
+    load_unseen(s);
+    let before = s.home.to_look_at.len();
     let in_workroom = workroom_visible(s);
     let looking = if in_workroom { selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone()) } else { None };
     let looking_owner = if in_workroom { selected_conversation(s).map(|(mate, _)| mate.id.clone()) } else { None };
@@ -355,6 +389,9 @@ pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
             }
         }
     }
+    if s.home.to_look_at.len() != before {
+        save_unseen(s);
+    }
 }
 
 pub(super) fn opened(s: &mut State, id: &str) {
@@ -368,8 +405,13 @@ pub(super) fn opened(s: &mut State, id: &str) {
         })
         .map(conversation_list::conversation_keys)
         .unwrap_or_else(|| vec![id.to_owned()]);
+    load_unseen(s);
+    let mut seen = false;
     for key in keys {
-        s.home.to_look_at.remove(&key);
+        seen |= s.home.to_look_at.remove(&key);
+    }
+    if seen {
+        save_unseen(s);
     }
     s.home.home_open = false;
     s.home.board_open = false;
@@ -2024,7 +2066,10 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                     let card_el = card_el_.child(card_el);
                     body = body.child(card_el.on_press(move |s: &mut State| {
                         s.opening_conversation = Some(open_id.clone());
-                        s.home.to_look_at.remove(&open_id);
+                        load_unseen(s);
+                        if s.home.to_look_at.remove(&open_id) {
+                            save_unseen(s);
+                        }
                         s.home.board_open = false;
                     }));
                 }
