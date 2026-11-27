@@ -52,6 +52,15 @@ const SCHEMA_FOR: Readonly<Record<string, string>> = {
   applyPatchApproval: LEGACY_PATCH
 }
 
+const turn = { threadId: 't1', turnId: 'turn_1', itemId: 'i1', startedAtMs: 1 }
+const legacy = { conversationId: 't1', callId: 'call_1' }
+const PARAMS_FOR: Readonly<Record<string, Record<string, unknown>>> = {
+  'item/commandExecution/requestApproval': { ...turn, command: 'ls', cwd: '/work' },
+  'item/fileChange/requestApproval': turn,
+  execCommandApproval: { ...legacy, command: ['ls'], cwd: '/work', parsedCmd: [] },
+  applyPatchApproval: { ...legacy, fileChanges: { 'new.txt': { type: 'add', content: 'hello' } } }
+}
+
 function typeFits(value: unknown, type: string | undefined): boolean {
   if (type === 'string') return typeof value === 'string'
   if (type === 'array') return Array.isArray(value)
@@ -101,7 +110,7 @@ function channel() {
   })
   const handler = instance.requestHandlerFor({ runId: 'run_1', missionId: 'mission_1', cwd: '/work', changesByItem: new Map() })
   const ask = (method: string, params: Record<string, unknown> = {}): Promise<JsonValue> =>
-    handler({ id: 1, method, params: { threadId: 't1', itemId: 'i1', cwd: '/work', ...params } } as AppServerRequest)
+    handler({ id: 1, method, params } as AppServerRequest)
   return { instance, approvals, ask }
 }
 
@@ -138,7 +147,7 @@ describe("a person's answer, as Codex is sent it", () => {
     for (const [method, file] of [['item/commandExecution/requestApproval', COMMAND], ['item/fileChange/requestApproval', FILE_CHANGE]] as const) {
       for (const reason of [undefined, 'use the build script instead']) {
         const { instance, approvals, ask } = channel()
-        const waiting = ask(method, { command: 'rm -rf build', changes: [] })
+        const waiting = ask(method, PARAMS_FOR[method]!)
         await vi.waitFor(() => {
           expect(approvals).toHaveLength(1)
         })
@@ -159,14 +168,14 @@ describe("Locust's own refusal, as Codex is sent it", () => {
   it('refuses a legacy request it never puts on a card in the legacy shape', async () => {
     for (const method of ['execCommandApproval', 'applyPatchApproval']) {
       const { approvals, ask } = channel()
-      expectCodexTakes(await ask(method, { command: ['rm', '-rf', 'build'] }), SCHEMA_FOR[method]!)
+      expectCodexTakes(await ask(method, PARAMS_FOR[method]!), SCHEMA_FOR[method]!)
       expect(approvals).toHaveLength(0)
     }
   })
 
   it('releases a card a finished run was still asking with a decision Codex takes', async () => {
     const { instance, approvals, ask } = channel()
-    const waiting = ask('item/commandExecution/requestApproval', { command: 'x' })
+    const waiting = ask('item/commandExecution/requestApproval', PARAMS_FOR['item/commandExecution/requestApproval']!)
     await vi.waitFor(() => {
       expect(approvals).toHaveLength(1)
     })
@@ -197,7 +206,7 @@ describe("Locust's own refusal, as Codex is sent it", () => {
     })
     const methods = Object.keys(SCHEMA_FOR)
     methods.forEach((method, n) => {
-      emit(`${JSON.stringify({ jsonrpc: '2.0', id: 900 + n, method, params: { threadId: 't1', conversationId: 't1', itemId: `i${String(n)}`, callId: `c${String(n)}` } })}\n`)
+      emit(`${JSON.stringify({ jsonrpc: '2.0', id: 900 + n, method, params: PARAMS_FOR[method]! })}\n`)
     })
     await vi.waitFor(() => {
       expect(written.filter((m) => typeof m.id === 'number' && m.id >= 900)).toHaveLength(methods.length)
@@ -206,5 +215,61 @@ describe("Locust's own refusal, as Codex is sent it", () => {
       const reply = written.find((m) => m.id === 900 + n)!
       expectCodexTakes(reply.result as JsonValue, SCHEMA_FOR[method]!)
     })
+  })
+})
+
+const QUESTION = 'item/tool/requestUserInput'
+const QUESTION_PARAMS = { threadId: 't1', turnId: 'turn_1', itemId: 'i1', isBlocking: true, questions: [{ id: 'q', header: 'Test', question: 'Continue?', options: null }] }
+
+describe('a Codex request the card cannot answer', () => {
+  it('releases a pending question with no answers when the run ends', async () => {
+    const { instance, ask } = channel()
+    const waiting = ask(QUESTION, QUESTION_PARAMS)
+    expect(instance.pendingCount).toBe(1)
+    instance.release('run_1')
+    expect(await waiting).toEqual({ answers: {} })
+    expect(instance.pendingCount).toBe(0)
+  })
+
+  it('answers a question with no answers when given an authorization decision', async () => {
+    const { instance, approvals, ask } = channel()
+    const waiting = ask(QUESTION, QUESTION_PARAMS)
+    expect(instance.decide({ approvalId: approvals[0]!.approvalId, decision: 'approve-once' })).toBe(false)
+    expect(await waiting).toEqual({ answers: {} })
+  })
+
+  it('declines an authorization when given answers intended for a question', async () => {
+    const { instance, approvals, ask } = channel()
+    const waiting = ask('item/commandExecution/requestApproval', PARAMS_FOR['item/commandExecution/requestApproval']!)
+    expect(instance.decide({ approvalId: approvals[0]!.approvalId, answers: { q: ['yes'] } })).toBe(false)
+    expect(await waiting).toEqual({ decision: 'decline' })
+  })
+
+  it('answers an overflowed question without an authorization decision', async () => {
+    const { instance, ask } = channel()
+    const waiting = Array.from({ length: 16 }, () => ask(QUESTION, QUESTION_PARAMS))
+    expect(instance.pendingCount).toBe(16)
+    try {
+      expect(await ask(QUESTION, QUESTION_PARAMS)).toEqual({ answers: {} })
+    } finally {
+      instance.release('run_1')
+      await Promise.all(waiting)
+    }
+  })
+
+  it('declines elicitation that the approval channel does not put on a card', async () => {
+    const { approvals, ask } = channel()
+    const params = {
+      threadId: 't1', turnId: 'turn_1', serverName: 'example', mode: 'url', message: 'Review this link.',
+      elicitationId: 'elicitation_1', url: 'https://example.com'
+    }
+    expect(await ask('mcpServer/elicitation/request', params)).toEqual({ action: 'decline' })
+    expect(approvals).toHaveLength(0)
+  })
+
+  it('reports an unknown request as method not found', async () => {
+    const { approvals, ask } = channel()
+    await expect(ask('unknown/request')).rejects.toMatchObject({ code: -32601 })
+    expect(approvals).toHaveLength(0)
   })
 })

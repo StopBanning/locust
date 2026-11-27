@@ -632,6 +632,7 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
      * to still be in hand when the person replies.
      */
     readonly kind: MissionApprovalKind
+    readonly method: string
     /** Whose request: OpenCode's reply carries a denial's reason, Codex's does not. */
     readonly runtime: MissionRuntimeId | undefined
     /** The item the request is about, when the runtime named one. */
@@ -642,12 +643,15 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
   const approvals = new Map<string, Pending>()
   const declinedByRun = new Map<string, Set<string>>()
 
+  const refusalFor = (runtime: MissionRuntimeId | undefined, method: string): JsonValue =>
+    runtime === undefined || runtime === 'codex' ? codexRefusalFor(method) : { decision: CODEX_DECLINE }
+
   const release = (runId: string): void => {
     declinedByRun.delete(runId)
     for (const [approvalId, pending] of approvals) {
       if (pending.runId !== runId) continue
       approvals.delete(approvalId)
-      pending.resolve({ decision: protocolDecisionFor('deny') })
+      pending.resolve(refusalFor(pending.runtime, pending.method))
     }
   }
 
@@ -657,8 +661,8 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
       return async (request) => {
         const refuse = (why: string): JsonValue => {
           options.emitUpdate?.({ kind: 'relay-notice', runId, missionId, message: why })
-          // In the shape the asking method takes: a legacy request's refusal is not a v2 one.
-          return codexRefusalFor(request.method)
+          // Some unsupported methods require a JSON-RPC error instead of a successful result.
+          return refusalFor(run.runtime, request.method)
         }
         const described = describeApproval(request)
         if (described === undefined) {
@@ -708,7 +712,7 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
             : undefined
         const alwaysCovers = codexAlways?.covers ?? said('alwaysCovers')
         return await new Promise<JsonValue>((resolve) => {
-          approvals.set(approvalId, { runId, missionId, kind: described.kind, runtime: run.runtime, itemId, alwaysKey, resolve })
+          approvals.set(approvalId, { runId, missionId, kind: described.kind, method: request.method, runtime: run.runtime, itemId, alwaysKey, resolve })
           options.emitApproval({
             approvalId,
             runId,
@@ -761,7 +765,7 @@ export function createApprovalChannel(options: ApprovalChannelOptions): Approval
         })
         // Refused rather than forwarded. Resolving with the wrong shape is
         // exactly what discarded the person's answer before.
-        pending.resolve(protocolAnswerFor({ approvalId: answer.approvalId, decision: 'deny' }))
+        pending.resolve(refusalFor(pending.runtime, pending.method))
         return false
       }
       if ('decision' in answer && answer.decision === 'deny' && pending.itemId !== undefined) {

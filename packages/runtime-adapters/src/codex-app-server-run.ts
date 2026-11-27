@@ -35,10 +35,28 @@ export const CODEX_DECLINE = "decline";
 export const CODEX_LEGACY_REFUSAL_SAYS = "Locust answers only Codex's current approval requests, so it did not allow this one.";
 const CODEX_LEGACY_APPROVALS: ReadonlySet<string> = new Set(["execCommandApproval", "applyPatchApproval"]);
 
-/** Locust's own refusal of an approval it does not put to a person, in the shape the asking method takes. */
+/**
+ * A failed result for a request Locust cannot answer. Unsupported methods throw
+ * a JSON-RPC error for createAppServerClient to send, not a successful result.
+ */
 export function codexRefusalFor(method: string): JsonValue {
   if (CODEX_LEGACY_APPROVALS.has(method)) return { decision: { denied: { rejection: CODEX_LEGACY_REFUSAL_SAYS } } };
-  return { decision: CODEX_DECLINE };
+  switch (method) {
+    case "item/commandExecution/requestApproval":
+    case "item/fileChange/requestApproval":
+      return { decision: CODEX_DECLINE };
+    case "item/tool/requestUserInput":
+      return { answers: {} };
+    case "mcpServer/elicitation/request":
+      return { action: CODEX_DECLINE };
+    case "item/permissions/requestApproval":
+      return { permissions: {}, scope: "turn" };
+    case "item/tool/call":
+      return { success: false, contentItems: [] };
+    default:
+      // For example, Locust cannot mint an attestation or refresh Codex's tokens.
+      throw Object.assign(new Error(`Locust does not handle Codex's ${method} request.`), { code: -32601 });
+  }
 }
 
 /**

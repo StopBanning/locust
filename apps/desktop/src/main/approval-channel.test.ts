@@ -153,7 +153,7 @@ describe('the approval round trip', () => {
 
   it('refuses a request it does not understand rather than guessing', async () => {
     const { approvals, updates, handler } = channel()
-    await expect(ask(handler, 'item/futureThing/requestApproval')).resolves.toEqual({ decision: 'decline' })
+    await expect(ask(handler, 'item/futureThing/requestApproval')).rejects.toMatchObject({ code: -32601 })
     // And it never reaches the person, because the card could not describe it.
     expect(approvals).toHaveLength(0)
     // Said out loud: an unattributed denial is the one outcome that must not
@@ -187,7 +187,7 @@ describe('the approval round trip', () => {
     // not validate the shape -- it deserializes, fails quietly, and
     // substitutes an empty answer -- so this is the only place it is caught.
     expect(instance.decide({ approvalId: approvals[0]!.approvalId, decision: 'approve-once' })).toBe(false)
-    await expect(waiting).resolves.toEqual({ decision: 'decline' })
+    await expect(waiting).resolves.toEqual({ answers: {} })
     expect(JSON.stringify(updates)).toMatch(/answered rather than approved/)
   })
 

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 
-import { createAppServerClient } from '@teammate/runtime-adapters'
+import { codexRefusalFor, createAppServerClient } from '@teammate/runtime-adapters'
 import type { AppServerClient, AppServerRunProcess as AppServerProcess, ExecutableLaunch, JsonValue } from '@teammate/runtime-adapters'
 
 import {
@@ -283,7 +283,7 @@ export function createVoiceCalls(deps: VoiceCallDeps): VoiceCalls {
             if (asked === undefined || call.ended) return { action: 'decline' }
             return (await ask(call, asked)) ? { action: 'accept', content: {} } : { action: 'decline' }
           }
-          return { decision: 'decline' }
+          return codexRefusalFor(request.method)
         },
         requestTimeoutMs: REQUEST_TIMEOUT_MS
       })
