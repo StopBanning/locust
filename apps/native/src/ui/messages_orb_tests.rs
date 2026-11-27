@@ -232,7 +232,7 @@ mod mapping {
     fn a_subagent_and_a_connector_are_told_apart() {
         let helper = [started("t1", "Task", "tool_use", None)];
         let connector = [started("t1", "gmail__send", "tool_use", None)];
-        assert_line(&drawn(&helper, false), "Using a tool · Task", "weaving");
+        assert_line(&drawn(&helper, false), "Asking a helper", "weaving");
         assert_line(
             &drawn(&connector, false),
             "Using a connector · send",
@@ -243,13 +243,15 @@ mod mapping {
     // case: reading a file is searching
     #[test]
     fn reading_a_file_is_searching() {
-        for name in ["read_file", "view_file", "Grep", "listDirectory", "search"] {
+        for (name, words) in [
+            ("read_file", "Reading a file"),
+            ("view_file", "Reading a file"),
+            ("Grep", "Using a tool · Grep"),
+            ("listDirectory", "Using a tool · listDirectory"),
+            ("search", "Using a tool · search"),
+        ] {
             let events = [started("t1", name, "tool_use", None)];
-            assert_line(
-                &drawn(&events, false),
-                &format!("Using a tool · {name}"),
-                "searching",
-            );
+            assert_line(&drawn(&events, false), words, "searching");
         }
     }
 
@@ -394,12 +396,12 @@ mod mapping {
             ),
             (
                 started("t1", "read_file", "tool_use", None),
-                "Using a tool · read_file",
+                "Reading a file",
                 "searching",
             ),
             (
                 started("t1", "Task", "tool_use", None),
-                "Using a tool · Task",
+                "Asking a helper",
                 "weaving",
             ),
         ] {

@@ -172,9 +172,8 @@ fn command_pattern(command: &str) -> Option<String> {
 }
 
 /// The open call in words, as Claude Code's status line says it (missionView.ts `liveActionLine`, 0.569): the model's
-/// own title, else what a command looks at or runs, else the skill a Skill call uses, else the file a writing tool
-/// writes. None where Electron's helper and reading-tool cases would answer (not carried yet): the line then shows the
-/// call as before.
+/// own title, else what a command looks at or runs, else a helper call ("Asking a helper"), else the skill a Skill call
+/// uses, else the file a writing or reading tool touches.
 pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<&str>) -> Option<String> {
     let title = title.map(|t| t.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|t| !t.is_empty());
     if let Some(title) = title {
@@ -193,17 +192,44 @@ pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<
             }
         });
     }
+    let tool = name.to_lowercase();
+    if kind == "helper"
+        || matches!(tool.as_str(), "task" | "agent" | "subagent" | "spawn_agent")
+        || tool.starts_with("subagent:")
+    {
+        let task = command.unwrap_or("").trim();
+        return Some(if task.is_empty() || task == name.trim() {
+            "Asking a helper".into()
+        } else {
+            format!("Asking a helper: {}", clip(task, 40))
+        });
+    }
     let target = command.unwrap_or("").trim();
     if let Some(skill) = crate::signal_rail::skill_called(name, if target == name.trim() { "" } else { target }) {
         return Some(crate::signal_rail::skill_words(&skill, true));
     }
-    let tool = name.to_lowercase();
     let writes = ["write", "write_to_file", "writetofile", "create_file", "createfile", "edit", "edit_file", "editfile", "apply_patch", "applypatch"].contains(&tool.as_str())
         || tool.starts_with("str_replace") || tool.starts_with("replace");
     if writes || kind == "write_to_file" {
         let target = command.unwrap_or("");
         let file = target.trim().trim_matches(['"', '\'']).split(['/', '\\']).rfind(|p| !p.is_empty()).filter(|f| f.contains('.'));
         return Some(file.map_or_else(|| "Writing a file".into(), |f| format!("Editing {}", clip(f, 40))));
+    }
+    let reads = matches!(
+        tool.as_str(),
+        "read" | "read_file" | "readfile" | "view" | "view_file" | "viewfile"
+            | "open_file" | "openfile" | "notebook_read" | "notebookread"
+            | "cat" | "readtoolcall"
+    );
+    if reads {
+        let bare = command.unwrap_or("").trim().trim_matches(['"', '\'']);
+        let has_sep = bare.contains('/') || bare.contains('\\');
+        let file = (!bare.is_empty()
+            && (has_sep || !bare.chars().any(char::is_whitespace))
+            && (has_sep || bare.contains('.')))
+            .then(|| bare.split(['/', '\\']).rfind(|p| !p.is_empty()))
+            .flatten();
+        return Some(file.map_or_else(|| "Reading a file".into(), |f| format!("Reading {}", clip(f, 40))));
     }
     None
 }
@@ -694,6 +720,26 @@ mod folder_help_tests {
         assert!(why("C:/Windows/System32", true));
         assert!(!why("C:/Windows-old", true));
         assert!(!why("relative/.claude", false));
+    }
+}
+
+#[cfg(test)]
+mod live_action_read_helper_tests {
+    use super::*;
+
+    #[test]
+    fn reading_and_helper_tools_use_electrons_live_action_words() {
+        assert_eq!(live_action(None, "tool_use", "Read", Some("src/cart.py")).as_deref(), Some("Reading cart.py"));
+        assert_eq!(live_action(None, "tool_use", "read_file", None).as_deref(), Some("Reading a file"));
+        assert_eq!(
+            live_action(None, "tool_use", "Task", Some("Review the migration")).as_deref(),
+            Some("Asking a helper: Review the migration")
+        );
+        assert_eq!(live_action(None, "helper", "subagent", None).as_deref(), Some("Asking a helper"));
+        let read_events = [serde_json::json!({"type": "tool.started", "payload": {"itemId": "r", "name": "Read", "toolKind": "tool_use", "command": "src/cart.py"}})];
+        assert_eq!(live_line(&read_events, true, "2026-11-26T12:00:00Z", false).unwrap().action.as_deref(), Some("Reading cart.py"));
+        let helper_events = [serde_json::json!({"type": "tool.started", "payload": {"itemId": "h", "name": "Task", "toolKind": "tool_use", "command": "Review the migration"}})];
+        assert_eq!(live_line(&helper_events, true, "2026-11-26T12:00:00Z", false).unwrap().action.as_deref(), Some("Asking a helper: Review the migration"));
     }
 }
 
