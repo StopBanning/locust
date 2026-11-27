@@ -294,3 +294,147 @@ fn ends_a_plain_name_at_a_comment_after_a_space_or_a_tab_and_not_at_a_hash_insid
     assert_eq!(skill_name_in("---\nname: review\t# a tab before the comment\n---\n").as_deref(), Some("review"));
     assert_eq!(skill_name_in("---\nname: review#not-a-comment\n---\n").as_deref(), Some("review#not-a-comment"));
 }
+
+// case: hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after
+#[test]
+fn codex_gets_its_run_skill_and_leaves_no_copy_when_thread_start_fails() {
+    use crate::{engine::Teammate, native, store::Store};
+    use serde_json::{Value, json};
+    use std::time::Instant;
+
+    let root = Temp::new("codex-failed-run-skills");
+    let store = Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+    let work = root.0.join("work");
+    std::fs::create_dir(&work).unwrap();
+    let library = store.root().join("skill-library/skills");
+    skill(&library, "review", "Say hi.");
+    let source = library.join("review/SKILL.md");
+    let original = read(&source);
+    let scratch = store.root().join("run-skills");
+
+    // Like Electron's app-server adapter, the wire names extraRoots before starting the thread. The fake
+    // reads the staged skill while handling that request, then refuses thread/start before any turn exists.
+    let fixture = r#"
+import json
+import sys
+from pathlib import Path
+
+def reply(id, **result):
+    print(json.dumps({"jsonrpc": "2.0", "id": id, **result}), flush=True)
+
+for line in sys.stdin:
+    call = json.loads(line)
+    method = call["method"]
+    if method == "initialized":
+        continue
+    with Path("skill-requests.jsonl").open("a", encoding="utf-8") as log:
+        log.write(json.dumps(call) + "\n")
+    id = call["id"]
+    if method == "initialize":
+        reply(id, result={})
+    elif method == "skills/extraRoots/set":
+        roots = call["params"]["extraRoots"]
+        assert len(roots) == 1, roots
+        copied = Path(roots[0]) / "review" / "SKILL.md"
+        Path("offered-skill.md").write_bytes(copied.read_bytes())
+        reply(id, result={})
+    elif method == "config/read":
+        reply(id, result={"config": {}})
+    elif method == "thread/start":
+        reply(id, error={"code": -32603, "message": "The runtime connection ended."})
+    else:
+        raise AssertionError(method)
+"#;
+    let server = root.0.join("refuse-thread.py");
+    std::fs::write(&server, fixture).unwrap();
+    let _hook = native::hooks::install(
+        store.clone(),
+        Some((
+            PathBuf::from("python3"),
+            vec![server.to_string_lossy().into_owned()],
+        )),
+    );
+    let started = native::send(native::Send {
+        teammate: Teammate {
+            folder: Some(work.to_string_lossy().into_owned()),
+            ..native::nobody(Some("codex".into()), None)
+        },
+        conversation: None,
+        prompt: "Inspect the workspace without changing it.".into(),
+        model: None,
+        effort: None,
+    })
+    .unwrap();
+    let id = &started.conversation_id;
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
+    while native::owns(id) {
+        assert!(Instant::now() < deadline, "the failed start kept its slot");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+
+    let requests: Vec<Value> = read(&work.join("skill-requests.jsonl"))
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let methods: Vec<_> = requests
+        .iter()
+        .map(|r| r["method"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        methods,
+        [
+            "initialize",
+            "skills/extraRoots/set",
+            "config/read",
+            "thread/start"
+        ]
+    );
+    let offered = requests[1]["params"]["extraRoots"][0].as_str().unwrap();
+    let offered = Path::new(offered);
+    let run_dir = offered.parent().unwrap();
+    assert_eq!(run_dir.parent(), Some(scratch.as_path()));
+    assert_eq!(
+        requests[1]["params"],
+        json!({"extraRoots": [run_dir.join("skills")]})
+    );
+    assert_eq!(
+        read(&work.join("offered-skill.md")),
+        "---\nname: review\ndescription: test\n---\nSay hi.\n"
+    );
+    let ledger = read(&store.write_path(id).unwrap());
+    let events: Vec<Value> = ledger
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .filter_map(|r: Value| r.get("event").cloned())
+        .collect();
+    let terminal: Vec<_> = events
+        .iter()
+        .filter(|e| {
+            matches!(
+                e["type"].as_str(),
+                Some("run.completed" | "run.failed" | "run.cancelled")
+            )
+        })
+        .collect();
+    assert_eq!(terminal.len(), 1, "{events:?}");
+    assert_eq!(terminal[0]["type"], "run.failed");
+    assert!(
+        terminal[0]["payload"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("The runtime connection ended.")
+    );
+    assert!(
+        listed(&scratch).is_empty(),
+        "the failed start left a run's skills on disk"
+    );
+    assert!(
+        roots(id).is_empty(),
+        "the failed start left a registered Codex skill root"
+    );
+    assert_eq!(
+        read(&source),
+        original,
+        "the original skill must not be removed or changed"
+    );
+}
