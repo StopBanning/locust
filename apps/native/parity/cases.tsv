@@ -1775,7 +1775,7 @@ apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is C
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tune names the teammate’s own agent when it drafts "What it knows" as a skill	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	yes
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	no
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	a log the call made is gone afterwards, and the answer is unchanged	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.log keeps its lines; only Codex's are taken off	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	what does not read like Codex is never removed	yes
@@ -1788,7 +1788,7 @@ apps/desktop/src/main/codex-mission.test.ts	never writes it to the ledger, which
 apps/desktop/src/main/codex-mission.test.ts	refuses a forbidden Cursor effort variant before recording or dispatching a turn	yes
 apps/desktop/src/main/codex-mission.test.ts	keeps a running mission untouched when organization policy refuses the handoff target	no
 apps/desktop/src/main/codex-mission.test.ts	does not spawn a run the app stopped while it looked at the tree	no
-apps/desktop/src/main/codex-mission.test.ts	runs one fixed read-only Codex route and streams normalized events	no
+apps/desktop/src/main/codex-mission.test.ts	runs one fixed read-only Codex route and streams normalized events	yes
 apps/desktop/src/main/codex-mission.test.ts	rejects invalid prompts before discovery or process launch	yes
 apps/desktop/src/main/codex-mission.test.ts	never launches Codex when the durable mission header cannot be written	yes
 apps/desktop/src/main/codex-mission.test.ts	removes the actual skill copy before returning a failed ledger start	no
@@ -1897,7 +1897,7 @@ apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when an
 apps/desktop/src/main/codex-mission.test.ts	does not repeat a file the runtime already named, and never looks on a read-only run	no
 apps/desktop/src/main/codex-mission.test.ts	switches Codex's plan tool on from 0.153, so its plan reaches the panel rather than the reply	yes
 apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	yes
-apps/desktop/src/main/codex-mission.test.ts	holds a read-only mode read-only, and never asks for full access on its behalf	yes
+apps/desktop/src/main/codex-mission.test.ts	holds a read-only mode read-only, and never asks for full access on its behalf	no
 apps/desktop/src/main/codex-mission.test.ts	starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a sealed look with no shell, no web search, no apps and none of the person’s servers, connectors too (0.824)	yes
 apps/desktop/src/main/codex-mission.test.ts	starts every Codex thread with Locust’s command guard, for its own folder, and without it when the guard says so (0.720)	yes
@@ -2021,7 +2021,7 @@ apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	yes
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
-apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	keeps window, routine, relay, compare, voice handoff, CLI and MCP starts on the guarded mission service	no
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	keeps window, routine, relay, compare, voice handoff, CLI and MCP starts on the guarded mission service	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks a handoff target before stopping the existing run and sends resumes through start	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
