@@ -567,3 +567,5 @@ fn keeps_the_turns_a_routine_was_learned_from_and_refuses_ids_that_are_not_ids()
 mod a_daily_routine_keeps_its_time_tests;
 #[path = "a_routine_time_passed_while_it_ran_tests.rs"]
 mod a_routine_time_passed_while_it_ran_tests;
+#[path = "a_routine_due_while_closed_tests.rs"]
+mod a_routine_due_while_closed_tests;
