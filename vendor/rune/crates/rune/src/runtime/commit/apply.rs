@@ -553,6 +553,9 @@ impl<S: 'static> Runtime<S> {
             if turn != 0.0 || self.scene.store().has(id, prop::ROTATION) {
                 self.snap_or_animate(id, prop::ROTATION, turn, rest_quiet, 0.0, nodes[i].vis.rotate_motion.as_deref().copied(), spring_l);
             }
+            if nodes[i].vis.hover_border.is_some() {
+                nodes[i].vis.light_border(self.scene.store().target(id, P_HOVER).unwrap_or(0.0) >= 0.5);
+            }
             let (instant, vis) = (instant || self.enters_unseen(&nodes, &unseen, i), &nodes[i].vis);
             if !nodes[i].live.iter().any(|b| b.property == crate::live::Property::Blur)
                 && (vis.blur != 0.0 || self.scene.store().has(id, prop::BLUR))

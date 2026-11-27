@@ -4,7 +4,8 @@ pub(crate) mod image;
 pub(crate) mod os;
 
 /// The pointer's shape over an element (CSS `cursor`). Elements without one inherit their
-/// nearest ancestor's; text fields default to [`Cursor::Text`], everything else to the arrow.
+/// nearest ancestor's; text fields default to [`Cursor::Text`], an element with `on_press` to
+/// [`Cursor::Pointer`] (the arrow while it's `disabled`), everything else to the arrow.
 ///
 /// A macOS overlay is rarely the key window, so it sets its cursor directly while the pointer
 /// is over its hit area. macOS honours that only while the overlay's app is frontmost, unless
