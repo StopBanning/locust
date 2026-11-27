@@ -27,6 +27,9 @@ const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
 pub const UNKNOWN_RESPONSE: &str = "A response arrived for an unknown request.";
 /// How long a request may go unanswered (app-server.ts `requestTimeoutMs`).
 const ANSWER_WITHIN: Duration = Duration::from_secs(60);
+/// How long a goal request waits: a reopened thread asks before its turn starts, so a server that never answers holds
+/// the turn this long at most.
+const GOAL_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// How long a steer waits for the server to say whether it took it (a2.10 `steer`).
 const STEER_ANSWER_WITHIN: Duration = Duration::from_secs(10);
 /// One line off the server's stdout: a message, or a line that is not JSON (app-server.ts `unparsable-line`), which is
@@ -299,6 +302,10 @@ impl Codex {
         self.queued.push_back(terminal);
         diagnostic
     }
+    /// The standing goal the server last said this thread holds (`thread/goal/updated`), none once it said it cleared.
+    pub fn standing_goal(&self) -> Option<&super::goal::ThreadGoal> {
+        self.normal.goal.as_ref()
+    }
     /// The end of the server's stderr as it stands now (`stderrTail`): empty, not missing, for a server that said nothing.
     pub fn stderr_tail(&self) -> String {
         crate::invariants::lock(&self.stderr).clone()
@@ -490,6 +497,12 @@ impl Codex {
         self.request_within(method, params, within)
     }
     fn request_within(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Value> {
+        self.answer_within_or_refusal(method, params, within)?.map_err(|refused| {
+            err(refused["message"].as_str().unwrap_or("Codex refused request"))
+        })
+    }
+    /// The server's answer to a request: its result, or its refusal (`error`, code and words) as it sent it.
+    fn answer_within_or_refusal(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Result<Value, Value>> {
         let id = self.begin_request(method, params)?;
         let deadline = Instant::now() + within;
         loop {
@@ -502,14 +515,47 @@ impl Codex {
             let Some(v) = self.receive()? else { continue };
             if v["id"] == id && v["method"].is_null() {
                 if !v["error"].is_null() {
-                    return Err(err(v["error"]["message"]
-                        .as_str()
-                        .unwrap_or("Codex refused request")));
+                    return Ok(Err(v["error"].clone()));
                 }
-                return Ok(v["result"].clone());
+                return Ok(Ok(v["result"].clone()));
             }
             self.notification(v)?;
         }
+    }
+    /// A standing goal on this thread (`thread/goal/set|get|clear`), once the thread exists. A set goes as the person's
+    /// (`origin: "user"`). A Codex that does not know the request keeps no standing goals; any other refusal is said
+    /// in its words. Neither ends the turn.
+    fn ask_goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        use super::goal::{GoalAnswer, GoalAsk, GoalEvent, ThreadGoal};
+        let Some(thread) = self.normal.thread.clone() else {
+            return GoalAnswer::NoThreadYet;
+        };
+        let (method, params) = match &ask {
+            GoalAsk::Set(set) => ("thread/goal/set", super::goal::set_params(&thread, set)),
+            GoalAsk::Get => ("thread/goal/get", json!({"threadId": thread})),
+            GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread})),
+        };
+        let within = self.answer_within.min(GOAL_ANSWER_WITHIN);
+        let result = match self.answer_within_or_refusal(method, params, within) {
+            Ok(Ok(result)) => result,
+            Ok(Err(refused)) if super::goal::not_known(&refused) => return GoalAnswer::NoStandingGoals,
+            Ok(Err(refused)) => {
+                return GoalAnswer::Refused(refused["message"].as_str().unwrap_or("Codex refused the goal.").to_owned());
+            }
+            Err(e) => return GoalAnswer::Refused(e.to_string()),
+        };
+        let learning = matches!(ask, GoalAsk::Get);
+        let said = match ask {
+            GoalAsk::Clear => Some(GoalEvent::Cleared { thread_id: thread }),
+            GoalAsk::Get if result["goal"].is_null() => Some(GoalEvent::Cleared { thread_id: thread }),
+            _ => ThreadGoal::parse(&result["goal"], Some(&thread)).map(GoalEvent::Updated),
+        };
+        let written = said.and_then(|said| self.normal.goal_said(said, method, learning));
+        self.queued.extend(written);
+        if method == "thread/goal/clear" {
+            return GoalAnswer::Cleared;
+        }
+        GoalAnswer::Held(self.normal.goal.clone())
     }
 }
 pub fn read_only_config(settings: &Value) -> io::Result<Value> {
@@ -651,6 +697,12 @@ impl Runtime for Codex {
         if let Some((_, _, id)) = crate::invariants::lock(&self.approval_lifecycle).as_mut() {
             *id = Some(thread.clone());
         }
+        // A new thread holds no standing goal; a reopened one asks after the goal it holds, before its turn, so what
+        // the turn says of it reads as a change or not. A Codex without goals, or one that says no, leaves the turn be.
+        self.normal.goal_known = turn.resume.is_none();
+        if turn.resume.is_some() && !self.fork {
+            let _ = self.ask_goal(super::goal::GoalAsk::Get);
+        }
         match self.slash.as_deref() {
             Some("review") => {
                 let instructions = turn.prompt.trim();
@@ -738,6 +790,9 @@ impl Runtime for Codex {
     }
     /// Taken only when the server says so; before a turn has started, once it is over, or while stopping, no is said
     /// without asking.
+    fn goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        self.ask_goal(ask)
+    }
     fn steer(&mut self, text: &str) -> bool {
         let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) else {
             return false;
@@ -1021,3 +1076,7 @@ mod codex_replay_case_tests;
 #[cfg(test)]
 #[path = "codex_file_change_rows_tests.rs"]
 mod codex_file_change_rows_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_goal_tests.rs"]
+mod codex_goal_tests;

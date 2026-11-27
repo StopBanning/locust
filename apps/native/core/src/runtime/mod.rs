@@ -17,6 +17,7 @@ pub mod cursor;
 pub mod cursor_events;
 pub mod discovery;
 pub mod events;
+pub mod goal;
 pub mod kilo;
 pub mod muse;
 pub mod muse_events;
@@ -68,6 +69,11 @@ pub trait Runtime {
     }
     fn steer(&mut self, _text: &str) -> bool {
         false
+    }
+    /// A standing goal on the runtime's thread (Codex app-server `thread/goal/*`). A runtime without them says so; it
+    /// is never a turn-ending error.
+    fn goal(&mut self, _ask: goal::GoalAsk) -> goal::GoalAnswer {
+        goal::GoalAnswer::NoStandingGoals
     }
 }
 

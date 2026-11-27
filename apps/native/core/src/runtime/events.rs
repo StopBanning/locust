@@ -209,6 +209,10 @@ pub struct Normalizer {
     compactions: usize,
     /// Whether this turn carried a message of the person's (0.428): a compaction in a turn without one was asked for.
     asked: bool,
+    /// The standing goal the server last said this thread holds (`thread/goal/updated`), none once it cleared it.
+    pub goal: Option<super::goal::ThreadGoal>,
+    /// Whether `goal` is known: a new thread holds none; a reopened one is known once `thread/goal/get` answers.
+    pub goal_known: bool,
 }
 
 /// app-server-events.ts APP_SERVER_COMPACTED: the conversation outgrew the context inside a turn.
@@ -229,6 +233,16 @@ pub fn codex_said(message: &str) -> String {
     } else {
         message.into()
     }
+}
+/// A goal as the ledger keeps it: the protocol's fields, its thread an identity, `tokenBudget` only when it has one.
+fn goal_json(goal: &super::goal::ThreadGoal) -> Value {
+    let mut out = json!({"threadId": identity(&json!({"id": goal.thread_id}), "id"), "objective": goal.objective,
+        "status": goal.status.as_str(), "tokensUsed": goal.tokens_used, "timeUsedSeconds": goal.time_used_seconds,
+        "createdAt": goal.created_at, "updatedAt": goal.updated_at});
+    if let Some(budget) = goal.token_budget {
+        out["tokenBudget"] = json!(budget);
+    }
+    out
 }
 impl Normalizer {
     fn event(&mut self, kind: &str, payload: Value) -> Event {
@@ -279,6 +293,45 @@ impl Normalizer {
     pub fn malformed(&mut self, line: &str) -> Event {
         let (raw, redacted) = malformed_raw(line);
         self.event("adapter.diagnostic", json!({"level":"warning","code":"codex.malformed_json","message":"Codex emitted a malformed JSONL record","terminal":false,"evidence":{"raw":raw,"redacted":redacted}}))
+    }
+    /// What the server said of this thread's standing goal (`method` is how it said it); another thread's is not this
+    /// one's. A goal set, a status changed or a goal cleared is one ledger event, like `thread/compacted`'s; the counts
+    /// ticking on a goal already held write none. `learning` is an answer to `thread/goal/get`: when nothing was known
+    /// (a reopened thread) it is learned without writing, the goal having been written when it was set.
+    pub fn goal_said(&mut self, said: super::goal::GoalEvent, method: &str, learning: bool) -> Option<Event> {
+        use super::goal::GoalEvent;
+        if self.thread.as_deref().is_some_and(|own| own != said.thread_id()) {
+            return None;
+        }
+        let known = std::mem::replace(&mut self.goal_known, true);
+        let before = self.goal.take();
+        let evidence = json!({"runtimeEventType": method, "redacted": true});
+        match said {
+            GoalEvent::Updated(goal) => {
+                let code = match &before {
+                    _ if learning && !known => None,
+                    Some(held) if held.objective == goal.objective && held.status == goal.status => None,
+                    Some(held) if held.objective == goal.objective => Some("codex.goal_status"),
+                    _ => Some("codex.goal_set"),
+                };
+                let objective = text(&goal.objective, 4096);
+                let message = match code {
+                    Some("codex.goal_set") => format!("Codex holds a standing goal: {objective}"),
+                    _ => format!("Codex's standing goal {}: {objective}", super::goal::status_words(goal.status)),
+                };
+                let mut payload = goal_json(&goal);
+                payload["objective"] = json!(objective);
+                self.goal = Some(goal);
+                let code = code?;
+                Some(self.event("adapter.diagnostic", json!({"level":"info","code":code,"terminal":false,"message":message,"goal":payload,"evidence":evidence})))
+            }
+            GoalEvent::Cleared { .. } => {
+                if (known && before.is_none()) || learning {
+                    return None;
+                }
+                Some(self.event("adapter.diagnostic", json!({"level":"info","code":"codex.goal_cleared","terminal":false,"message":"Codex's standing goal was cleared.","evidence":evidence})))
+            }
+        }
     }
     pub fn diagnostic(&mut self, method: &str, message: &str) -> Event {
         self.event("adapter.diagnostic", json!({"level":"warning","code":"app.warning","message":text(message,16384),"terminal":false,"evidence":{"runtimeEventType":method,"redacted":true}}))
@@ -634,6 +687,10 @@ impl Normalizer {
                     }
                 }
                 return out;
+            }
+            "thread/goal/updated" | "thread/goal/cleared" => {
+                let said = super::goal::from_notification(method, p);
+                return said.and_then(|said| self.goal_said(said, method, false)).into_iter().collect();
             }
             "thread/compacted" => {
                 self.compaction_notices += 1;
