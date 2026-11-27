@@ -53,7 +53,7 @@ impl LiveHost {
         let store_for_lost = store.clone();
         let skew_ms = Arc::new(AtomicI64::new(0));
         let skew_for_hooks = skew_ms.clone();
-        let hooks = Arc::new(RoutineHooks::new(HookOptions {
+        let hooks = RoutineHooks::new(HookOptions {
             file: store.root().join(ROUTINE_HOOKS_FILE),
             secrets: crate::own_models::secrets(),
             relay: Box::new(move || Some(relay.clone())),
@@ -63,7 +63,8 @@ impl LiveHost {
             protect_file: None,
             now: Box::new(move || Utc::now().timestamp_millis() + skew_for_hooks.load(Ordering::SeqCst)),
             random_token: None,
-        }));
+        });
+        let hooks = Arc::new(hooks.with_sync_diagnostics(store.root().to_path_buf()));
         Self {
             copies: RoutineCopies::in_store(&store),
             store,
@@ -441,3 +442,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 }
+
+#[cfg(test)]
+#[path = "routine_hook_refresh_tests.rs"]
+mod hook_refresh_tests;
