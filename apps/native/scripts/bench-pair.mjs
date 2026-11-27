@@ -193,6 +193,9 @@ if (stillUp) child.kill('SIGTERM')
 const hard = setTimeout(() => child.kill('SIGKILL'), 10000)
 await exited
 clearTimeout(hard)
+// The engine outlives the window it served (it is shared by every window over that folder): close the one counted, or
+// each run leaves one behind (27 Nov: 28 idle engines left by 21 runs).
+for (const pid of engineSeen) if (alive(pid)) process.kill(pid, 'SIGTERM')
 const firstFrame = JSON.parse(await readFile(frame, 'utf8')).first_frame_ms
 // The Rust bench's proof that it showed the conversation (written once it opened, with how many items it showed).
 const rustOpened = await readFile(join(OUT, 'native-frame.opened'), 'utf8').then(JSON.parse).catch(() => null)
