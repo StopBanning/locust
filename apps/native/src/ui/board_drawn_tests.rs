@@ -43,7 +43,8 @@ fn the_board_draws_columns_with_counts_and_cards_with_face_title_and_state() {
         s.home.waiting_for.insert("asks".into(), "Run a command: git mv invoices old-invoices".into());
         s.home.to_look_at.insert("ended".into());
     });
-    for title in ["Needs you", "Working", "Ready to look at", "Done"] {
+    // Row 8: a column is titled in the section-label voice, as Electron's `.lc-boardsection` title is (notes/PAGES-NOTES.md, Row 41).
+    for title in ["NEEDS YOU", "WORKING", "READY TO LOOK AT", "DONE"] {
         assert!(words.iter().any(|w| w == title), "{title}: {words:?}");
     }
     assert!(words.iter().any(|w| w == "1 waiting on you · 1 working"), "{words:?}");
@@ -54,13 +55,12 @@ fn the_board_draws_columns_with_counts_and_cards_with_face_title_and_state() {
     assert_eq!(count("board-working-count").as_deref(), Some("1"));
     assert_eq!(count("board-to-look-at-count").as_deref(), Some("1"));
     assert_eq!(count("board-done-count").as_deref(), Some("1"));
-    assert!(words.iter().any(|w| w == "Run a command: git mv invoices old-invoices"), "{words:?}");
+    assert!(words.iter().any(|w| w == "Wren \u{b7} Run a command: git mv invoices old-invoices"), "{words:?}");
     assert!(words.iter().any(|w| w == "Rename the invoices"), "{words:?}");
-    assert!(words.iter().any(|w| w == "working"), "{words:?}");
-    assert!(words.iter().any(|w| w.starts_with("finished · ")), "{words:?}");
+    assert!(words.iter().any(|w| w == "Wren \u{b7} working"), "{words:?}");
+    assert!(words.iter().any(|w| w.starts_with("Wren \u{b7} finished \u{b7} ")), "{words:?}");
     // The owner's face and name on its cards.
     assert!(els.iter().any(|e| e.key.as_deref().is_some_and(|k| k.starts_with("bot") && k.contains("tm_wren"))), "Wren's face");
-    assert!(words.iter().any(|w| w == "Wren"), "{words:?}");
     // A card the column order puts first: the one waiting.
     let at = |title: &str| words.iter().position(|w| w == title).unwrap_or(usize::MAX);
     assert!(at("Rename the invoices") < at("Fix the cart total"), "{words:?}");
@@ -72,7 +72,7 @@ fn a_quiet_board_says_so_and_still_lists_what_is_done() {
     let (words, _) = board(vec![conversation("old", "Yesterday", "completed", 25 * 60)], |_| {});
     assert!(words.iter().any(|w| w == "all quiet"), "{words:?}");
     assert!(words.iter().any(|w| w.starts_with("Nothing is waiting on you and nothing is running.")), "{words:?}");
-    assert!(!words.iter().any(|w| w == "Needs you"), "{words:?}");
-    assert!(!words.iter().any(|w| w == "Working"), "{words:?}");
+    assert!(!words.iter().any(|w| w == "NEEDS YOU"), "{words:?}");
+    assert!(!words.iter().any(|w| w == "WORKING"), "{words:?}");
     assert!(words.iter().any(|w| w == "Yesterday"), "{words:?}");
 }

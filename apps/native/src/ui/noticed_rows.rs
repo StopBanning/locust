@@ -209,7 +209,7 @@ pub(super) fn row_view(notice: &Notice<'_>, focused: bool, now_ms: i64, l: &Look
         .radius(8.0)
         .fill(l.c("bg-raised"))
         .border(if focused { 1.5 } else { 1.0 }, if focused { l.c("amber-border") } else { l.c("border-card") })
-        .child(text(notice.title()).key(format!("scout-row-title-{}", card.card_id)).font(rune::TextStyle::new(13.5, 500.0)).color(l.c("text-primary")).grow(1.0).shrink().min_w(0.0).wrap());
+        .child(text(notice.title()).key(format!("scout-row-title-{}", card.card_id)).font(l.ty.control).color(l.c("text-primary")).grow(1.0).shrink().min_w(0.0).wrap());
     if !age.is_empty() {
         line = line.child(text(age).key(format!("scout-row-age-{}", card.card_id)).font(type_::LABEL).color(l.c("text-muted")));
     }
