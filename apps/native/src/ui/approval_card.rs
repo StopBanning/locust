@@ -140,108 +140,119 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let Some(card) = &s.pending_approval else {
         return col().w_full();
     };
-    let detail = if card.detail.is_empty() {
-        "—".into()
-    } else {
-        card.detail.clone()
-    };
     let asking = card.kind == approval::Kind::Question && !card.questions.is_empty();
-    let mut body = col()
-        .key(format!("approval-{}", card.approval_id))
+    let l = crate::look::controls::Look::new(p.dark);
+    // `.lc-card__head` (ApprovalCard.tsx): the shield and the title in amber on the left; on the right which program is
+    // asking, its mark then its name in the code face (`lc-rail__meta`), so a card says who asks at a glance.
+    let amber = l.c("amber-text");
+    let mut asker = row().key("approval-asker").gap(5.0).center_y().shrink();
+    if let Some(mark) = crate::look::controls::agent_mark(&l, &card.runtime, 12.0, l.c("text-muted")) {
+        asker = asker.child(mark.key(format!("approval-mark-{}", card.runtime)));
+    }
+    asker = asker.child(
+        text(format!("{}{}", runtime_display_name(&card.runtime), if card.cwd.is_none() { " · this workspace" } else { "" }))
+            .key("approval-runtime")
+            .font(l.ty.mono)
+            .color(l.c("text-muted"))
+            .shrink()
+            .wrap_anywhere(),
+    );
+    let head = row()
+        .key("approval-head")
         .w_full()
-        .padding(14.0)
-        .gap(8.0)
-        .radius(8.0)
-        .fill(p.raised)
-        .border(1.0, p.amber)
+        .center_y()
+        .gap(12.0)
+        .py(8.0)
+        .px(12.0)
         .child(
-            text(if asking { "A question for you" } else { "Approval required — exact action" })
-                .font(type_::TITLE)
-                .color(p.text)
-                .w_full()
-                .wrap(),
-        )
-        .child({
-            // Which program is asking: its mark, then its name (ApprovalCard.tsx, the-runtimes-wear-their-marks).
-            let l = crate::look::controls::Look::new(p.dark);
-            let line = row().w_full().gap(5.0).center_y();
-            let line = match crate::look::controls::agent_mark(&l, &card.runtime, 12.0, p.muted) {
-                Some(mark) => line.child(mark.key(format!("approval-mark-{}", card.runtime))),
-                None => line,
-            };
-            line.child(
-                text(format!(
-                    "{}{}",
-                    runtime_display_name(&card.runtime),
-                    if card.cwd.is_none() {
-                        " · this workspace"
-                    } else {
-                        ""
-                    }
-                ))
-                .font(type_::LABEL)
-                .color(p.muted)
+            row()
+                .key("approval-title")
+                .gap(6.0)
+                .center_y()
                 .grow(1.0)
-                .wrap_anywhere(),
-            )
-        })
-        .child(
-            text(format!("Action: {}", card.summary))
-                .font(type_::BODY)
-                .color(p.text)
-                .w_full()
-                .wrap(),
+                .shrink()
+                .child(crate::look::controls::glyph(&l, &crate::look::icons::SHIELD, 13.0, Some(amber)).key("approval-shield"))
+                .child(
+                    text(if asking { "A question for you" } else { "Approval required — exact action" })
+                        .font(l.ty.control)
+                        .color(amber)
+                        .shrink()
+                        .wrap(),
+                ),
         )
-        .child(
-            // A command is drawn held at its flags (ApprovalCard.tsx `CommandText`); a connector call's detail as it is.
-            (if card.kind == approval::Kind::Command { command_text("Exact: ", &detail) } else { text(format!("Exact: {detail}")) })
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .w_full()
-                .wrap_anywhere(),
-        );
-    // A card a helper raised says whose it is (helperAskedBy).
+        .child(asker);
+    // `.lc-receipt`: what is asked, as a list of facts, each its label in a column of its own and its value beside it, the
+    // values starting at one edge (`grid-template-columns: max-content minmax(0, 60ch)`). The labels are the interface's
+    // face, sentence case, a weight up and a shade down (shell.css 0.862, which retired the spaced mono capitals); the
+    // exact command and the folder are in the code face (`lc-mono`).
+    let secondary = l.c("text-secondary");
+    let words = |said: String, ink: rune::Color| text(said).font(l.ty.body).color(ink).wrap_anywhere();
+    let mut facts: Vec<(&'static str, String, El, String)> = Vec::new();
     if let Some(pane) = &s.ledger
         && let Some(asked_by) = approval::helper_asked_by(approval::tool_use_of(&card.approval_id).as_deref(), &pane.items, Some(pane.header.name.as_str()))
     {
-        body = body.child(text(format!("Asked by {asked_by}")).font(type_::LABEL).color(p.secondary).w_full().wrap().key("approval-asked-by"));
+        facts.push(("Asked by", "approval-asked-by".into(), words(asked_by.clone(), secondary), asked_by));
+    }
+    facts.push(("Action", "approval-action".into(), words(card.summary.clone(), secondary), card.summary.clone()));
+    if !card.detail.is_empty() {
+        // A command is drawn held at its flags (ApprovalCard.tsx `CommandText`); a connector call's detail as it is.
+        let exact = if card.kind == approval::Kind::Command { command_text("", &card.detail) } else { text(card.detail.clone()) };
+        facts.push((
+            if card.kind == approval::Kind::Question { "Question" } else { "Exact" },
+            "approval-exact".into(),
+            exact.font(l.ty.body.mono()).color(secondary).wrap_anywhere(),
+            card.detail.clone(),
+        ));
     }
     if let Some(plain) = plain_action_for(card) {
-        body = body.child(
-            text(format!("In short: {}", plain.said))
-                .key("approval-plain")
-                .font(type_::LABEL)
-                .color(if plain.careful { p.amber } else { p.text })
-                .w_full()
-                .wrap(),
-        );
+        let ink = if plain.careful { amber } else { secondary };
+        facts.push(("In short", "approval-plain".into(), words(plain.said.clone(), ink), plain.said));
     }
     if let Some(reach) = approval::command_reach_of(card) {
-        body = body.child(
-            text(format!("Reaches: {}", reach.said))
-                .key("approval-reach")
-                .font(type_::LABEL)
-                .color(p.amber)
+        facts.push(("Reaches", "approval-reach".into(), words(reach.said.clone(), amber), reach.said));
+    }
+    let place = card.cwd.clone().unwrap_or_else(|| "the project folder".into());
+    facts.push(("Where", "approval-where".into(), text(place.clone()).font(l.ty.body.mono()).color(secondary).wrap_anywhere(), place));
+    for (label, said) in approval::effect_lines(card) {
+        let key = format!("approval-{}", label.to_lowercase().replace(' ', "-"));
+        facts.push((label, key, words(said.clone(), secondary), said));
+    }
+    let label_face = rune::TextStyle::new(12.0, 600.0);
+    let label_column = facts.iter().map(|(label, ..)| rune::text::measure(label, &[], label_face, None).0).fold(0.0, f32::max);
+    let value_cap = rune::text::measure("0", &[], l.ty.body, None).0 * 60.0;
+    let mut receipt = col().key("approval-receipt").w_full().gap(6.0).px(12.0).pb(12.0);
+    for (label, key, value, said) in facts {
+        receipt = receipt.child(
+            row()
+                .key(format!("approval-row-{}", key.trim_start_matches("approval-")))
+                .label(format!("{label}: {said}"))
                 .w_full()
-                .wrap(),
+                .gap(16.0)
+                .child(text(label).key(format!("approval-label-{}", key.trim_start_matches("approval-"))).font(label_face).color(secondary).w(label_column).pt(2.0))
+                .child(value.key(key).grow(1.0).shrink().max_w(value_cap)),
         );
     }
-    body = body.child(
-        text("Where: ".to_string() + card.cwd.as_deref().unwrap_or("the project folder"))
-            .font(type_::LABEL)
-            .color(p.muted)
+    let mut body = col().key("approval-body").w_full().gap(8.0).px(12.0).pb(12.0);
+    // `.lc-card.is-pending.is-amber`: raised toward the reader on the pending fill, a translucent amber edge, a 3-point
+    // amber ring and the pending shadow (shell.css).
+    let shadows = l.t.shadows("shadow-pending");
+    let (card_key, radius, fill, edge, glow) =
+        (format!("approval-{}", card.approval_id), l.t.px("radius-card"), l.c("bg-pending"), l.c("amber-border"), l.c("amber-tint"));
+    let finish = move |body: El| -> El {
+        let mut card_box = col()
+            .key(card_key)
             .w_full()
-            .wrap_anywhere(),
-    );
-    for (label, words) in approval::effect_lines(card) {
-        body = body.child(
-            text(format!("{label}: {words}"))
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .w_full()
-                .wrap(),
-        );
-    }
+            .radius(radius)
+            .fill(fill)
+            .border(1.0, edge)
+            .box_shadow(rune::Shadow { spread: 3.0, color: glow, ..rune::Shadow::default() })
+            .role("group")
+            .label("Approval required");
+        for shadow in shadows {
+            card_box = card_box.box_shadow(shadow);
+        }
+        card_box.child(head).child(receipt).child(body)
+    };
     if let Some(patch) = &card.patch {
         let who = runtime_display_name(&card.runtime);
         let mut patch_box = col()
@@ -303,14 +314,13 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         }
         body = body.child(patch_box);
     }
-    let l = crate::look::controls::Look::new(p.dark);
     // A question is answered, never approved: its choices take the buttons' place.
     if card.kind == approval::Kind::Question && !card.questions.is_empty() {
         body = body.child(crate::question_card::questions(s, card, p));
         if let Some(notice) = &s.approval_notice {
             body = body.child(text(notice.clone()).font(type_::LABEL).color(p.amber).w_full().wrap());
         }
-        return body;
+        return finish(body);
     }
     if !s.approval_denying {
         body = body.child(
@@ -445,7 +455,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .wrap(),
         );
     }
-    body
+    finish(body)
 }
 
 #[cfg(test)]
@@ -530,6 +540,10 @@ mod tests {
 #[cfg(test)]
 #[path = "commands_card_tests.rs"]
 mod commands_card_tests;
+
+#[cfg(test)]
+#[path = "approval_shape_tests.rs"]
+mod approval_shape_tests;
 
 #[cfg(test)]
 #[path = "command_wraps_tests.rs"]
