@@ -151,3 +151,24 @@ fn background_start_checks_the_named_teammates_personal_spending_when_unmanaged(
     assert!(!calls.exists());
     assert!(!store.root().join("claude-background.json").exists());
 }
+
+// Lane check of the policy paths: a Background start on an added account is refused when the organization turned added
+// accounts off, before Claude runs or a record is made. Words from Electron's shared/organization-policy.ts
+// policyFeatureRefusal and policyRefusal.
+#[test]
+fn background_start_on_an_added_account_is_refused_when_the_organization_turned_accounts_off() {
+    let (home, store, calls) = fixture("accounts-off");
+    let _policy = TestPolicy::set(json!({"version": 1, "accounts": false}));
+    let mut real = manager(&store, &calls);
+    let mut job = request(&home);
+    job.account = Some("account_second".into());
+    let why = refused(real.start(job));
+    assert_eq!(
+        why,
+        "Added agent accounts are off. Set by your organization (accounts in /test/organization-policy.json). Nothing was started."
+    );
+    assert!(!calls.exists(), "the Claude process was not launched");
+    assert!(!store.root().join("claude-background.json").exists());
+    // The machine's own sign-in is not an added account: the same policy lets it start.
+    assert!(matches!(real.start(request(&home)), StartBackgroundOutcome::Started(_)));
+}
