@@ -1,0 +1,3 @@
+# Written by a failing picture test beside the reference (src/picture_tests.rs); never approved by themselves.
+*.new.png
+*.diff.png
