@@ -138,7 +138,15 @@ function electronCommand(p) {
         ...(p.skills ? { skillPlugin: P.skills } : {}),
       });
     case "antigravity":
-      return c.createAgyPrintCommand(launch("agy"), { ...common, ...(p.skills ? { skillWorkspace: P.skills } : {}) });
+      // Since 27 Nov 2026 Electron runs Antigravity over `agy acp` wherever agy has it (codex-mission.ts), the model,
+      // effort, mode and conversation going over the protocol; `-p` is left for an agy without it, which is refused
+      // Approve each. An older checkout has only `-p`.
+      if (c.createAgyAcpCommand === undefined) return c.createAgyPrintCommand(launch("agy"), { ...common, ...(p.skills ? { skillWorkspace: P.skills } : {}) });
+      return c.createAgyAcpCommand(launch("agy"), P.workspace, {
+        sandbox: p.sandbox,
+        ...(p.skills ? { skillWorkspace: P.skills } : {}),
+        ...(p.references ? { referenceFolders: [P.reference] } : {}),
+      });
     case "muse":
       return c.createMuseExecCommand(launch("muse"), { ...common, prompt: "Say hi." });
     case "opencode":

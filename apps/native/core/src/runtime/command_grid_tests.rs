@@ -111,12 +111,9 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
                 super::copilot::prompt_args("Say hi.", mode, model, effort, resume, session, &references, skills)
             }
         }
-        "antigravity" => {
-            if mode == Mode::ApproveEach {
-                return Err("Antigravity does not support Approve-each in the native driver.".into());
-            }
-            super::antigravity::print_args(mode, model, effort, resume, &references, skills)
-        }
+        // Over `agy acp`, as Electron runs it wherever agy has it (27 Nov 2026): the model, effort and conversation go
+        // over the protocol, so only the folders are on argv. `-p` is antigravity_tests.rs's.
+        "antigravity" => super::antigravity::acp_args(mode, &references, skills),
         "muse" => {
             if mode == Mode::ApproveEach {
                 return Err("Muse does not support Approve-each in the native driver.".into());

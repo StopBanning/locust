@@ -35,7 +35,7 @@ fn says_each_action_exactly_where_approve_each_action_is_offered_and_locust_sets
     }
     let mut each: Vec<&str> = RUNTIMES.iter().copied().filter(|r| crate::mode_facts::runs_on("approve-each", r)).collect();
     each.sort();
-    assert_eq!(each, ["acp", "claude", "codex", "copilot", "opencode"]);
+    assert_eq!(each, ["acp", "antigravity", "claude", "codex", "copilot", "opencode"]);
     assert_eq!(the("acp").reach, StopReach::SomeActions);
     assert!(the("acp").asks.contains("agent\u{2019}s own setting"));
 }
@@ -129,11 +129,32 @@ fn copilot_asks_over_its_own_acp_in_approve_each_action_and_its_mcp_servers_are_
     assert!(include_str!("runtime/copilot.rs").contains("c.args(mcp_off_args(mode, &mcp_server_names(Path::new(&home))));"));
 }
 
+// case: Antigravity: over agy acp, each command and file change reaches a card in Approve each action, and its questions in every mode
 #[test]
-fn antigravity_only_its_questions_reach_a_card() {
+fn antigravity_over_agy_acp_each_command_and_file_change_reaches_a_card_in_approve_each_action() {
+    use crate::runtime::antigravity;
+    // agy's default mode asks before each one; the other modes answer for the person (agyAcpSession).
+    assert_eq!(antigravity::acp_mode(Mode::ApproveEach), "default");
+    let turn = crate::runtime::Turn {
+        prompt: "hi".into(),
+        folder: std::env::temp_dir(),
+        model: None,
+        effort: None,
+        resume: None,
+        mode: Mode::ApproveEach,
+        approvals: None,
+        mission_id: "m".into(),
+        run_id: "r".into(),
+    };
+    let profile = antigravity::acp_profile(&turn);
+    assert!(profile.host_permissions && profile.questions, "a card for each request, and forms for its questions");
+    // An agy without acp is refused Approve each rather than run as Edit.
     let folder = std::env::temp_dir();
-    assert!(crate::runtime::antigravity::command(&folder, Mode::ApproveEach, None, None, None, &[], None).is_err());
-    assert_eq!(the("antigravity").reach, StopReach::QuestionsOnly);
+    antigravity::open_acp_route_in_tests(false);
+    let agy = std::path::PathBuf::from("/unused/agy");
+    let refused = antigravity::command_for(agy, &folder, Mode::ApproveEach, None, None, None, &[], None).unwrap_err();
+    assert_eq!(refused.to_string(), antigravity::NO_APPROVE_EACH_WITHOUT_ACP);
+    assert_eq!(the("antigravity").reach, StopReach::EachAction);
 }
 
 #[test]
@@ -158,10 +179,10 @@ fn an_always_is_kept_by_locust_exactly_where_the_request_carries_a_key_for_it() 
     assert!(open["params"]["locustAlwaysKey"].is_string(), "{open}");
     let (_, acp) = crate::approval::acp_permission_request(&json!({"toolCall": {"toolCallId": "t", "title": "x", "kind": "execute", "rawInput": {"command": "npm test"}}, "options": []}), "/work");
     assert!(acp["locustAlwaysKey"].is_string(), "{acp}");
-    for runtime in ["codex", "claude", "opencode", "copilot", "acp"] {
+    for runtime in ["codex", "claude", "opencode", "copilot", "antigravity", "acp"] {
         assert!(the(runtime).always.is_some_and(|a| a.starts_with("Locust keeps an Always")), "{runtime}");
     }
-    for runtime in ["cursor", "antigravity", "muse", "kilo", "apple"] {
+    for runtime in ["cursor", "muse", "kilo", "apple"] {
         assert!(the(runtime).always.is_none(), "{runtime}");
     }
 }

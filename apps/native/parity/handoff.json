@@ -1,5 +1,5 @@
 {
- "electronCommit": "2378138f",
+ "electronCommit": "ac800f6e3",
  "generatedBy": "scripts/handoff-goldens.mjs",
  "cases": [
   {
@@ -1779,7 +1779,7 @@
   {
    "mode": "approve-each",
    "to": "antigravity",
-   "refusal": "Antigravity cannot ask before each action, so this turn was not carried on there."
+   "refusal": null
   },
   {
    "mode": "auto",

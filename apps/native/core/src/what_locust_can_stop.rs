@@ -84,10 +84,12 @@ pub const WHAT_LOCUST_CAN_STOP: &[StopRow] = &[
     },
     StopRow {
         runtime: "antigravity",
-        reach: StopReach::QuestionsOnly,
-        asks: "Only its questions, which it puts to you in the conversation. It never asks before an action.",
-        without: "In Ask and Plan, no file changes and no commands; in Edit, file changes and no commands; in Auto, everything.",
-        always: None,
+        // Over agy acp (27 Nov 2026, agy 1.5.18): its default mode asks before every command and file change, each a
+        // card (antigravity.rs acp_mode); its questions are forms on a question card in every mode.
+        reach: StopReach::EachAction,
+        asks: "In Approve each action: every command and file change, before it runs. Its questions in every mode, which you answer on a card.",
+        without: "In Ask and Plan, no file changes and no commands; in Edit, file changes and no commands; in Auto, everything. An Antigravity CLI without agy acp cannot stop and ask, so Approve each action is refused there.",
+        always: Some(KEPT_BY_LOCUST),
     },
     StopRow {
         runtime: "kilo",

@@ -1,6 +1,7 @@
 {
  "electronCommit": "2378138f",
  "generatedBy": "scripts/command-grid.mjs",
+ "antigravityFrom": "ac800f6e (exec/agy-acp: Antigravity over agy acp)",
  "cases": [
   {
    "id": "claude/ask/base",
@@ -7392,13 +7393,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7419,15 +7416,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--model",
-     "model-x",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7448,15 +7439,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--effort",
-     "high",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7477,15 +7462,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7506,15 +7485,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7535,13 +7508,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7562,13 +7531,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7589,15 +7554,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7618,15 +7579,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/work/reference",
-     "-p="
+     "/work/reference"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7649,13 +7606,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7678,23 +7631,13 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
      "/locust/skills",
      "--add-dir",
-     "/work/reference",
-     "--model",
-     "model-x",
-     "--effort",
-     "high",
-     "--conversation",
-     "session-1",
-     "-p="
+     "/work/reference"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7715,13 +7658,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7742,15 +7681,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--model",
-     "model-x",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7771,15 +7704,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--effort",
-     "high",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7800,15 +7727,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7829,15 +7750,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7858,13 +7773,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7885,13 +7796,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7912,15 +7819,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7941,15 +7844,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/work/reference",
-     "-p="
+     "/work/reference"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -7972,13 +7871,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8001,23 +7896,13 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
      "/locust/skills",
      "--add-dir",
-     "/work/reference",
-     "--model",
-     "model-x",
-     "--effort",
-     "high",
-     "--conversation",
-     "session-1",
-     "-p="
+     "/work/reference"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8038,15 +7923,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8067,17 +7946,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--model",
-     "model-x",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8098,17 +7969,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--effort",
-     "high",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8129,17 +7992,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8160,17 +8015,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8191,15 +8038,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8220,15 +8061,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8249,17 +8084,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8280,15 +8109,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8311,15 +8134,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8342,23 +8159,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--mode",
-     "accept-edits",
-     "--model",
-     "model-x",
-     "--effort",
-     "high",
-     "--conversation",
-     "session-1",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8376,18 +8181,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8405,20 +8204,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--model",
-     "model-x",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8436,20 +8227,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--effort",
-     "high",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8467,20 +8250,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8498,20 +8273,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8529,18 +8296,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8558,18 +8319,12 @@
    "skills": false,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8587,20 +8342,14 @@
    "skills": true,
    "references": false,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8618,18 +8367,12 @@
    "skills": false,
    "references": true,
    "connectors": [],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8649,18 +8392,12 @@
    "connectors": [
     "Robinhood"
    ],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--mode",
-     "accept-edits",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8680,26 +8417,14 @@
    "connectors": [
     "Robinhood"
    ],
-   "offered": false,
+   "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--mode",
-     "accept-edits",
-     "--model",
-     "model-x",
-     "--effort",
-     "high",
-     "--conversation",
-     "session-1",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8720,14 +8445,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8748,16 +8468,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "--model",
-     "model-x",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8778,16 +8491,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "--effort",
-     "high",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8808,16 +8514,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8838,16 +8537,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "--conversation",
-     "session-1",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8868,14 +8560,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8896,14 +8583,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8924,16 +8606,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--dangerously-skip-permissions",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8954,14 +8631,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -8984,14 +8656,9 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
-     "--dangerously-skip-permissions",
-     "-p="
+     "acp"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },
@@ -9014,22 +8681,11 @@
    "offered": true,
    "electron": {
     "args": [
-     "--output-format",
-     "stream-json",
-     "--input-format",
-     "stream-json",
+     "acp",
      "--add-dir",
-     "/locust/skills",
-     "--dangerously-skip-permissions",
-     "--model",
-     "model-x",
-     "--effort",
-     "high",
-     "--conversation",
-     "session-1",
-     "-p="
+     "/locust/skills"
     ],
-    "stdin": "agy-json",
+    "stdin": "protocol",
     "env": {}
    }
   },

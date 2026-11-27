@@ -154,7 +154,8 @@ pub fn ended_on_plan_limit(phase: Option<&str>, events: &[Value]) -> bool {
 
 /// carryOnRefusal: Approve each needs an agent that stops and asks; one that cannot is not carried to at all.
 pub fn carry_on_refusal(mode: &str, to: &str) -> Option<String> {
-    if mode != "approve-each" || matches!(to, "codex" | "opencode" | "copilot") {
+    // Antigravity over `agy acp` (27 Nov 2026); an agy without it is refused Approve each where the command is made.
+    if mode != "approve-each" || matches!(to, "codex" | "opencode" | "copilot" | "antigravity") {
         return None;
     }
     Some(format!("{} cannot ask before each action, so this turn was not carried on there.", display_name(to)))

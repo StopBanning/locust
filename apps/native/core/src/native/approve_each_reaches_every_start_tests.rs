@@ -308,7 +308,7 @@ fn the_host_starts_the_agent_in_its_folder_and_admits_the_mode_for_copilot() {
     }
     assert_eq!(
         crate::mode_facts::unavailable_reason("approve-each", "cursor").as_deref(),
-        Some("Claude Code, Codex CLI, OpenCode and Copilot CLI only. Cursor Agent cannot stop and ask yet.")
+        Some("Claude Code, Codex CLI, OpenCode, Copilot CLI and Antigravity only. Cursor Agent cannot stop and ask yet.")
     );
 }
 

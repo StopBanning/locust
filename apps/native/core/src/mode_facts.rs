@@ -155,7 +155,9 @@ pub const RUNTIME_CAPABILITIES: &[RuntimeCapabilities] = &[
     },
     RuntimeCapabilities {
         runtime: "antigravity",
-        modes: &["ask", "accept-edits", "auto"],
+        // Approve each over `agy acp` (27 Nov 2026, agy 1.5.18): its default mode asks before every command and edit,
+        // each a card (antigravity.rs). An agy without `acp` is refused it where the command is made.
+        modes: &["ask", "accept-edits", "auto", "approve-each"],
         evidence: CapabilityEvidence::Measured,
         not_on: &[],
     },
@@ -227,7 +229,7 @@ pub fn unavailable_reason_on(mode: &str, runtime: &str, platform: Option<&str>) 
     }
     let label = crate::carry_on::display_name(runtime);
     Some(match mode {
-        "approve-each" => format!("Claude Code, Codex CLI, OpenCode and Copilot CLI only. {label} cannot stop and ask yet."),
+        "approve-each" => format!("Claude Code, Codex CLI, OpenCode, Copilot CLI and Antigravity only. {label} cannot stop and ask yet."),
         "auto" => format!("{label} runs its own agent under its own permissions; Locust has no handle to widen."),
         _ if runtime == "antigravity" => "Antigravity CLI runs this mode; without it, Antigravity runs only in Edit.".into(),
         _ => "Cursor Agent cannot be kept read-only on Windows: that needs macOS or Linux, and its plan mode alone does not stop it editing files.".into(),
@@ -287,7 +289,7 @@ mod tests {
         assert_eq!(unavailable_reason("ask", "codex"), None);
         assert_eq!(
             unavailable_reason("approve-each", "cursor").as_deref(),
-            Some("Claude Code, Codex CLI, OpenCode and Copilot CLI only. Cursor Agent cannot stop and ask yet.")
+            Some("Claude Code, Codex CLI, OpenCode, Copilot CLI and Antigravity only. Cursor Agent cannot stop and ask yet.")
         );
         assert!(unavailable_reason("ask", "acp").is_some());
     }
@@ -389,7 +391,7 @@ mod tests {
             ("gemini", &[]),
             ("opencode", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
             ("copilot", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
-            ("antigravity", &["ask", "plan", "accept-edits", "auto"]),
+            ("antigravity", &["ask", "plan", "accept-edits", "approve-each", "auto"]),
         ];
         for platform in ["win32", "darwin"] {
             for (runtime, want) in expected_by_runtime {
@@ -467,7 +469,7 @@ mod tests {
                     continue;
                 }
                 let about_this_runtime = if mode == "approve-each" {
-                    reason.replace("Claude Code, Codex CLI, OpenCode and Copilot CLI only.", "")
+                    reason.replace("Claude Code, Codex CLI, OpenCode, Copilot CLI and Antigravity only.", "")
                 } else {
                     reason.clone()
                 };
