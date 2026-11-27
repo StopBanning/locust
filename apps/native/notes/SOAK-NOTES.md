@@ -120,6 +120,12 @@ ordinary one when an agent streams a token or two a chunk, costs ~46 s of engine
 several times faster, still quadratic); the turn shows nothing new meanwhile. It stays under the 60 s hang line here, so
 it is reported as a fault of its own, not as a hang.
 
+**2c fixed (Soak fixes 1):** both now hold a growing answer as Electron's acp-events.ts `heldText` does
+(`runtime/held_text.rs`): each chunk is appended and measured on its own, the whole cut to both ends only once it passes
+four ends, and scrubbed and bounded when it is written (the message's close; for OpenCode 1 the normalizer, per delta
+and at the finished part). Held reader, same machine: 1,250 / 19,000 records, ms a record, acp 0.024 / 0.014, opencode
+serve 0.017 / 0.005 (19,000 ACP chunks: ~270 ms in the engine, was ~45,900). `bursts_scale_long` runs in the suite (~40 s).
+
 Seen in the code, not run (other users of the records.rs bound, beside the four rows asked): Copilot says "Copilot
 notification queue overflow (2048 records); terminating run" (runtime/copilot.rs:229) and Antigravity "Antigravity
 notification queue overflow" (runtime/antigravity.rs:245), where Electron's copilot-events.ts and agy-events.ts say

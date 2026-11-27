@@ -1,6 +1,7 @@
 //! opencode-serve-run.ts: authenticated owned loopback server, SSE, permissions and EOF recovery.
 use super::{
     Event, Runtime, Turn,
+    held_text::HeldText,
     opencode_events::Normalizer,
     process::{Process, copy_command},
 };
@@ -155,11 +156,14 @@ impl Api {
         }
     }
 }
+/// What a part keeps of each end while its text grows past four times this (262,144 UTF-16 units, the bound it had).
+const PART_END: usize = 65_536;
 struct Part {
     kind: String,
     message: String,
     synthetic: bool,
-    text: String,
+    /// Its text so far (opencode-serve-run.ts `held.text += delta`), held as it grows at the cost of each delta.
+    text: HeldText,
     last: Option<Instant>,
     sent: String,
 }
@@ -536,7 +540,7 @@ impl Serve {
             || p.synthetic
             || self.roles.get(&p.message).is_none_or(|r| r != "assistant")
             || p.text.is_empty()
-            || p.sent == p.text
+            || p.sent == p.text.as_str()
             || self.emitted.contains(&format!("text:{id}"))
         {
             return;
@@ -548,8 +552,8 @@ impl Serve {
             return;
         }
         p.last = Some(Instant::now());
-        p.sent = p.text.clone();
-        let part = json!({"id":id,"type":"text","text":p.text,"messageID":p.message});
+        p.sent = p.text.as_str().to_owned();
+        let part = json!({"id":id,"type":"text","text":p.text.as_str(),"messageID":p.message});
         self.push(json!({"type":"text_partial","part":part}));
     }
     fn flush(&mut self) {
@@ -679,12 +683,13 @@ impl Serve {
                         kind: String::new(),
                         message: p["messageID"].as_str().unwrap_or("").into(),
                         synthetic: false,
-                        text: String::new(),
+                        text: HeldText::keeping(PART_END),
                         last: None,
                         sent: String::new(),
                     });
-                    held.text.push_str(delta);
-                    held.text = super::events::text(&held.text, 262144);
+                    // A delta costs its own size: the whole was scrubbed and bounded again with every delta, which made a
+                    // long reply cost the square of its length (SOAK-NOTES row 2c). The normalizer scrubs what it writes.
+                    held.text.push(delta);
                     self.partial(id, false);
                 }
             }
@@ -696,7 +701,7 @@ impl Serve {
                         kind: String::new(),
                         message: String::new(),
                         synthetic: false,
-                        text: String::new(),
+                        text: HeldText::keeping(PART_END),
                         last: None,
                         sent: String::new(),
                     });
@@ -704,9 +709,9 @@ impl Serve {
                     held.message = part["messageID"].as_str().unwrap_or(&held.message).into();
                     held.synthetic = part["synthetic"] == true;
                     if let Some(s) = part["text"].as_str()
-                        && s.len() >= held.text.len()
+                        && s.len() >= held.text.as_str().len()
                     {
-                        held.text = super::events::text(s, 262144);
+                        held.text.set(&super::events::text(s, 262144));
                     }
                 }
                 let assistant = part["messageID"]
