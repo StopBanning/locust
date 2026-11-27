@@ -2684,25 +2684,74 @@ mod memory_proposal_tests {
     // case: a retirement says why -- in words, not the ids the model cited
     #[test]
     fn a_retirement_suggestion_says_why_without_citing_model_ids() {
-        let a = kept("mem_a", "Deploys go out on Thursdays.");
-        let c = kept("mem_c", "The API is on port 3000.");
-        let retire = json!({
-            "memoryId": "mem_r",
-            "text": "The API is on port 3000.",
-            "status": "proposed",
-            "forgets": "mem_c",
-            "reason": "the API moved to 3001 (mem_a)",
-            "by": { "name": "Wren" },
-            "scope": "workspace",
-            "workspaceName": "shop",
-            "createdAt": "2026-09-01T10:00:00.000Z"
-        });
-        let rt = render(vec![a, c, retire], "auto");
-        let all = texts(&rt);
-        let joined = all.join("\n");
-        assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
-        assert!(all.iter().any(|t| t == "Why: the API moved to 3001"), "{joined}");
-        assert!(!joined.contains("mem_a"), "{joined}");
+        use locust_core::{memory_tidy::TidySuggestion, store::Store};
+        struct Temp(std::path::PathBuf);
+        impl Drop for Temp {
+            fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+        }
+        let root = Temp(std::env::temp_dir().join(format!(
+            "locust-tidy-retire-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()
+        )));
+        let folder = root.0.join("shop");
+        std::fs::create_dir_all(&folder).unwrap();
+        let open_store = || Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+        let mut c = kept("mem_c", "The API is on port 3000.");
+        let workspace = people::workspace_id(&folder);
+        c["workspaceId"] = json!(workspace);
+
+        for accept in [false, true] {
+            let store = open_store();
+            store.save_json("memories.json", &json!({"schemaVersion": 1, "memories": [c]})).unwrap();
+            let (count, refused) = people::propose_tidy_from(
+                &store, &workspace, json!({"name": "Wren"}), Some("mission_tidy"),
+                &[TidySuggestion::Retire {
+                    id: "mem_c".into(),
+                    reason: "the API moved to 3001 (mem_a)".into(),
+                }],
+            ).unwrap();
+            assert_eq!(count, 1);
+            assert!(refused.is_empty());
+            let render_saved = || {
+                let mut state = memory_window_state(vec![], "auto");
+                state.data = Some(open_store());
+                state.home.folder_path = Some(folder.to_string_lossy().into_owned());
+                open(&mut state);
+                let mut rt = Runtime::new(
+                    state, |s, _| memory_screen(s, &Palette::new(true)),
+                    (900., 2000.), Env::new(true, 1.),
+                );
+                rt.frame(0.);
+                rt
+            };
+            let mut rt = render_saved();
+            let all = texts(&rt);
+            let joined = all.join("\n");
+            assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
+            assert!(all.iter().any(|t| t == "Why: the API moved to 3001"), "{joined}");
+            assert!(!joined.contains("mem_a"), "{joined}");
+            assert!(all.iter().any(|t| t == "Keep it"), "{joined}");
+            assert!(all.iter().any(|t| t == "Forget it"), "{joined}");
+            let before = people::memories(&open_store()).unwrap();
+            assert_eq!(before["memories"][0], c, "the original still stands before a click");
+            let proposal = before["memories"][1]["memoryId"].as_str().unwrap();
+            let button = if accept { "keep" } else { "drop" };
+            click_memory(&mut rt, &format!("memory-{button}-{proposal}"));
+            assert!(rt.find("memory-waiting").is_none());
+            drop(rt);
+
+            let after = people::memories(&open_store()).unwrap();
+            let reopened = render_saved();
+            assert!(reopened.find("memory-waiting").is_none());
+            assert_eq!(reopened.find("memory-restore-mem_c").is_some(), accept);
+            if accept {
+                assert_eq!(after["memories"], json!([]));
+                assert_eq!(after["forgotten"][0]["memory"], c);
+                assert_eq!(after["forgotten"][0]["forgottenBy"]["name"], "Wren");
+            } else {
+                assert_eq!(after["memories"], json!([c]));
+                assert!(after["forgotten"].as_array().is_none_or(Vec::is_empty));
+            }
+        }
     }
 
     fn tidy_window(rows: Vec<Value>, mode: &str, offer: bool) -> Runtime<State> {
