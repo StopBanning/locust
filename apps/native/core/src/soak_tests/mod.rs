@@ -29,16 +29,16 @@ static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new
 pub(crate) struct Temp(pub(crate) PathBuf);
 impl Temp {
     pub(crate) fn new(what: &str) -> Self {
-        // An engine binds its socket inside this folder, and a socket path may be at most 103 bytes on macOS (SUN_LEN;
-        // invariants::socket_dir). Under macOS's own TMPDIR (/var/folders/xx/…/T/) this name left no room for the
-        // socket: every round of two_at_once failed with "path must be shorter than SUN_LEN". A long TMPDIR gives way
-        // to /tmp, as socket_dir does for the app's own sockets.
-        let temp = std::env::temp_dir();
-        let base = if temp.as_os_str().len() > 24 { std::path::PathBuf::from("/tmp") } else { temp };
-        let p = base.join(format!(
-            "locust-soak-{what}-{}-{}-{}",
+        // An engine binds its socket (`<folder>/native/engine.sock`) inside this folder, and a socket path may be at
+        // most 103 bytes on macOS (SUN_LEN; invariants::socket_dir). Under the test runner's root
+        // (/tmp/locust-native-XXXXXXXX/tmp, which the isolation guard requires) a name carrying the pid and the
+        // nanoseconds in decimal (~50 bytes) left the path at 103-111 bytes once /tmp resolves to /private/tmp, so
+        // two_at_once failed "path must be shorter than SUN_LEN" on most runs. Hex and a per-process count keep it
+        // unique in far fewer bytes; the runner's root is new for every run.
+        let p = std::env::temp_dir().join(format!(
+            "soak-{what}-{:x}-{:x}-{}",
             std::process::id(),
-            crate::invariants::unique_nanos(),
+            crate::invariants::unique_nanos() % 0xff_ffff,
             TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         Self::at(p)
