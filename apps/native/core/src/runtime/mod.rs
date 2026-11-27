@@ -70,6 +70,11 @@ pub trait Runtime {
     fn steer(&mut self, _text: &str) -> bool {
         false
     }
+    /// A standing goal on the runtime's thread (Codex app-server `thread/goal/*`). A runtime without them says so; it
+    /// is never a turn-ending error.
+    fn goal(&mut self, _ask: goal::GoalAsk) -> goal::GoalAnswer {
+        goal::GoalAnswer::NoStandingGoals
+    }
 }
 
 #[cfg(test)]

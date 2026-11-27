@@ -1,7 +1,7 @@
 //! A Codex teammate's standing goal: Codex app-server's `thread/goal/set|get|clear` requests and its
 //! `thread/goal/updated|cleared` notifications. Engine only; the card that sets and clears one is on the shelf (after the
 //! Dots/Duet study).
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// A goal's status as Codex says it. One Codex names later reads as `Unknown`, never as a failure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +99,61 @@ pub fn from_notification(method: &str, params: &Value) -> Option<GoalEvent> {
         "thread/goal/cleared" => Some(GoalEvent::Cleared { thread_id: thread?.to_owned() }),
         _ => None,
     }
+}
+
+/// A goal the person sets: only what is given is sent.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GoalSet {
+    pub objective: Option<String>,
+    pub status: Option<GoalStatus>,
+    pub token_budget: Option<u64>,
+}
+
+/// What is asked of a runtime's standing goal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GoalAsk {
+    Set(GoalSet),
+    Get,
+    Clear,
+}
+
+/// What a runtime answers: never a turn-ending error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GoalAnswer {
+    /// The goal the thread holds, none when it holds none.
+    Held(Option<ThreadGoal>),
+    Cleared,
+    /// A runtime, or a Codex, that keeps no standing goals.
+    NoStandingGoals,
+    /// Asked before the runtime has a thread to hold one on.
+    NoThreadYet,
+    /// Codex said no, in its words.
+    Refused(String),
+}
+
+/// `thread/goal/set`'s params: the thread, what the person gave, and `origin: "user"`. A status Locust does not know is
+/// not sent.
+pub fn set_params(thread: &str, set: &GoalSet) -> Value {
+    let mut params = json!({"threadId": thread});
+    if let Some(objective) = &set.objective {
+        params["objective"] = json!(objective);
+    }
+    if let Some(status) = set.status.filter(|s| *s != GoalStatus::Unknown) {
+        params["status"] = json!(status.as_str());
+    }
+    if let Some(budget) = set.token_budget {
+        params["tokenBudget"] = json!(budget);
+    }
+    params["origin"] = json!("user");
+    params
+}
+
+/// A refusal that says the server does not know the request: JSON-RPC's "method not found" (-32601), or Codex's
+/// `unknown variant \`thread/goal/..\`` (its words for a request it does not know, as MEASURED of `config/read` on
+/// Codex 0.163.0).
+pub fn not_known(refused: &Value) -> bool {
+    let said = refused["message"].as_str().unwrap_or("");
+    refused["code"].as_i64() == Some(-32601) || said.contains("unknown variant `thread/goal/") || said.eq_ignore_ascii_case("method not found")
 }
 
 #[cfg(test)]

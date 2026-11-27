@@ -494,6 +494,12 @@ impl Codex {
         self.request_within(method, params, within)
     }
     fn request_within(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Value> {
+        self.answer_within_or_refusal(method, params, within)?.map_err(|refused| {
+            err(refused["message"].as_str().unwrap_or("Codex refused request"))
+        })
+    }
+    /// The server's answer to a request: its result, or its refusal (`error`, code and words) as it sent it.
+    fn answer_within_or_refusal(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Result<Value, Value>> {
         let id = self.begin_request(method, params)?;
         let deadline = Instant::now() + within;
         loop {
@@ -506,14 +512,48 @@ impl Codex {
             let Some(v) = self.receive()? else { continue };
             if v["id"] == id && v["method"].is_null() {
                 if !v["error"].is_null() {
-                    return Err(err(v["error"]["message"]
-                        .as_str()
-                        .unwrap_or("Codex refused request")));
+                    return Ok(Err(v["error"].clone()));
                 }
-                return Ok(v["result"].clone());
+                return Ok(Ok(v["result"].clone()));
             }
             self.notification(v)?;
         }
+    }
+    /// A standing goal on this thread (`thread/goal/set|get|clear`), once the thread exists. A set goes as the person's
+    /// (`origin: "user"`). A Codex that does not know the request keeps no standing goals; any other refusal is said
+    /// in its words. Neither ends the turn.
+    fn ask_goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        use super::goal::{GoalAnswer, GoalAsk, GoalEvent, ThreadGoal};
+        let Some(thread) = self.normal.thread.clone() else {
+            return GoalAnswer::NoThreadYet;
+        };
+        let (method, params) = match &ask {
+            GoalAsk::Set(set) => ("thread/goal/set", super::goal::set_params(&thread, set)),
+            GoalAsk::Get => ("thread/goal/get", json!({"threadId": thread})),
+            GoalAsk::Clear => ("thread/goal/clear", json!({"threadId": thread})),
+        };
+        let within = self.answer_within;
+        let result = match self.answer_within_or_refusal(method, params, within) {
+            Ok(Ok(result)) => result,
+            Ok(Err(refused)) if super::goal::not_known(&refused) => return GoalAnswer::NoStandingGoals,
+            Ok(Err(refused)) => {
+                return GoalAnswer::Refused(refused["message"].as_str().unwrap_or("Codex refused the goal.").to_owned());
+            }
+            Err(e) => return GoalAnswer::Refused(e.to_string()),
+        };
+        match ask {
+            GoalAsk::Clear => {
+                self.normal.goal_said(GoalEvent::Cleared { thread_id: thread });
+                return GoalAnswer::Cleared;
+            }
+            GoalAsk::Get if result["goal"].is_null() => self.normal.goal_said(GoalEvent::Cleared { thread_id: thread }),
+            _ => {
+                if let Some(goal) = ThreadGoal::parse(&result["goal"], Some(&thread)) {
+                    self.normal.goal_said(GoalEvent::Updated(goal));
+                }
+            }
+        }
+        GoalAnswer::Held(self.normal.goal.clone())
     }
 }
 pub fn read_only_config(settings: &Value) -> io::Result<Value> {
@@ -742,6 +782,9 @@ impl Runtime for Codex {
     }
     /// Taken only when the server says so; before a turn has started, once it is over, or while stopping, no is said
     /// without asking.
+    fn goal(&mut self, ask: super::goal::GoalAsk) -> super::goal::GoalAnswer {
+        self.ask_goal(ask)
+    }
     fn steer(&mut self, text: &str) -> bool {
         let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) else {
             return false;
