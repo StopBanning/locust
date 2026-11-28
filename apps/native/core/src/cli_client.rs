@@ -865,3 +865,7 @@ mod cli_client_tests;
 #[cfg(test)]
 #[path = "cli_terminal_tests.rs"]
 mod cli_terminal_tests;
+
+#[cfg(test)]
+#[path = "cli_approval_default_tests.rs"]
+mod cli_approval_default_tests;
