@@ -3557,6 +3557,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         crate::browser_tools::Registration::prepare(&mut command, runtime_name, &id, &job.teammate.id, &folder, channel.clone(), flag.clone())?
     };
     if runtime_name == "claude" {
+        crate::runtime::claude::set_run_env(&mut command);
         let guard = crate::runtime::permission_bridge::bridge_executable()
             .and_then(|exe| crate::command_guard::write_claude_settings(&store.root().join("guard"), &exe))
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;

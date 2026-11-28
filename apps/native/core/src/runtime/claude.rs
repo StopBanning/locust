@@ -344,13 +344,33 @@ pub fn bare_command(folder: &Path) -> io::Result<Command> {
 }
 
 pub fn command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
-    let mut c = Command::new(super::discovery::find_named("claude")?);
+    Ok(command_at(super::discovery::find_named("claude")?, folder, model))
+}
+
+/// [`command`] for a known program, so a test can read what it sets without Claude Code installed.
+pub(crate) fn command_at(program: std::path::PathBuf, folder: &Path, model: Option<&str>) -> Command {
+    let mut c = Command::new(program);
     c.args(ask_args(model));
     c.current_dir(folder);
     // Never pass Locust API keys; Claude Code reads its own login.
     c.env_remove("ANTHROPIC_API_KEY");
     c.env_remove("CLAUDE_API_KEY");
-    Ok(c)
+    set_run_env(&mut c);
+    c
+}
+
+/// What every Claude Code run Locust starts sets, as Electron's `CLAUDE_RUN_ENV` (packages/runtime-adapters/src/commands.ts,
+/// 15 Nov 2026): background tasks off. A background job dies with the run, so an agent that waits for one has lost it,
+/// and a resumed session is handed the dead job's notice, which cut two Opus runs off on 15 Nov. With the switch, a
+/// helper or a command runs in the foreground, where the run can see it finish. Claude Code's own `--bg` sessions
+/// ([`bare_command`]'s other callers) are a separate path and do not get it.
+pub const RUN_ENV: &[(&str, &str)] = &[("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1")];
+
+/// Sets [`RUN_ENV`] on a Claude Code run.
+pub fn set_run_env(c: &mut Command) {
+    for (key, value) in RUN_ENV {
+        c.env(key, value);
+    }
 }
 
 /// Parent Claude Code session variables never handed on to a `--bg` child.
