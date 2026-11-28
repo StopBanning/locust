@@ -98,9 +98,12 @@ jobs:
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       # ALSA's headers for the microphone crate (cpal), xkbcommon's for the window toolkit, and the sqlite3 program the
-      # session_import tests build their Cursor store with (on GitHub's image already; named so it stays).
+      # session_import tests build their Cursor store with (on GitHub's image already; named so it stays). Mesa's
+      # software Vulkan driver (lavapipe) is the GPU the picture tests render on: the runner has none, and with no GPU
+      # Rune's headless render ends the whole test process with exit status 2 (tooling/headless.rs), which kept this job
+      # red from 27 Nov, when the picture tests came, with no test named.
       - name: Linux system libraries
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev sqlite3
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev sqlite3 mesa-vulkan-drivers libvulkan1
       - name: Tests, except the listed ones
         run: bash scripts/linux-tests.sh
 
