@@ -365,11 +365,24 @@ fn model_fallback_name(id: &str) -> String {
     }
     name
 }
-/// This choice belongs to the form until Save, never to the open workspace.
+/// Fill the folder field without changing the open workspace.
 fn set_form_folder(s: &mut State, folder: Option<&std::path::Path>) {
     if let Some(edit) = s.people_panel.fields.get_mut(7) {
         *edit = field(&folder.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default());
     }
+}
+
+/// Returning to the project folder is a saved action of its own. Leave the other form edits alone.
+fn reset_saved_folder(s: &mut State, id: &str) {
+    let result = s.data.as_ref().ok_or("Native data folder could not be determined.".into())
+        .and_then(|store| people::set_folder(store, id, None)).map(|_| ());
+    if result.is_ok() {
+        set_form_folder(s, None);
+        if let Some(entry) = s.people_panel.entry.as_object_mut() {
+            entry.remove("folder");
+        }
+    }
+    done(s, result);
 }
 
 fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
@@ -394,8 +407,9 @@ fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
                 }
             }));
     if !folder.is_empty() {
+        let id = id.to_owned();
         choices = choices.child(button("Use the project folder", p).key("team-folder-reset")
-            .on_press(|s: &mut State| set_form_folder(s, None)));
+            .on_press(move |s: &mut State| reset_saved_folder(s, &id)));
     }
     Some(col().key("team-folder-row").w_full().gap(6.0)
         .child(text("Works in").font(type_::LABEL).color(p.secondary))
@@ -2479,6 +2493,10 @@ mod renderer_model_tests {
 }
 
 #[cfg(test)]
+#[path = "people_folder_persistence_tests.rs"]
+mod people_folder_persistence_tests;
+
+#[cfg(test)]
 mod renderer_folder_tests {
     use super::*;
     fn form(folder: Option<&str>, host: bool, mode: &str) -> State {
@@ -2507,14 +2525,6 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("The project folder"));
         assert!(texts(&rt).contains("Choose folder"));
         assert!(rt.find("team-folder-reset").is_none());
-    }
-    #[test]
-    fn shows_the_folder_it_was_pointed_at_and_the_way_back() {
-        let rt = render(form(Some("/home/dev/claude"),true,"auto"));
-        assert!(texts(&rt).contains("/home/dev/claude"));
-        assert!(texts(&rt).contains("Use the project folder"));
-        assert!(texts(&rt).contains("Change"));
-        assert!(!texts(&rt).lines().any(|l|l == "The project folder"));
     }
     #[test]
     fn says_why_the_folder_is_worth_setting_in_the_persons_terms() {
@@ -2547,19 +2557,7 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("every write refused"));
         assert!(!texts(&rt).contains("may edit anything on this machine"));
     }
-    #[test]
-    fn resetting_the_folder_changes_only_the_form_until_saved() {
-        let mut rt = render(form(Some("/home/dev/claude"),true,"auto"));
-        let (x,y) = rt.find("team-folder-reset").unwrap();
-        rt.pointer_down(x,y); rt.pointer_up(x,y); rt.frame(0.1);
-        assert!(build_entry_from_form(&rt.state).unwrap().get("folder").is_none());
-        assert_eq!(rt.state.people_panel.team["teammates"][0]["folder"],"/home/dev/claude");
-        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
-        assert!(rt.find("team-folder-reset").is_none());
-        set_form_folder(&mut rt.state,Some(std::path::Path::new("/home/dev/new")));
-        assert_eq!(build_entry_from_form(&rt.state).unwrap()["folder"],"/home/dev/new");
-        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
-    }
+
 }
 
 #[cfg(test)]
@@ -2686,25 +2684,74 @@ mod memory_proposal_tests {
     // case: a retirement says why -- in words, not the ids the model cited
     #[test]
     fn a_retirement_suggestion_says_why_without_citing_model_ids() {
-        let a = kept("mem_a", "Deploys go out on Thursdays.");
-        let c = kept("mem_c", "The API is on port 3000.");
-        let retire = json!({
-            "memoryId": "mem_r",
-            "text": "The API is on port 3000.",
-            "status": "proposed",
-            "forgets": "mem_c",
-            "reason": "the API moved to 3001 (mem_a)",
-            "by": { "name": "Wren" },
-            "scope": "workspace",
-            "workspaceName": "shop",
-            "createdAt": "2026-09-01T10:00:00.000Z"
-        });
-        let rt = render(vec![a, c, retire], "auto");
-        let all = texts(&rt);
-        let joined = all.join("\n");
-        assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
-        assert!(all.iter().any(|t| t == "Why: the API moved to 3001"), "{joined}");
-        assert!(!joined.contains("mem_a"), "{joined}");
+        use locust_core::{memory_tidy::TidySuggestion, store::Store};
+        struct Temp(std::path::PathBuf);
+        impl Drop for Temp {
+            fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+        }
+        let root = Temp(std::env::temp_dir().join(format!(
+            "locust-tidy-retire-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()
+        )));
+        let folder = root.0.join("shop");
+        std::fs::create_dir_all(&folder).unwrap();
+        let open_store = || Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+        let mut c = kept("mem_c", "The API is on port 3000.");
+        let workspace = people::workspace_id(&folder);
+        c["workspaceId"] = json!(workspace);
+
+        for accept in [false, true] {
+            let store = open_store();
+            store.save_json("memories.json", &json!({"schemaVersion": 1, "memories": [c]})).unwrap();
+            let (count, refused) = people::propose_tidy_from(
+                &store, &workspace, json!({"name": "Wren"}), Some("mission_tidy"),
+                &[TidySuggestion::Retire {
+                    id: "mem_c".into(),
+                    reason: "the API moved to 3001 (mem_a)".into(),
+                }],
+            ).unwrap();
+            assert_eq!(count, 1);
+            assert!(refused.is_empty());
+            let render_saved = || {
+                let mut state = memory_window_state(vec![], "auto");
+                state.data = Some(open_store());
+                state.home.folder_path = Some(folder.to_string_lossy().into_owned());
+                open(&mut state);
+                let mut rt = Runtime::new(
+                    state, |s, _| memory_screen(s, &Palette::new(true)),
+                    (900., 2000.), Env::new(true, 1.),
+                );
+                rt.frame(0.);
+                rt
+            };
+            let mut rt = render_saved();
+            let all = texts(&rt);
+            let joined = all.join("\n");
+            assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
+            assert!(all.iter().any(|t| t == "Why: the API moved to 3001"), "{joined}");
+            assert!(!joined.contains("mem_a"), "{joined}");
+            assert!(all.iter().any(|t| t == "Keep it"), "{joined}");
+            assert!(all.iter().any(|t| t == "Forget it"), "{joined}");
+            let before = people::memories(&open_store()).unwrap();
+            assert_eq!(before["memories"][0], c, "the original still stands before a click");
+            let proposal = before["memories"][1]["memoryId"].as_str().unwrap();
+            let button = if accept { "keep" } else { "drop" };
+            click_memory(&mut rt, &format!("memory-{button}-{proposal}"));
+            assert!(rt.find("memory-waiting").is_none());
+            drop(rt);
+
+            let after = people::memories(&open_store()).unwrap();
+            let reopened = render_saved();
+            assert!(reopened.find("memory-waiting").is_none());
+            assert_eq!(reopened.find("memory-restore-mem_c").is_some(), accept);
+            if accept {
+                assert_eq!(after["memories"], json!([]));
+                assert_eq!(after["forgotten"][0]["memory"], c);
+                assert_eq!(after["forgotten"][0]["forgottenBy"]["name"], "Wren");
+            } else {
+                assert_eq!(after["memories"], json!([c]));
+                assert!(after["forgotten"].as_array().is_none_or(Vec::is_empty));
+            }
+        }
     }
 
     fn tidy_window(rows: Vec<Value>, mode: &str, offer: bool) -> Runtime<State> {
