@@ -100,3 +100,66 @@ fn b09_invalid_handoffs_do_not_make_a_saved_call() {
         assert!(!call_log::is_saved_call(&invalid_call));
     }
 }
+
+struct MissionFixture(std::path::PathBuf);
+impl Drop for MissionFixture {
+    fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+}
+fn mission_fixture() -> MissionFixture {
+    let root = std::env::temp_dir().join(format!("locust-voice-origin-{}", crate::invariants::unique_nanos()));
+    std::fs::create_dir_all(&root).unwrap();
+    MissionFixture(root)
+}
+
+fn mission_header(id: &str, voice: bool) -> Value {
+    json!({"schemaVersion":23,"recordType":"mission.created","metadata":{
+        "missionId":id,"runId":"run_1","prompt": if voice {"Fix the login loop"} else {"Review this"},
+        "runtime":"codex","model":"account-default","requestedRouteId":"codex","resolvedRouteId":"codex-account:default",
+        "cliVersion":null,"workspaceId":"ws_test","sandbox":if voice {"workspace-write"} else {"read-only"},
+        "mode":if voice {"accept-edits"} else {"ask"},"executionPolicyVersion":1,"createdAt":"2026-10-07T00:00:00.000Z",
+        "startedBy":if voice {json!({"kind":"mcp","via":"voice"})} else {json!({"kind":"mcp"})}
+    }})
+}
+
+// case: records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode
+#[test]
+fn b09_external_origin_survives_a_read_but_not_a_version_that_cannot_hold_it() {
+    let f = mission_fixture();
+    let file = f.0.join("mission_1.jsonl");
+    let mut header = mission_header("mission_1", false);
+    std::fs::write(&file, format!("{header}\n")).unwrap();
+    let read = crate::ledger::read_metadata(&file).unwrap();
+    assert_eq!(read.started_by_kind.as_deref(), Some("mcp"));
+    assert_eq!(read.mode.as_deref(), Some("ask"));
+    assert_eq!(read.prompt, "Review this");
+    let history = crate::ledger::list_recent(&f.0, 8);
+    assert_eq!(history[0].started_by_kind.as_deref(), Some("mcp"));
+    assert_eq!(history[0].mission_id, "mission_1");
+    header["schemaVersion"] = json!(22);
+    std::fs::write(&file, format!("{header}\n")).unwrap();
+    assert!(crate::ledger::read_metadata(&file).is_none(), "schema 22 cannot claim an MCP origin");
+}
+
+// case: keeps a voice call’s hand-off as one, across a restart (0.739)
+#[test]
+fn b09_voice_origin_survives_reopening_the_mission_ledger() {
+    let f = mission_fixture();
+    let file = f.0.join("mission_2.jsonl");
+    std::fs::write(&file, format!("{}\n", mission_header("mission_2", true))).unwrap();
+    let read = crate::ledger::read_metadata(&file).unwrap();
+    assert!(read.started_by_voice);
+    assert_eq!(read.started_by_kind.as_deref(), Some("mcp"));
+    assert_eq!(read.mode.as_deref(), Some("accept-edits"));
+    assert_eq!(read.prompt, "Fix the login loop");
+}
+
+// case: classifies the token file and opt-in as excluded from every profile backup
+#[test]
+fn b09_profile_backup_excludes_other_apps_token_and_opt_in() {
+    let exclusions = crate::profile_backup::LEFT_OUT;
+    assert!(exclusions.iter().any(|(file, why)| *file == "locust-mcp-connection.json" && why.contains("token")));
+    assert!(exclusions.iter().any(|(file, why)| *file == "locust-mcp.json" && why.contains("enable again")));
+    for file in ["locust-mcp-connection.json", "locust-mcp.json"] {
+        assert!(!crate::profile_backup::BACKED_UP_FILES.contains(&file));
+    }
+}
