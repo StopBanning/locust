@@ -1429,3 +1429,55 @@ impl ScoutAway {
         self.status_from(&st)
     }
 }
+
+#[cfg(test)]
+mod sealed_result_tests {
+    use super::*;
+
+    // case: takes a letter’s links only to its own repository on GitHub, and a look only from the away look
+    #[test]
+    fn sealed_look_opens_only_for_its_room_and_sender_and_keeps_repo_links() {
+        let key = new_away_key();
+        let room = "RRRRRRRRRRRRRRRRRRRRRR";
+        let repo = "acme/app";
+        let good = "https://github.com/acme/app/issues/1";
+        let look = AwayLetter {
+            v: AWAY_LETTER_VERSION,
+            kind: AwayLetterKind::Look,
+            at: "2026-10-23T14:00:00Z".into(),
+            repo: repo.into(),
+            read: true,
+            found: [
+                good,
+                "https://github.com/other/repo/issues/1",
+                "https://evil.example/acme/app",
+                "https://github.com/acme/app.evil/x",
+                "javascript:alert(1)//https://github.com/acme/app/",
+            ].into_iter().enumerate().map(|(idx, url)| AwayFinding {
+                key: format!("finding:{idx}"),
+                urgency: ScoutUrgency::Now,
+                said: "Synthetic finding".into(),
+                detail: None,
+                lines: None,
+                chips: None,
+                url: Some(url.into()),
+            }).collect(),
+            prs: vec![],
+            told: vec![],
+            brief_day: None,
+        };
+        let sealed = seal_away_letter(&key, &look, room, AwayLetterFrom::Away).unwrap();
+        let opened = open_away_letter(&key, &sealed, room, AwayLetterFrom::Away).unwrap();
+        let links: Vec<_> = opened.found.iter().map(|finding| finding.url.as_deref()).collect();
+        assert_eq!(links, [Some(good), None, None, None, None]);
+        assert!(open_away_letter(&key, &sealed, "different-room", AwayLetterFrom::Away).is_none());
+        assert!(open_away_letter(&key, &sealed, room, AwayLetterFrom::Pc).is_none());
+
+        // A correctly encrypted packet still cannot mislabel its letter kind.
+        let as_pc = seal_away_letter(&key, &look, room, AwayLetterFrom::Pc).unwrap();
+        assert!(open_away_letter(&key, &as_pc, room, AwayLetterFrom::Pc).is_none());
+        let told = AwayLetter { kind: AwayLetterKind::Told, ..look };
+        let as_away = seal_away_letter(&key, &told, room, AwayLetterFrom::Away).unwrap();
+        assert!(open_away_letter(&key, &as_away, room, AwayLetterFrom::Away).is_none());
+    }
+}
