@@ -20,8 +20,13 @@ struct Capture {
     state: CaptureState,
 }
 
+enum CaptureOpening {
+    Record(Mode, Box<dyn Recording>),
+    AskConsent,
+}
+
 enum CaptureState {
-    Opening(Receiver<Result<(Mode, Box<dyn Recording>), String>>),
+    Opening(Receiver<Result<CaptureOpening, String>>),
     Recording(Mode, Box<dyn Recording>),
     Transcribing(Receiver<Result<String, String>>),
 }
@@ -78,6 +83,7 @@ pub(super) struct Panel {
     capture: Option<Capture>,
     call: Option<Talk>,
     note: Option<String>,
+    consent_for: Option<Option<String>>,
     words: Option<LiveWords>,
     questions: Vec<PendingAsk>,
 }
@@ -120,7 +126,7 @@ fn platform(s: &State) -> &'static str {
 
 fn mic(s: &mut State, tx: &mut Tx) {
     let Some(store) = s.data.clone() else { return };
-    if s.voice.call.is_some() {
+    if s.voice.call.is_some() || s.voice.consent_for.is_some() {
         return;
     }
     s.voice.note = None;
@@ -182,10 +188,10 @@ fn mic(s: &mut State, tx: &mut Tx) {
                 } else if !settings.has_key {
                     Err("Add your OpenAI API key under Voice typing in Settings.".into())
                 } else if !settings.openai_consent {
-                    Err("Allow sending audio to OpenAI before starting voice typing.".into())
+                    Ok(CaptureOpening::AskConsent)
                 } else {
                     voice_audio::open_recording(audio.as_ref(), &cancelled)
-                        .map(|recording| (settings.mode, recording))
+                        .map(|recording| CaptureOpening::Record(settings.mode, recording))
                 };
                 let _ = send.send(result);
             });
@@ -199,7 +205,31 @@ fn mic(s: &mut State, tx: &mut Tx) {
     tx.wake_after(Duration::from_millis(25));
 }
 
+const OPENAI_ASK: &str = "Voice typing will send your recordings to OpenAI using your API key. OpenAI API charges apply. Allow this for future recordings?";
+
+fn allow_openai(s: &mut State, tx: &mut Tx) {
+    let Some(target) = s.voice.consent_for.take() else { return };
+    s.voice.note = None;
+    if target != conversation_draft_key(s) || s.voice.call.is_some() {
+        return;
+    }
+    let Some(store) = s.data.clone() else { return };
+    let secrets = s.voice.secrets.clone().unwrap_or_else(locust_core::own_models::secrets);
+    match VoiceSettings::new(&store, secrets.as_ref(), platform(s)).consent() {
+        Ok(_) => mic(s, tx),
+        Err(why) => s.voice.note = Some(why),
+    }
+}
+
+#[cfg(test)]
+#[path = "voice_mic_consent_tests.rs"]
+mod mic_consent_tests;
+
 pub(super) fn cancel(s: &mut State) -> bool {
+    if s.voice.consent_for.take().is_some() {
+        s.voice.note = None;
+        return true;
+    }
     let Some(capture) = s.voice.capture.take() else {
         return false;
     };
@@ -209,6 +239,11 @@ pub(super) fn cancel(s: &mut State) -> bool {
 }
 
 fn poll_capture(s: &mut State) -> bool {
+    if s.voice.consent_for.as_ref().is_some_and(|target| *target != conversation_draft_key(s)) {
+        s.voice.consent_for = None;
+        s.voice.note = None;
+        return true;
+    }
     let Some(mut capture) = s.voice.capture.take() else {
         return false;
     };
@@ -218,10 +253,14 @@ fn poll_capture(s: &mut State) -> bool {
     }
     let note = match &capture.state {
         CaptureState::Opening(receive) => match receive.try_recv() {
-            Ok(Ok((mode, recording))) => {
+            Ok(Ok(CaptureOpening::Record(mode, recording))) => {
                 capture.state = CaptureState::Recording(mode, recording);
                 s.voice.capture = Some(capture);
                 return true;
+            }
+            Ok(Ok(CaptureOpening::AskConsent)) => {
+                s.voice.consent_for = Some(capture.target);
+                Some(OPENAI_ASK.into())
             }
             Ok(Err(why)) => Some(why),
             Err(TryRecvError::Disconnected) => {
@@ -316,6 +355,9 @@ fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
 }
 
 fn talk(s: &mut State, tx: &mut Tx) {
+    if s.voice.consent_for.take().is_some() {
+        s.voice.note = None;
+    }
     if let Some(mut call) = s.voice.call.take() {
         call.cancel.store(true, Ordering::Release);
         if let Some(service) = &s.voice.service {
@@ -542,7 +584,20 @@ pub(super) fn controls(s: &State, p: &Palette) -> Option<El> {
 
 pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
     let mut notices = Vec::new();
-    if let Some(note) = &s.voice.note {
+    if s.voice.consent_for.is_some() {
+        let controls = crate::look::controls::Look::new(p.dark);
+        use crate::look::controls::{button, Tone};
+        notices.push(
+            col().key("voice-consent").role("dialog").label("Allow OpenAI voice typing")
+                .gap(8.0).padding(10.0).radius(8.0).fill(p.raised)
+                .child(text(OPENAI_ASK).font(type_::LABEL).color(p.text).wrap())
+                .child(row().gap(8.0)
+                    .child(button(&controls, "Allow", Tone::Active, false)
+                        .key("voice-consent-allow").on_press_tx(allow_openai))
+                    .child(button(&controls, "Not now", Tone::Neutral, false)
+                        .key("voice-consent-not-now").on_press(|s: &mut State| { cancel(s); }))),
+        );
+    } else if let Some(note) = &s.voice.note {
         notices.push(
             text(note.clone())
                 .key("voice-note")
