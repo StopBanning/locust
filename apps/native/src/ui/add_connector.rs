@@ -479,3 +479,7 @@ mod add_connector_tests;
 #[cfg(test)]
 #[path = "add_connector_every_agent_tests.rs"]
 mod add_connector_every_agent_tests;
+
+#[cfg(test)]
+#[path = "add_connector_process_tests.rs"]
+mod add_connector_process_tests;

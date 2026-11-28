@@ -1132,3 +1132,7 @@ mod permission_bridge_argv_tests;
 #[cfg(test)]
 #[path = "connector_allow_rules_tests.rs"]
 mod connector_allow_rules_tests;
+
+#[cfg(all(test, unix))]
+#[path = "claude_run_skill_lifetime_tests.rs"]
+mod run_skill_lifetime_tests;

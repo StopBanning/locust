@@ -19,6 +19,7 @@ fn count(args: &[String], flag: &str) -> usize {
 
 // a-run-without-connectors-leaves-them-out.test.ts
 
+// case: stay out when the run is told so, on every model and in every mode, and Locust's own servers stay in
 #[test]
 fn the_persons_connectors_stay_out_on_every_model_and_in_every_mode_and_locusts_own_servers_stay_in() {
     for mode in [Mode::Ask, Mode::AcceptEdits, Mode::Auto] {
@@ -29,6 +30,77 @@ fn the_persons_connectors_stay_out_on_every_model_and_in_every_mode_and_locusts_
     }
     let a = args(PrintOptions { mode: Mode::AcceptEdits, bridge: Some(BRIDGE), ..Default::default() });
     assert_eq!(after(&a, "--mcp-config"), BRIDGE);
+    assert_eq!(after(&a, "--permission-prompt-tool"), "mcp__locust__approve");
+
+    // Auto needs no permission socket. This exercises the actual host launch even in a socket-less test container.
+    #[cfg(unix)]
+    check_the_launch_with_no_connectors();
+}
+
+#[cfg(unix)]
+fn check_the_launch_with_no_connectors() {
+    use crate::engine::Teammate;
+    use crate::native::{self, Origin, Send, SlotOrigin};
+    use crate::store::Store;
+    use serde_json::json;
+    use std::{fs, time::{Duration, Instant}};
+
+    const FAKE: &str = r#"
+import json, sys
+with open("claude-arguments.json", "w") as log:
+    json.dump(sys.argv[1:], log)
+sys.stdin.readline()
+print(json.dumps({"type":"result","subtype":"success","is_error":False,"result":"OK"}), flush=True)
+"#;
+    let root = crate::routine_copy::tests::temp("locust-no-claude-connectors-");
+    let store = Store::new(root.0.join("native"), root.0.join("electron")).unwrap();
+    let folder = root.0.join("work");
+    fs::create_dir(&folder).unwrap();
+    let argv = folder.join("claude-arguments.json");
+    let _host = native::hooks::install(store.clone(), Some(("python3".into(), vec!["-c".into(), FAKE.into()])));
+    for (case, ticked, sealed, strict) in [
+        ("teammate opted out", json!([]), false, true),
+        ("teammate opted in", json!(["claude.ai Gmail"]), false, false),
+        ("sealed despite the tick", json!(["claude.ai Gmail"]), true, true),
+    ] {
+        store.save_json("teammates.json", &json!({
+            "schemaVersion": 1,
+            "teammates": [{"teammateId":"tm_wren","name":"Wren","connectors":ticked}],
+            "missionOwners": {},
+            "settings":{"autoMode":true}
+        })).unwrap();
+        if argv.exists() { fs::remove_file(&argv).unwrap(); }
+        let begun = native::send_from(Send {
+            teammate: Teammate {
+                id: "tm_wren".into(),
+                name: "Wren".into(),
+                role: String::new(),
+                runtime: Some("claude".into()),
+                model: None,
+                account: None,
+                busy: false,
+                runs_in: "auto".into(),
+                folder: Some(folder.to_string_lossy().into_owned()),
+            },
+            conversation: None,
+            prompt: "Say OK.".into(),
+            model: None,
+            effort: None,
+        }, Origin {
+            slot: sealed.then(|| SlotOrigin { key: "slot:no-connectors".into(), sealed, ..Default::default() }),
+            ..Default::default()
+        }).unwrap_or_else(|e| panic!("{case}: {e}"));
+        let until = Instant::now() + crate::load_waits::UNDER_LOAD;
+        while native::owns(&begun.conversation_id) {
+            assert!(Instant::now() < until, "{case}: the fake Claude did not finish");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let flags: Vec<String> = serde_json::from_slice(&fs::read(&argv).expect(case)).unwrap();
+        assert_eq!(after(&flags, "--permission-mode"), "bypassPermissions", "{case}: {flags:?}");
+        assert_eq!(count(&flags, "--strict-mcp-config"), usize::from(strict), "{case}: {flags:?}");
+        assert_eq!(count(&flags, "--mcp-config"), 0, "{case}: {flags:?}");
+        assert_eq!(count(&flags, "--allowedTools"), 0, "{case}: {flags:?}");
+    }
 }
 
 // Electron's second half, "where nothing was said", has no Rust form: the option is a plain yes or no, and no is the
