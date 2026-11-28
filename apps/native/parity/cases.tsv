@@ -662,12 +662,12 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
-apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is a script that parses, and so is its cancel	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is a script that parses, and so is its cancel	yes
 apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	finds the viewer's frame showing the page, and no other	no
-apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	reads a pick, and lets go of one that never comes	no
-apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is kept to its shape and its bounds	no
-apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	names the file and the part, and quotes its code	no
-apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	counts what it leaves out, and a fence in the code cannot close the quote	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	reads a pick, and lets go of one that never comes	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is kept to its shape and its bounds	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	names the file and the part, and quotes its code	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	counts what it leaves out, and a fence in the code cannot close the quote	yes
 apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is the part inside the frame, in the window’s pixels at its zoom	yes
 apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is cut to what the frame shows, and is none when nothing of it is	yes
 apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker script parses	yes
@@ -4152,7 +4152,7 @@ apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	never reaches a turn
 apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is what its runtime's row in Settings shows, from its newest run	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
-apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	leaves a changed page and any other new file folded, as before	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
@@ -7145,10 +7145,10 @@ packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	comes 
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	sits between a run's events without disturbing their numbering	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is refused on a mission written before version 20, which its own readers would stop at	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 20	yes
-packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer or an answerer it does not know	no
+packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer or an answerer it does not know	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	keeps an answer by an earlier Always on a v21 mission, beside the card that gave it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer by an earlier Always on a v20 mission, whose readers would stop at it	no
-packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	reads an answer by an earlier Always in a v20 file as damage, not as an answer	no
+packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	reads an answer by an earlier Always in a v20 file as damage, not as an answer	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is bounded by the host the way the reader accepts it	no
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	comes back from the file exactly as written	yes
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	keeps the file walkable after it: a later record still reads	yes
