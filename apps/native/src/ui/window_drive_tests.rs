@@ -3525,7 +3525,7 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
 /// after the person's words as page content with its picture attached, and the box is empty after.
 #[test]
 fn a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box() {
-    let (_dirs, store, mut rt) = window_in("accept-edits");
+    let (_dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-review-notes"));
     let raw = serde_json::json!({
         "selector": "button#save", "html": "<button id=\"save\">Save</button><input value=\"typed-in\">", "htmlLength": 56,
