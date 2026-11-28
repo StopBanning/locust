@@ -1197,11 +1197,14 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
     if let Some(cards) = crate::published_cards::cards(s, body, p) {
         out = out.child(cards);
     }
-    // Inline file spans are also available as explicit file controls.
+    // Inline file spans are also available as explicit file controls: a span Electron treats as a path
+    // (`looksLikeFilePath`, shared/file-menu.ts: a slash, no whitespace, no scheme), never any dotted code. A reply
+    // quoting `1.0`, `s.frame_clock = now` or a git status line drew each as a file row (live look, 28 Nov).
     let paths = crate::invariants::regex(r"`([^`\n]+)`");
     let mut seen = std::collections::HashSet::new();
     for cap in paths.captures_iter(body) {
         if let Some(raw) = cap.get(1)
+            && crate::file_menu::looks_like_file_path(raw.as_str())
             && let Some(target) = file_target(raw.as_str())
             && seen.insert(raw.as_str())
         {
@@ -1542,3 +1545,7 @@ mod settled_text_tests;
 #[cfg(test)]
 #[path = "reply_copy_tests.rs"]
 mod reply_copy_tests;
+
+#[cfg(test)]
+#[path = "reply_file_rows_tests.rs"]
+mod reply_file_rows_tests;
