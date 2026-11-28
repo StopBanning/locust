@@ -17,13 +17,18 @@ fn button(label: &str, p: &Palette) -> El {
 pub(super) struct Panel {
     pub(super) states: HashMap<String, UndoState>,
     pub(super) asking: Option<String>,
+    pub(super) resume_attempt: Option<crate::recovery_card::Attempt>,
+    undoing: bool,
+    refusal: Option<(PathBuf, String, String)>,
     asked: Option<(PathBuf, Vec<String>, bool)>,
     tries: u32,
     last_ask: Option<Instant>,
 }
 
-/// The folder and each asked turn's state.
-pub(super) type Answer = (PathBuf, Vec<(String, UndoState)>);
+pub(super) enum Answer {
+    States(PathBuf, Vec<(String, UndoState)>),
+    Undo(PathBuf, String, Result<serde_json::Value, String>),
+}
 
 fn folder(s: &State) -> Option<PathBuf> {
     selected_conversation(s).and_then(|(t, _)| t.folder.as_deref()).map(PathBuf::from)
@@ -35,6 +40,10 @@ fn turns(s: &State) -> Vec<String> {
 
 fn ask(s: &mut State, folder: PathBuf, ids: Vec<String>) {
     s.turn_undo.last_ask = Some(Instant::now());
+    // setup gives the pet redraws the same window waker the other jobs use.
+    if let Some(wake) = s.pet_faces.waker.borrow().clone() {
+        s.turn_undo_job.set_waker(wake);
+    }
     let store = locust_core::native::store();
     s.turn_undo_job.request((folder, ids, store), |(folder, ids, store)| {
         let states = ids
@@ -44,7 +53,22 @@ fn ask(s: &mut State, folder: PathBuf, ids: Vec<String>) {
                 (id, state)
             })
             .collect();
-        (folder, states)
+        Answer::States(folder, states)
+    });
+}
+
+fn undo(s: &mut State, folder: PathBuf, run: String) {
+    if s.turn_undo.undoing || s.undo_job.is_pending() {
+        return;
+    }
+    s.turn_undo.undoing = true;
+    s.turn_undo.refusal = None;
+    let store = locust_core::native::store();
+    s.turn_undo_job.request((folder, run, store), |(folder, run, store)| {
+        let answer = store.ok_or_else(|| "No native store".to_owned()).and_then(|store| {
+            checkpoints::undo(&store, &folder, &run).map_err(|e| e.to_string())
+        });
+        Answer::Undo(folder, run, answer)
     });
 }
 
@@ -52,12 +76,24 @@ fn ask(s: &mut State, folder: PathBuf, ids: Vec<String>) {
 /// its record is written, so the latest turn is asked again every 750 ms, up to 20 times, while it offers nothing.
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = false;
-    if let Some((folder, states)) = s.turn_undo_job.take()
-        && s.turn_undo.asked.as_ref().is_some_and(|(f, _, _)| *f == folder)
-    {
-        s.turn_undo.tries += 1;
-        s.turn_undo.states.extend(states);
-        changed = true;
+    match s.turn_undo_job.take() {
+        Some(Answer::States(folder, states)) if s.turn_undo.asked.as_ref().is_some_and(|(f, _, _)| *f == folder) => {
+            s.turn_undo.tries += 1;
+            s.turn_undo.states.extend(states);
+            changed = true;
+        }
+        Some(Answer::Undo(folder, run, answer)) => {
+            s.turn_undo.undoing = false;
+            match answer {
+                Ok(receipt) => heard(s, &run, &receipt),
+                Err(why) => s.turn_undo.refusal = Some((folder, run, why)),
+            }
+            changed = true;
+        }
+        _ => {}
+    }
+    if s.turn_undo.undoing {
+        return changed;
     }
     let Some(folder) = folder(s) else { return changed };
     let ids = turns(s);
@@ -125,27 +161,37 @@ pub(super) fn view(s: &State, mission: &str, scope: &str, p: &Palette) -> Option
             }
             let files = if *files == 1 { "1 file".to_owned() } else { format!("{files} files") };
             let too_large = if not_kept.is_empty() { String::new() } else { format!(" Too large to have been kept: {}.", not_kept.join(", ")) };
-            let working = s.undo_job.is_pending();
+            let working = s.turn_undo.undoing || s.undo_job.is_pending();
             let folder = folder(s);
-            Some(
-                col()
-                    .w_full()
-                    .gap(6.0)
-                    .key(format!("{scope}/undo"))
-                    .role("group")
-                    .label("Undo this turn's changes")
-                    .child(text(format!("Put back the {files} this turn changed, as they were before it? A file changed since is left as it is.{too_large}")).font(type_::LABEL).color(p.text).w_full().wrap())
-                    .child(
-                        row()
-                            .gap(6.0)
-                            .child(button(if working { "Undoing\u{2026}" } else { "Undo" }, p).key(format!("{scope}/undo-go")).on_press(move |s: &mut State| {
-                                if let Some(folder) = folder.clone() {
-                                    crate::changes_panel::undo_turn_in(s, folder, run.clone());
-                                }
-                            }))
-                            .child(button("Keep them", p).key(format!("{scope}/undo-keep")).on_press(|s: &mut State| s.turn_undo.asking = None)),
-                    ),
-            )
+            let refusal = s.turn_undo.refusal.as_ref().filter(|(asked_folder, id, _)| {
+                id == mission && folder.as_ref() == Some(asked_folder)
+            });
+            let mut card = col()
+                .w_full()
+                .gap(6.0)
+                .key(format!("{scope}/undo"))
+                .role("group")
+                .label("Undo this turn's changes")
+                .child(text(format!("Put back the {files} this turn changed, as they were before it? A file changed since is left as it is.{too_large}")).font(type_::LABEL).color(p.text).w_full().wrap())
+                .child(
+                    row()
+                        .gap(6.0)
+                        .child(button(if working { "Undoing\u{2026}" } else { "Undo" }, p).key(format!("{scope}/undo-go")).disabled(working).on_press(move |s: &mut State| {
+                            if let Some(folder) = folder.clone() {
+                                undo(s, folder, run.clone());
+                            }
+                        }))
+                        .child(button("Keep them", p).key(format!("{scope}/undo-keep")).disabled(working).on_press(|s: &mut State| {
+                            if !s.turn_undo.undoing {
+                                s.turn_undo.asking = None;
+                                s.turn_undo.refusal = None;
+                            }
+                        })),
+                );
+            if let Some((_, _, why)) = refusal {
+                card = card.child(text(format!("Undo could not finish: {why}")).key(format!("{scope}/undo-refusal")).role("alert").color(p.text).w_full().wrap());
+            }
+            Some(card)
         }
     }
 }
