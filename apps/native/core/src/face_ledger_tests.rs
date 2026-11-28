@@ -648,7 +648,7 @@ fn a_thinking_face_looks_up_and_to_both_sides() {
     assert!(looking.iter().all(|l| l.pitch > 0.0));
 }
 
-// "is at rest on a still bot, drawn at second 0: the head where the rig has it, the dots where they hold".
+// case: is at rest on a still bot, drawn at second 0 (reduced motion holds still): the head where the rig has it, the dots where they hold
 #[test]
 fn a_thinking_face_is_at_rest_on_a_still_bot_drawn_at_second_0() {
     assert_eq!(thinking_glance(0.0).mix, 0.0);
@@ -658,7 +658,7 @@ fn a_thinking_face_is_at_rest_on_a_still_bot_drawn_at_second_0() {
     assert_eq!(glyph_motion("••", 1, 0.0), glyph_motion("••", 0, 0.0));
 }
 
-// "replaces the rig's heading as its mix rises, rather than adding a second turn to it".
+// case: replaces the rig's heading as its mix rises, rather than adding a second turn to it
 #[test]
 fn a_thinking_glance_replaces_the_rigs_heading_as_its_mix_rises() {
     let rig = pose(|p| {

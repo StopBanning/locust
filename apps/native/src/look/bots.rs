@@ -455,7 +455,8 @@ fn paint_glyph_at(
         return s;
     };
     if glyph == "•" {
-        let (line, weight) = locust_core::bot_spec::blinking_dot(1.0 - open_y);
+        let closing = ((1.0 - open_y) / 0.92).clamp(0.0, 1.0);
+        let (line, weight) = locust_core::bot_spec::blinking_dot(closing);
         let points = vec![map_pt([cx + line[0] * eye_scale, cy + line[1] * eye_scale]),
             map_pt([cx + line[2] * eye_scale, cy + line[3] * eye_scale])];
         let w = (weight as f32 * eye_scale as f32 * stroke_scale * 0.65).max(0.6);
@@ -644,7 +645,7 @@ fn draw_screen_light(
             continue;
         }
         let gpos = [pos[0] + gm.dx * eye_scale, pos[1] + gm.dy * eye_scale];
-        let eff_open = (open * (1.0 - shut * 0.9)).max(0.08);
+        let eff_open = 1.0 - 0.92 * (1.0 - open.clamp(0.0, 1.0)).max(shut.clamp(0.0, 1.0));
         s = paint_glyph_at(
             s,
             glyph,
@@ -749,12 +750,21 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
     s = draw_chest_mark(s, &outline, &vt, &body_css);
 
     // Visor & Face expressions in 0..100 face space.
-    let gaze_x = (pose.look_x + spec.snap.lag_x * 0.25).clamp(-1.3, 1.3) * 3.2;
-    let gaze_y = (pose.look_y + spec.snap.lag_y * 0.25).clamp(-1.1, 1.1) * 2.4;
+    // On a screen face (Bot.tsx 1472-1482), the rig's look turns the head, not the eyes on the glass;
+    // only a hop's vertical lag moves them slightly. Plastic faces keep their gaze offset.
+    let (visor_gx, visor_gy, eye_gx, eye_gy) = if spec.snap.screen {
+        (0.0, 0.0, 0.0, (spec.snap.lag_y * 0.25).clamp(-1.1, 1.1) * 2.4)
+    } else {
+        let gx = (pose.look_x + spec.snap.lag_x * 0.25).clamp(-1.3, 1.3) * 3.2;
+        let gy = (pose.look_y + spec.snap.lag_y * 0.25).clamp(-1.1, 1.1) * 2.4;
+        (gx * 0.35, gy * 0.35, gx, gy)
+    };
+    let gaze_x = eye_gx;
+    let gaze_y = eye_gy;
     let visor = visor_of(&outline, spec.face);
     let visor_pts_100: Vec<[f64; 2]> = visor_outline(visor)
         .into_iter()
-        .map(|[vx, vy]| [outline.face_x + vx * outline.face_scale + gaze_x * 0.35, outline.face_y + vy * outline.face_scale + gaze_y * 0.35])
+        .map(|[vx, vy]| [outline.face_x + vx * outline.face_scale + visor_gx, outline.face_y + vy * outline.face_scale + visor_gy])
         .collect();
     let visor_poly = transform_poly(&visor_pts_100, &vt, 0.0);
 
@@ -767,8 +777,17 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
         outline.face_x + gaze_x + eye_sep,
         outline.face_y + visor.y * outline.face_scale - 1.0 + gaze_y,
     ];
-    let open_l = (pose.eye_open * (1.0 - pose.blink_l) * (1.0 - spec.snap.shut)).clamp(0.05, 1.0);
-    let open_r = (pose.eye_open * (1.0 - pose.blink_r) * (1.0 - spec.snap.shut)).clamp(0.05, 1.0);
+    let (open_l, open_r) = if spec.snap.screen {
+        (
+            (pose.eye_open * (1.0 - pose.blink_l)).clamp(0.0, 1.0),
+            (pose.eye_open * (1.0 - pose.blink_r)).clamp(0.0, 1.0),
+        )
+    } else {
+        (
+            (pose.eye_open * (1.0 - pose.blink_l) * (1.0 - spec.snap.shut)).clamp(0.05, 1.0),
+            (pose.eye_open * (1.0 - pose.blink_r) * (1.0 - spec.snap.shut)).clamp(0.05, 1.0),
+        )
+    };
 
     if spec.snap.screen {
         let pair = spec
@@ -1332,7 +1351,7 @@ pub fn draw_puppet_shape(spec: &PuppetDrawSpec<'_>) -> Shape {
         let x = x.signum() * (x.abs() * larger).min(room_x - reach_x * scale);
         [glass.x + glass.w / 2.0 + x / u, glass.y + glass.h / 2.0 + y / u]
     };
-    let open = 1.0 - 0.92 * spec.pose.blink_l.max(spec.pose.blink_r);
+    let open = (1.0 - spec.pose.blink_l.max(spec.pose.blink_r)).clamp(0.0, 1.0);
     draw_screen_light(
         s,
         &poly,
@@ -1618,3 +1637,7 @@ mod screen_switches_tests;
 #[cfg(test)]
 #[path = "buddy_screen_drawn_tests.rs"]
 mod buddy_screen_drawn_tests;
+
+#[cfg(test)]
+#[path = "thinking_face_eyes_tests.rs"]
+mod thinking_face_eyes_tests;
