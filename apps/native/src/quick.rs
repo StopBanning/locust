@@ -151,8 +151,11 @@ pub struct State {
     stream: Latest<StreamAnswer>,
     /// The system's reduced-motion setting as the last view read it: the working word stands still under it.
     reduced_motion: std::cell::Cell<bool>,
-    /// This window's clock at its last poll, in seconds: where the working word's sweep stands.
+    /// This window's clock at its last poll, in seconds, taken to the start of its step: where the working word's sweep
+    /// stands.
     frame_clock: f64,
+    /// The sweep's next step this window has a wake for (`working_shimmer::next_step_wake`).
+    sweep_wake: Option<i64>,
 }
 
 impl Default for State {
@@ -183,6 +186,7 @@ impl Default for State {
             stream: Latest::default(),
             reduced_motion: std::cell::Cell::new(false),
             frame_clock: 0.0,
+            sweep_wake: None,
         }
     }
 }
@@ -888,12 +892,16 @@ fn arm_deadline(s: &State, now: Instant, tx: &mut Tx) {
 }
 
 fn poll(s: &mut State, clock: f64, tx: &mut Tx) -> bool {
-    s.frame_clock = clock;
+    let stood = s.frame_clock;
+    s.frame_clock = crate::working_shimmer::on_step(clock);
     let changed = poll_at(s, tx, Instant::now());
-    // The working word's sweep moves on the main window's cadence (main.rs, `working_shimmer::FRAME_MS`).
+    // The working word's sweep moves on the main window's steps (main.rs, `working_shimmer::next_step_wake`): one wake
+    // a step, and a rebuild only when the step moved.
     if sweeping(s) {
-        tx.wake_after(Duration::from_millis(crate::working_shimmer::FRAME_MS));
-        return true;
+        if let Some(wake) = crate::working_shimmer::next_step_wake(clock, &mut s.sweep_wake) {
+            tx.wake_after(wake);
+        }
+        return changed || s.frame_clock != stood;
     }
     changed
 }
@@ -2179,6 +2187,65 @@ mod tests {
             assert!(rt.find("quick-working-word").is_some(), "the working line is drawn");
             assert_eq!(WORD_STANDS_STILL.with(std::cell::Cell::get), Some(reduced), "less motion asked: {reduced}");
         }
+    }
+
+    /// Quick Ask framed as its host frames it, from a fresh working window, for two seconds of window time, after
+    /// `extra` frames put in between two of the sweep's steps: (frames, rebuilds).
+    fn working_window_frames(extra: usize) -> (u32, u64) {
+        let mut s = working(Instant::now());
+        s.demo = false;
+        let mut rt = rune::Runtime::new(s, |s, cx| view(s, cx), (WIDTH, 420.0), rune::Env::new(true, 1.0));
+        rt.poll = Some(poll);
+        rt.frame(0.0);
+        let mut clock = 0.0;
+        let mut frame_at = |rt: &mut rune::Runtime<State>, clock: &mut f64, at: f64| {
+            rt.frame(at - *clock);
+            *clock = at;
+        };
+        let next = |rt: &rune::Runtime<State>, clock: f64| rt.wake_deadline().map_or(clock + 0.25, |w| w.max(clock + 0.016_667));
+        while clock < 0.5 {
+            let at = next(&rt, clock);
+            frame_at(&mut rt, &mut clock, at);
+        }
+        for _ in 0..extra {
+            let at = (clock + 0.007).min(next(&rt, clock) - 0.001).max(clock + 0.001);
+            frame_at(&mut rt, &mut clock, at);
+            let at = next(&rt, clock);
+            frame_at(&mut rt, &mut clock, at);
+        }
+        let (start, commits, mut frames) = (clock, rt.stats.commits, 0);
+        while clock - start < 2.0 {
+            let at = next(&rt, clock);
+            frame_at(&mut rt, &mut clock, at);
+            frames += 1;
+        }
+        assert!(sweeping(&rt.state), "the word sweeps throughout");
+        (frames, rt.stats.commits - commits)
+    }
+
+    // speed-3 row 1: one wake a step of the sweep, and a rebuild only when the step moved. A wake asked 50 ms from
+    // every poll started a chain of its own at each frame between two steps.
+    #[test]
+    fn the_working_word_rebuilds_once_a_step_however_often_quick_ask_frames() {
+        let _engine = locust_core::native::hooks::no_saved_rules();
+        let (frames, commits) = working_window_frames(0);
+        assert!(commits <= 42, "{commits} rebuilds in two seconds: a poll between steps rebuilt Quick Ask");
+        assert!(commits >= 36, "the word still steps: {commits} rebuilds in two seconds");
+        let (frames_after, commits_after) = working_window_frames(3);
+        assert!(frames_after <= frames + 2, "{frames_after} frames after three extra frames, {frames} with none: a wake chain");
+        assert!(commits_after <= 42, "{commits_after} rebuilds after three extra frames");
+        // Framed every 10 ms (something else drawing all the while), it still rebuilds only when the step moves.
+        let mut s = working(Instant::now());
+        s.demo = false;
+        let mut rt = rune::Runtime::new(s, |s, cx| view(s, cx), (WIDTH, 420.0), rune::Env::new(true, 1.0));
+        rt.poll = Some(poll);
+        rt.frame(0.0);
+        let commits = rt.stats.commits;
+        for _ in 0..200 {
+            rt.frame(0.01);
+        }
+        let rebuilt = rt.stats.commits - commits;
+        assert!(rebuilt <= 42, "{rebuilt} rebuilds in 200 frames over two seconds: a frame inside a step rebuilt Quick Ask");
     }
 
     #[test]

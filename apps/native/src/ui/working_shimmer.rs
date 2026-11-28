@@ -15,6 +15,35 @@ pub(crate) const DIM: f32 = 0.34;
 /// 50 ms moves it about one character: faster would redraw the window for nothing a person can see.
 pub(crate) const FRAME_MS: u64 = 50;
 
+/// The band's and the sweep's steps a second: they stand on a grid of `FRAME_MS` steps of the window's clock, so a
+/// frame between two steps draws them where the last step put them, and only a new step moves them (speed-3 row 1).
+const STEPS: f64 = 1000.0 / FRAME_MS as f64;
+/// A clock within this of a step is at it: a wake asked for a step lands there to within Rune's clock arithmetic.
+const AT_STEP: f64 = 1e-6;
+
+/// The step the window's clock `now` stands in.
+pub(crate) fn step(now: f64) -> i64 {
+    ((now + AT_STEP) * STEPS).floor() as i64
+}
+
+/// Where the band and the sweep stand at `now`: the start of its step, on the window's own clock.
+pub(crate) fn on_step(now: f64) -> f64 {
+    step(now) as f64 / STEPS
+}
+
+/// The wake for the next step, unless one is asked for already (`asked`, the step it was asked for). Every poll while
+/// the band moves comes here, but the window holds one wake a step: a wake asked 50 ms from each poll started a chain
+/// of its own at every frame between two steps (a hover, a landing reply), and the chains never met, so a running row
+/// framed and rebuilt the window up to 60 times a second (speed-3 row 0).
+pub(crate) fn next_step_wake(now: f64, asked: &mut Option<i64>) -> Option<std::time::Duration> {
+    let next = step(now) + 1;
+    if asked.is_some_and(|step| step >= next) {
+        return None;
+    }
+    *asked = Some(next);
+    Some(std::time::Duration::from_secs_f64((next as f64 / STEPS - now).max(0.0)))
+}
+
 /// The gradient at `u` across its image (`dim 0%, dim 32%, primary 50%, dim 68%, dim 100%`).
 fn gradient(u: f64) -> f32 {
     let off = (u - 0.5).abs();

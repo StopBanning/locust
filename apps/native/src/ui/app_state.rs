@@ -362,9 +362,11 @@ pub(super) struct State {
     /// The turns running or waiting in this process at the last look: when the set changes (a turn another app started
     /// through the door, one ending), the recent list is read again so the sidebar and Board show it.
     pub(super) seen_live: Vec<String>,
-    /// The window's clock at its last poll, in seconds (the `now` Rune hands poll): where a working row's band and the
-    /// live word's sweep stand (`working_shimmer`).
+    /// The window's clock at its last poll, in seconds (the `now` Rune hands poll), taken to the start of its step
+    /// (`working_shimmer::on_step`): where a working row's band and the live word's sweep stand.
     pub(crate) frame_clock: f64,
+    /// The band's and the sweep's next step this window has a wake for (`working_shimmer::next_step_wake`).
+    pub(crate) band_wake: Option<i64>,
     /// The mode chosen on the message box for the turns sent from here (Electron's composer mode); None is the
     /// teammate's own. Picking another teammate goes back to theirs.
     pub(super) composer_mode: Option<String>,
@@ -702,6 +704,7 @@ impl Default for State {
             finishes_due: None,
             seen_live: Vec::new(),
             frame_clock: 0.0,
+            band_wake: None,
             composer_mode: None,
             mode_menu: false,
             plus_menu: false,
