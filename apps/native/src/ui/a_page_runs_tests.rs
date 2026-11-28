@@ -256,6 +256,7 @@ fn viewer(folder: &Path, path: &str, body: &str) -> rune::Runtime<State> {
     rt
 }
 
+// case: runs a page in a sandboxed frame at its own address, with Page and Source
 #[test]
 fn runs_a_page_in_a_sandboxed_frame_at_its_own_address_with_page_and_source() {
     let (_t, work) = temp("viewer");
@@ -269,10 +270,16 @@ fn runs_a_page_in_a_sandboxed_frame_at_its_own_address_with_page_and_source() {
     press(&mut rt, "file-reader/page");
     let urls = loaded(&rt.state);
     assert_eq!(urls.len(), 1, "{urls:?} status: {}", rt.state.status);
-    // Its own address: the page's folder under a token, never the file path or the project above it.
-    assert!(urls[0].starts_with("locust-page://") && urls[0].ends_with("/index.html") && !urls[0].contains("site/"), "{urls:?}");
+    // Its own address: the page's folder under a 24-hex token, never the file path or the project above it.
+    let re = locust_core::invariants::regex(r"^locust-page://[0-9a-f]{24}/index\.html$");
+    assert!(re.is_match(&urls[0]), "{urls:?}");
+    let res = crate::invariants::lock(&rt.state.browser.host).read_preview(&urls[0]);
+    assert_eq!(res.status, 200, "body: {}", String::from_utf8_lossy(&res.body));
+    assert!(res.mime.contains("text/html"), "{}", res.mime);
+    assert_eq!(res.body, b"<h1>Corner Shop</h1>");
 }
 
+// case: runs nothing without a page address -- the same file shows as its source
 #[test]
 fn runs_nothing_without_a_page_address_the_same_file_shows_as_its_source() {
     let (_t, work) = temp("source");
@@ -282,6 +289,15 @@ fn runs_nothing_without_a_page_address_the_same_file_shows_as_its_source() {
     // Any other file has no Page at all.
     let rt = viewer(&work, "src/cart.ts", "export const x = 1");
     assert!(!keys(&rt).iter().any(|k| k == "file-reader/page"), "{:?}", keys(&rt));
+}
+
+// case: previews a new page, and only a new one
+#[test]
+fn previews_a_new_page_and_only_a_new_one() {
+    use locust_core::changes::{File, NewDocument, new_document};
+    let file = |status: &str| File { path: "C:/work/site/index.html".into(), status: status.into(), hunks: vec![] };
+    assert_eq!(new_document(&file("ADDED")), Some(NewDocument::Page));
+    assert_eq!(new_document(&file("MODIFIED")), None);
 }
 
 // R92: local page preview and comparison page previews (load-to-read + workspace confinement).
