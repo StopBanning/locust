@@ -560,6 +560,7 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
             card = card.child(match locust_core::changes::new_document(&entry.file) {
                 Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
                 Some(locust_core::changes::NewDocument::Page) => page_preview(s, &key, entry, p),
+                Some(locust_core::changes::NewDocument::Table) => compact_sheet_preview(entry, p),
                 _ => super::review_changes::file_diff_reported(s, None, false, &entry.file, entry.truncated, entry.reported, p),
             });
         }
@@ -573,6 +574,74 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
         rows = rows.child(text(err.clone()).font(type_::LABEL).color(p.amber).key(format!("{err_scope}/notice")).w_full().wrap_anywhere());
     }
     rows
+}
+
+fn compact_sheet_preview(entry: &locust_core::activity_entries::FileEntry, p: &Palette) -> El {
+    use locust_core::office::{SheetCellKind, column_name, read_csv};
+    let name = crate::file_menu::file_base_name(&entry.file.path);
+    let tsv = crate::file_menu::file_extension(&entry.file.path) == "tsv";
+    let workbook = read_csv(&name, &locust_core::changes::document_text_of(&entry.file), tsv);
+    let mut table = col().key("activity-sheet-preview").role("table").label(name).gap(2.0);
+    if let Some(sheet) = workbook.sheets.first() {
+        let header = |words: String| text(words).w(90.0).font(type_::LABEL).color(p.muted).role("columnheader");
+        let mut top = row().gap(4.0).child(el().w(26.0));
+        for n in 0..sheet.rows.first().map_or(0, Vec::len) {
+            top = top.child(header(column_name(n)));
+        }
+        table = table.child(top);
+        for (n, cells) in sheet.rows.iter().take(8).enumerate() {
+            let mut line = row().gap(4.0).role("row").child(text((n + 1).to_string()).w(26.0).font(type_::LABEL).color(p.muted).role("rowheader"));
+            for (column, cell) in cells.iter().enumerate() {
+                let number = cell.kind == SheetCellKind::Number;
+                line = line.child(text(cell.text.clone()).w(90.0).px(2.0).font(type_::LABEL).color(p.text)
+                    .align(if number { Align::End } else { Align::Start })
+                    .role("cell").key(format!("sheet-{}/{column}", if number { "number" } else { "text" })));
+            }
+            table = table.child(line);
+        }
+        let hidden = sheet.more_rows + sheet.rows.len().saturating_sub(8);
+        let columns = sheet.more_columns;
+        let mut more = Vec::new();
+        if hidden > 0 { more.push(format!("{hidden} more {}", if hidden == 1 { "row" } else { "rows" })); }
+        if columns > 0 { more.push(format!("{columns} more {}", if columns == 1 { "column" } else { "columns" })); }
+        if !more.is_empty() {
+            table = table.child(text(format!("{} not shown here.", more.join(" · "))).font(type_::LABEL).color(p.muted));
+        }
+    }
+    col().w_full().scroll_xy().child(table)
+}
+
+fn file_without_diff(item: &ledger::Item, path: &str, observed: bool, s: &State, p: &Palette, scope: &str) -> El {
+    let ledger::Item::Tool { name, status, detail, .. } = item else { return el() };
+    let teammate = selected_conversation(s).map(|(teammate, _)| teammate);
+    let folder = teammate.and_then(|teammate| teammate.folder.as_deref());
+    let shown = locust_core::path_words::display_path(path, folder);
+    let seen = observed || detail.runtime_status.contains("on disk") || detail.runtime_status.contains("from disk");
+    let runtime = teammate.and_then(|t| t.runtime.as_deref()).map(locust_core::engine::runtime_name);
+    if !seen {
+        let words = if detail.runtime_status == "result too large to keep" { "result too large to keep".into() }
+        else if *status == ledger::Status::Running { "not confirmed".into() }
+        else { runtime.map_or_else(|| "change not reported".into(), |name| format!("{name} did not report the change")) };
+        return text(format!("{shown} · {words}")).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere();
+    }
+
+    let mut line = row().key(format!("{scope}/seen/{path}")).w_full().gap(6.0).center_y()
+        .child(text(shown.clone()).font(type_::LABEL).color(p.text));
+    let tool = locust_core::activity_entries::file_tool_word(name);
+    if detail.runtime_status.starts_with("reported by the runtime") && !matches!(tool, "" | "changed" | "observed_edit" | "edit") {
+        line = line.child(text(tool.to_owned()).font(type_::LABEL).color(p.muted));
+    }
+    line = line.child(text("changed · seen on disk").font(type_::LABEL).color(p.muted));
+    if let Some(folder) = folder
+        && crate::file_menu::inside_on_disk(&std::path::Path::new(folder).join(path), &[std::path::PathBuf::from(folder)])
+    {
+        let target = crate::reply_actions::FileTarget { path: path.to_owned(), start: 0, end: 0 };
+        line = line.child(text("Open").key(format!("{scope}/seen/{path}/view")).role("button").focusable(true)
+            .label(format!("Open {}", crate::file_menu::file_base_name(path)))
+            .font(type_::LABEL).color(p.secondary)
+            .on_press(move |s: &mut State| crate::reply_actions::open_file(s, target.clone())));
+    }
+    line
 }
 
 pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: &str) -> El {
@@ -598,8 +667,8 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let default = locust_core::activity_entries::default_open(&files).map(str::to_owned);
         return file_rows(&files, default.as_deref(), p, s, scope);
     }
-    if let Some((name, _, too_large)) = locust_core::activity_entries::unreported(item) {
-        return text(format!("{name} · {}", if too_large { "result too large to keep" } else { "change not reported" })).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere();
+    if let Some((name, _, _)) = locust_core::activity_entries::unreported(item) {
+        return file_without_diff(item, name, false, s, p, scope);
     }
     let label = match item {
         ledger::Item::Tool {
@@ -852,18 +921,8 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
         for row in shown {
             card = card.child(match row {
                 locust_core::turn_foot::Row::File { entry, .. } => file_rows(std::slice::from_ref(entry), page.as_deref(), p, s, scope),
-                locust_core::turn_foot::Row::Unreported { at, path, .. } => {
-                    let settled = !matches!(&turn[*at], ledger::Item::Tool { status: ledger::Status::Running, .. });
-                    text(format!(
-                        "{} \u{b7} {}",
-                        locust_core::path_words::display_path(path, workspace),
-                        if settled { "change not reported" } else { "not confirmed" }
-                    ))
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .w_full()
-                    .wrap_anywhere()
-                }
+                locust_core::turn_foot::Row::Unreported { at, path, observed } =>
+                    file_without_diff(&turn[*at], path, *observed, s, p, scope),
             });
         }
         if capped {
@@ -956,7 +1015,7 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
                         if paths.is_empty() { group.child(activity_item_with_files(&items[i], p, s, scope, entries.iter().filter(|(at,_)| *at==i).map(|(_,f)|f.clone()).collect())) }
                         else {
                             let mut rows = col().w_full().gap(4.0);
-                            for path in paths { rows = rows.child(text(format!("{} · change not reported", locust_core::path_words::display_path(&path, selected_conversation(s).and_then(|(t, _)| t.folder.as_deref())))).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere()); }
+                            for path in paths { rows = rows.child(file_without_diff(&items[i], &path, false, s, p, scope)); }
                             group.child(rows)
                         }
                     },
@@ -1636,3 +1695,7 @@ mod command_took_tests;
 #[cfg(test)]
 #[path = "antigravity_rows_read_like_claude_tests.rs"]
 mod antigravity_rows_read_like_claude_tests;
+
+#[cfg(test)]
+#[path = "blockers1_sheet_fold_tests.rs"]
+mod blockers1_sheet_fold_tests;
