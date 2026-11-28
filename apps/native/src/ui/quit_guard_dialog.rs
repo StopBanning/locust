@@ -49,17 +49,17 @@ pub(super) fn request_close(s: &mut State, tx: &mut Tx) {
         session_ending: false,
         confirmed: s.quit_guard.confirmed,
     };
+    if quit_guard::hide_to_tray_on_close(&moment, s.settings_panel.keep_running) {
+        s.quit_guard.kept_in_background = true;
+        tx.close_window();
+        return;
+    }
     if quit_guard::should_ask_before_closing(&moment) {
         let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
         let q = quit_guard::close_question(&name_refs, live_runs);
         s.quit_guard.open = true;
         s.quit_guard.message = q.message;
         s.quit_guard.detail = q.detail;
-        return;
-    }
-    if quit_guard::hide_to_tray_on_close(&moment, s.settings_panel.keep_running) {
-        s.quit_guard.kept_in_background = true;
-        tx.close_window();
         return;
     }
     s.quit_guard.quit_requested = true;
@@ -270,3 +270,7 @@ mod stay_awake_tests;
 #[cfg(test)]
 #[path = "quit_guard_cases_tests.rs"]
 mod quit_guard_cases_tests;
+
+#[cfg(test)]
+#[path = "quit_guard_parity_sweep_tests.rs"]
+mod quit_guard_parity_sweep_tests;
