@@ -1197,14 +1197,29 @@ pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<
 /// FirstLaunch.tsx's `lc-intro`: one line under the machine, centred on it (Colin, 2026-09-24: "text is way off
 /// center"), for a first run only, which lasts until the first conversation. Said once discovery has answered. Its
 /// second sentence is a promise about OpenCode's price list, withdrawn only on evidence (`free_start_still_free`).
+/// Electron `status.ts` `freeStartStillFree` on the window's discovery and model catalogue:
+/// `Yes` when a ready OpenCode lists a `-free` model, `No` only when its list was read and has
+/// none, and `Unknown` otherwise so the first-launch promise is never weakened without evidence.
+fn free_start_for(s: &State) -> locust_core::home_order::FreeStart {
+    let found = s.settings_panel.agents.as_deref().unwrap_or_default();
+    let opencode_ready = found
+        .iter()
+        .any(|f| f.id == locust_core::agents::FREE_START_RUNTIME && f.status == locust_core::agents::Probe::Ready);
+    let listed = s
+        .models
+        .values()
+        .flatten()
+        .filter(|a| a.runtime == locust_core::agents::FREE_START_RUNTIME)
+        .flat_map(|a| a.models.iter().map(|m| m.id.as_str()));
+    locust_core::home_order::free_start_still_free(opencode_ready, listed)
+}
+
 fn intro_line(s: &State) -> Option<String> {
-    let found = s.settings_panel.agents.as_ref()?;
+    let _found = s.settings_panel.agents.as_ref()?;
     if !(s.teammates.is_empty() || s.recent.is_empty()) {
         return None;
     }
-    let opencode_ready = found.iter().any(|f| f.id == locust_core::agents::FREE_START_RUNTIME && f.status == locust_core::agents::Probe::Ready);
-    let listed = s.models.values().flatten().filter(|a| a.runtime == locust_core::agents::FREE_START_RUNTIME).flat_map(|a| a.models.iter().map(|m| m.id.as_str()));
-    Some(match locust_core::home_order::free_start_still_free(opencode_ready, listed) {
+    Some(match free_start_for(s) {
         locust_core::home_order::FreeStart::No => boot_view::INTRO,
         _ => boot_view::INTRO_WITH_FREE,
     }.to_owned())
@@ -3059,3 +3074,7 @@ mod home_issue_starter_tests {
 #[cfg(test)]
 #[path = "home_folder_strip_tests.rs"]
 mod home_folder_strip_tests;
+
+#[cfg(test)]
+#[path = "home_free_promise_tests.rs"]
+mod home_free_promise_tests;
