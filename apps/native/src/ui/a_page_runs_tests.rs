@@ -222,3 +222,172 @@ fn runs_nothing_without_a_page_address_the_same_file_shows_as_its_source() {
     let rt = viewer(&work, "src/cart.ts", "export const x = 1");
     assert!(!keys(&rt).iter().any(|k| k == "file-reader/page"), "{:?}", keys(&rt));
 }
+
+// R92: local page preview and comparison page previews (load-to-read + workspace confinement).
+
+fn compare_record(id: &str, changes_in: Option<locust_core::compare::ChangesIn>, kept: Option<locust_core::compare::CompareSlotId>) -> locust_core::compare::Compare {
+    use locust_core::compare::{Compare, CompareKept, CompareRoute, CompareSlot, CompareSlotId};
+    Compare {
+        compare_id: id.into(),
+        teammate_id: None,
+        prompt: "Build a page".into(),
+        created_at: "2026-11-27T00:00:00Z".into(),
+        slots: vec![
+            CompareSlot { slot: CompareSlotId::A, route: CompareRoute::new("claude", "sonnet"), mission_ids: vec!["m_a".into()], refused: None, retried: vec![], folder: None },
+            CompareSlot { slot: CompareSlotId::B, route: CompareRoute::new("codex", "o3"), mission_ids: vec!["m_b".into()], refused: None, retried: vec![], folder: None },
+        ],
+        changes: true,
+        changes_in,
+        blind: false,
+        kept: kept.map(|slot| CompareKept { slot, at: "2026-11-27T00:01:00Z".into(), brought: Some(vec!["index.html".into()]) }),
+        judge: None,
+        base: None,
+        rerun_of: None,
+        reruns: vec![],
+        settled: true,
+        point_drafts: vec![],
+    }
+}
+
+#[test]
+fn comparison_copy_page_loads_and_serves_through_host_read_preview() {
+    use locust_core::compare::{ChangesIn, CompareSlotId};
+    let (_t, root) = temp("cmp-copy");
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let folder = root.join("project");
+    std::fs::create_dir_all(&folder).unwrap();
+    let copy_a = locust_core::compare_copies::compare_root(&store).join("cmp_page1-a");
+    std::fs::create_dir_all(&copy_a).unwrap();
+    std::fs::write(copy_a.join("index.html"), "<h1>Copy Column A</h1>").unwrap();
+
+    let mut s = state(&folder);
+    s.data = Some(store);
+    s.compare.compares = vec![compare_record("cmp_page1", Some(ChangesIn::Copy), None)];
+    s.compare.active_id = Some("cmp_page1".into());
+    s.compare.loaded = true;
+
+    crate::compare_view::preview_column_page(&mut s, CompareSlotId::A, "index.html");
+    assert_eq!(s.compare.problem, None);
+    // The next browser poll populates data_root & workspace before WKWebView reads the scheme URL.
+    crate::browser_panel::poll(&mut s, &mut Tx::default());
+    let urls = loaded(&s);
+    assert_eq!(urls.len(), 1, "{urls:?}");
+    let res = crate::invariants::lock(&s.browser.host).read_preview(&urls[0]);
+    assert_eq!(res.status, 200, "body: {}", String::from_utf8_lossy(&res.body));
+    assert_eq!(res.body, b"<h1>Copy Column A</h1>");
+}
+
+#[test]
+fn comparison_worktree_from_home_folder_and_kept_column_serve_while_discarded_column_is_refused() {
+    use locust_core::compare::CompareSlotId;
+    let (_t, root) = temp("cmp-home");
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let folder = root.join("project");
+    let wt_a = folder.join(".locust/compare/cmp_page2-a");
+    std::fs::create_dir_all(&wt_a).unwrap();
+    std::fs::write(wt_a.join("index.html"), "<h1>Home Worktree A</h1>").unwrap();
+
+    // No teammate selected — comparison launched from Home with only s.home.folder_path set.
+    let mut s = State::default();
+    s.data = Some(store.clone());
+    s.home.folder_path = Some(folder.to_string_lossy().into_owned());
+    s.compare.compares = vec![compare_record("cmp_page2", None, None)];
+    s.compare.active_id = Some("cmp_page2".into());
+    s.compare.loaded = true;
+
+    crate::compare_view::preview_column_page(&mut s, CompareSlotId::A, "index.html");
+    assert_eq!(s.compare.problem, None);
+    crate::browser_panel::poll(&mut s, &mut Tx::default());
+    let urls = loaded(&s);
+    assert_eq!(urls.len(), 1, "{urls:?}");
+    let res = crate::invariants::lock(&s.browser.host).read_preview(&urls[0]);
+    assert_eq!(res.status, 200, "body: {}", String::from_utf8_lossy(&res.body));
+    assert_eq!(res.body, b"<h1>Home Worktree A</h1>");
+
+    // After Keep removes the copies, the kept column (A) serves from the folder and non-kept (B) is refused.
+    std::fs::remove_dir_all(&wt_a).unwrap();
+    std::fs::write(folder.join("index.html"), "<h1>Kept In Folder</h1>").unwrap();
+    s.compare.compares = vec![compare_record("cmp_page2", None, Some(CompareSlotId::A))];
+    crate::invariants::lock(&s.browser.host).tabs[0].commands.clear();
+
+    crate::compare_view::preview_column_page(&mut s, CompareSlotId::A, "index.html");
+    assert_eq!(s.compare.problem, None);
+    let kept_urls = loaded(&s);
+    assert_eq!(kept_urls.len(), 1);
+    let kept_res = crate::invariants::lock(&s.browser.host).read_preview(&kept_urls[0]);
+    assert_eq!(kept_res.status, 200);
+    assert_eq!(kept_res.body, b"<h1>Kept In Folder</h1>");
+
+    crate::invariants::lock(&s.browser.host).tabs[0].commands.clear();
+    crate::compare_view::preview_column_page(&mut s, CompareSlotId::B, "index.html");
+    assert_eq!(
+        s.compare.problem.as_deref(),
+        Some("Its copy was removed when you kept another model, so this page is no longer on this computer.")
+    );
+    assert!(loaded(&s).is_empty());
+}
+
+#[test]
+fn file_viewer_page_uses_workspace_json_fallback_refuses_outside_and_stays_confined_when_workspace_changes() {
+    let (_t, root) = temp("viewer-confinement");
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let folder_a = root.join("folder-a");
+    let folder_b = root.join("folder-b");
+    let outside = root.join("outside");
+    std::fs::create_dir_all(folder_a.join("site")).unwrap();
+    std::fs::create_dir_all(&folder_b).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(folder_a.join("site/index.html"), "<h1>Workspace A</h1>").unwrap();
+    std::fs::write(outside.join("secret.html"), "<h1>Secret</h1>").unwrap();
+    // Teammate has no folder on its record; workspace.json supplies folder_a.
+    std::fs::create_dir_all(store.electron()).unwrap();
+    std::fs::write(
+        store.electron().join("workspace.json"),
+        serde_json::json!({"schemaVersion": 1, "path": folder_a.to_string_lossy()}).to_string(),
+    )
+    .unwrap();
+
+    let mut s = State::default();
+    s.data = Some(store);
+    s.teammates.push(crate::Teammate {
+        id: "tm".into(),
+        name: "Codec".into(),
+        role: "Custom".into(),
+        model: None,
+        runtime: Some("opencode".into()),
+        folder: None,
+        runs_in: "ask".into(),
+        account: None,
+        busy: false,
+    });
+    s.conversations.insert("tm".into(), Default::default());
+    s.file_view = Some((
+        reply_actions::FileTarget { path: "site/index.html".into(), start: 1, end: 1 },
+        Ok("<h1>Workspace A</h1>".into()),
+    ));
+    let mut rt = rune::Runtime::new(
+        s,
+        |s, _| reply_actions::viewer(s, &Palette::new(true)).unwrap_or_else(col),
+        (800.0, 1200.0),
+        rune::Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    press(&mut rt, "file-reader/page");
+    let urls = loaded(&rt.state);
+    assert_eq!(urls.len(), 1, "status: {}", rt.state.status);
+    let url = urls[0].clone();
+    let res = crate::invariants::lock(&rt.state.browser.host).read_preview(&url);
+    assert_eq!(res.status, 200);
+    assert_eq!(res.body, b"<h1>Workspace A</h1>");
+
+    // Switching to another workspace revokes read access to Workspace A's preview address.
+    rt.state.teammates[0].folder = Some(folder_b.to_string_lossy().into_owned());
+    crate::browser_panel::poll(&mut rt.state, &mut Tx::default());
+    assert_eq!(crate::invariants::lock(&rt.state.browser.host).read_preview(&url).status, 403);
+
+    // An outside path via ../ is refused and queues no load.
+    let mut rt_outside = viewer(&folder_b, "../outside/secret.html", "<h1>Secret</h1>");
+    press(&mut rt_outside, "file-reader/page");
+    assert!(loaded(&rt_outside.state).is_empty(), "outside page must never load");
+    assert!(rt_outside.state.status.contains("outside"), "status: {}", rt_outside.state.status);
+}

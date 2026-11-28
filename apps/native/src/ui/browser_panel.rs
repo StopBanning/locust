@@ -211,15 +211,38 @@ fn keep_up(s: &mut State) -> Duration {
             }
         }
         // The folder a page may read from: looked up for a newly selected teammate at once, else with the sign-ins.
-        let key = selected_conversation(s).map(|(t, _)| (t.id.clone(), t.folder.clone()));
+        // Falls back to the home folder when comparing without a selected teammate (compare_view::active_folder).
+        let key = selected_conversation(s)
+            .map(|(t, _)| (t.id.clone(), t.folder.clone()))
+            .or_else(|| {
+                s.home
+                    .folder_path
+                    .as_ref()
+                    .filter(|f| !f.is_empty())
+                    .map(|f| (String::new(), Some(f.clone())))
+            });
         if due || key != s.browser.workspace_for {
             #[cfg(test)]
             READS.with(|n| n.set(n.get() + 1));
-            h.workspace = selected_conversation(s).and_then(|(t, _)| {
-                s.data
-                    .as_ref()
-                    .and_then(|store| native::folder_for(t, store.electron()).ok())
-            });
+            h.workspace = selected_conversation(s)
+                .and_then(|(t, _)| {
+                    s.data
+                        .as_ref()
+                        .and_then(|store| native::folder_for(t, store.electron()).ok())
+                        .or_else(|| {
+                            t.folder
+                                .as_deref()
+                                .filter(|f| !f.is_empty())
+                                .map(std::path::PathBuf::from)
+                        })
+                })
+                .or_else(|| {
+                    s.home
+                        .folder_path
+                        .as_deref()
+                        .filter(|f| !f.is_empty())
+                        .map(std::path::PathBuf::from)
+                });
             s.browser.workspace_for = key;
         }
     }
