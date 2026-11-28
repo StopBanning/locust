@@ -11,7 +11,7 @@ use crate::conversation_board::{
 use crate::folders::{self, CHOOSE_FOLDER, FOLDER_LEDE, MADE_FOLDER, NO_FOLDER_CHOSEN};
 use crate::named_folder::{self, NamedFolderContext, RealFiles};
 use crate::starters::{
-    self, COMPARE, COMPARE_MODELS, CONNECT_RUNTIME, COVER_CLAIM, NEW_TEAMMATE, PICK_ONE,
+    self, COMPARE, COMPARE_MODELS, COVER_CLAIM, NEW_TEAMMATE,
     START_A_CONVERSATION, START_FROM_ISSUE, START_WITH_A_TEAM, TEAM_FROM_IMAGE, TEAM_TEMPLATES,
     YOUR_TEAM,
 };
@@ -1527,15 +1527,19 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         if let Some(scout) = crate::scout_cards::home_section(s, &l) {
             body = body.child(scout);
         }
-        body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
+        let tight = s.home.fit.tight;
+        let card_py = if tight { 8.0 } else { 12.0 };
+        let grid_gap = if tight { 8.0 } else { 10.0 };
+        let mut team_sec = col().w_full().gap(if tight { 6.0 } else { 8.0 });
+        team_sec = team_sec.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
         let faces = crate::teammate_faces::views(s);
         let groups = crate::team_board::team_board(&s.teammates, |mate| teammate_section(s, &mate.id, mate.busy, mate.runtime.as_deref()));
         let grouped = groups.is_some();
         let has_ready = groups.as_ref().is_none_or(|groups| groups.iter().any(|(section, _)| *section == crate::team_board::Section::Ready));
         for (section, members) in groups.unwrap_or_else(|| vec![(crate::team_board::Section::Ready, s.teammates.iter().collect())]) {
-        if grouped { body = body.child(section_head(&l, section.title(), Some(members.len()), None)); }
-        let mut grid = row().w_full().gap(10.0).flex_wrap();
+        if grouped { team_sec = team_sec.child(section_head(&l, section.title(), Some(members.len()), None)); }
+        let mut grid = row().w_full().gap(grid_gap).flex_wrap();
         for mate in members {
             let runtime = mate.runtime.as_deref().unwrap_or("codex");
             let oc_models = s
@@ -1606,7 +1610,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             let last_worked = locust_core::home_team_state::last_worked_phrase(last_worked_at(s, &mate.id).as_deref(), chrono::Utc::now());
             let mut card = row()
                 .gap(12.0)
-                .padding(12.0)
+                .px(12.0)
+                .py(card_py)
                 .center_y()
                 .radius(10.0)
                 .fill(l.c("bg-raised"))
@@ -1662,13 +1667,14 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         if section == crate::team_board::Section::Ready && crate::scout_cards::invite_offer_active(s) {
             grid = grid.child(crate::scout_cards::invite_team_tile(&l));
         }
-        body = body.child(grid);
+        team_sec = team_sec.child(grid);
         }
         // The invitation is an action, not a Ready teammate: keep it reachable
         // even when every teammate belongs to an urgent section.
         if !has_ready && crate::scout_cards::invite_offer_active(s) {
-            body = body.child(row().w_full().gap(10.0).child(crate::scout_cards::invite_team_tile(&l)));
+            team_sec = team_sec.child(row().w_full().gap(grid_gap).child(crate::scout_cards::invite_team_tile(&l)));
         }
+        body = body.child(team_sec);
     }
 
     if !accounts_above {
@@ -1702,10 +1708,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 s.status_tone = StatusTone::Muted;
             }),
         );
-    body = body
-        .child(section_head(&l, START_A_CONVERSATION, None, Some(links)))
-        .child(text(format!("{PICK_ONE} {CONNECT_RUNTIME}")).font(l.ty.body).color(l.c("text-muted")).wrap());
-    // StarterList.tsx: two columns of rows, each its glyph and its words over a hairline.
+    // StarterList.tsx: one section with heading + two columns of rows (py 4px when tight, 9px loose).
+    let starter_py = if s.home.fit.tight { 4.0 } else { 9.0 };
     let mut list = row().w_full().gap(0.0).flex_wrap();
     for starter in starters {
         let starter_id = starter.id.clone();
@@ -1721,7 +1725,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 row()
                     .w_full()
                     .gap(12.0)
-                    .py(9.0)
+                    .py(starter_py)
                     .px(4.0)
                     .center_y()
                     .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
@@ -1752,7 +1756,13 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         let item = item.key(format!("starter-{}", starter.id));
         list = list.child(item);
     }
-    body = body.child(list);
+    body = body.child(
+        col()
+            .w_full()
+            .gap(4.0)
+            .child(section_head(&l, START_A_CONVERSATION, None, Some(links)))
+            .child(list),
+    );
 
     // What in the column does not move with the cover: the sections' own height as drawn, less the gaps between them
     // and the cover's footprint as drawn. Measured from itself, so a cover that grows never shrinks the room it was
@@ -3078,3 +3088,7 @@ mod home_folder_strip_tests;
 #[cfg(test)]
 #[path = "home_free_promise_tests.rs"]
 mod home_free_promise_tests;
+
+#[cfg(test)]
+#[path = "home_two_rows_fit_tests.rs"]
+mod home_two_rows_fit_tests;
