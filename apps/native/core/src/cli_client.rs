@@ -154,7 +154,7 @@ impl Abort {
     }
 
     /// Sleep that ends early when this is aborted.
-    fn sleep(&self, how_long: Duration) {
+    pub(crate) fn sleep(&self, how_long: Duration) {
         let until = Instant::now() + how_long;
         while !self.aborted() {
             let now = Instant::now();
@@ -264,11 +264,16 @@ fn settle(sent: &Mutex<Sent>) -> Result<(), LocalError> {
 }
 
 /// The command's connection to Locust.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LocustClient {
     profile: PathBuf,
     timeout: Duration,
+    #[cfg(test)]
+    test_call: Option<TestCall>,
 }
+
+#[cfg(test)]
+type TestCall = Arc<dyn Fn(&str, Value) -> Result<Value, LocalError> + Send + Sync>;
 
 impl LocustClient {
     pub fn new(profile: impl Into<PathBuf>) -> Self {
@@ -276,11 +281,20 @@ impl LocustClient {
     }
 
     pub fn with_timeout(profile: impl Into<PathBuf>, timeout: Duration) -> Self {
-        Self { profile: profile.into(), timeout }
+        Self { profile: profile.into(), timeout, #[cfg(test)] test_call: None }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(call: TestCall) -> Self {
+        Self { test_call: Some(call), ..Self::new(PathBuf::new()) }
     }
 
     /// One call: the connection file read fresh, one request with the token, the answer's text read as JSON.
     pub fn call(&self, name: &str, args: Value) -> Result<Value, LocalError> {
+        #[cfg(test)]
+        if let Some(call) = &self.test_call {
+            return call(name, args);
+        }
         let not_open = || local(format!("Locust is not open, or its local server is off. {SWITCH}"));
         let raw = std::fs::read_to_string(self.profile.join(CONNECTION_FILE)).map_err(|_| not_open())?;
         let (url, token) = connection_of(&raw).ok_or_else(not_open)?;
@@ -381,6 +395,10 @@ impl LocustClient {
         json!({"sessionId": session.session_id, "key": session.key})
     }
 
+    pub(crate) fn keepalive(&self, session: &CliSession) -> Result<Value, LocalError> {
+        self.call("cli/keepalive", Self::auth(session))
+    }
+
     pub fn close(&self, session: &CliSession) -> Result<Value, LocalError> {
         self.call("cli/close", Self::auth(session))
     }
@@ -393,7 +411,9 @@ impl LocustClient {
         self.call("cli/cancel", args)
     }
 
-    pub fn decide(&self, session: &CliSession, approval_id: &str, approve: bool) -> Result<Value, LocalError> {
+    /// Forward the editor's answer to its authenticated door session. Only the door may decide:
+    /// it rechecks the saved opt-in and that this card is still pending on this session's current turn.
+    pub(crate) fn answer_editor_card(&self, session: &CliSession, approval_id: &str, approve: bool) -> Result<Value, LocalError> {
         let mut args = Self::auth(session);
         args["approvalId"] = json!(approval_id);
         args["approve"] = json!(approve);
@@ -408,8 +428,34 @@ impl LocustClient {
         message: &str,
         signal: Option<&Abort>,
         on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
+        on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
+        poll: Duration,
+    ) -> Result<Ended, LocalError> {
+        self.follow(session, message, signal, on_text, on_approvals, poll, false)
+    }
+
+    pub(crate) fn prompt_owned(
+        &self,
+        session: &CliSession,
+        message: &str,
+        signal: Option<&Abort>,
+        on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
+        on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
+        poll: Duration,
+    ) -> Result<Ended, LocalError> {
+        self.follow(session, message, signal, on_text, on_approvals, poll, true)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn follow(
+        &self,
+        session: &CliSession,
+        message: &str,
+        signal: Option<&Abort>,
+        on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
         mut on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
         poll: Duration,
+        strict_owner: bool,
     ) -> Result<Ended, LocalError> {
         let aborted = || signal.is_some_and(Abort::aborted);
         if aborted() {
@@ -434,6 +480,7 @@ impl LocustClient {
             s.on_abort(Box::new(move || stop()))
         });
         let followed = (|| -> Result<Ended, LocalError> {
+            if aborted() { return Ok(Ended::Cancelled); }
             let mut start = Self::auth(session);
             start["message"] = json!(message);
             start["requestId"] = json!(request_id);
@@ -452,6 +499,11 @@ impl LocustClient {
                     return Ok(Ended::Cancelled);
                 }
                 let (turn, events, next, approvals) = poll_of(&answer).ok_or_else(unreadable)?;
+                if strict_owner && !turn.as_ref()
+                    .is_some_and(|t| t["requestId"].as_str() == Some(request_id.as_str()))
+                {
+                    return Err(unreadable());
+                }
                 for event in &events {
                     on_text(event)?;
                 }
@@ -528,7 +580,7 @@ fn poll_of(answer: &Value) -> Option<Poll> {
                 summary: a["summary"].as_str()?.to_owned(),
                 detail: a["detail"].as_str().unwrap_or_default().to_owned(),
                 cwd: a["cwd"].as_str().map(str::to_owned),
-                answer_in_locust: a["answerInLocust"] == true,
+                answer_in_locust: a["answerInLocust"] != false,
             })
         })
         .collect::<Option<Vec<_>>>()?;
