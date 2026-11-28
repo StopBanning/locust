@@ -464,6 +464,10 @@ pub enum WindowKind {
     Console,
     /// macOS: a script in the person's terminal app (`openInScriptTerminal`).
     ScriptTerminal,
+    /// A visible, detached Windows Terminal tab for a cloud copy.
+    WindowsTerminal,
+    /// A new console for a cloud copy when Windows Terminal is unavailable.
+    DetachedConsole,
 }
 
 /// A window for Claude Code: what runs, where, with which variables beyond the app's own.
@@ -500,6 +504,7 @@ pub struct ClaudeCloud<'a> {
     exec: Option<Box<dyn Fn(&str, &[String], &ExecOptions) -> ExecReply + 'a>>,
     terminal: Option<Box<dyn Fn(&PseudoTerminalRun) -> PseudoTerminalResult + 'a>>,
     run_window: Option<Box<dyn Fn(&WindowRun) -> Result<(), String> + 'a>>,
+    detached_policy: Option<Box<dyn Fn() -> crate::org_policy::PolicyState + 'a>>,
     git_changes: Box<dyn Fn(&str) -> Option<usize> + 'a>,
     git: Box<dyn Fn(&[&str], &str, Option<&str>) -> GitRan + 'a>,
     claude_home: PathBuf,
@@ -525,6 +530,7 @@ impl<'a> ClaudeCloud<'a> {
             exec: None,
             terminal: None,
             run_window: None,
+            detached_policy: None,
             git_changes: Box::new(git_changes_in),
             git: Box::new(git_run),
             claude_home: default_claude_home(),
@@ -799,6 +805,116 @@ impl<'a> ClaudeCloud<'a> {
             Ok(()) => CloudSendResult::Ok,
             Err(message) => CloudSendResult::Err { message },
         }
+    }
+
+    /// Continue the cloud session in a fresh, detached checkout. Its work never comes into
+    /// the person's folder or Locust's reading checkout, and a previously opened copy stays put.
+    pub fn continue_in_terminal(&self, id: &str) -> CloudSendResult {
+        match self.open_detached_copy(id) {
+            Ok(()) => CloudSendResult::Ok,
+            Err(message) => CloudSendResult::Err { message },
+        }
+    }
+
+    fn open_detached_copy(&self, id: &str) -> Result<(), String> {
+        let invalid = || "Locust does not know a valid id for this cloud session. Open it on claude.ai.".to_owned();
+        let mut matching = self.read_sessions().into_iter().filter(|s| s.id == id);
+        let session = matching.next().ok_or_else(invalid)?;
+        if matching.next().is_some() {
+            return Err(invalid());
+        }
+        let session_id = session.session_id.as_deref()
+            .filter(|id| session_id_re().is_match(id)).ok_or_else(invalid)?;
+        if self.platform == CloudPlatform::Linux {
+            return Err("Continue in terminal is not available in this Linux build. Open the session on claude.ai.".into());
+        }
+        if let Some(policy) = &self.detached_policy {
+            let policy = policy();
+            if let Some(why) = crate::org_policy::unmetered_refusal(
+                Some(&policy), "claude", None, "auto", true, false,
+            ).or_else(|| crate::org_policy::terminal_refusal(Some(&policy))) {
+                return Err(why);
+            }
+        }
+        let (file, prefix, env) = self.launch_of()?;
+        let open = self.run_window.as_ref().ok_or("The terminal could not be opened. Open this session on claude.ai.")?;
+        // Native IDs pad a counter, so the reading worktree's first-12 convention would
+        // give many different sessions the same terminal path. Keep the full validated ID.
+        let bare = session.id.strip_prefix("cc_").ok_or_else(invalid)?;
+        let name = format!("locust-cloud-{bare}-here");
+        let place = self.worktree_of(&session.folder, &name)
+            .ok_or("This folder is not a git checkout. Open this session on claude.ai.")?;
+        let where_ = place.to_str().ok_or("The terminal worktree's path cannot be read.")?;
+        let cannot_create = || "The terminal worktree could not be created. An earlier copy may still be open; finish there or open the session on claude.ai.".to_owned();
+        reserve_detached_copy(&place).map_err(|_| cannot_create())?;
+        let made = (self.git)(&["worktree", "add", "--detach", where_, "HEAD"], &session.folder, None);
+        if made.code != 0 {
+            // Only an empty reservation of ours can be removed here. In particular, never force
+            // removal of a path Git already knows about or of a folder holding someone's work.
+            let _ = fs::remove_dir(&place);
+            return Err(cannot_create());
+        }
+
+        let opened = self.open_copy_window(open, where_, file, prefix, env, session_id);
+        if opened.is_err() {
+            // Without force, Git preserves the checkout if the failed launch nevertheless changed it.
+            let removed = (self.git)(&["worktree", "remove", where_], &session.folder, None);
+            if removed.code != 0 {
+                return Err(format!("The terminal could not be opened. Locust kept its worktree at {where_}. Open this session on claude.ai."));
+            }
+        }
+        opened
+    }
+
+    fn open_copy_window(
+        &self,
+        open: &dyn Fn(&WindowRun) -> Result<(), String>,
+        cwd: &str,
+        file: String,
+        prefix: Vec<String>,
+        env: Option<BTreeMap<String, String>>,
+        id: &str,
+    ) -> Result<(), String> {
+        let verb = ["--teleport".to_owned(), id.to_owned()];
+        let failed = || "The terminal could not be opened. Open this session on claude.ai.".to_owned();
+        if self.platform == CloudPlatform::Darwin {
+            return open(&WindowRun {
+                kind: WindowKind::ScriptTerminal, file, cwd: cwd.into(),
+                args: prefix.into_iter().chain(verb).collect(), env: env.unwrap_or_default(),
+            }).map_err(|_| failed());
+        }
+
+        use crate::runtime_terminal::{TerminalLaunch, console_line, terminal_program, windows_terminal_args};
+        let program = terminal_program(&TerminalLaunch {
+            command_name: "claude".into(), executable_path: file, prefix_args: prefix, env: None,
+        }, &verb);
+        if env.is_none()
+            && let Some(args) = windows_terminal_args(&program, cwd, "Locust · Claude cloud")
+        {
+            let wt = (self.process_env)().into_iter()
+                .find(|(key, value)| key.eq_ignore_ascii_case("LOCALAPPDATA") && !value.is_empty())
+                .map_or_else(|| "wt.exe".into(), |(_, local)| {
+                    format!("{}\\Microsoft\\WindowsApps\\wt.exe", local.trim_end_matches(['\\', '/']))
+                });
+            if open(&WindowRun {
+                kind: WindowKind::WindowsTerminal, file: wt, args, cwd: cwd.into(),
+                env: BTreeMap::new(),
+            }).is_ok() {
+                return Ok(());
+            }
+        }
+        // cmd expands percent and can expand bang even inside quotes. Do not pass a launch path
+        // that cannot be put on this command line literally. The id already passed its strict check.
+        if std::iter::once(&program.file)
+            .chain(&program.args)
+            .any(|word| word.contains(['"', '%', '!', '^', '&', '|', '<', '>', '\r', '\n', '\0']))
+        {
+            return Err(failed());
+        }
+        open(&WindowRun {
+            kind: WindowKind::DetachedConsole, file: "cmd.exe".into(), cwd: cwd.into(),
+            args: vec![console_line(&program, &verb)], env: env.unwrap_or_default(),
+        }).map_err(|_| failed())
     }
 
     /// Where `--worktree <name>` puts the session: `.claude/worktrees/<name>` in the repository's main checkout
@@ -1362,11 +1478,15 @@ pub(crate) fn on_this_computer_with(
         CloudPlatform::Linux
     };
     let windows = store.clone();
-    ClaudeCloud::new(store_path_of(store), platform, discover)
+    let mut cloud = ClaudeCloud::new(store_path_of(store), platform, discover)
     .with_reads(reads)
     .with_exec(run_exec)
     .with_terminal(run_in_pseudo_terminal)
     .with_run_window(move |run: &WindowRun| {
+        #[cfg(windows)]
+        if matches!(run.kind, WindowKind::WindowsTerminal | WindowKind::DetachedConsole) {
+            return spawn_cloud_copy_terminal(run);
+        }
         if run.kind != WindowKind::ScriptTerminal {
             return Err(WINDOW_NOT_OPENED.into());
         }
@@ -1376,7 +1496,52 @@ pub(crate) fn on_this_computer_with(
             .join(format!("claude-cloud-{}.command", crate::invariants::unique_nanos()));
         let env: Vec<(&str, &str)> = run.env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
         crate::runtime_terminal::open_with_env(Path::new(&run.file), &run.args, Path::new(&run.cwd), &script, &windows, &env)
-    })
+    });
+    cloud.detached_policy = Some(Box::new(crate::org_policy::current));
+    cloud
+}
+
+/// Reserve only a fresh destination. Do not follow a redirected .claude/worktrees directory
+/// or let Git adopt an existing empty folder. Git will populate our own empty reservation.
+fn reserve_detached_copy(place: &Path) -> std::io::Result<()> {
+    let missing = || std::io::Error::other("No cloud worktree directory.");
+    let worktrees = place.parent().ok_or_else(missing)?;
+    let claude = worktrees.parent().ok_or_else(missing)?;
+    for parent in [claude, worktrees] {
+        match fs::create_dir(parent) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists
+                && fs::symlink_metadata(parent)?.file_type().is_dir() => {}
+            Err(error) => return Err(error),
+        }
+        // In particular reject Windows junctions and any other path redirected outside
+        // the canonical checkout, not just Unix symbolic links.
+        let expected = parent.parent().ok_or_else(missing)?.canonicalize()?.join(
+            parent.file_name().ok_or_else(missing)?,
+        );
+        if parent.canonicalize()? != expected {
+            return Err(missing());
+        }
+    }
+    fs::create_dir(place)
+}
+
+#[cfg(windows)]
+fn spawn_cloud_copy_terminal(run: &WindowRun) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    let mut command = std::process::Command::new(&run.file);
+    command.current_dir(&run.cwd).envs(&run.env);
+    if run.kind == WindowKind::DetachedConsole {
+        command.creation_flags(0x0000_0010); // CREATE_NEW_CONSOLE
+        for arg in &run.args {
+            command.raw_arg(arg);
+        }
+    } else {
+        command.args(&run.args);
+    }
+    let mut child = command.spawn().map_err(|error| error.to_string())?;
+    std::thread::spawn(move || { let _ = child.wait(); });
+    Ok(())
 }
 
 /// Claude Code run to its end with nothing on stdin, for a follow-up's receipt (Electron's `execFile`): stdout apart,
@@ -1585,3 +1750,7 @@ mod task_tests;
 #[cfg(test)]
 #[path = "claude_cloud_exec_tests.rs"]
 mod exec_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_detached_tests.rs"]
+mod detached_tests;
