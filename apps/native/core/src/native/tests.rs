@@ -3989,6 +3989,9 @@ mod provider_carry_on;
 #[path = "plan_carry_on_tests.rs"]
 mod plan_carry_on;
 
+#[path = "claude_run_env_tests.rs"]
+mod claude_run_env;
+
 #[path = "nobody_tests.rs"]
 mod nobody;
 #[path = "todo_setting_tests.rs"]

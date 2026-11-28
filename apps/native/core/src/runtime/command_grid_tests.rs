@@ -66,6 +66,10 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
         "claude" => {
+            // native.rs sets claude::RUN_ENV on every Claude turn (the background-task switch).
+            for (key, value) in super::claude::RUN_ENV {
+                env.insert((*key).into(), (*value).into());
+            }
             let connectors: Vec<&str> = case["connectors"]
                 .as_array().unwrap().iter().map(|name| name.as_str().unwrap()).collect();
             crate::native::claude_args_for_turn(
