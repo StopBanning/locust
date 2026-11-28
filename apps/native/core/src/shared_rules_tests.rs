@@ -44,6 +44,7 @@ fn the_about_you_line_is_still_taught_by_the_memory_block_when_there_is_no_note_
 
 // --- a-first-run-names-no-terminal ---
 
+// case: says Install, then Sign in, for every npm agent that needs an account
 #[test]
 fn a_first_run_says_install_then_sign_in_for_every_npm_agent_that_needs_an_account() {
     for (id, name) in [("claude", "Claude Code"), ("codex", "Codex CLI"), ("copilot", "Copilot CLI")] {
