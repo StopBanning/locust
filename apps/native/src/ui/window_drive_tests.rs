@@ -3469,7 +3469,7 @@ fn connectors_list_their_states_in_words_and_copy_a_report() {
 /// words with each note under it.
 #[test]
 fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubble() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-review-notes"));
     let work = dirs.0.join("work");
     let git = |args: &[&str]| {
