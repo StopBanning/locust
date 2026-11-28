@@ -1418,3 +1418,7 @@ mod tests {
         assert_eq!(unclassified, Vec::<String>::new(), "Unclassified files in native data folder");
     }
 }
+
+#[cfg(test)]
+#[path = "other_app_origin_sweep_tests.rs"]
+mod other_app_origin_sweep_tests;

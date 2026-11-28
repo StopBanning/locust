@@ -91,6 +91,16 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     }
     if s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.first()).is_some_and(|turn| turn.started_by_voice) {
         messages = messages.child(thread_marker("Started from a voice call", "started-from-a-voice-call", p));
+    } else if let Some(start) = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.first())
+        && start.started_by_kind.as_deref() == Some("mcp")
+    {
+        let from = "Started from another app";
+        let words = match start.mode.as_deref() {
+            None => from.to_owned(),
+            Some("ask") => format!("{from} · Ask mode (read only)"),
+            mode => format!("{from} · {}", locust_core::mode_facts::mode_label(mode)),
+        };
+        messages = messages.child(thread_marker(&words, "started-from-another-app", p));
     }
     use locust_core::call_log::Place;
     let calls = crate::call_words::pieces(s);
@@ -1849,3 +1859,7 @@ mod user_link_tests {
 #[cfg(test)]
 #[path = "messages_orb_tests.rs"]
 mod messages_orb_tests;
+
+#[cfg(test)]
+#[path = "other_app_origin_thread_sweep_tests.rs"]
+mod other_app_origin_thread_sweep_tests;
