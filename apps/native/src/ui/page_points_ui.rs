@@ -265,3 +265,7 @@ pub(super) fn take_into(s: &mut State, typed: &str) -> String {
 #[cfg(test)]
 #[path = "page_points_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "page_points_policy_case_tests.rs"]
+mod page_points_policy_case_tests;
