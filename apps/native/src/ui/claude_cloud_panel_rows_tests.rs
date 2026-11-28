@@ -175,13 +175,17 @@ fn click(rt: &mut Runtime<State>, key: &str) {
     settle(rt);
 }
 
-/// The window's own poll, its clock moving `step` seconds a turn, until `done`.
+/// The window's own poll, its clock moving `step` seconds a turn, until `done`. The clock holds while a row's read is
+/// out: a read is real git work in a real worktree and takes real time, so a clock that ran on meanwhile reached a
+/// watch's 30-minute limit before its reads came back on a loaded machine (one or two reads instead of three, harden-1).
 fn pump_by(rt: &mut Runtime<State>, what: &str, step: f64, mut done: impl FnMut(&State) -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     let mut now = rt.state.cloud.now_ms as f64 / 1000.0;
     while !done(&rt.state) {
         assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}");
-        now += step;
+        if !rt.state.cloud.rows.values().any(|r| r.checking) {
+            now += step;
+        }
         rt.update(move |s, tx| {
             crate::poll(s, now, tx);
         });

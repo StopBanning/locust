@@ -3494,9 +3494,22 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
     assert_eq!(text_in(&rt, "diff-notes-tile").join(" ").replace(" ×", ""), "1 note on the changes");
     assert!(can_send(&rt.state), "notes alone should allow sending");
 
+    // Once a reply has landed the window reads back what happened in the terminal on its own (terminal_panel
+    // `ask_terminal_back`), and the box holds a send while that read is out, saying "Reading terminal turns…". In a
+    // whole-package run the read was still out at Return, so nothing was sent (harden-1): wait for it to land, as a
+    // person waits for the note to go.
+    pump(&mut rt, "the terminal read-back", |s| !s.terminal.catchup.is_pending());
     type_and_send(&mut rt, "Nearly there.");
     let sent = rt.state.flight.as_ref().and_then(|f| f.message.clone()).unwrap_or_default();
-    assert_eq!(sent, "Nearly there.\n\nNotes on your changes (1):\n- app.ts, line 1 `const port = 3001`: Read it from PORT.");
+    assert_eq!(
+        sent,
+        "Nearly there.\n\nNotes on your changes (1):\n- app.ts, line 1 `const port = 3001`: Read it from PORT.",
+        "status {:?}; the box says {:?}; draft {:?}; queued {:?}",
+        rt.state.status,
+        rt.state.composer_note,
+        rt.state.draft.text,
+        rt.state.queue_rows.iter().map(|r| r.text.clone()).collect::<Vec<_>>(),
+    );
     assert!(rt.state.diff_notes.waiting.is_empty() && rt.find("diff-notes-tile").is_none(), "the notes went with the message");
     pump(&mut rt, "the second reply and revision outcome", |s| {
         s.flight.is_none()
@@ -4564,9 +4577,15 @@ fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
         let (_dirs, store, mut rt) = two_teammate_window(2);
         let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "relay-cap"));
         type_and_send(&mut rt, "Start exchange");
+        // The strip draws from what this window knows, not from the engine: its live list at the last poll and the
+        // history read it last took. So the wait is for those too, or a hop that ended after the last poll (or a read
+        // still out) leaves Stop drawn after the engine has let go of every run (gate 27 Nov 12:01, harden-1).
         pump(&mut rt, "cap=2 stops exchange", |s| {
             s.flight.is_none()
                 && locust_core::engine_api::api().running().is_empty()
+                && s.seen_live.is_empty()
+                && !s.recents.is_pending()
+                && !s.ledger_summaries.values().any(|m| m.running)
                 && locust_core::people::hub_of(&store, "tm_pip").is_some()
                 && s.ledger.as_ref().is_some_and(|p| {
                     !p.snapshot.running

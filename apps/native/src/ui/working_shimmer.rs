@@ -46,16 +46,13 @@ pub(crate) fn spans(title: &str, seconds: f64, ink: Color) -> Vec<Span> {
         .collect()
 }
 
-/// Seconds since the window first drew a shimmer: the band's clock, the same for every working row.
-pub(crate) fn clock() -> f64 {
-    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
-}
-
-/// A working title: the band, or for a person who asked for less motion the theme's text standing still
-/// (`@media (prefers-reduced-motion: reduce)`: `animation: none; color: var(--lc-text-primary)`).
-pub(crate) fn title(words: &str, ink: Color, reduced: bool) -> rune::El {
-    rune::text(words.to_owned()).color(element_ink(ink, reduced)).spans(title_spans(words, ink, reduced, clock()))
+/// A working title: the band at `seconds` on the window's own clock (its poll's `now`, the same for every working row
+/// in that window), or for a person who asked for less motion the theme's text standing still
+/// (`@media (prefers-reduced-motion: reduce)`: `animation: none; color: var(--lc-text-primary)`). The window's clock,
+/// not the wall clock: a snap at one second shows the band where one second puts it, however fast the frames before it
+/// were drawn (the picture tests once had to leave the shimmering title out, harden-1).
+pub(crate) fn title(words: &str, ink: Color, reduced: bool, seconds: f64) -> rune::El {
+    rune::text(words.to_owned()).color(element_ink(ink, reduced)).spans(title_spans(words, ink, reduced, seconds))
 }
 
 /// The element's own colour, which paints what the spans do not cover: the "…" a long title is cut with is the grey
@@ -115,10 +112,11 @@ pub(crate) fn sweep_spans(words: &str, seconds: f64, word: Color, highlight: Col
 /// The live word as a label rather than a machine string (`.lc-livestep__register`): 14px in the UI face at 500.
 pub(crate) const LIVE_WORD: rune::TextStyle = rune::TextStyle::new(14.0, 500.0);
 
-/// The live word, drawn: the word's own colour is the muted grey whatever the band does, so the "…" a long word is cut
-/// with, and every character once the band has passed, are the word itself.
-pub(crate) fn live_word(words: &str, word: Color, highlight: Color, reduced: bool) -> rune::El {
-    rune::text(words.to_owned()).font(LIVE_WORD).color(word).spans(sweep_spans(words, clock(), word, highlight, reduced))
+/// The live word, drawn at `seconds` on the window's own clock, as [`title`]: the word's own colour is the muted grey
+/// whatever the band does, so the "…" a long word is cut with, and every character once the band has passed, are the
+/// word itself.
+pub(crate) fn live_word(words: &str, seconds: f64, word: Color, highlight: Color, reduced: bool) -> rune::El {
+    rune::text(words.to_owned()).font(LIVE_WORD).color(word).spans(sweep_spans(words, seconds, word, highlight, reduced))
 }
 
 #[cfg(test)]

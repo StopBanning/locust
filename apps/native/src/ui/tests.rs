@@ -836,6 +836,10 @@ fn the_window_wakes_when_the_shared_engine_s_answers_change() {
 /// when the window is hidden, minimised or covered, or motion is reduced; with no turn nothing asks for its frames.
 #[test]
 fn a_running_turn_moves_behind_another_window_and_holds_only_when_the_window_is_away() {
+    // The engine's test lock, held as every test that reads the engine holds it: poll reads the one engine in this
+    // process, and another test's running turns there are news to this window, which it reads at once, hidden or not
+    // (two of them made the hidden poll ask for a frame in the whole-package run, harden-1, 27 Nov).
+    let _engine = locust_core::native::hooks::no_saved_rules();
     // The soonest wake one poll asks for, from a window in front, behind another app's window, or covered.
     let soonest = |s: State, focused: bool, shown: bool| {
         let mut rt = rune::Runtime::new(s, |_: &State, _: &mut rune::Cx<State>| rune::col(), (100.0, 100.0), rune::Env::new(true, 1.0));
