@@ -138,3 +138,58 @@ fn b09_call_words_connector_is_not_in_the_saved_transcript() {
     assert!(!kept.to_string().contains("text: hello"));
     assert_eq!(kept["lines"][0]["text"], "Yes, send it.");
 }
+
+fn sidebar_fixture() -> (Runtime<State>, mpsc::Sender<CallEvent>) {
+    let (mut s, events) = fixture();
+    s.demo = true;
+    for (id, parent, at) in [
+        ("m_typed", None, "2026-10-11T04:00:00.000Z"),
+        ("m_asked", Some("m_typed"), "2026-10-11T05:00:00.000Z"),
+        ("m_other", None, "2026-10-11T05:00:00.000Z")
+    ] {
+        s.recent.push(ConversationRow { id:id.into(), title:format!("Conversation {id}"), teammate:"Wren".into(),
+            started_by:"native".into(), state:"completed".into(), updated:at.into() });
+        s.ledger_summaries.insert(id.into(), ledger::Summary { mission_id:id.into(), parent:parent.map(Into::into),
+            created_at:at.into(), ..Default::default() });
+    }
+    let mut rt = Runtime::new(s, |s, _| crate::sidebar::sidebar(s, &Palette::new(true)), (320., 900.), Env::new(true, 1.));
+    settle(&mut rt);
+    (rt, events)
+}
+fn sidebar_marks(rt: &Runtime<State>) -> Vec<String> {
+    rt.elements().into_iter().filter(|e| !e.exiting && e.text.as_deref() == Some("on a call"))
+        .filter_map(|e| e.key).collect()
+}
+
+// case: says "on a call" on the row whose turns the call is among, and on no other
+#[test]
+fn b09_call_words_sidebar_marks_only_the_calls_conversation() {
+    let (rt, _events) = sidebar_fixture();
+    assert_eq!(sidebar_marks(&rt), ["conversation-on-call-m_asked"]);
+}
+
+// case: is gone once the call has ended, and was never there without one
+#[test]
+fn b09_call_words_sidebar_drops_the_mark_at_call_end() {
+    let (mut rt, events) = sidebar_fixture();
+    assert_eq!(sidebar_marks(&rt), ["conversation-on-call-m_asked"]);
+    events.send(CallEvent::Ended(None)).unwrap();
+    poll(&mut rt);
+    assert!(sidebar_marks(&rt).is_empty(), "ended call must no longer mark the row");
+    let (mut never, _events) = sidebar_fixture();
+    never.update(|s, _| s.voice.call = None);
+    settle(&mut never);
+    assert!(sidebar_marks(&never).is_empty());
+}
+
+// case: keys the call by where it is, not by what is being said
+#[test]
+fn b09_call_words_sidebar_identity_does_not_follow_spoken_text() {
+    let (mut rt, events) = sidebar_fixture();
+    let before = sidebar_marks(&rt);
+    events.send(CallEvent::Partial("you", "and one more thing".into())).unwrap();
+    events.send(CallEvent::Said("you", "Hi".into())).unwrap();
+    poll(&mut rt);
+    assert_eq!(sidebar_marks(&rt), before);
+    assert_eq!(before, ["conversation-on-call-m_asked"]);
+}
