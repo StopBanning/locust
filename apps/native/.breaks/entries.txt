@@ -1,0 +1,9 @@
+core/src/runtime/antigravity.rs|||    if sandbox_for(mode) == "read-only" {
+        for folder in references { ==>     if true {
+        for folder in references {
+core/src/runtime/antigravity.rs|||        Mode::Plan => "plan", ==>         Mode::Plan => "auto",
+core/src/runtime/antigravity.rs|||        Some(whole) if offered.contains(&whole) => whole, ==>         Some(whole) => whole,
+core/src/runtime/antigravity.rs|||            session_ended: true, ==>             session_ended: false,
+core/src/runtime/antigravity.rs|||        return Some(FailureSaid { limit: Some(limit), ..words(super::agy_events::QUOTA_SENTENCE) }); ==>         return Some(FailureSaid { limit: None, ..words(super::agy_events::QUOTA_SENTENCE) });
+core/src/runtime/acp.rs|||        let result = if self.cancelled() || self.answered.load(Ordering::Relaxed) { ==>         let result = if false {
+core/src/runtime/acp.rs|||            return self.send(json!({"jsonrpc":"2.0","id":id,"result":{"action":"cancel"}})); ==>             return self.send(json!({"jsonrpc":"2.0","id":id,"result":{"action":"accept"}}));
