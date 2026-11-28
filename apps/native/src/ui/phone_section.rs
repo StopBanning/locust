@@ -2369,6 +2369,39 @@ mod tests {
         serde_json::json!({"id":format!("{number:013}-aaaaaaaa"), "at":number, "from":"away", "n":boxed.n, "c":boxed.c})
     }
 
+    #[test]
+    fn scout_away_launch_respects_the_phone_policy_even_with_a_cached_owner() {
+        use locust_core::org_policy::{PolicyState, use_policy_on_this_thread};
+        struct ResetPolicy;
+        impl Drop for ResetPolicy {
+            fn drop(&mut self) { use_policy_on_this_thread(None); }
+        }
+        let _reset = ResetPolicy;
+        let policy = |phone: bool| PolicyState {
+            path: "/test/policy.json".into(),
+            present: true,
+            policy: serde_json::json!({"version": 1, "phone": phone}).as_object().unwrap().clone(),
+            error: None,
+        };
+        let (_root, store) = temp_store("away-launch-policy");
+        let mut s = State::default();
+        s.data = Some(store);
+        s.phone_anywhere_link.away_gh = Some(Arc::new(ScoutGithubFake::default()));
+
+        use_policy_on_this_thread(Some(policy(false)));
+        set_scout_away(&mut s, ScoutAwaySet::On);
+        assert!(s.phone_anywhere_link.away.is_none(), "phone policy blocks creation of an Away owner");
+
+        use_policy_on_this_thread(Some(policy(true)));
+        assert!(ensure_scout_away(&mut s).is_some(), "the same window can construct its owner when allowed");
+
+        use_policy_on_this_thread(Some(policy(false)));
+        set_scout_away(&mut s, ScoutAwaySet::On);
+        let job = &s.phone_anywhere_link.away_job;
+        // With no poll, a forbidden request would either still be pending or have an untaken result.
+        assert!(!job.is_pending() && job.take().is_none(), "a cached owner must not start a forbidden launch");
+    }
+
     // case: cannot be turned on without the phone’s way from anywhere
     #[test]
     fn scout_away_refuses_before_github_without_a_phone_room() {
