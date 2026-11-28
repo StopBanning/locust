@@ -72,6 +72,69 @@ pub(crate) fn thread_marker(words: &str, key: &str, p: &Palette) -> El {
         .child(text(words.to_uppercase()).key(format!("{key}-words")).font(l.ty.label).color(l.c("text-muted")))
 }
 
+type CloudPlaces = std::sync::Arc<std::collections::BTreeMap<String, locust_core::cloud_turns::CloudPlace>>;
+
+/// The sidecar is written before the corresponding turn is opened. Keep one bounded index
+/// per UI thread and refresh on opening another conversation/tip, not on every stream frame.
+fn cloud_places(s: &State) -> CloudPlaces {
+    use std::cell::RefCell;
+    use std::path::PathBuf;
+    #[derive(PartialEq, Eq)]
+    struct Open {
+        native: PathBuf,
+        electron: PathBuf,
+        tip: String,
+        first: String,
+        count: usize,
+        running: bool,
+    }
+    thread_local! {
+        static OPEN: RefCell<Option<(Open, CloudPlaces)>> = const { RefCell::new(None) };
+    }
+    let Some(store) = s.data.as_ref() else { return CloudPlaces::default() };
+    let Some(pane) = s.ledger.as_ref() else { return CloudPlaces::default() };
+    let Some(first) = pane.snapshot.turn_metas.first() else { return CloudPlaces::default() };
+    OPEN.with(|cached| {
+        let mut cached = cached.borrow_mut();
+        if let Some((key, found)) = cached.as_ref()
+            && key.native == store.root()
+            && key.electron == store.electron()
+            && key.tip == pane.snapshot.tip
+            && key.first == first.mission_id
+            && key.count == pane.snapshot.turn_metas.len()
+            && key.running == pane.snapshot.running
+        {
+            return found.clone();
+        }
+        // Native records take precedence over the imported Electron sidecar.
+        let mut found = locust_core::cloud_turns::recorded_places(&store.electron().join("cloud-turns.json"));
+        if store.root() != store.electron() {
+            found.extend(locust_core::cloud_turns::recorded_places(&store.root().join("cloud-turns.json")));
+        }
+        let found = CloudPlaces::new(found);
+        *cached = Some((Open {
+            native: store.root().to_owned(),
+            electron: store.electron().to_owned(),
+            tip: pane.snapshot.tip.clone(),
+            first: first.mission_id.clone(),
+            count: pane.snapshot.turn_metas.len(),
+            running: pane.snapshot.running,
+        }, found.clone()));
+        found
+    })
+}
+
+fn cloud_marker(place: &locust_core::cloud_turns::CloudPlace, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let which = place.branch.as_ref().map_or_else(
+        || format!("{} · 2 CPUs, 8 GB", place.repository),
+        |branch| format!("{} · {branch} · 2 CPUs, 8 GB", place.repository),
+    );
+    row().w_full().gap(8.0).justify_center().center_y().role("note")
+        .child(text("On your cloud computer").font(l.ty.label).color(p.secondary))
+        .child(text(which).font(l.ty.mono).color(p.muted).wrap())
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -127,6 +190,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }));
     }
     let mut user_index = hidden_turns;
+    let cloud_places = cloud_places(s);
+    let cloud_readout = |ui: usize| {
+        let metas = &s.ledger.as_ref()?.snapshot.turn_metas;
+        let mission = &metas.get(person_turn_at(metas, ui)?)?.mission_id;
+        let words = cloud_places.get(mission)?.ended_note.as_deref()?;
+        Some(thread_note(words, p).key(format!("cloud-readout-{mission}")))
+    };
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
     let peer_turns = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.iter()
         .map(|meta| peer_thread::messages_for_mission(s, &meta.mission_id)).collect::<Vec<_>>()).unwrap_or_default();
@@ -263,6 +333,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let ui = user_index;
                 user_index += 1;
                 if ui > 0 {
+                    if ui > hidden_turns {
+                        messages = messages.children(cloud_readout(ui - 1));
+                    }
                     messages = emit_turn_peers(messages, ui - 1, false);
                     messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui - 1).and_then(|i| pane.snapshot.turn_metas.get(i))).map(|m| m.mission_id.as_str()), p));
                     messages = emit_turn_peers(messages, ui, true);
@@ -374,12 +447,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                         None => col().w_full().on_layout_tx(layout_track).child(notes_row),
                     }
                 };
-                if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
+                let bubble_row = if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
                     col()
                         .w_full()
                         .gap(4.0)
                         .child(bubble_row)
                         .child(row().w_full().justify_end().child(chips))
+                } else {
+                    bubble_row
+                };
+                if let Some(place) = this_meta.and_then(|m| cloud_places.get(&m.mission_id)) {
+                    col().w_full().gap(8.0).child(bubble_row).child(cloud_marker(place, p))
                 } else {
                     bubble_row
                 }
@@ -557,6 +635,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
         };
         messages = messages.child(content.key(key));
+    }
+    if user_index > hidden_turns && !turn_running(s) {
+        messages = messages.children(cloud_readout(user_index - 1));
     }
     messages = emit_turn_peers(messages, user_index.saturating_sub(1), false);
     messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.last()).map(|m| m.mission_id.as_str()), p));
@@ -1849,3 +1930,7 @@ mod user_link_tests {
 #[cfg(test)]
 #[path = "messages_orb_tests.rs"]
 mod messages_orb_tests;
+
+#[cfg(test)]
+#[path = "cloud_attribution_tests.rs"]
+mod cloud_attribution_tests;

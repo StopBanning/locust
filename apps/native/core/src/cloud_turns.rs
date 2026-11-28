@@ -560,6 +560,59 @@ pub fn recorded_of(file: &Path, mission_id: &str) -> Option<(String, String)> {
     Some((task.task_id.clone(), task.codespace.clone()))
 }
 
+/// Retained, read-only attribution. No provider is needed to open an earlier conversation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudPlace {
+    pub repository: String,
+    pub branch: Option<String>,
+    pub ended_note: Option<String>,
+}
+
+pub fn recorded_places(file: &Path) -> BTreeMap<String, CloudPlace> {
+    use std::io::Read;
+    const LIMIT: u64 = 4 * 1024 * 1024;
+    let Some(held) = fs::metadata(file).ok().filter(|m| m.is_file() && m.len() <= LIMIT)
+        .and_then(|_| fs::File::open(file).ok()) else { return BTreeMap::new() };
+    let mut data = Vec::new();
+    if held.take(LIMIT + 1).read_to_end(&mut data).is_err() || data.len() as u64 > LIMIT {
+        return BTreeMap::new();
+    }
+    let Ok(store) = serde_json::from_slice::<Value>(&data) else { return BTreeMap::new() };
+    let Some(tasks) = store["tasks"].as_object() else { return BTreeMap::new() };
+    let Some(turns) = store["turns"].as_object() else { return BTreeMap::new() };
+    turns.iter().filter_map(|(id, held)| {
+        if !crate::ledger::safe_id(id) || held["missionId"].as_str().is_some_and(|inner| inner != id) {
+            return None;
+        }
+        let task_id = held["taskId"].as_str()?;
+        if !task_id_re().is_match(task_id) { return None; }
+        let task = tasks.get(task_id)?;
+        if task["codespace"].as_str()?.is_empty() { return None; }
+        let (_, repository) = task["repo"].as_str()?.split_once('/')?;
+        if repository.is_empty() || !repository.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)) {
+            return None;
+        }
+        Some((id.clone(), CloudPlace {
+            repository: repository.to_owned(),
+            branch: task["branch"].as_str().filter(|b| safe_branch_name(b)).map(str::to_owned),
+            ended_note: match held["state"].as_str() {
+                Some("none") => Some("No files changed on your cloud computer".into()),
+                Some("failed") => {
+                    let words = "What it changed on your cloud computer could not be read.";
+                    Some(match held["problem"].as_str().filter(|p| !p.trim().is_empty()) {
+                        Some(problem) => {
+                            let safe = crate::secrets::redact_secrets(problem);
+                            format!("{words} {}", safe.chars().take(400).collect::<String>())
+                        }
+                        None => words.into(),
+                    })
+                }
+                _ => None,
+            },
+        }))
+    }).collect()
+}
+
 pub struct CloudTurns<'a, C: CloudComputers> {
     file: PathBuf,
     computers: &'a C,
