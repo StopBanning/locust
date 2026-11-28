@@ -134,6 +134,7 @@ fn opens_the_page_even_when_another_file_came_first_and_only_the_page() {
     assert!(!said.contains("export const x") && !a_diff_is_open(&said), "{said}");
 }
 
+// case: leaves a changed page and any other new file folded, as before
 #[test]
 fn leaves_a_changed_page_and_any_other_new_file_folded_as_before() {
     let (_t, work) = temp("folded");
