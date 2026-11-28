@@ -42,6 +42,12 @@ pub(super) fn open_page(s: &mut State, html: &str) {
 /// `folder` (page_preview): the same way a reply's page, a teammate's new page and the viewer's Page open.
 pub(super) fn run_beside(s: &mut State, path: &std::path::Path, folder: &std::path::Path) -> Result<(), String> {
     let mut host = crate::invariants::lock(&s.browser.host);
+    if let Some(store) = s.data.as_ref() {
+        host.data_root = Some(store.root().to_path_buf());
+        if host.namespace.is_empty() {
+            host.namespace = store.root().to_string_lossy().into_owned();
+        }
+    }
     let tab = match host.active {
         Some(id) => id,
         None => host.add(crate::browser::Profile(None))?,
@@ -74,3 +80,7 @@ pub(super) fn page_control(key: String, path: String, p: &Palette) -> El {
             }
         })
 }
+
+#[cfg(test)]
+#[path = "reply_page_ui_tests.rs"]
+mod tests;

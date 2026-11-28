@@ -60,6 +60,7 @@ pub struct Host {
     pub rect: [f32; 4],
     pub error: Option<String>,
     pub workspace: Option<PathBuf>,
+    pub data_root: Option<PathBuf>,
     pub profiles: Vec<(String, String)>,
     pub preview: crate::page_preview::Pages,
     pub temporary: bool,
@@ -79,6 +80,7 @@ impl Default for Host {
             rect: [0.; 4],
             error: None,
             workspace: None,
+            data_root: None,
             profiles: vec![],
             preview: Default::default(),
             temporary: false,
@@ -165,6 +167,32 @@ impl Host {
         tab.tool_control = false;
         tab.commands.push_back(Command::Load(address));
         Ok(())
+    }
+    /// Folders a local preview may read from: the open conversation's folder, plus the app's own reply-pages and
+    /// comparison-copies folders under `data_root` (never the rest of `data_root`).
+    pub fn preview_roots(&self) -> Vec<PathBuf> {
+        let mut roots = Vec::new();
+        if let Some(workspace) = &self.workspace {
+            roots.push(workspace.clone());
+        }
+        let data = self.data_root.as_deref().or_else(|| {
+            (!self.namespace.is_empty()).then_some(Path::new(&self.namespace))
+        });
+        if let Some(data) = data {
+            roots.push(data.join(crate::reply_page::REPLY_PAGES_FOLDER));
+            let env_val = std::env::var(crate::compare_copies::COMPARE_ROOT_ENV).ok();
+            roots.push(crate::compare_copies::compare_root_from(
+                data,
+                env_val.as_deref(),
+            ));
+        }
+        roots
+    }
+    /// Answers a `locust-page://` request against the currently allowed preview roots.
+    pub fn read_preview(&self, address: &str) -> crate::page_preview::Response {
+        let roots = self.preview_roots();
+        let refs: Vec<&Path> = roots.iter().map(PathBuf::as_path).collect();
+        self.preview.read_in(address, &refs)
     }
     pub fn navigate(&mut self, id: u64, raw: &str, person: bool) -> Result<(), String> {
         if let Some(refusal) = &self.refusal {

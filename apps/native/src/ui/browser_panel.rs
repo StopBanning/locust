@@ -156,6 +156,7 @@ fn keep_up(s: &mut State) -> Duration {
     }
     {
         let previous = h.profiles.clone();
+        h.data_root = s.data.as_ref().map(|store| store.root().to_path_buf());
         h.namespace = s
             .data
             .as_ref()
