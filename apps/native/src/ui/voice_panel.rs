@@ -721,3 +721,7 @@ mod tests;
 #[cfg(test)]
 #[path = "b09_live_call_tests.rs"]
 mod b09_live_call_tests;
+
+#[cfg(test)]
+#[path = "voice_connector_owner_tests.rs"]
+mod voice_connector_owner_tests;
