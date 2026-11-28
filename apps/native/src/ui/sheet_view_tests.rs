@@ -329,3 +329,31 @@ fn a_word_document_and_a_deck_open_as_their_words() {
     let deck = words("deck.pptx").expect("opened").expect("read");
     assert!(deck.contains("## Slide 1: Launch Plan") && deck.contains("| Users | 1,200 |"), "{deck}");
 }
+
+#[test]
+fn sheet_tab_stays_with_the_workbook_when_two_folders_have_the_same_filename() {
+    let left_dir = temp("left-tabs");
+    let right_dir = temp("right-tabs");
+    let name = "shared-name.xlsx";
+    for (dir, first, second) in [
+        (&left_dir, "Left first", "Left second"),
+        (&right_dir, "Right first", "Right second"),
+    ] {
+        let a = said("A1", first);
+        let b = said("A1", second);
+        let bytes = xlsx_of(&[("Budget", &[a.as_str()]), ("Notes", &[b.as_str()])]);
+        std::fs::write(dir.0.join(name), bytes).unwrap();
+    }
+    let mut left = opened(&left_dir.0, name);
+    let (x, y) = left.find("sheet/tab/1").expect("Notes tab");
+    left.pointer_down(x, y);
+    left.pointer_up(x, y);
+    left.frame(0.016);
+    assert_eq!(at(&left, "sheet/A1/text").as_deref(), Some("Left second"));
+
+    let right = opened(&right_dir.0, name);
+    assert_eq!(at(&right, "sheet/A1/text").as_deref(), Some("Right first"));
+    left.update(|_, _| {});
+    left.frame(0.016);
+    assert_eq!(at(&left, "sheet/A1/text").as_deref(), Some("Left second"));
+}
