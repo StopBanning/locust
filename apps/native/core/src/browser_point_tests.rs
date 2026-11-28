@@ -250,6 +250,7 @@ fn takes_ctrl_or_cmd_with_shift_and_c_and_says_so_on_the_button() {
 
 // a-part-of-a-page-can-be-pointed-at.test.ts, the picture of it (captureRectOf), with Electron's numbers.
 
+// case: is the part inside the frame, in the window’s pixels at its zoom
 #[test]
 fn is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom() {
     let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };
@@ -258,6 +259,7 @@ fn is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom() {
     assert_eq!(capture_rect_of(frame, part, 1.25), Some(Rect { x: 763.0, y: 150.0, width: 125.0, height: 63.0 }));
 }
 
+// case: is cut to what the frame shows, and is none when nothing of it is
 #[test]
 fn is_cut_to_what_the_frame_shows_and_is_none_when_nothing_of_it_is() {
     let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };
