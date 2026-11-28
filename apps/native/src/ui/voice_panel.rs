@@ -561,9 +561,36 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
             notices.extend(crate::call_words::draw(s, p, &place, &[piece]));
         }
     } else {
+        if owns_open_call(s) && s.voice.words.is_none() {
+            notices.push(home_voice_orb(p));
+        }
         notices.extend(connector_cards(s, p, None));
     }
     notices
+}
+
+// The quiet halftone sphere from VoiceOrb.tsx. Native media does not expose a level yet.
+fn home_voice_orb(p: &Palette) -> El {
+    const SIZE: f32 = 28.;
+    let pitch = SIZE / 9.;
+    let center = SIZE / 2.;
+    let mut shape = rune::Shape::new().view_box(SIZE, SIZE);
+    for row in 0..11 {
+        for column in 0..=9 {
+            let x = (column as f32 + if row % 2 == 0 { 0.5 } else { 0. }) * pitch;
+            let y = center + (row as f32 - 5.) * pitch * 0.866;
+            let distance = (x - center).hypot(y - center) / (center * 0.8);
+            if distance >= 1. { continue; }
+            let r = (pitch * 0.48 * (1. - distance * distance).powf(0.9) * 0.72).clamp(0.35, pitch * 0.5);
+            let light = 1. - (x - center * 0.62).hypot(y - center * 0.62) / (SIZE * 1.05);
+            let dots: Vec<_> = (0..12).map(|i| {
+                let a = i as f32 * std::f32::consts::TAU / 12.;
+                [x + r * a.cos(), y + r * a.sin()]
+            }).collect();
+            shape = shape.fill(dots, p.secondary.alpha((0.35 + 0.75 * light).clamp(0.18, 1.)));
+        }
+    }
+    rune::canvas(shape).size(SIZE, SIZE).key("voice-chatgpt-orb").label("Voice").a11y_hidden()
 }
 
 fn owns_open_call(s: &State) -> bool {

@@ -193,3 +193,18 @@ fn b09_call_words_sidebar_identity_does_not_follow_spoken_text() {
     assert_eq!(sidebar_marks(&rt), before);
     assert_eq!(before, ["conversation-on-call-m_asked"]);
 }
+
+// case: is a canvas the size of a face, and hidden from screen readers
+#[test]
+fn b09_voice_home_orb_has_face_size_and_no_accessibility_node() {
+    let (mut s, tx) = fixture();
+    s.voice.words = None; // this is the call without a teammate, as on Home
+    let mut rt = Runtime::new(s, |s, _| col().children(notices(s, &Palette::new(true))), (400., 400.), Env::new(true, 1.));
+    settle(&mut rt);
+    let orb = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("voice-chatgpt-orb")).expect("the connected Home call has a canvas");
+    assert_eq!(&orb.rect[2..], &[28., 28.]);
+    assert!(!rt.accessibility_json().to_string().contains("voice-chatgpt-orb"), "decorative voice canvas must not speak");
+    tx.send(CallEvent::Ended(None)).unwrap();
+    poll(&mut rt);
+    assert!(rt.find("voice-chatgpt-orb").is_none());
+}
