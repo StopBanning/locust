@@ -64,3 +64,11 @@ fn a_stale_mcp_command_never_writes_to_its_replacement_socket() {
     assert!(matches!(send(CURRENT), CommandAnswer::Ok));
     assert_eq!(wire.sent.lock().unwrap().as_slice(), ["mcp-open"]);
 }
+
+#[test]
+fn a_deduplicated_mcp_open_still_reports_success_without_writing() {
+    let (phone, wire) = authenticated();
+    assert!(phone.mcp_open(true), "the relay acknowledged the first open");
+    assert!(phone.mcp_open(true), "the same socket's acknowledged open is still success");
+    assert_eq!(wire.sent.lock().unwrap().as_slice(), ["mcp-open"]);
+}
