@@ -491,3 +491,7 @@ mod tests;
 #[cfg(test)]
 #[path = "page_pick_tests.rs"]
 mod page_pick_tests;
+
+#[cfg(test)]
+#[path = "browser_point_parity_tests.rs"]
+mod parity_tests;

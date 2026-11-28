@@ -223,3 +223,21 @@ fn reads_a_pick_and_lets_go_of_one_that_never_comes() {
         "expected CancelPoint to be sent to the tab"
     );
 }
+
+#[test]
+fn browser_policy_false_refuses_pointing_in_ui_toggle() {
+    let mut s = State::default();
+    {
+        let mut host = crate::invariants::lock(&s.browser.host);
+        host.add(crate::browser::Profile(None)).unwrap();
+        host.tabs[0].url = URL.into();
+        host.refusal = crate::browser::policy_refusal(
+            &json!({"browser": false}),
+            std::path::Path::new("/etc/locust/policy.json"),
+        );
+    }
+    toggle(&mut s);
+    assert!(s.page_points.waiting.is_none());
+    assert!(s.status.contains("The browser panel is off."), "{}", s.status);
+    assert!(crate::invariants::lock(&s.browser.host).tabs[0].commands.is_empty());
+}
