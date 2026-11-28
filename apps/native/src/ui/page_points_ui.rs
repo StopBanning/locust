@@ -15,6 +15,9 @@ use std::time::{Duration, Instant};
 
 /// How long a pick may wait on the person before it is let go (Electron `PICK_WAIT_MS`).
 const PICK_WAIT: Duration = Duration::from_secs(5 * 60);
+/// Electron `.lc-pagepoint__shot`: 72x48 screenshot thumbnail beside the chip's text.
+const SHOT_WIDTH: f32 = 72.0;
+const SHOT_HEIGHT: f32 = 48.0;
 pub(super) const PAGE_PARTS_FOLDER: &str = "page-parts";
 
 #[derive(Default)]
@@ -22,6 +25,8 @@ pub(super) struct PagePoints {
     pub chips: Vec<PagePointChip>,
     /// Each chip's note as it is typed, by chip id.
     pub notes: HashMap<String, TextEdit>,
+    /// Decoded thumbnail images keyed by picture file path.
+    pub pictures: std::cell::RefCell<HashMap<String, Option<rune::Image>>>,
     /// A pick running in a tab: its answer, when it began, and the tab.
     pub waiting: Option<(Receiver<PointAnswer>, Instant, u64)>,
     /// The address of a page that would not run the picker.
@@ -141,6 +146,11 @@ pub(super) fn take_answer(s: &mut State, answer: PointAnswer) {
             s.status_tone = StatusTone::Muted;
         }
         PointAnswer::Picked { point, png } => {
+            if s.page_points.chips.len() >= locust_core::browser_point::MAX_PAGE_POINTS {
+                s.status = locust_core::browser_point::EIGHT_IN_THE_BOX.into();
+                s.status_tone = StatusTone::Muted;
+                return;
+            }
             s.page_points.next += 1;
             let id = format!("point-{}", s.page_points.next);
             let attachment = png.and_then(|png| keep_picture(s, &id, &png));
@@ -167,8 +177,24 @@ fn keep_picture(s: &State, id: &str, png: &[u8]) -> Option<String> {
     Some(path.to_string_lossy().into_owned())
 }
 
+fn chip_picture(s: &State, path: &str) -> Option<rune::Image> {
+    let cache = s.image_cache.as_ref()?;
+    let mut kept = s.page_points.pictures.borrow_mut();
+    if !kept.contains_key(path) {
+        let file = std::path::PathBuf::from(path);
+        let image = file.is_file().then(|| cache.file(file, SHOT_HEIGHT, 2.0));
+        kept.insert(path.to_owned(), image);
+    }
+    let image = kept.get(path)?.clone()?;
+    if HEADLESS.load(std::sync::atomic::Ordering::Relaxed) || cfg!(test) {
+        let _ = image.wait();
+    }
+    (image.is_ready() && image.error().is_none()).then_some(image)
+}
+
 fn remove(s: &mut State, id: &str) {
     if let Some(path) = s.page_points.chips.iter().find(|c| c.id == id).and_then(|c| c.attachment.clone()) {
+        s.page_points.pictures.borrow_mut().remove(&path);
         let _ = std::fs::remove_file(path);
     }
     without_page_point(&mut s.page_points.chips, id);
@@ -209,7 +235,30 @@ pub(super) fn chips(s: &State, p: &Palette) -> Option<El> {
         );
         let mut row_el = row().w_full().gap(8.0).padding(6.0).radius(8.0).border(1.0, p.hairline).key(format!("{id}/chip"));
         if let Some(picture) = &chip.attachment {
-            row_el = row_el.child(el().key(format!("{id}/picture")).role("img").label(format!("Picture of {}", point.selector())).help(picture.clone()).padding(4.0).radius(4.0).fill(p.raised).child(text("Picture").font(type_::LABEL).color(p.secondary)));
+            let shot = if let Some(image) = chip_picture(s, picture) {
+                let (w, h) = image
+                    .size()
+                    .map(|sz| crate::step_pictures::fitted(sz, SHOT_WIDTH, SHOT_HEIGHT))
+                    .unwrap_or((SHOT_WIDTH, SHOT_HEIGHT));
+                el().key(format!("{id}/picture"))
+                    .size(w, h)
+                    .pixels(image.pixels())
+                    .radius(4.0)
+                    .fill(p.raised)
+                    .role("img")
+                    .label(format!("Picture of {}", point.selector()))
+                    .help(picture.clone())
+            } else {
+                el().key(format!("{id}/picture"))
+                    .role("img")
+                    .label(format!("Picture of {}", point.selector()))
+                    .help(picture.clone())
+                    .padding(4.0)
+                    .radius(4.0)
+                    .fill(p.raised)
+                    .child(text("Picture").font(type_::LABEL).color(p.secondary))
+            };
+            row_el = row_el.child(shot);
         }
         let gone = id.clone();
         row_el = row_el.child(body).child(
@@ -252,6 +301,7 @@ pub(super) fn with_points(s: &State, typed: &str, attached: &[String]) -> (Strin
 pub(super) fn sent(s: &mut State) {
     s.page_points.chips.clear();
     s.page_points.notes.clear();
+    s.page_points.pictures.borrow_mut().clear();
 }
 
 /// The message with the waiting parts after the person's words, and their pictures attached; the box is emptied.
@@ -265,3 +315,7 @@ pub(super) fn take_into(s: &mut State, typed: &str) -> String {
 #[cfg(test)]
 #[path = "page_points_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "page_points_parity_tests.rs"]
+mod parity_tests;
