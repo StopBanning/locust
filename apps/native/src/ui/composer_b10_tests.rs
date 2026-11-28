@@ -363,3 +363,6 @@ fn thread_composer_shows_the_handed_to_route_until_a_new_pick_overrides_it() {
     assert!(route(&rt).contains("Luna"));
     assert!(rt.find("chip-mark-codex").is_some());
 }
+
+#[path = "composer_b10_own_actions_tests.rs"]
+mod own_actions;

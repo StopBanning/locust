@@ -1083,6 +1083,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .shrink()
                 .h_full()
                 .child(crate::home_panel::home_view(s, p))
+                .child(terminal_panel::commands(s, p))
                 .child(column(picker))
                 .child(column(composer_stack));
         }
