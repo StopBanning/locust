@@ -122,6 +122,7 @@ enum Answer {
     Applied { id: String, result: CloudSendResult },
     Sent { id: String, result: CloudSendResult },
     Home { result: CloudSendResult, known: bool },
+    Continued { id: String, result: CloudSendResult },
 }
 
 /// One session row's own state (`ClaudeCloudRow`'s hooks).
@@ -130,6 +131,7 @@ pub(crate) struct Row {
     /// Tell it more.
     pub(crate) draft: TextEdit,
     pub(crate) sending: bool,
+    opening_terminal: bool,
     /// The line said under the row.
     pub(crate) said: Option<String>,
     pub(crate) reading: Option<ClaudeCloudReading>,
@@ -329,6 +331,14 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
                     CloudSendResult::Err { message } => row.said = Some(message),
                 }
             }
+            Answer::Continued { id, result } => {
+                let Some(row) = s.cloud.rows.get_mut(&id) else { continue };
+                row.opening_terminal = false;
+                row.said = Some(match result {
+                    CloudSendResult::Ok => CONTINUED.into(),
+                    CloudSendResult::Err { message } => message,
+                });
+            }
             Answer::Home { result, known } => {
                 s.cloud.note = Some(match result {
                     CloudSendResult::Ok if known => HOME_KNOWN.into(),
@@ -452,6 +462,8 @@ const SENT: &str = "Sent. Check again in a moment to read its reply.";
 const HOME_KNOWN: &str = "Claude Code opened in this folder and is bringing this session\u{2019}s work into it.";
 const HOME_UNKNOWN: &str =
     "Claude Code opened in this folder with its list of cloud sessions. Pick this one, and its work comes into this folder.";
+const CONTINUED: &str = "Claude Code opened its own copy in a terminal. Locust does not see what happens there; use /remote-control in Claude Code to steer from your phone.";
+const CONTINUE_NOTE: &str = "Continue in terminal opens its own copy in a fresh worktree. Locust does not see what happens there. Use /remote-control in Claude Code to keep steering from your phone.";
 const CLAUDE_CODE_SESSIONS: &str = "https://claude.ai/code";
 
 fn watch_stopped(stop: WatchStop) -> &'static str {
@@ -564,6 +576,23 @@ pub(super) fn tell_more(s: &mut State, id: &str) {
     row.said = None;
     let id = id.to_owned();
     off_thread(s, move |claude| Some(Answer::Sent { result: claude.send(&id, &words), id }));
+}
+
+/// Continue in a kept checkout of its own, not in the folder Locust is showing or reading.
+fn continue_in_terminal(s: &mut State, id: &str) {
+    if s.data.is_none() {
+        return;
+    }
+    let row = s.cloud.rows.entry(id.into()).or_default();
+    if row.opening_terminal || row.checking {
+        return;
+    }
+    row.watch = None;
+    row.watch_waiting = false;
+    row.opening_terminal = true;
+    row.said = None;
+    let id = id.to_owned();
+    off_thread(s, move |claude| Some(Answer::Continued { result: claude.continue_in_terminal(&id), id }));
 }
 
 /// Bring it home: Claude Code opens in this folder and brings the session's work into it.
@@ -691,6 +720,17 @@ fn session_row(s: &State, session: &ClaudeCloudSession, l: &crate::look::control
     let url = session.url.clone().unwrap_or_else(|| CLAUDE_CODE_SESSIONS.into());
     let web = if known { button(l, "See it on claude.ai", Tone::Neutral, false) } else { primary_button(l, "See it on claude.ai", false) };
     actions = actions.child(web.key(key("web")).on_press(move |s: &mut State| crate::published_cards::open_web_link(s, &url)));
+    if known {
+        let one = id.clone();
+        let label = if state.opening_terminal { "Opening terminal…" } else { "Continue in terminal" };
+        let disabled = state.opening_terminal || state.checking;
+        let button = button(l, label, Tone::Neutral, disabled).key(key("continue"));
+        actions = actions.child(if disabled {
+            button
+        } else {
+            button.on_press(move |s: &mut State| continue_in_terminal(s, &one))
+        });
+    }
     let one = id.clone();
     actions = actions.child(button(l, "Bring it home", Tone::Neutral, false).key(key("home")).on_press(move |s: &mut State| home(s, &one)));
     let one = id.clone();
@@ -701,6 +741,9 @@ fn session_row(s: &State, session: &ClaudeCloudSession, l: &crate::look::control
             .on_press(move |s: &mut State| forget(s, &one)),
     );
     el = el.child(actions);
+    if known {
+        el = el.child(note(CONTINUE_NOTE.into()).key(key("terminal-note")));
+    }
     if state.expanded {
         if let Some(ClaudeCloudReading::Err { message }) = &state.reading {
             el = el.child(note(message.clone()).key(key("problem")).role("alert"));

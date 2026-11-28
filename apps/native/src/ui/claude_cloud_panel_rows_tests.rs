@@ -389,3 +389,33 @@ fn a_watch_on_a_row_already_read_waits_ninety_seconds_for_its_first_read() {
     pump_by(&mut rt, "the watch's first read", 15.0, |_| w.seen.teleports.load(Ordering::SeqCst) == 2);
     assert!(rt.state.cloud.now_ms - started >= 90_000);
 }
+
+// case: A known cloud row offers a terminal copy and explains visibility and phone steering.
+#[test]
+fn claude_cloud_known_row_continues_in_a_distinct_kept_terminal_copy() {
+    let (w, mut rt) = window(true);
+    std::fs::write(w.folder().join("cart.js"), "my uncommitted changes").unwrap();
+    open_cloud(&mut rt);
+    assert!(rt.find(&key("continue", UNKNOWN)).is_none());
+    let said = words(&rt);
+    for phrase in ["Continue in terminal", "fresh worktree", "Locust does not see what happens there", "/remote-control"] {
+        assert!(said.contains(phrase), "missing {phrase}: {said}");
+    }
+    click(&mut rt, &key("watch", ID));
+    pump(&mut rt, "the watched read started", |s| row(s, ID).is_some_and(|r| r.checking && r.watch.is_some()));
+    click(&mut rt, &key("continue", ID));
+    assert!(row(&rt.state, ID).is_some_and(|r| !r.opening_terminal));
+    assert!(w.seen.windows.lock().unwrap().is_empty());
+    pump(&mut rt, "the watched read finished", |s| row(s, ID).is_some_and(|r| !r.checking));
+    click(&mut rt, &key("continue", ID));
+    assert!(row(&rt.state, ID).is_some_and(|r| r.watch.is_none()));
+    pump(&mut rt, "separate terminal copy opened", |s| {
+        row(s, ID).and_then(|r| r.said.as_deref()).is_some_and(|said| said.contains("opened its own copy"))
+    });
+    let windows = w.seen.windows.lock().unwrap();
+    assert_eq!(windows.len(), 1);
+    let copy = w.folder().join(".claude/worktrees/locust-cloud-0123456789abcdef0123-here");
+    assert_eq!(windows[0].cwd, copy.to_str().unwrap());
+    assert_eq!(std::fs::read_to_string(copy.join("cart.js")).unwrap(), "export const total = (items) => items.length\n");
+    assert_eq!(std::fs::read_to_string(w.folder().join("cart.js")).unwrap(), "my uncommitted changes");
+}
