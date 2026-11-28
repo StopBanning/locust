@@ -408,3 +408,17 @@ fn a_check_results_long_command_is_cut_to_what_the_reader_accepts() {
     assert_eq!(bounded["command"].as_str().unwrap().len(), 500);
     crate::ledger_write::validate_edit_check(&bounded).unwrap();
 }
+
+// mission-store/src/index.ts:1575: an approval whose record time is not its own answer time is damage, as in Electron;
+// the valid receipt before it stays and the rest of the turn is not trusted.
+#[test]
+fn an_approval_whose_record_time_differs_from_its_answer_is_damage() {
+    let (_t, store) = temp("approval-time");
+    let mut moved = approval_record(20, 3, denied_by_rule());
+    moved["occurredAt"] = json!("2026-10-04T02:00:00.000Z");
+    let path = older(&store, 20, &[approval_record(20, 2, allowed()), moved]);
+    let mission = recovered(&path);
+    assert_eq!(mission["approvals"], json!([allowed()]));
+    assert_eq!(mission["issues"], json!(["invalid-record"]));
+    assert_eq!(mission["lastUpdatedAt"], "2026-10-04T01:00:00.000Z");
+}
