@@ -2674,7 +2674,7 @@ fn a_step_that_waits_for_your_ok_shows_its_card_and_go_ahead_runs_the_next_step(
 
 #[test]
 fn a_copy_runs_changes_are_kept_into_the_folder_or_discarded() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let work = dirs.0.join("work").canonicalize().unwrap();
     seed_routine_team(&store, &work, "accept-edits");
     let id = seed_routine(&store, json!({"routineId": "rt_notes", "name": "Notes", "steps": ["Write notes.txt."], "inCopy": true,
