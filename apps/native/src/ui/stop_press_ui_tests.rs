@@ -149,6 +149,26 @@ impl locust_core::engine_api::EngineApi for NamedRun {
 // outside this lane; this test isolates the real cancelling phase of an already named run.
 #[test]
 fn messages_stop_on_a_named_live_turn_switches_the_live_line_immediately() {
+    // `engine_api::install` chooses the engine for the whole process, and this fake says a run is going forever and
+    // refuses every send: in `cargo test`'s one shared process every window test after it waited on that run while
+    // holding the engine's lock, and the window suite never finished (28 Nov). So the test runs in a process of its own.
+    const CHILD: &str = "LOCUST_STOP_NAMED_RUN_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let test = concat!(module_path!(), "::messages_stop_on_a_named_live_turn_switches_the_live_line_immediately");
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", test.split_once("::").unwrap().1, "--nocapture"])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success() && stdout.contains("1 passed"),
+            "{stdout}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    assert!(std::env::var_os(CHILD).is_some(), "the fake engine is installed only in this test's own process");
     let (release, wait) = std::sync::mpsc::channel();
     let fake = std::sync::Arc::new(NamedRun {
         calls: std::sync::Mutex::new(Vec::new()),
