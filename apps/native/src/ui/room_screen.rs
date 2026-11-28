@@ -3052,3 +3052,7 @@ mod room_exchange_tests;
 #[cfg(test)]
 #[path = "room_starting_exchange_tests.rs"]
 mod room_starting_exchange_tests;
+
+#[cfg(test)]
+#[path = "room_relayed_transcript_tests.rs"]
+mod room_relayed_transcript_tests;
