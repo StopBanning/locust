@@ -262,3 +262,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
 #[cfg(test)]
 #[path = "next_steps_issue_handoff_tests.rs"]
 mod issue_handoff_tests;
+
+#[cfg(test)]
+#[path = "issue_picker_target_change_tests.rs"]
+mod issue_picker_target_change_tests;
