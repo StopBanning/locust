@@ -383,10 +383,16 @@ pub(super) fn code_row(
 fn head(s: &State, p: &Palette) -> El {
     let panel = &s.changes;
     let l = crate::look::controls::Look::new(p.dark);
-    let files = crate::look::controls::head_icon(&crate::look::icons::COLUMNS, "Show files", "Show the files (⌘ ⇧ Y)")
-        .on_press(|s: &mut State| s.changes.files = !s.changes.files)
-        .build(l.k)
-        .key("changes-files");
+    let shortcut = if cfg!(target_os = "macos") { "Cmd+Shift+Y" } else { "Ctrl+Shift+Y" };
+    let files = crate::look::controls::head_icon(
+        &crate::look::icons::COLUMNS,
+        "Show files",
+        &format!("Show the files ({shortcut})"),
+    )
+    .on_press(|s: &mut State| s.changes.files = !s.changes.files)
+    .build(l.k)
+    .checked(panel.files)
+    .key("changes-files");
     let files = if panel.files { files.fill(l.c("bg-selected")).radius(7.0) } else { files };
     let branch = match &panel.diff {
         Some(Ok(diff)) => format!("{} → {}", diff.base, diff.branch),
@@ -1298,3 +1304,7 @@ mod changes_versions_tests;
 #[cfg(test)]
 #[path = "file_versions_strip_tests.rs"]
 mod file_versions_strip_tests;
+
+#[cfg(test)]
+#[path = "changes_files_highlight_tests.rs"]
+mod changes_files_highlight_tests;

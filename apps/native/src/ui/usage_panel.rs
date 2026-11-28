@@ -10,13 +10,14 @@ use crate::usage::{
     streak_text, total_tokens, usage_line_facts, usage_summary,
 };
 use crate::usage_ledger;
+use locust_core::usage_words::{UsageWindow, usage_read_line, usage_windows_of};
 
 #[derive(Default)]
 pub(super) struct Panel {
     pub open: bool,
     pub range: UsageRange,
     pub summary: Option<Result<UsageSummary, String>>,
-    pub windows: Vec<(String, Vec<usage::PlanWindow>)>,
+    readings: Vec<(String, String)>,
     pub loading: bool,
 }
 
@@ -39,6 +40,7 @@ fn active(label: impl Into<String>, p: &Palette, on: bool) -> El {
 pub(super) fn open(s: &mut State) {
     s.usage_panel.open = true;
     s.usage_panel.range = UsageRange::from_str("30d").unwrap_or(UsageRange::Days30);
+    crate::agent_accounts_card::reload(s);
     refresh(s);
 }
 
@@ -53,19 +55,22 @@ fn refresh(s: &mut State) {
         Some(store) => match usage_ledger::usage_turns_with_carried(store) {
             Ok(turns) => {
                 let summary = usage_summary(&turns, range, chrono::Local::now());
-                let mut windows = Vec::new();
                 // The receipts' readings, then the model catalog's over them (App.tsx `adoptCatalogUsage`): Antigravity's
                 // `/usage`, read beside its models (a late one too), is shown here though no turn reported it.
                 let mut readings = usage_ledger::usage_windows(store);
                 readings.extend(locust_core::models::catalog_usage_windows());
-                for (account, reading) in readings {
-                    let parsed = parse_plan_windows(&reading, chrono::Utc::now());
-                    if !parsed.is_empty() {
-                        windows.push((account, parsed));
-                    }
-                }
-                windows.sort_by(|a, b| a.0.cmp(&b.0));
-                s.usage_panel.windows = windows;
+                let now = chrono::Utc::now();
+                let mut readings: Vec<_> = readings.into_iter()
+                    .filter(|(key, said)| {
+                        if account_meter_runtime(key) {
+                            !usage_windows_of(said, now).is_empty()
+                        } else {
+                            !parse_plan_windows(said, now).is_empty()
+                        }
+                    })
+                    .collect();
+                readings.sort_by(|a, b| a.0.cmp(&b.0));
+                s.usage_panel.readings = readings;
                 s.usage_panel.summary = Some(Ok(summary));
                 s.usage_panel.loading = false;
             }
@@ -220,7 +225,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             .font(type_::LABEL)
                             .color(p.muted),
                     );
-                if s.usage_panel.windows.is_empty() {
+                if s.usage_panel.readings.is_empty() {
                     body = body.child(
                         text(USAGE_LIMITS_EMPTY.to_owned())
                             .font(type_::LABEL)
@@ -228,18 +233,21 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             .wrap(),
                     );
                 } else {
-                    for (account, windows) in &s.usage_panel.windows {
-                        body = body.child(text(account.clone()).font(type_::LABEL).color(p.text));
-                        for window in windows {
-                            let line = if window.expired {
-                                format!("{} · {USAGE_RESET_SINCE}", window.name)
-                            } else {
-                                format!(
-                                    "{} · {}{USAGE_PERCENT_LEFT}",
-                                    window.name, window.percent_left
-                                )
-                            };
-                            body = body.child(text(line).font(type_::LABEL).color(p.secondary));
+                    let now = chrono::Utc::now();
+                    for (account, said) in &s.usage_panel.readings {
+                        if account_meter_runtime(account) {
+                            body = body.child(plan_limit(s, p, account, said, now));
+                        } else {
+                            // Leave the other runtime presentations alone, including multi-model catalog readings.
+                            body = body.child(text(account.clone()).font(type_::LABEL).color(p.text));
+                            for window in parse_plan_windows(said, now) {
+                                let line = if window.expired {
+                                    format!("{} · {USAGE_RESET_SINCE}", window.name)
+                                } else {
+                                    format!("{} · {}{USAGE_PERCENT_LEFT}", window.name, window.percent_left)
+                                };
+                                body = body.child(text(line).font(type_::LABEL).color(p.secondary));
+                            }
                         }
                     }
                 }
@@ -333,6 +341,55 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         )
 }
 
+fn account_meter_runtime(key: &str) -> bool {
+    matches!(key.split(':').next(), Some("claude" | "codex"))
+}
+
+/// UsageDialog.tsx's Limits section. The account key stays separate from the display name; it never identifies a
+/// different account's readings. A meter shows used quota, while the number beside it says what is left.
+fn plan_limit(s: &State, p: &Palette, key: &str, reading: &str, now: chrono::DateTime<chrono::Utc>) -> El {
+    let (runtime, account) = key.split_once(':').map_or((key, None), |(runtime, account)| (runtime, Some(account)));
+    let runtime_name = locust_core::inspector::runtime_display_name(runtime);
+    let label = account.map_or_else(|| runtime_name.to_owned(), |id| {
+        let name = s.agent_accounts.accounts.iter().find(|a| a.id == id && a.agent.as_str() == runtime)
+            .map_or("Removed account", |account| account.name.as_str());
+        format!("{runtime_name} · {name}")
+    });
+    let l = crate::look::controls::Look::new(p.dark);
+    let head = row().gap(6.0).center_y()
+        .children(crate::look::controls::agent_mark(&l, runtime, 15.0, l.c("text-secondary")))
+        .child(text(label).font(type_::LABEL).color(p.text));
+    col().gap(6.0).w_full().key(format!("usage-limit-{key}"))
+        .child(head)
+        .children(usage_windows_of(reading, now).into_iter().map(|window| plan_meter(&l, key, window)))
+        .children(usage_read_line(reading, now).map(|said| text(said).font(type_::LABEL).color(p.muted).wrap()))
+}
+
+fn plan_meter(l: &crate::look::controls::Look, account: &str, window: UsageWindow) -> El {
+    use locust_core::agent_card::Tone;
+    let mut chars = window.name.chars();
+    let name: String = chars.next().into_iter().flat_map(char::to_uppercase).chain(chars).collect();
+    let left = window.remaining.unwrap_or(100 - window.percent);
+    let figure = if window.expired { USAGE_RESET_SINCE.to_owned() } else { format!("{left}{USAGE_PERCENT_LEFT}") };
+    let key = format!("usage-limit-{account}-{}", window.name);
+    let mut line = col().gap(4.0).w_full().child(
+        row().w_full().gap(8.0).center_y()
+            .child(text(name.clone()).font(l.ty.body).color(l.c("text-primary")).grow(1.0))
+            .child(text(figure).font(l.ty.body).color(l.c("text-secondary"))),
+    );
+    if !window.expired {
+        let tone = if window.percent >= 100 { Tone::Spent } else if window.percent >= 80 { Tone::Pressing } else { Tone::Calm };
+        let fill = crate::agent_card_ui::bar_colour(l, tone);
+        line = line.child(row().h(5.0).w_full().radius(2.5).fill(l.c("border-hairline"))
+            .key(&key).role("meter").label(format!("{name} used")).range_value(f64::from(window.percent), 0., 100.)
+            .child(el().w_frac(window.percent as f32 / 100.).h(5.0).radius(2.5).fill(fill).key(format!("{key}-fill")).a11y_hidden()));
+    }
+    line.children(window.resets.map(|at| {
+        text(if window.expired { format!("reset {at}") } else { format!("Resets {at}") })
+            .font(l.ty.body).color(l.c("text-muted"))
+    }))
+}
+
 /// UsageDialog.tsx `Heatmap`: twelve weeks of cells, Sunday first, months over the weeks they start in, Mon, Wed and Fri
 /// beside the rows, a cell one of five shades by steps of the busiest day, today ringed, the days to come left out
 /// (an empty cell), and a Less-to-More key under it.
@@ -406,13 +463,7 @@ pub(super) fn scene(s: &mut State) {
         open: true,
         range: UsageRange::Days30,
         summary: Some(Ok(summary)),
-        windows: vec![(
-            "codex".into(),
-            parse_plan_windows(
-                "5-hour window 40% used · week window 22% left",
-                chrono::Utc::now(),
-            ),
-        )],
+        readings: vec![("codex".into(), "5-hour window 40% used · week window 22% left".into())],
         loading: false,
     };
 }
@@ -490,3 +541,11 @@ mod usage_drawn_tests;
 #[cfg(test)]
 #[path = "catalog_usage_shown_tests.rs"]
 mod catalog_usage_shown_tests;
+
+#[cfg(test)]
+#[path = "usage_limits_window_tests.rs"]
+mod usage_limits_window_tests;
+
+#[cfg(test)]
+#[path = "usage_meter_tone_tests.rs"]
+mod usage_meter_tone_tests;

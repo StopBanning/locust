@@ -916,6 +916,26 @@ fn org_policy_section(p: &Palette) -> Option<El> {
     Some(box_el)
 }
 
+/// Commit a ready install once. A stale display without an updater cannot request a restart.
+fn install_ready_update(s: &mut State) {
+    use locust_core::updates::{AppUpdateResponse, NOT_READY_MESSAGE};
+    if s.settings_panel.update_installing {
+        return;
+    }
+    s.settings_panel.update_refusal = None;
+    let Some(svc) = s.settings_panel.update_service.clone() else {
+        s.settings_panel.update_refusal = Some(NOT_READY_MESSAGE.to_owned());
+        return;
+    };
+    match svc.install() {
+        AppUpdateResponse::Ok(next) => {
+            s.settings_panel.update = next;
+            s.settings_panel.update_installing = true;
+        }
+        AppUpdateResponse::Err(err) => s.settings_panel.update_refusal = Some(err.message),
+    }
+}
+
 /// Screens.tsx "Updates" on the General (`app`) page.
 fn updates_section(s: &State, p: &Palette) -> El {
     use crate::look::controls::{self, Look, Tone};
@@ -979,28 +999,10 @@ fn updates_section(s: &State, p: &Palette) -> El {
 
     if phase == AppUpdatePhase::Ready {
         row_el = row_el.child(
-            controls::button(&l, "Install and restart", Tone::Neutral, false)
+            controls::button(&l, "Install and restart", Tone::Neutral, s.settings_panel.update_installing)
                 .key("settings-update-install")
                 .role("button")
-                .on_press(|s: &mut State| {
-                    s.settings_panel.update_refusal = None;
-                    if let Some(svc) = s.settings_panel.update_service.clone() {
-                        match svc.install() {
-                            locust_core::updates::AppUpdateResponse::Ok(next) => {
-                                s.settings_panel.update = next;
-                                s.settings_panel.update_installing = true;
-                            }
-                            locust_core::updates::AppUpdateResponse::Err(err) => {
-                                s.settings_panel.update_refusal = Some(err.message);
-                            }
-                        }
-                    } else if !locust_core::engine_api::api().running().is_empty() {
-                        s.settings_panel.update_refusal =
-                            Some(locust_core::updates::BUSY_MESSAGE.to_owned());
-                    } else {
-                        s.settings_panel.update_installing = true;
-                    }
-                }),
+                .on_press(install_ready_update),
         );
     }
 
@@ -2437,6 +2439,10 @@ mod tests {
         };
         use std::sync::{Arc, Mutex};
 
+        mod settings_update_actions_tests {
+            include!("settings_update_actions_tests.rs");
+        }
+
         struct WindowFakeUpdater {
             allow_prerelease: bool,
             channel: Option<String>,
@@ -2763,3 +2769,7 @@ mod settings_general_tests;
 #[cfg(test)]
 #[path = "settings_switch_more_tests.rs"]
 mod settings_switch_more_tests;
+
+#[cfg(test)]
+#[path = "settings_install_update_state_tests.rs"]
+mod settings_install_update_state_tests;

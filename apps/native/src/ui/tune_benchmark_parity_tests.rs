@@ -153,11 +153,11 @@ fn tune_benchmark_draws_setup_language_and_only_keeps_a_setup() {
 #[test]
 fn a_tunes_ask_judge_form_says_answers_are_blind_and_one_run_can_be_luck() {
     let words = drawn(state(true, false));
+    // CompareView.tsx:771-773 and :800: the judge note names the setups, and the luck line is its own paragraph.
+    assert!(words.iter().any(|w| w.starts_with("It reads the answers without the setups’ names")), "{words:?}");
     assert!(
-        words.iter().any(
-            |w| w.contains("It reads the answers without the setups’ names.")
-                && w.contains("One run of each setup can be luck.")
-        ),
+        words.iter().any(|w| w
+            == "One run of each setup can be luck. Once the judge has scored them, run the three again, and keep the setup whose scores hold up."),
         "{words:?}"
     );
 }
@@ -169,7 +169,7 @@ fn an_ordinary_comparison_asks_the_judge_about_models_not_setups() {
     assert!(
         words
             .iter()
-            .any(|w| w == "It reads the answers without the models’ names."),
+            .any(|w| w.starts_with("It reads the answers without the models’ names")),
         "{words:?}"
     );
     assert!(

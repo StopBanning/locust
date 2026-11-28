@@ -140,12 +140,13 @@ pub(super) struct CompareState {
     scroll: CompareScroll,
     pub(super) problem: Option<String>,
     pub(super) snapshots: HashMap<String, ledger::Snapshot>,
-    pub(super) criteria: TextEdit,
+    criteria: HashMap<String, TextEdit>,
     pub(super) followup: TextEdit,
     pub(super) three_judges: bool,
     pub(super) judge_picks: [Option<String>; 3],
     pub(super) drafting: bool,
     pub(super) draft_mission_id: Option<String>,
+    draft_compare_id: Option<String>,
     pub(super) reruns: Option<Arc<CompareReruns>>,
     pub(super) rerun_progress: Arc<Mutex<Vec<RerunProgress>>>,
     pub(super) rerun_dirty: Arc<AtomicBool>,
@@ -1034,11 +1035,12 @@ pub(super) fn ask_judge(s: &mut State) {
             skill: None,
         })
         .collect();
-    if judge_routes.is_empty() {
-        s.compare.problem = Some("Pick a model to judge.".into());
+    if judge_routes.len() != wanted_count {
+        s.compare.problem = Some("Pick three different models to judge.".into());
         return;
     }
-    let criteria = s.compare.criteria.text.trim().to_owned();
+    let criteria: String = s.compare.criteria.get(&cmp_id)
+        .map_or("", |edit| edit.text.trim()).chars().take(1000).collect();
     let criteria_opt = (!criteria.is_empty()).then_some(criteria.as_str());
     if judge_routes.len() > 1 && criteria_lines(criteria_opt).is_empty() {
         s.compare.problem = Some(
@@ -1258,6 +1260,7 @@ pub(super) fn draft_points(s: &mut State) {
     ) {
         let _ = cmp_store.add_point_draft(&cmp.compare_id, &started.conversation_id);
         s.compare.drafting = true;
+        s.compare.draft_compare_id = Some(cmp_id);
         s.compare.draft_mission_id = Some(started.conversation_id);
     }
 }
@@ -1914,8 +1917,13 @@ pub(super) fn poll(s: &mut State) -> bool {
     {
         let text = snapshot_final_text(&snap);
         let pts = drafted_points(&text);
-        if !pts.is_empty() {
-            s.compare.criteria.replace_text(pts.join("\n"));
+        if let Some(compare_id) = s.compare.draft_compare_id.take()
+            && !pts.is_empty()
+        {
+            let edit = s.compare.criteria.entry(compare_id).or_default();
+            if edit.text.trim().is_empty() {
+                edit.replace_text(pts.join("\n"));
+            }
         }
         s.compare.drafting = false;
         s.compare.draft_mission_id = None;
@@ -3043,7 +3051,23 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             .border(1.0, p.hairline)
             .child(text("ASK A JUDGE").font(l.ty.label).color(p.muted));
 
-        if s.compare.criteria.text.trim().is_empty() {
+        let empty = TextEdit::default();
+        let criteria = s.compare.criteria.get(&cmp.compare_id).unwrap_or(&empty);
+        let criteria_id = cmp.compare_id.clone();
+        ask_box = ask_box.child(
+            text_input(criteria, type_::BODY)
+                .key("compare-judge-criteria")
+                .label("What a good answer does, one point a line")
+                .placeholder("What a good answer does, one point a line (optional)", p.muted)
+                .w_full()
+                .min_h(60.0)
+                .padding(8.0)
+                .radius(6.0)
+                .fill(p.field)
+                .color(p.text)
+                .on_edit(move |s: &mut State| s.compare.criteria.entry(criteria_id.clone()).or_default()),
+        );
+        if criteria.text.trim().is_empty() {
             ask_box = ask_box.child(
                 crate::look::controls::button(&l, "Draft the points", crate::look::controls::Tone::Neutral, false)
                     .key("compare-draft-points")
@@ -3087,12 +3111,18 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         }
         btn_row = btn_row.child(ask_btn);
         ask_box = ask_box.child(btn_row);
-        let judge_blind_line = if setups {
-            "It reads the answers without the setups’ names. One run of each setup can be luck. Once the judge has scored them, run the three again, and keep the setup whose scores hold up."
+        let blind_setups = setups && cmp.kept.is_none();
+        let subject = if blind_setups { "setups’" } else { "models’" };
+        let explain = if s.compare.three_judges {
+            format!("Each reads the answers without the {subject} names and scores every point on its own; a point counts when two of the three agree. They vote on the points you write. Nothing is kept.")
         } else {
-            "It reads the answers without the models’ names."
+            format!("It reads the answers without the {subject} names, scores each on every point, and says which it would keep. With no points written, it sets three from your request. It keeps nothing itself.")
         };
-        ask_box = ask_box.child(text(judge_blind_line).font(l.ty.body).color(p.muted).wrap());
+        ask_box = ask_box.child(text(explain).font(l.ty.label).color(p.muted).wrap());
+        if blind_setups {
+            ask_box = ask_box.child(text("One run of each setup can be luck. Once the judge has scored them, run the three again, and keep the setup whose scores hold up.")
+                .font(l.ty.label).color(p.muted).wrap());
+        }
         if let Some(note) = &judge_check_note {
             ask_box = ask_box.child(text(note.clone()).key("compare-check-note").font(l.ty.label).color(p.muted).wrap());
         }
@@ -4495,3 +4525,23 @@ mod comparison_edits_tests;
 #[cfg(test)]
 #[path = "tune_benchmark_parity_tests.rs"]
 mod tune_benchmark_parity_tests;
+
+#[cfg(test)]
+#[path = "compare_judge_prompt_tests.rs"]
+mod compare_judge_prompt_tests;
+
+#[cfg(test)]
+#[path = "compare_criteria_cap_tests.rs"]
+mod compare_criteria_cap_tests;
+
+#[cfg(test)]
+#[path = "compare_draft_keeps_typed_criteria_tests.rs"]
+mod compare_draft_keeps_typed_criteria_tests;
+
+#[cfg(test)]
+#[path = "compare_criteria_display_isolation_tests.rs"]
+mod compare_criteria_display_isolation_tests;
+
+#[cfg(test)]
+#[path = "compare_judge_criteria_isolation_tests.rs"]
+mod compare_judge_criteria_isolation_tests;

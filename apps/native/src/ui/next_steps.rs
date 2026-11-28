@@ -14,6 +14,24 @@ fn gone_key(scope: &str, step: &NextStep) -> String {
     format!("{scope}::{}", step.title)
 }
 
+/// The card cannot use a different send path to bypass a refusal or queue itself behind a running turn.
+fn may_start(s: &State) -> bool {
+    !turn_running(s)
+        && !s.sending.is_pending()
+        && s.pending_approval.is_none()
+        && s.own_commands.ask.is_none()
+        && !s.terminal.catchup.is_pending()
+        && !s.demo
+        && !s.team.is_pending()
+        && s.ledger.as_ref().is_none_or(|pane| !pane.loading)
+        && s.route_can_run
+        && !s.nothing_installed
+        && !native_blocked(s)
+        && composer_wiring::selected_ready_now(s)
+        && s.compare.composer_mode == compare_view::CompareComposerMode::Direct
+        && selected_conversation(s).is_some()
+}
+
 pub(super) fn view(
     s: &State,
     steps: &[NextStep],
@@ -30,6 +48,7 @@ pub(super) fn view(
     }
 
     let l = crate::look::controls::Look::new(p.dark);
+    let disabled = !may_start(s);
     let count_label = if shown.len() == 1 {
         "1 suggested task".to_owned()
     } else {
@@ -102,24 +121,37 @@ pub(super) fn view(
         if can_here {
             let st = (*step).clone();
             actions = actions.child(
-                crate::look::controls::button(&l, "Do it here", crate::look::controls::Tone::Neutral, false)
+                crate::look::controls::button(&l, "Do it here", crate::look::controls::Tone::Neutral, disabled)
                     .key(format!("next-step-here-{scope}-{idx}"))
                     .on_press_tx(move |s: &mut State, tx: &mut Tx| {
-                        s.next_steps_gone.insert(here_key.clone());
+                        if !may_start(s) {
+                            return;
+                        }
+                        let previous = s.draft.clone();
                         s.draft.replace_text(protocol_tags::next_step_prompt(&st));
                         submit_composer(s, tx, false);
+                        if s.flight.is_some() {
+                            s.next_steps_gone.insert(here_key.clone());
+                        } else if s.folder_question.is_none() {
+                            s.draft = previous;
+                        }
                     }),
             );
         }
         let st = (*step).clone();
         actions = actions.child(
-            crate::look::controls::button(&l, "Start", crate::look::controls::Tone::Neutral, false)
+            crate::look::controls::button(&l, "Start", crate::look::controls::Tone::Neutral, disabled)
                 .key(format!("next-step-start-{scope}-{idx}"))
                 .on_press_tx(move |s: &mut State, tx: &mut Tx| {
-                    s.next_steps_gone.insert(start_key.clone());
+                    if !may_start(s) {
+                        return;
+                    }
                     fresh_conversation(s);
                     s.draft.replace_text(protocol_tags::next_step_prompt(&st));
                     submit_composer(s, tx, false);
+                    if s.flight.is_some() {
+                        s.next_steps_gone.insert(start_key.clone());
+                    }
                 }),
         );
 
@@ -302,3 +334,15 @@ mod tests {
 #[cfg(test)]
 #[path = "next_steps_card_parity_tests.rs"]
 mod card_parity_tests;
+
+#[cfg(test)]
+#[path = "next_steps_refusal_tests.rs"]
+mod next_steps_refusal_tests;
+
+#[cfg(test)]
+#[path = "next_steps_disabled_buttons_tests.rs"]
+mod next_steps_disabled_buttons_tests;
+
+#[cfg(test)]
+#[path = "next_steps_restore_draft_tests.rs"]
+mod next_steps_restore_draft_tests;

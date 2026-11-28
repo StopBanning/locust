@@ -28,6 +28,8 @@ fn direct_uses_of_the_engines_turn_state_only_shrink() {
         ("src/ui/approval_active_thread_tests.rs", 2),
         // Two tests that register a teammate on the shared channel, to check saved-rule offers on secret vs ordinary commands.
         ("src/ui/approval_secret_rule_tests.rs", 1),
+        // A test that raises a real card on the shared channel, to see only the waiting teammate's rail flyout say so (attention_rail_tests.rs).
+        ("src/ui/attention_rail_tests.rs", 1),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = std::collections::BTreeMap::new();

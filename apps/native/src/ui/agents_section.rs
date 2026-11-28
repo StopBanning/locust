@@ -218,6 +218,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         }
         None => false,
     };
+    changed |= check_vendor_return(s);
     changed |= read_late_answers(s);
     changed |= crate::settings_panel::own_agents_section::poll(s);
     read_artifacts(s);
@@ -453,14 +454,21 @@ fn start(s: &mut State, job: Job) {
 /// The service's answers and its clock: the first look 45 s after launch, then each hour (a look goes to the network only
 /// when six hours have passed). Memory only; every read, process and install is in a job.
 fn poll_updates(s: &mut State) -> bool {
-    if !s.agent_updates.decided {
+    let decided_now = !s.agent_updates.decided;
+    if decided_now {
         s.agent_updates.decided = true;
         if may_update() {
             s.agent_updates.service = make_service(s);
         }
         s.agent_updates.held_here = s.agent_updates.service.is_none();
     }
-    let Some(service) = s.agent_updates.service.clone() else { return false };
+    let Some(service) = s.agent_updates.service.clone() else {
+        // A visible Settings section needs to repaint; other pages will draw the held note when opened.
+        return decided_now
+            && s.settings_panel.open
+            && s.settings_panel.page == crate::settings_pages::SettingsPageId::from_str("runtimes")
+            && s.settings_panel.agents.is_some();
+    };
     let mut changed = false;
     if let Some(state) = s.agent_updates_job.take() {
         s.agent_updates.read = true;
@@ -538,6 +546,15 @@ pub(super) struct Installing {
     /// The line as last drawn.
     pub shown: String,
     pub outcome: Option<InstallAnswer>,
+    vendor_visit: VendorVisit,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum VendorVisit {
+    #[default]
+    Idle,
+    Opened,
+    Returned,
 }
 
 pub(super) type InstallAnswer = (String, locust_core::agent_install::Outcome);
@@ -563,7 +580,7 @@ fn install(s: &mut State, id: String, name: String) {
         None => Some(locust_core::agent_install::for_this_machine()),
     };
     let line = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
-    s.agents_install = Installing { id: Some(id.clone()), line: line.clone(), shown: String::new(), outcome: None };
+    s.agents_install = Installing { id: Some(id.clone()), line: line.clone(), shown: String::new(), outcome: None, vendor_visit: s.agents_install.vendor_visit };
     s.agents_install_job.request((id, name, line, installer), |(id, name, line, installer)| {
         let Some(installer) = installer else {
             return (id, Err(locust_core::agent_install::Failure { what: "No install runs in a test.".into(), next: "Nothing was changed.".into(), restart: false, command: None }));
@@ -826,13 +843,32 @@ fn open_sign_in(program: &str, find: impl Fn(&str) -> Option<std::path::PathBuf>
     open(&path)
 }
 
+fn open_vendor(s: &mut State, url: &'static str) {
+    crate::published_cards::open_outbound_link(s, url);
+    s.agents_install.vendor_visit = VendorVisit::Opened;
+}
+
+/// Returning from a download asks everything again, including npm and previously missing agents.
+fn check_vendor_return(s: &mut State) -> bool {
+    if s.agents_install.vendor_visit != VendorVisit::Returned || s.settings_panel.agents_job.is_pending() {
+        return false;
+    }
+    s.agents_install.vendor_visit = VendorVisit::Idle;
+    forget_npm();
+    check_again(s);
+    true
+}
+
 /// Locust's window is back in front (SignInButton's focus listener, armed a second after the window opened): the
 /// sign-in window was dealt with one way or the other, so each opened row offers its button again and every agent is
 /// asked again, which turns a row that signed in ready by itself (App.tsx's SIGN_IN_OPENED_EVENT).
 pub(super) fn window_focused(s: &mut State, now: std::time::Instant) {
+    if s.agents_install.vendor_visit == VendorVisit::Opened {
+        s.agents_install.vendor_visit = VendorVisit::Returned;
+    }
     let before = s.agents_sign_in_rows.len();
     s.agents_sign_in_rows.retain(|_, row| !matches!(row, SignInRow::Opened { at, .. } if now.saturating_duration_since(*at) >= std::time::Duration::from_secs(1)));
-    if s.agents_sign_in_rows.len() < before {
+    if !check_vendor_return(s) && s.agents_sign_in_rows.len() < before {
         check_again(s);
     }
 }
@@ -1001,6 +1037,22 @@ fn section_inner(s: &State, p: &Palette, for_home: bool) -> El {
             && let Some(command) = agents::install_command(&f.id)
         {
             words = words.child(install_part(s, &l, &f, command));
+        } else if for_home && status.tag == "NOT INSTALLED"
+            && let Some(agents::RuntimeInstallFacts { install: agents::RuntimeInstall::Vendor(url), .. }) =
+                agents::runtime_install_facts(&f.id)
+        {
+            words = words.child(
+                crate::look::controls::button(&l, "Get it ↗", crate::look::controls::Tone::Neutral, false)
+                    .key(format!("agents-get-it-{}", f.id))
+                    .help(format!("Open {url} in your browser"))
+                    .self_start()
+                    .on_press(move |s: &mut State| open_vendor(s, url)),
+            );
+            if let Some((refused, why)) = &s.link_refusal
+                && refused == url
+            {
+                words = words.child(text(why.clone()).role("alert").font(l.ty.body).color(l.c("amber-text")).wrap());
+            }
         }
         if status.tag == "SIGN IN"
             && let Some(line) = agents::sign_in_command(&f.id, false)
@@ -1394,3 +1446,11 @@ mod tests {
 #[cfg(test)]
 #[path = "agent_update_copy_parity_tests.rs"]
 mod agent_update_copy_parity_tests;
+
+#[cfg(test)]
+#[path = "agents_vendor_return_tests.rs"]
+mod agents_vendor_return_tests;
+
+#[cfg(test)]
+#[path = "agents_first_hour_updates_tests.rs"]
+mod agents_first_hour_updates_tests;
