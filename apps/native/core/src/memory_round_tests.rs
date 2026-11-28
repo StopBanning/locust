@@ -610,6 +610,7 @@ fn pastes_the_closest_first_the_newer_first_on_a_tie() {
     assert_eq!(order, [text(0), text(3), text(2), text(1)]);
 }
 
+// case: is exactly the keyword brief when recall did not answer
 #[test]
 fn is_exactly_the_keyword_brief_when_recall_did_not_answer() {
     use crate::people::{briefed_memories, briefed_memories_by};
