@@ -2315,8 +2315,9 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     // Busy until this returns: work that runs on too long is written down as the window not answering.
     let _answering = locust_core::diagnostic_log::answering();
-    // The band and the sweep stand where this window's clock puts them (`working_shimmer`).
-    s.frame_clock = now;
+    // The band and the sweep stand where this window's clock puts them, on their step (`working_shimmer::on_step`).
+    let stood = s.frame_clock;
+    s.frame_clock = working_shimmer::on_step(now);
     s.prompt_rail.tick(std::time::Instant::now());
     let seen = home_panel::mark_seen_if_looking(s) | home_panel::poll_cover(s, tx);
     // The orb turns behind other windows too, by redrawing its own image (look/orb.rs `tick`); nothing moves at rest.
@@ -2792,10 +2793,13 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(33));
     }
     // A working row's band moves while the window shows and motion is wanted; it stands still otherwise.
-    // The live word's sweep too (`.lc-sweep`), on the same clock and under the same rule.
+    // The live word's sweep too (`.lc-sweep`), on the same clock and under the same rule. One wake a step, and a
+    // rebuild only when the step moved: a poll between two steps draws nothing new for them (speed-3 row 1).
     if turn_motion_drawn(s, tx) && (sidebar::shimmering(s) || messages::live_sweeping(s)) {
-        tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
-        changed = true;
+        if let Some(wake) = working_shimmer::next_step_wake(now, &mut s.band_wake) {
+            tx.wake_after(wake);
+        }
+        changed |= s.frame_clock != stood;
     }
     phone_section::mirror_desk(s);
     changed
@@ -4026,3 +4030,9 @@ mod limits_off_launch_tests;
 #[cfg(test)]
 #[path = "look/bot_stage_live_tests.rs"]
 mod bot_stage_live_tests;
+#[cfg(test)]
+#[path = "look/lane_running_window_measure_tests.rs"]
+mod lane_running_window_measure_tests;
+#[cfg(test)]
+#[path = "look/band_steps_window_tests.rs"]
+mod band_steps_window_tests;
