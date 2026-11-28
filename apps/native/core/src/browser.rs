@@ -383,3 +383,7 @@ pub fn policy_refusal(value: &Value, path: &Path) -> Option<String> {
         None
     }
 }
+
+#[cfg(test)]
+#[path = "browser_parity_tests.rs"]
+mod parity_tests;
