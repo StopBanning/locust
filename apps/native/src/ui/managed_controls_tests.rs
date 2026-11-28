@@ -162,7 +162,8 @@ fn filters_the_picker_and_mode_menu_and_shows_monthly_limit_under_policy() {
 }
 
 // The mode menu greys out a mode the agent cannot run, says why, and does not take it (Electron's ModeMenu,
-// modeUnavailableReason). Antigravity cannot stop and ask, so Approve each is greyed with that sentence.
+// modeUnavailableReason). Cursor Agent cannot stop and ask, so Approve each is greyed with that sentence (Antigravity
+// was the example until it asked over agy acp, 27 Nov 2026).
 #[test]
 fn the_mode_menu_greys_a_mode_the_agent_cannot_run_and_says_why() {
     let _lock = POLICY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -173,7 +174,7 @@ fn the_mode_menu_greys_a_mode_the_agent_cannot_run_and_says_why() {
         id: "tm_1".into(),
         name: "Wren".into(),
         role: "Code".into(),
-        runtime: Some("antigravity".into()),
+        runtime: Some("cursor".into()),
         model: None,
         account: None,
         busy: false,
@@ -189,7 +190,7 @@ fn the_mode_menu_greys_a_mode_the_agent_cannot_run_and_says_why() {
     let mut rt = Runtime::new(s, view_thread, (1000.0, 900.0), Env::new(true, 1.0));
     rt.frame(0.0);
     let words = texts(&rt).join(" | ");
-    assert!(words.contains("Antigravity cannot stop and ask yet."), "got: {words}");
+    assert!(words.contains("Cursor Agent cannot stop and ask yet."), "got: {words}");
     let (x, y) = rt.find("mode-approve-each").expect("approve-each is listed");
     rt.pointer_down(x, y);
     rt.pointer_up(x, y);
