@@ -574,3 +574,37 @@ mod tests {
         assert!(s.is_empty());
     }
 }
+
+/// A shape an app redraws between view builds (a face's next pose). The element that shows it
+/// ([`canvas_live`](crate::canvas_live) or [`El::live_shape`](crate::El::live_shape)) paints its
+/// latest contents every frame, with no commit and no layout, so an app can move a drawing from
+/// `poll` and return `false`. Publish from `poll` or an update: that frame paints it. A publish
+/// from anywhere else shows on the next frame something wakes; it wakes nothing itself.
+/// Clone it freely; clones share one drawing.
+#[derive(Clone, Debug, Default)]
+pub struct LiveShape {
+    current: std::sync::Arc<std::sync::Mutex<std::sync::Arc<Shape>>>,
+}
+
+impl LiveShape {
+    pub fn new(shape: Shape) -> LiveShape {
+        LiveShape { current: std::sync::Arc::new(std::sync::Mutex::new(std::sync::Arc::new(shape))) }
+    }
+    /// What it draws now.
+    pub fn get(&self) -> std::sync::Arc<Shape> {
+        self.current.lock().unwrap().clone()
+    }
+    /// Draws `shape` from the next painted frame on. False when it already drew exactly that.
+    pub fn set(&self, shape: Shape) -> bool {
+        let mut current = self.current.lock().unwrap();
+        if **current == shape {
+            return false;
+        }
+        *current = std::sync::Arc::new(shape);
+        true
+    }
+    /// Both handles share one drawing.
+    pub fn same(&self, other: &LiveShape) -> bool {
+        std::sync::Arc::ptr_eq(&self.current, &other.current)
+    }
+}

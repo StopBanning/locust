@@ -879,7 +879,10 @@ pub(super) fn shimmering(s: &State) -> bool {
     if s.layout_compact.get() {
         return false;
     }
-    if drawn_missions(s).iter().any(|item| item.phase == "running") {
+    // A drawn row is running only when the turn it shows, a listed row, is (`recent_as_missions` takes a row's phase
+    // from its leaf's state): with none running the drawn list is not built at all, so a resting window's every poll
+    // costs a scan of the list, not the whole sidebar's work (speed-2 row 4).
+    if s.recent.iter().any(|row| row.state == "running") && drawn_missions(s).iter().any(|item| item.phase == "running") {
         return true;
     }
     let running = locust_core::engine_api::api().running();
@@ -904,6 +907,7 @@ fn nested_order<'a>(list: &'a [SidebarMission], all: &'a [SidebarMission]) -> Ve
 }
 
 fn drawn_missions(s: &State) -> Vec<SidebarMission> {
+    drawn_list_built();
     // An error replaces the rows on screen too.
     if s.recent_error.is_some() { return Vec::new(); }
     let missions = sidebar_missions_now(s);
@@ -2266,3 +2270,23 @@ mod groups_hold_tests;
 #[cfg(test)]
 #[path = "scout_runs_kept_out_tests.rs"]
 mod scout_runs_kept_out_tests;
+
+#[cfg(test)]
+#[path = "sidebar_shimmer_rest_tests.rs"]
+mod sidebar_shimmer_rest_tests;
+
+#[cfg(test)]
+thread_local! {
+    /// How many times this thread built the drawn list (`drawn_missions`), for the tests that pin what a poll costs.
+    pub(crate) static DRAWN_BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Counts a build of the drawn list in tests; nothing otherwise. Kept below the code: room_screen's source checks read
+/// this file only up to its first test attribute.
+#[cfg(test)]
+fn drawn_list_built() {
+    DRAWN_BUILDS.with(|n| n.set(n.get() + 1));
+}
+
+#[cfg(not(test))]
+fn drawn_list_built() {}

@@ -105,6 +105,8 @@ impl<S: 'static> Runtime<S> {
                     // A publication can replace texels without moving the atlas slot, so
                     // identical image primitives do not imply identical raster contents.
                     || n.vis.pixels.is_some()
+                    // Nor a live drawing: it changes with no commit.
+                    || n.vis.live_shape.is_some()
                     || n.vis.surface.is_some()
                     || (n.material.is_some() && self.native_materials)
                     // Never retain a raster of a secret, even when the field is unfocused.

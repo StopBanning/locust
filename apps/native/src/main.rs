@@ -1234,6 +1234,14 @@ fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
     s.picks.remove(teammate)
 }
 
+/// Setup's read of which runtimes are at their limit (`limits_job`, started in `load_composer_store`), once it lands.
+/// Until then the composer treats no runtime as limited, as it does with no ledger.
+fn take_limits(s: &mut State) -> bool {
+    let Some(limited) = s.limits_job.take() else { return false };
+    s.limited_runtimes = limited;
+    true
+}
+
 fn open_models(s: &mut State, id: String) {
     if s.demo {
         return;
@@ -1404,6 +1412,17 @@ fn carry(s: &mut State, id: String, runtime: String, model: String) {
         }
         Engine::local()?.carry_on(&id, &runtime, &model)
     });
+}
+
+/// Whether the list read still running answers as one asked now would, so it is kept rather than asked again.
+/// `native::list_recent` answers differently for the native engine only while the native folder is not made yet, so
+/// a read running over a folder that is there holds. Asked again, its answer would be dropped (`Latest`) and a second
+/// cold read of every ledger would run beside it: at launch the first read, asked before the engine was known, was
+/// thrown away this way when the team landed, and the list waited for the second (speed-2 row 2).
+fn list_read_holds(s: &State) -> bool {
+    s.recents.is_pending()
+        && (s.engine != Some(Kind::Native)
+            || native::store().and_then(|store| store.ledger_dir().ok()).is_some_and(|dir| dir.is_dir()))
 }
 
 fn refresh_recent(s: &mut State) {
@@ -2322,6 +2341,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= agent_card_ui::poll(s);
+    changed |= take_limits(s);
     changed |= people_panel::poll(s);
     changed |= own_models_card::poll(s);
     changed |= key_card::poll(s);
@@ -2504,7 +2524,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.engine = Some(kind);
                 apply_team(s, team);
                 // The first list was asked before the engine was known; native reads its own folder too.
-                if changed_engine {
+                if changed_engine && !list_read_holds(s) {
                     refresh_recent(s);
                 }
             }
@@ -3333,6 +3353,65 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
     .run();
 }
 
+/// `--bench-headless <out.json> --bench-conversation <id> [--bench-seconds n]`: the real app's setup, poll and view
+/// over the data the environment names, opening that conversation as `--bench-conversation` does, with no window at
+/// all (speed-2: measured while the Mac is in use, nothing on its screen). A `rune::Runtime` is stepped on the wall
+/// clock at 60 Hz; each frame builds, lays out and paints the view, everything but the GPU. Writes `setup_ms`,
+/// `first_frame_ms`, `listed_ms` (the row was listed and the open began) and `opened_ms`, each from process start,
+/// once the conversation shows or the time runs out.
+fn run_bench_headless(args: &[String], process_start: std::time::Instant) {
+    let args: Vec<String> =
+        args.iter().map(|a| if a == "--bench-headless" { "--bench".to_owned() } else { a.clone() }).collect();
+    let (out, duration) = bench_options(&args).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
+    let Some(id) = BENCH_CONVERSATION.get().cloned() else {
+        eprintln!("--bench-headless requires --bench-conversation <id>");
+        std::process::exit(2);
+    };
+    HEADLESS.store(true, std::sync::atomic::Ordering::Relaxed);
+    let opened = out.with_extension("opened");
+    let _ = std::fs::remove_file(&opened);
+    let _ = BENCH_OPENED.set(opened.clone());
+    let ms = || process_start.elapsed().as_secs_f64() * 1000.0;
+    let mut state = State::default();
+    state.open_when_listed = Some((id, std::time::Instant::now() + Duration::from_secs(60)));
+    let mut rt = rune::Runtime::new(state, view, (1100.0, 780.0), rune::Env::new(true, 2.0));
+    rt.poll = Some(poll);
+    let waker: Waker = Arc::new(|| {});
+    rt.set_live_waker(waker.clone());
+    setup(&mut rt.state, waker);
+    let setup_ms = ms();
+    let (mut first_frame_ms, mut listed_ms, mut opened_ms, mut frames) = (None, None, None, 0_u64);
+    let end = std::time::Instant::now() + duration;
+    let mut last = std::time::Instant::now();
+    while std::time::Instant::now() < end && opened_ms.is_none() {
+        let now = std::time::Instant::now();
+        rt.frame((now - last).as_secs_f64());
+        last = now;
+        frames += 1;
+        first_frame_ms.get_or_insert_with(ms);
+        // The row was found in the list and the open began (`open_pressed_notification`).
+        if listed_ms.is_none() && rt.state.open_when_listed.is_none() {
+            listed_ms = Some(ms());
+        }
+        if opened.exists() {
+            opened_ms = Some(ms());
+        }
+        std::thread::sleep(Duration::from_millis(16).saturating_sub(now.elapsed()));
+    }
+    let result = serde_json::json!({
+        "setup_ms": setup_ms, "first_frame_ms": first_frame_ms, "listed_ms": listed_ms, "opened_ms": opened_ms,
+        "frames": frames,
+    });
+    if let Err(error) = std::fs::write(&out, result.to_string()) {
+        eprintln!("cannot write {}: {error}", out.display());
+        std::process::exit(1);
+    }
+    std::process::exit(0);
+}
+
 /// Locust's door when this window serves it itself: only when it could not join the shared engine (E4).
 static DOOR: std::sync::OnceLock<locust_core::door::Door> = std::sync::OnceLock::new();
 /// A snapshot, video or script: it never opens the door.
@@ -3580,6 +3659,10 @@ fn main() {
     }
     let process_start = std::time::Instant::now();
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--bench-headless") {
+        run_bench_headless(&args[1..], process_start);
+        return;
+    }
     if args
         .iter()
         .any(|arg| arg == "--bench" || arg == "--bench-seconds")
@@ -3932,3 +4015,12 @@ mod markdown_reply_tests;
 #[cfg(test)]
 #[path = "ui/every_runtime_keeps_its_output_tests.rs"]
 mod every_runtime_keeps_its_output_tests;
+#[cfg(test)]
+#[path = "ui/list_read_holds_tests.rs"]
+mod list_read_holds_tests;
+#[cfg(test)]
+#[path = "ui/limits_off_launch_tests.rs"]
+mod limits_off_launch_tests;
+#[cfg(test)]
+#[path = "look/bot_stage_live_tests.rs"]
+mod bot_stage_live_tests;

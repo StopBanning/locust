@@ -5,14 +5,14 @@
 //! two teammates who share a name never share one.
 
 use super::{
-    bot_stage::PresenceDot,
+    bot_stage::{FaceDrawing, PresenceDot},
     bots::{draw_bot_shape, draw_buddy_shape, static_bot_shape, static_buddy_shape, BotDrawSpec, BuddyDrawSpec},
 };
 use locust_core::bot_rig::{BotMotionLevel, FaceActivity, GlanceSide};
 use locust_core::bot_spec::{fallback_hue_for, screen_suits, BotFace, PetSource, BOT_SHAPES, HUES};
 use locust_core::buddy_moves::CODEX_BUDDY;
 use locust_core::native::FaceLook;
-use rune::{El, ImageCache, Tx, canvas, row};
+use rune::{El, ImageCache, Tx, canvas, canvas_live, row};
 use std::time::Duration;
 
 #[cfg(test)]
@@ -70,6 +70,12 @@ pub fn drawn_puppet(slot_key: &str) -> Option<String> {
 #[cfg(test)]
 pub fn drawn_pet(slot_key: &str) -> Option<String> {
     DRAWN_PET.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
+/// The stage drew the live face in `slot_key` as `shape` between builds (`BotStage::poll`).
+#[cfg(test)]
+pub(crate) fn note_drawn(slot_key: &str, shape: &rune::Shape) {
+    DRAWN_SHAPE.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), shape.clone()));
 }
 
 /// What the live face in `slot_key` last drew on this thread.
@@ -302,7 +308,7 @@ pub fn bot_face_with_look(
     DRAWN_PET.with(|d| {
         d.borrow_mut().remove(slot_key);
     });
-    let shape = if is_codex_buddy(look) {
+    let (shape, drawing) = if is_codex_buddy(look) {
         let snap = s.bot_stage.snapshot_buddy(
             slot_key,
             id,
@@ -313,14 +319,9 @@ pub fn bot_face_with_look(
             plush,
             reduced,
         );
-        draw_buddy_shape(&BuddyDrawSpec {
-            hue: &hue,
-            size,
-            light_theme: !l.k.dark,
-            presence: opts.presence,
-            ring: opts.activity == FaceActivity::Waiting,
-            snap: &snap,
-        })
+        let ring = opts.activity == FaceActivity::Waiting;
+        let drawn = draw_buddy_shape(&BuddyDrawSpec { hue: &hue, size, light_theme: !l.k.dark, presence: opts.presence, ring, snap: &snap });
+        (drawn, FaceDrawing::Buddy { hue: hue.clone(), size, light_theme: !l.k.dark, presence: opts.presence, ring })
     } else {
         let face_kind = BotFace::from_str(face_str).unwrap_or(BotFace::Eyes);
         let snap = s.bot_stage.snapshot_bot(
@@ -333,23 +334,30 @@ pub fn bot_face_with_look(
             plush,
             reduced,
         );
-        draw_bot_shape(&BotDrawSpec {
+        let ring = opts.activity == FaceActivity::Waiting;
+        let drawn = draw_bot_shape(&BotDrawSpec {
             shape: &shape_name,
             face: face_kind,
             hue: &hue,
             size,
             light_theme: !l.k.dark,
             presence: opts.presence,
-            ring: opts.activity == FaceActivity::Waiting,
+            ring,
             snap: &snap,
-        })
+        });
+        let with = FaceDrawing::Bot { shape: shape_name.clone(), face: face_kind, hue: hue.clone(), size, light_theme: !l.k.dark, presence: opts.presence, ring };
+        (drawn, with)
     };
 
     #[cfg(test)]
     DRAWN_SHAPE.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), shape.clone()));
     let hover_slot = slot_key.to_owned();
     let pointer_slot = slot_key.to_owned();
-    let mut el = canvas(shape)
+    // The stage keeps the drawing and redraws it as the face moves, so a moving face rebuilds nothing (speed-2 row 1).
+    let mut el = match s.bot_stage.live_face(slot_key, drawing, shape.clone()) {
+        Some(live) => canvas_live(&live),
+        None => canvas(shape),
+    }
         .key(format!("bot-{slot_key}"))
         .size(size, size)
         .on_hover_change(move |st: &mut crate::State, over: bool, tx: &mut Tx| {
