@@ -183,6 +183,8 @@ fn stays_folded_in_a_comparisons_cell_whose_page_runs_above_it() {
     assert!(!running(&all_keys), "comparison cell must not draw a second page preview card: {all_keys:?}");
     press(&mut rt, "compare-preview-a-index.html");
     crate::browser_panel::attach_in_tests();
+    // Past the first poll's setup: it installs the browser tools for the whole process (browser_rest_tests.rs).
+    rt.state.browser.initialized = true;
     crate::browser_panel::poll(&mut rt.state, &mut Tx::default());
     let urls = loaded(&rt.state);
     assert_eq!(urls.len(), 1, "{urls:?} problem: {:?}", rt.state.compare.problem);
@@ -348,6 +350,8 @@ fn comparison_copy_page_loads_and_serves_through_host_read_preview() {
     assert_eq!(s.compare.problem, None);
     // The next browser poll populates data_root & workspace before WKWebView reads the scheme URL.
     crate::browser_panel::attach_in_tests();
+    // Past the first poll's setup: it installs the browser tools for the whole process (browser_rest_tests.rs).
+    s.browser.initialized = true;
     crate::browser_panel::poll(&mut s, &mut Tx::default());
     let urls = loaded(&s);
     assert_eq!(urls.len(), 1, "{urls:?}");
@@ -377,6 +381,8 @@ fn comparison_worktree_from_home_folder_and_kept_column_serve_while_discarded_co
     crate::compare_view::preview_column_page(&mut s, CompareSlotId::A, "index.html");
     assert_eq!(s.compare.problem, None);
     crate::browser_panel::attach_in_tests();
+    // Past the first poll's setup: it installs the browser tools for the whole process (browser_rest_tests.rs).
+    s.browser.initialized = true;
     crate::browser_panel::poll(&mut s, &mut Tx::default());
     let urls = loaded(&s);
     assert_eq!(urls.len(), 1, "{urls:?}");
@@ -463,6 +469,8 @@ fn file_viewer_page_uses_workspace_json_fallback_refuses_outside_and_stays_confi
     // Switching to another workspace revokes read access to Workspace A's preview address.
     rt.state.teammates[0].folder = Some(folder_b.to_string_lossy().into_owned());
     crate::browser_panel::attach_in_tests();
+    // Past the first poll's setup: it installs the browser tools for the whole process (browser_rest_tests.rs).
+    rt.state.browser.initialized = true;
     crate::browser_panel::poll(&mut rt.state, &mut Tx::default());
     assert_eq!(crate::invariants::lock(&rt.state.browser.host).read_preview(&url).status, 403);
 
