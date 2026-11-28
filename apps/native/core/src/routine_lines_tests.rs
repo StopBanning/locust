@@ -70,12 +70,14 @@ fn team() -> Vec<Teammate> {
     ]
 }
 
+// case: names each teammate with the model their steps run on
 #[test]
 fn the_routine_row_names_each_teammate_with_the_model_their_steps_run_on() {
     let chain = routine_chain_with_models(&json!({"teammateId": "tm_wren", "steps": ["a", "b"], "handOffs": [{}, {"teammateId": "tm_sable", "check": true}]}), &team());
     assert_eq!(chain, "Wren (Grok 4.7 High) → Sable (Nemotron 3.5 Lightning Free) (checks)");
 }
 
+// case: names one shared model once, after the chain, so "(checks)" stays on the line
 #[test]
 fn the_routine_row_names_one_shared_model_once_after_the_chain_so_checks_stays_on_the_line() {
     let muse = Some(("opencode", "opencode/muse-spark-1.3-contributor-free"));
@@ -90,6 +92,7 @@ fn the_routine_row_names_one_shared_model_once_after_the_chain_so_checks_stays_o
     assert!(two.starts_with("Wren → Sable (checks), both on Muse Spark"), "{two}");
 }
 
+// case: still names each model when the routes differ, even one model through two tools
 #[test]
 fn the_routine_row_still_names_each_model_when_the_routes_differ_even_one_model_through_two_tools() {
     let two_tools = vec![mate("tm_wren", "Wren", Some(("claude", "claude-sonnet-5-5"))), mate("tm_sable", "Sable", Some(("antigravity", "claude-sonnet-5-5")))];
@@ -98,6 +101,7 @@ fn the_routine_row_still_names_each_model_when_the_routes_differ_even_one_model_
     assert!(!chain.contains("both on") && !chain.contains("all on"));
 }
 
+// case: names the one teammate of a plain routine with its model too
 #[test]
 fn the_routine_row_names_the_one_teammate_of_a_plain_routine_with_its_model_too() {
     let plain = json!({"teammateId": "tm_wren", "steps": ["a"]});
