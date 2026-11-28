@@ -2869,3 +2869,4 @@ mod always_refused_for_reach_case_tests;
 #[cfg(test)]
 #[path = "approval_one_path_tests.rs"]
 mod one_path_tests;
+#[cfg(test)] #[path = "approval_asks_every_time_refusal_tests.rs"] mod asks_every_time_refusal_tests;

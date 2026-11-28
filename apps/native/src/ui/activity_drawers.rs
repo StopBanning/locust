@@ -1636,3 +1636,4 @@ mod command_took_tests;
 #[cfg(test)]
 #[path = "antigravity_rows_read_like_claude_tests.rs"]
 mod antigravity_rows_read_like_claude_tests;
+#[cfg(test)] #[path = "non_shell_arguments_drawer_tests.rs"] mod non_shell_arguments_drawer_tests;
