@@ -1,9 +1,8 @@
 //! Settings > General > "Scout keeps watch" & "What Scout saw" (`ScoutSetting.tsx`).
 //!
-//! Covers the Part 2a window controls only: on/off switch, model link, Look now, goal,
-//! notes, 14-day look log (read lazily only when opened), Part 2a watches (GitHub,
-//! teammates, folder check — omitting Part 2b's `/locust` comment, fix, and away
-//! settings), cadence, morning brief, quiet hours, wait while working, and desktop notices.
+//! Covers Scout’s local settings: on/off, model, Look now, goal, notes, the look log,
+//! local watches (including `/locust` comments), fixes, cadence, brief, quiet hours,
+//! and notifications. The away workflow is not wired here.
 
 use super::*;
 use crate::look::controls::{self, Look, Tone};
@@ -1101,6 +1100,68 @@ mod tests {
     fn draw_home_sec(s: &State, _cx: &mut Cx<State>) -> El {
         let l = Look::new(true);
         scout_cards::home_section(s, &l).expect("morning brief section")
+    }
+
+    // case: off, says what turning it on does
+    #[test]
+    fn the_off_setting_explains_what_turning_scout_on_does() {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|cfg| cfg.on = false, |_| {}));
+        let mut rt = render_state(s, draw_no_cmd);
+        click_key(&mut rt, "more-scout");
+        let rendered = collect_rt_text(&rt);
+        assert!(rendered.contains("Turn it on and Scout joins your team"), "{rendered}");
+        assert!(rt.find("scout-setting-change-model").is_none());
+        assert!(rt.find("scout-watch-comments").is_none());
+    }
+
+    // case: on, says what it reads with, offers to change its model, and lists what it watches
+    #[test]
+    fn the_on_setting_names_the_model_and_its_watches() {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|_| {}, |_| {}));
+        s.teammates.push(Teammate {
+            id: "tm_scout".into(),
+            name: "Scout".into(),
+            model: Some("Space Bunny Free through OpenCode".into()),
+            runtime: Some("opencode".into()),
+            role: "Keeps watch".into(),
+            account: None,
+            busy: false,
+            runs_in: "ask".into(),
+            folder: None,
+        });
+        let mut rt = render_state(s, draw_npm_cmd);
+        click_key(&mut rt, "more-scout");
+        let rendered = collect_rt_text(&rt);
+        for words in [
+            "It reads with Space Bunny Free through OpenCode.",
+            "Change its model",
+            "Pull requests and their checks",
+            "Your teammates’ turns",
+        ] {
+            assert!(rendered.contains(words), "missing {words:?} in {rendered}");
+        }
+        assert!(rt.find("scout-setting-change-model").is_some());
+        // The native labels are platform-aware. Test the real rendered controls by key.
+        assert!(rt.find("scout-setting-look-now").is_some());
+        rt.set_viewport((960.0, 2000.0), 1.0);
+        rt.frame(0.0);
+        assert!(rt.find("scout-every-10").is_some());
+        assert!(rt.find("scout-notify").is_some());
+    }
+
+    // case: in Settings, says when it last looked and offers a look now
+    #[test]
+    fn settings_shows_the_last_look_and_offers_look_now() {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|_| {}, |st| {
+            st.last_look_at = Some("2026-10-22T12:02:00.000Z".into());
+        }));
+        let rt = render_state(s, draw_no_cmd);
+        let rendered = collect_rt_text(&rt);
+        assert!(rendered.contains("Last looked 3 min ago, and nothing needed you."), "{rendered}");
+        assert!(rt.find("scout-setting-look-now").is_some());
     }
 
     // --- 1:1 ports of `scout-settings-say-its-goal-hours-and-day.test.tsx` (7 Part-2a cases) ---
