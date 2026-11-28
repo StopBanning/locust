@@ -2176,6 +2176,9 @@ mod settings_door_tests;
 #[cfg(test)]
 #[path = "settings_update_service_tests.rs"]
 mod settings_update_service_tests;
+#[cfg(test)]
+#[path = "settings_copy_update_tests.rs"]
+mod settings_copy_update_tests;
 
 #[cfg(test)]
 mod tests {
