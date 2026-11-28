@@ -1758,7 +1758,9 @@ pub fn recover_mission_from_path(path: &std::path::Path) -> Option<Value> {
                 }
             }
             Some("mission.approval") => {
-                if let Some(approval) = rec.get("approval").filter(|v| v.is_object()) {
+                if let Some(approval) = rec.get("approval").filter(|v| {
+                    v.is_object() && schema_version >= 20 && (schema_version >= 21 || v["by"] != "earlier-always")
+                }) {
                     if let Some(at) = approval.get("occurredAt").and_then(Value::as_str) {
                         last_updated_at = at.to_owned();
                     }

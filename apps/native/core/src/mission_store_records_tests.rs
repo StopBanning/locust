@@ -185,6 +185,7 @@ fn by_earlier_always() -> Value {
         "words": "The Always given earlier in this run allows every command it runs.", "askedAt": "2026-10-04T01:00:20.000Z", "occurredAt": "2026-10-04T01:00:20.000Z" })
 }
 
+// case: comes back from the file exactly as written, in order, with the schema version that holds it
 #[test]
 fn a_card_answered_comes_back_from_the_file_exactly_as_written_in_order() {
     let (_t, store) = temp("approval");
@@ -198,6 +199,7 @@ fn a_card_answered_comes_back_from_the_file_exactly_as_written_in_order() {
     assert_eq!(mission["issues"], json!([]));
 }
 
+// case: sits between a run's events without disturbing their numbering
 #[test]
 fn a_card_answered_sits_between_a_runs_events_without_disturbing_their_numbering() {
     let (_t, store) = temp("approval");
@@ -214,6 +216,7 @@ fn a_card_answered_sits_between_a_runs_events_without_disturbing_their_numbering
     assert_eq!(mission["issues"], json!([]));
 }
 
+// case: refuses an answer or an answerer it does not know
 #[test]
 fn a_card_answer_or_answerer_nobody_defined_is_refused() {
     let (_t, store) = temp("approval");
@@ -354,3 +357,6 @@ fn a_check_results_long_command_is_cut_to_what_the_reader_accepts() {
     assert_eq!(bounded["command"].as_str().unwrap().len(), 500);
     crate::ledger_write::validate_edit_check(&bounded).unwrap();
 }
+
+#[path = "mission_card_schema_tests.rs"]
+mod mission_card_schema_tests;
