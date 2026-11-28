@@ -87,10 +87,25 @@ fn agy_turn(folder: &std::path::Path, mode: Mode, model: &str, effort: Option<&s
 fn run_agy(command: &mut Command, t: &Turn, host: Option<(Arc<Channel>, Box<dyn Fn(&crate::approval::Request) -> Answer + Send>)>) -> Vec<Event> {
     let mut rt = Antigravity::spawn(command).unwrap();
     assert!(matches!(rt, Antigravity::Acp(_)), "a command beginning `acp` runs over the protocol");
+    // A card the test did not expect would wait for ever inside next_event, past the deadline below: it is refused
+    // here, and the turn then says so.
+    let unexpected = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let host = host.or_else(|| {
+        let raised = unexpected.clone();
+        t.approvals.clone().map(|channel| {
+            let refuse: Box<dyn Fn(&crate::approval::Request) -> Answer + Send> = Box::new(move |card| {
+                raised.store(true, std::sync::atomic::Ordering::Relaxed);
+                Answer::Decision { approval_id: card.approval_id.clone(), decision: Decision::Deny, reason: None }
+            });
+            (channel, refuse)
+        })
+    });
+    let over = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let answering = host.map(|(channel, decide)| {
+        let over = over.clone();
         std::thread::spawn(move || {
             let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
-            while Instant::now() < deadline {
+            while Instant::now() < deadline && !over.load(std::sync::atomic::Ordering::Relaxed) {
                 if let Some(card) = channel.waiting().first() {
                     channel.decide(decide(card)).unwrap();
                     return;
@@ -112,9 +127,11 @@ fn run_agy(command: &mut Command, t: &Turn, host: Option<(Arc<Channel>, Box<dyn 
             }
         }
     }
+    over.store(true, std::sync::atomic::Ordering::Relaxed);
     if let Some(a) = answering {
         a.join().unwrap();
     }
+    assert!(!unexpected.load(std::sync::atomic::Ordering::Relaxed), "a card nobody expected was raised: {:?}", kinds(&events));
     events
 }
 
