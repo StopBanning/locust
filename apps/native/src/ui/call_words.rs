@@ -1,4 +1,4 @@
-//! Saved voice call pieces in a conversation thread, read with its ledger snapshot.
+//! Live and saved voice call pieces, placed among the turns of a conversation.
 
 use super::*;
 use locust_core::call_log::{self, Piece, Place};
@@ -35,7 +35,13 @@ pub(super) fn pieces(s: &State) -> std::collections::BTreeMap<Place<'_>, Vec<Pie
         .flat_map(|pane| &pane.snapshot.turn_metas)
         .map(|meta| meta.mission_id.as_str())
         .collect();
-    call_log::placements(&s.calls.saved, &ids)
+    let mut calls = call_log::placements(&s.calls.saved, &ids);
+    if let Some(live) = crate::voice_panel::live_thread_call(s) {
+        for (place, pieces) in call_log::placements(std::slice::from_ref(live), &ids) {
+            calls.entry(place).or_default().extend(pieces);
+        }
+    }
+    calls
 }
 
 pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_>]) -> Vec<El> {
@@ -45,10 +51,13 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
             let call = &piece.call;
             let id = call["callId"].as_str()?;
             let name = call["name"].as_str()?;
-            let open = s.calls.open.contains(id);
+            let live = call.get("partial").is_some();
+            let open = live || s.calls.open.contains(id);
             let mut view = col().key(format!("call-{id}-{place:?}")).w_full().gap(8.0);
             let duration = length(call);
-            if piece.first {
+            if piece.first && live {
+                view = view.child(crate::messages::thread_marker(&format!("Call with {name}"), &format!("call-live-{id}"), p));
+            } else if piece.first {
                 let n = call["lines"].as_array().map_or(0, Vec::len);
                 let turns = call["turns"].as_array().map_or(0, Vec::len);
                 let mut summary = format!("{n} {} said", if n == 1 { "line" } else { "lines" });
@@ -117,11 +126,18 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
                             ),
                     );
                 }
-                if piece.last {
+                if live && piece.last {
+                    for role in ["you", "voice"] {
+                        if let Some(words) = call["partial"][role].as_str().filter(|words| !words.is_empty()) {
+                            view = view.child(text(words.to_owned()).key(format!("call-partial-{id}-{role}"))
+                                .font(type_::BODY).color(p.muted).wrap());
+                        }
+                    }
+                } else if piece.last {
                     view = view.child(crate::messages::thread_marker(&format!("Call ended · {duration}"), &format!("call-ended-{id}"), p));
                 }
             }
-            if piece.last
+            if !live && piece.last
                 && let Some(summary) = handed_summary(s, call, p)
             {
                 view = view.child(summary);

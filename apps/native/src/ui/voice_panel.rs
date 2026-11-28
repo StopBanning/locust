@@ -5,6 +5,7 @@ use locust_core::{
     runtime::codex_voice::{CallEvent, CallOptions, CallWindow, NativeHost, VoiceCalls},
     voice_audio::{self, Audio, AudioPeer, Recording},
     voice_call_rules::{Target, Teammate as VoiceTeammate},
+    voice_transcript::{Speaker, Transcript},
     voice_typing::{self, Mode, TranscriptionTransport, VoiceSettings},
 };
 use std::sync::{
@@ -38,6 +39,28 @@ enum TalkState {
     Closing(CallWindow),
 }
 
+struct LiveWords {
+    transcript: Transcript,
+    snapshot: serde_json::Value,
+}
+
+impl LiveWords {
+    fn new(id: String, name: String, after: Option<String>, at: u64) -> Self {
+        let transcript = Transcript::new(id, name, after, at);
+        let snapshot = transcript.live_snapshot();
+        Self { transcript, snapshot }
+    }
+
+    fn heard(&mut self, role: &str, words: &str, said: bool) {
+        if let Some(speaker) = Speaker::from_wire(role) {
+            let at = chrono::Utc::now().timestamp_millis().max(1) as u64;
+            if said { self.transcript.said(speaker, words, at); }
+            else { self.transcript.delta(speaker, words, at); }
+            self.snapshot = self.transcript.live_snapshot();
+        }
+    }
+}
+
 #[derive(Default)]
 pub(super) struct Panel {
     platform: Option<&'static str>,
@@ -48,6 +71,7 @@ pub(super) struct Panel {
     capture: Option<Capture>,
     call: Option<Talk>,
     note: Option<String>,
+    words: Option<LiveWords>,
     questions: Vec<(String, locust_core::runtime::codex_voice::ConnectorQuestion)>,
 }
 
@@ -295,6 +319,7 @@ fn talk(s: &mut State, tx: &mut Tx) {
             s.voice.call = Some(call);
         }
         s.voice.questions.clear();
+        s.voice.words = None;
         tx.wake_after(Duration::from_millis(25));
         return;
     }
@@ -352,7 +377,13 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     return true;
                 };
                 match service.start(options.clone()) {
-                    Ok(window) => call.state = TalkState::Connected(peer, window, false),
+                    Ok(window) => {
+                        s.voice.words = options.teammate.as_ref().map(|teammate| LiveWords::new(
+                            teammate.target.teammate_id.clone(), teammate.name.clone(), options.anchor_turn.clone(),
+                            chrono::Utc::now().timestamp_millis().max(1) as u64,
+                        ));
+                        call.state = TalkState::Connected(peer, window, false);
+                    }
                     Err(why) => {
                         s.voice.note = Some(why);
                         ended = true;
@@ -394,6 +425,12 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             }
             while let Ok(event) = window.events.try_recv() {
                 match event {
+                    CallEvent::Partial(role, text) => {
+                        if let Some(words) = &mut s.voice.words { words.heard(role, &text, false); }
+                    }
+                    CallEvent::Said(role, text) => {
+                        if let Some(words) = &mut s.voice.words { words.heard(role, &text, true); }
+                    }
                     CallEvent::Asks { id, question } => s.voice.questions.push((id, question)),
                     CallEvent::Asked { id, .. } => s.voice.questions.retain(|(key, _)| *key != id),
                     CallEvent::Ended(why) => {
@@ -421,6 +458,7 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             service.stop();
         }
         s.voice.questions.clear();
+        s.voice.words = None;
         wake_ledger_pane(s, now, tx);
     } else {
         s.voice.call = Some(call);
@@ -435,6 +473,15 @@ pub(super) fn tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(25));
     }
     capture || call
+}
+
+/// The live call belongs only to the conversation from which Talk was pressed.
+pub(super) fn live_thread_call(s: &State) -> Option<&serde_json::Value> {
+    let call = s.voice.call.as_ref()?;
+    if call.target != conversation_draft_key(s) || !matches!(call.state, TalkState::Connected(_, _, true)) {
+        return None;
+    }
+    s.voice.words.as_ref().map(|words| &words.snapshot)
 }
 
 pub(super) fn calling(s: &State, id: &str) -> bool {
@@ -577,3 +624,7 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
 #[cfg(test)]
 #[path = "voice_panel_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "b09_live_call_tests.rs"]
+mod b09_live_call_tests;

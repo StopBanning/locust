@@ -105,14 +105,17 @@ impl Transcript {
 
     pub fn said(&mut self, speaker: Speaker, text: &str, at: u64) {
         let partial = self.partial(speaker).take();
-        let at = partial.as_ref().map_or(at, |partial| partial.at);
+        let at = partial.as_ref().map(|partial| partial.at).filter(|at| *at != 0).unwrap_or(at);
         let text = if text.trim().is_empty() {
             partial.as_ref().map_or("", |partial| partial.text.as_str())
         } else {
             text
         };
         let text = fit(text.trim(), 2_000);
-        if !text.is_empty() && self.lines.len() < 400 {
+        if !text.is_empty() {
+            if self.lines.len() == 400 {
+                self.lines.remove(0);
+            }
             self.lines
                 .push(json!({"role":speaker.name(),"text":text,"at":at}));
         }
@@ -172,6 +175,14 @@ impl Transcript {
         out
     }
 
+    /// The open thread's view. The partial words never go into a saved call as partial fields.
+    pub fn live_snapshot(&self) -> Value {
+        let mut out = self.snapshot();
+        let words = |line: &Option<Partial>| line.as_ref().map_or_else(String::new, |line| line.text.trim().to_owned());
+        out["partial"] = json!({"you": words(&self.you), "voice": words(&self.voice)});
+        out
+    }
+
     pub fn finish(mut self, at: u64) -> Value {
         self.said(Speaker::You, "", at);
         self.said(Speaker::Voice, "", at);
@@ -190,3 +201,7 @@ impl Transcript {
 #[cfg(test)]
 #[path = "voice_transcript_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "b09_transcript_tests.rs"]
+mod b09_transcript_tests;
