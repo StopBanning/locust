@@ -7,9 +7,9 @@
 
 use locust_core::bot_rig::{
     bot_motion, crt_rule, eye_glyphs_for, face_box, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
-    power_on_light, rest_pose, step_lag, BodyConductor, BodyWants, BotAvatarPose, BotAvatarSim,
+    power_on_light, rest_pose, step_lag, worn_activity, BodyConductor, BodyWants, BotAvatarPose, BotAvatarSim,
     BotAvatarState, BotMood, BotMotionLevel, CrtKind, FaceActivity, FaceChanges, FrameBeat,
-    GlanceHold, GlanceSide, Lag, PowerOnLight, Pull, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
+    GlanceHold, GlanceSide, JumpSpec, Lag, PowerOnLight, Pull, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
     NOTICE_DWELL_MS, POWER_ON_S, RECEIVED_GLANCE_MS,
 };
 use locust_core::bot_rig::pointer_pull;
@@ -27,6 +27,23 @@ use std::time::Duration;
 const FULL_STEP_MS: u64 = 33;
 const SUBTLE_STEP_MS: u64 = 66;
 const HOVER_PEEK_S: f64 = 2.6;
+/// Electron `shell.css` `@keyframes lcBotBounce`: 1.5s cycle, small 7% lift over the first 46%
+/// (peaking at 23%), then at rest for the remaining 54%.
+const BOUNCE_CYCLE_S: f64 = 1.5;
+const BOUNCE_LIFT_SHARE: f64 = 0.46;
+const BOUNCE_PEAK_PCT: f64 = 7.0;
+
+pub(crate) fn subtle_bounce_lift(seconds: f64) -> f64 {
+    if seconds <= 0.0 || !seconds.is_finite() {
+        return 0.0;
+    }
+    let phase = (seconds % BOUNCE_CYCLE_S) / BOUNCE_CYCLE_S;
+    if phase >= BOUNCE_LIFT_SHARE {
+        return 0.0;
+    }
+    let u = phase / BOUNCE_LIFT_SHARE;
+    0.5 * BOUNCE_PEAK_PCT * (1.0 - (std::f64::consts::TAU * u).cos())
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresenceDot {
@@ -179,6 +196,10 @@ struct BotSlot {
     pull: Option<Pull>,
     seen_this_frame: bool,
     settled: bool,
+    bouncing: bool,
+    bounce_lift: f64,
+    sim_state: BotAvatarState,
+    jump_every: f64,
     cached: BotSnapshot,
     drawn: Drawn,
 }
@@ -316,8 +337,20 @@ fn build_bot_frame(
 ) -> BotSnapshot {
     let desired = slot.desired;
     let still = reduced_motion || is_motionless(desired.activity);
-    let target_state = avatar_state_for(desired.activity, still && !hover_notice);
+    let worn = worn_activity(desired.activity);
+    let motion = bot_motion(worn, desired.motion);
+    let target_state = if still && !hover_notice {
+        avatar_state_for(desired.activity, true)
+    } else if matches!(desired.activity, FaceActivity::Blocked) {
+        BotAvatarState::Sleeping
+    } else {
+        motion.state
+    };
     slot.sim.set_state(target_state);
+    slot.sim_state = target_state;
+    let jump_every = motion.jump_every.unwrap_or_else(|| JumpSpec::default().every);
+    slot.sim.set_jump(JumpSpec { every: jump_every, ..JumpSpec::default() });
+    slot.jump_every = jump_every;
     // Bot.tsx 2393-2400, in its order: a glance while it holds, then the pointer for a face that has noticed it
     // (TeammateBot `follows`: the pointer rested NOTICE_DWELL_MS on it and has not left), then nothing.
     let held = slot.glance.aim(now_s);
@@ -378,10 +411,9 @@ fn build_bot_frame(
     } else {
         None
     });
-    let motion = bot_motion(desired.activity, desired.motion);
     let body_wants = BodyWants {
         mood,
-        hop: !still && (motion.hops || desired.motion == BotMotionLevel::Full),
+        hop: !still && motion.hops,
         resting: still && !hover_notice,
         glancing: held.is_some() || hover_notice,
     };
@@ -408,6 +440,15 @@ fn build_bot_frame(
     }
     slot.prev_pose = frame.pose;
 
+    slot.bouncing = !reduced_motion && motion.bounces;
+    slot.bounce_lift = if slot.bouncing { subtle_bounce_lift(sample_s) } else { 0.0 };
+    let mut out_pose = frame.pose;
+    if slot.bounce_lift != 0.0 {
+        // draw_bot_shape maps pose.y by 1.1 in 0..100 space, so dividing by 1.1 lifts the bot by
+        // `bounce_lift` percent of its box (matching Electron's `translateY(-7%)`).
+        out_pose.y -= slot.bounce_lift / 1.1;
+    }
+
     let active_flash = slot.changes.flash();
     let flash_progress = active_flash
         .map(|(_, at)| flash_fade((sample_s - at).max(0.0)))
@@ -427,7 +468,7 @@ fn build_bot_frame(
         reduced_motion || (still && !hover_notice && held.is_none() && !follows && frame.settled && power_on.is_none());
 
     BotSnapshot {
-        pose: frame.pose,
+        pose: out_pose,
         eyes: active_eyes,
         tone: slot.changes.shown().tone,
         flash: active_flash,
@@ -642,7 +683,17 @@ impl BotStage {
             let seed = seed_of(id);
             let shown = shown_face_for(activity, screen);
             let resting_at_start = is_motionless(activity) || reduced_motion;
-            let mut sim = BotAvatarSim::new(seed, avatar_state_for(activity, resting_at_start));
+            let init_motion = bot_motion(worn_activity(activity), motion);
+            let init_state = if resting_at_start {
+                avatar_state_for(activity, true)
+            } else if matches!(activity, FaceActivity::Blocked) {
+                BotAvatarState::Sleeping
+            } else {
+                init_motion.state
+            };
+            let init_jump = init_motion.jump_every.unwrap_or_else(|| JumpSpec::default().every);
+            let mut sim = BotAvatarSim::new(seed, init_state);
+            sim.set_jump(JumpSpec { every: init_jump, ..JumpSpec::default() });
             // Bot.tsx: `sim.setTurn(outline.turn)` once, when the rig is made.
             if turned {
                 sim.set_turn(outline_of(id).turn);
@@ -688,6 +739,10 @@ impl BotStage {
                 pull: None,
                 seen_this_frame: true,
                 settled: resting_at_start,
+                bouncing: false,
+                bounce_lift: 0.0,
+                sim_state: init_state,
+                jump_every: init_jump,
                 cached,
                 drawn: Drawn::default(),
             };
@@ -1308,4 +1363,8 @@ mod pet_glance_tests {
 #[cfg(test)]
 #[path = "stage_rests_behind_tests.rs"]
 mod stage_rests_behind_tests;
+
+#[cfg(test)]
+#[path = "face_motion_behavior_tests.rs"]
+mod face_motion_behavior_tests;
 

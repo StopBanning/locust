@@ -198,7 +198,7 @@ fn summary_of(activity: FaceActivity) -> &'static str {
     }
 }
 
-// "looks around at work instead of hopping, and bounces a little".
+// case: looks around at work instead of hopping, and bounces a little
 #[test]
 fn a_subtle_bot_looks_around_at_work_instead_of_hopping_and_bounces_a_little() {
     for activity in [FaceActivity::Working, FaceActivity::Delegating] {
@@ -211,7 +211,7 @@ fn a_subtle_bot_looks_around_at_work_instead_of_hopping_and_bounces_a_little() {
     }
 }
 
-// "never flips, whatever it is doing".
+// case: never flips, whatever it is doing
 #[test]
 fn a_subtle_bot_never_flips_whatever_it_is_doing() {
     for activity in FaceActivity::ALL {
@@ -219,7 +219,7 @@ fn a_subtle_bot_never_flips_whatever_it_is_doing() {
     }
 }
 
-// "bounces only at work: thinking and answering look around, still keeps still, and a finish hops once".
+// case: bounces only at work: thinking and answering look around, still keeps still, and a finish hops once
 #[test]
 fn a_subtle_bot_bounces_only_at_work_and_a_finish_hops_once() {
     let want = [
@@ -239,7 +239,7 @@ fn a_subtle_bot_bounces_only_at_work_and_a_finish_hops_once() {
     }
 }
 
-// "the face you are talking to keeps the whole performance: it hops at work, and flips on its own schedule".
+// case: keeps the whole performance: it hops at work, and flips on its own schedule
 #[test]
 fn the_face_you_are_talking_to_keeps_the_whole_performance() {
     let working = bot_motion(FaceActivity::Working, BotMotionLevel::Full);
