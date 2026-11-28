@@ -366,3 +366,6 @@ fn thread_composer_shows_the_handed_to_route_until_a_new_pick_overrides_it() {
 
 #[path = "composer_b10_own_actions_tests.rs"]
 mod own_actions;
+
+#[path = "composer_b10_page_points_tests.rs"]
+mod page_points;
