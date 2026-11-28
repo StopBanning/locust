@@ -1160,7 +1160,10 @@ impl ScoutAway {
             if !page.more || cursor == before { break; }
         }
         if !looks.is_empty() {
-            scout.absorb(&looks);
+            if scout.absorb_saved(&looks).is_err() {
+                st.message = Some("Scout could not save the away look. It will read it again.".into());
+                return;
+            }
             held.last_look = looks.last().map(|letter| letter.at.clone());
         }
         if cursor != held.cursor {
