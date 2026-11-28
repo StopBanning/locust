@@ -16,6 +16,7 @@ fn shows_the_runtimes_own_last_word_because_the_hosts_sentence_names_only_the_sh
     );
 }
 
+// case: says capacity exhaustion in English rather than passing the jargon through alone
 #[test]
 fn says_capacity_exhaustion_in_english_and_keeps_the_runtimes_words() {
     let said = card("Cursor Agent ended without a terminal result record.", "RetriableError: [resource_exhausted] Error\n");

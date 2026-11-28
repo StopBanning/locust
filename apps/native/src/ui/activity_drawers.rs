@@ -1699,3 +1699,7 @@ mod antigravity_rows_read_like_claude_tests;
 #[cfg(test)]
 #[path = "blockers1_sheet_fold_tests.rs"]
 mod blockers1_sheet_fold_tests;
+
+#[cfg(test)]
+#[path = "activity_shell_output_sweep_tests.rs"]
+mod activity_shell_output_sweep_tests;
