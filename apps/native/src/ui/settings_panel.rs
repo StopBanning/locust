@@ -2766,3 +2766,7 @@ mod settings_general_tests;
 #[cfg(test)]
 #[path = "settings_switch_more_tests.rs"]
 mod settings_switch_more_tests;
+
+#[cfg(test)]
+#[path = "settings_install_update_state_tests.rs"]
+mod settings_install_update_state_tests;
