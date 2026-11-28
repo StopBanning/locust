@@ -57,6 +57,7 @@ fn a_first_run_says_install_then_sign_in_for_every_npm_agent_that_needs_an_accou
 
 // --- kilo-installs-in-one-click ---
 
+// case: is one npm install of its CLI package, signed into only for a paid model
 #[test]
 fn kilo_is_one_npm_install_of_its_cli_package_signed_into_only_for_a_paid_model() {
     let facts = runtime_install_facts("kilo").unwrap();
