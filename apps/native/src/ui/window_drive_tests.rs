@@ -6035,7 +6035,7 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
 
 #[test]
 fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
-    let (dirs, store, mut rt) = window();
+    let (dirs, store, mut rt) = window_without_browser_bridge("ask");
     let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-scout-fix"));
     let folder = dirs.0.join("fix-repo");
     let fix_root = dirs.0.join("scout-fixes-root");
