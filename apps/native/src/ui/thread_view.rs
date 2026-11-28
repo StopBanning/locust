@@ -1,5 +1,37 @@
 use super::*;
 
+/// A native reply follows the selected conversation's last recorded route, as send_from does.
+pub(super) fn recorded_composer_route(s: &State) -> Option<(&str, &str)> {
+    if s.engine != Some(Kind::Native) || s.edit.editing.is_some() {
+        // A rewind is a fresh branch through send_from, not an ordinary continuation.
+        return None;
+    }
+    let pane = s.ledger.as_ref()?;
+    pane.conversation.conversation_id.as_ref()?;
+    let last = pane.snapshot.turn_metas.last()?;
+    if !locust_core::route_at_start::is_mission_runtime(&last.runtime) || last.model.trim().is_empty() {
+        return None;
+    }
+    Some((&last.runtime, &last.model))
+}
+
+// An explicit model pick with no runtime means the teammate's saved runtime, not the thread's runtime.
+fn pick_runtime<'a>(
+    picked: Option<&'a TurnPick>,
+    saved: Option<&'a str>,
+    recorded: Option<(&'a str, &'a str)>,
+) -> Option<&'a str> {
+    match picked {
+        Some(pick) => pick.runtime.as_deref().or(saved),
+        None => recorded.map(|(runtime, _)| runtime).or(saved),
+    }
+}
+
+pub(super) fn next_composer_runtime(s: &State) -> Option<&str> {
+    let (teammate, _) = selected_conversation(s)?;
+    pick_runtime(s.picks.get(&teammate.id), teammate.runtime.as_deref(), recorded_composer_route(s))
+}
+
 pub(super) fn thread_view(s: &State, p: &Palette) -> El {
     // Local history remains readable even when the MCP engine is unavailable.
     let error = s.load_error.as_ref().filter(|_| s.ledger.is_none());
@@ -280,18 +312,21 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
 
         let id = teammate.id.clone();
+        let picked = s.picks.get(&id);
+        let recorded = recorded_composer_route(s);
+        let selected_runtime = next_composer_runtime(s);
         let current = s.models.get(&id).and_then(|agents| {
             agents
                 .iter()
-                .find(|a| teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+                .find(|a| selected_runtime == Some(a.runtime.as_str()))
                 .or_else(|| {
                     (id != LEDGER_TARGET && teammate.runtime.is_none() && agents.len() == 1)
                         .then(|| &agents[0])
                 })
         });
-        let picked = s.picks.get(&id);
         let model = picked
             .map(|p| p.model.as_str())
+            .or(recorded.map(|(_, model)| model))
             .or_else(|| {
                 if id == LEDGER_TARGET {
                     teammate.model.as_deref()
@@ -309,7 +344,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 None
             }
         });
-        let rt = picked.and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
+        let rt = selected_runtime.or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
         let resolved_id = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str);
         let default_model_name = (model == locust_core::models::ACCOUNT_DEFAULT)
             .then_some(resolved_id)
@@ -352,7 +387,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let (chip_model_name, chip_is_free) = locust_core::route_rows::free_tag_of(model_name);
         let active_account = match picked.and_then(|p| p.account.as_ref()) {
             Some(explicit) => explicit.as_deref(),
-            None => teammate.account.as_deref(),
+            // The header's account belongs to its saved runtime, not the carried-to runtime.
+            None if teammate.runtime.as_deref() == Some(rt) => teammate.account.as_deref(),
+            None => None,
         };
         let account_name = active_account
             .and_then(|acc| s.agent_accounts.accounts.iter().find(|a| a.id == acc))
@@ -366,11 +403,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
         let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
-        let runtime = picked
-            .and_then(|p| p.runtime.as_deref())
-            .or(teammate.runtime.as_deref())
-            .or(current.map(|a| a.runtime.as_str()))
-            .unwrap_or("codex");
+        let runtime = rt;
         // The runtime's mark where the ready dot was, greyed when it cannot take work; a dot for a model of the
         // person's own; "No AI agent" when nothing can take work (chip_mark.rs).
         let found = crate::chip_mark::found_agents(s);
@@ -388,10 +421,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             })
             .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
         // Its usage on hover (Composer.tsx, 2026-10-30): the agent's card above the chip, aligned to its right.
-        let chip_account = match picked.and_then(|p| p.account.as_ref()) {
-            Some(explicit) => explicit.as_deref(),
-            None => teammate.account.as_deref(),
-        };
+        let chip_account = active_account;
         // From 80% the chip wears an amber dot after its chevron, and its usage is read aloud as its description
         // (`.lc-control.is-pressing::after`, `aria-description`).
         let chip_reading = s.usage_readings.get(&locust_core::agent_accounts::usage_key(runtime, chip_account)).map(String::as_str);
@@ -1204,20 +1234,28 @@ pub(super) fn model_picker(
     let picked = if for_team { None } else { s.picks.get(id) };
     let needle = route_search_text(&s.model_query.text);
     let searching = !needle.is_empty();
+    let recorded = if !for_team && selected_conversation(s).is_some_and(|(mate, _)| mate.id == id) {
+        recorded_composer_route(s)
+    } else {
+        None
+    };
     if !searching && !for_team {
-        list = list.child(row_of("Teammate’s own".into(), "its saved model and level".into(), picked.is_none()).on_press(move |s: &mut State| {
+        let (word, detail) = if recorded.is_some() {
+            ("Conversation’s route", "its last model")
+        } else {
+            ("Teammate’s own", "its saved model and level")
+        };
+        list = list.child(row_of(word.into(), detail.into(), picked.is_none()).on_press(move |s: &mut State| {
             s.picks.remove(&reset_id);
             s.model_menu = None;
         }));
     }
     let policy = locust_core::org_policy::current();
-    let active_runtime = picked
-        .and_then(|p| p.runtime.as_deref())
-        .or(teammate.runtime.as_deref())
-        .unwrap_or("codex");
+    let active_runtime = pick_runtime(picked, teammate.runtime.as_deref(), recorded).unwrap_or("codex");
     let active_account: Option<&str> = match picked.and_then(|p| p.account.as_ref()) {
         Some(explicit) => explicit.as_deref(),
-        None => teammate.account.as_deref(),
+        None if teammate.runtime.as_deref() == Some(active_runtime) => teammate.account.as_deref(),
+        None => None,
     };
     let mut groups: Vec<(&engine::Models, Option<&locust_core::agent_accounts::Account>)> = agents
         .iter()
@@ -1456,16 +1494,20 @@ pub(super) fn model_picker(
         .unwrap_or_default();
     // Claude Code's effort control (EffortSlider in the RoutePicker's effort slot), on the level shown or its default.
     let mut foot = row().w_full().gap(6.0).center_y();
-    if !levels.is_empty() && !for_team {
+    if !levels.is_empty() && !for_team && (recorded.is_none() || picked.is_some()) {
         let (key, pick_model) = (id.to_owned(), model.to_owned());
-        let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
+        let pick_runtime = (teammate.runtime.as_deref() != Some(active_runtime)).then(|| active_runtime.to_owned());
         let pick_account = s.picks.get(id).and_then(|p| p.account.clone());
         let pick: crate::effort_slider::PickLevel = std::rc::Rc::new(move |s: &mut State, level: String| {
             apply_model_pick(s, &key, TurnPick { model: pick_model.clone(), effort: Some(level), runtime: pick_runtime.clone(), account: pick_account.clone() }, for_team);
         });
-        let shown_runtime = s.picks.get(id).and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).unwrap_or(active_runtime);
+        let shown_runtime = active_runtime;
         let shown_effort = locust_core::run_effort::run_effort(shown_runtime, model, &levels, None, effort);
         foot = foot.child(crate::effort_slider::effort_panel(s, l, &levels, shown_effort.as_deref(), shown_runtime, pick));
+    } else if !levels.is_empty() && !for_team {
+        // A ledger's display metadata has no account. An effort-only pick must not
+        // silently move this conversation to a different account.
+        foot = foot.child(text("Pick a model and account to change effort for this turn.").font(l.ty.body).color(l.c("text-muted")));
     }
     // The note on a line of its own: beside four levels it ran past the card's edge.
     let foot = col()

@@ -72,7 +72,9 @@ fn read_breakdown(s: &mut State, running: bool) -> bool {
 
 /// The conversation's runtime: the one its last turn ran on, else the teammate's.
 fn conversation_runtime(s: &State) -> Option<String> {
-    selected_conversation(s).and_then(|(t, _)| t.runtime.clone())
+    crate::thread_view::recorded_composer_route(s)
+        .map(|(runtime, _)| runtime.to_owned())
+        .or_else(|| selected_conversation(s).and_then(|(t, _)| t.runtime.clone()))
 }
 
 fn runtime_name(runtime: &str) -> &'static str {
@@ -81,10 +83,12 @@ fn runtime_name(runtime: &str) -> &'static str {
 
 /// The menu rows for the conversation's runtime's own commands.
 pub(super) fn menu_rows(s: &State) -> Vec<composer::SlashCommand> {
-    let Some(runtime) = conversation_runtime(s) else { return Vec::new() };
-    let Some(rows) = s.runtime_commands.by_runtime.get(&runtime) else { return Vec::new() };
+    let Some(runtime) = crate::thread_view::next_composer_runtime(s) else {
+        return Vec::new();
+    };
+    let Some(rows) = s.runtime_commands.by_runtime.get(runtime) else { return Vec::new() };
     let rows: Vec<(String, String, String)> = rows.iter().map(|c| (c.name.clone(), c.description.clone(), c.argument_hint.clone())).collect();
-    composer::runtime_slash_commands(runtime_name(&runtime), &rows)
+    composer::runtime_slash_commands(runtime_name(runtime), &rows)
 }
 
 /// Writing a runtime command's arguments (`/name ` and what follows): the menu stays shut so Enter sends.
@@ -100,11 +104,10 @@ pub(super) fn offer(s: &State) -> Option<(CompactOffer, &'static str)> {
     let runtime = conversation_runtime(s)?;
     let name = runtime_name(&runtime);
     // The route chip's runtime for the next message: another agent picked for this turn, else the conversation's.
-    let teammate = selected_conversation(s).map(|(t, _)| t.id.clone())?;
-    let next = s.picks.get(&teammate).and_then(|p| p.runtime.clone()).unwrap_or_else(|| runtime.clone());
+    let next = crate::thread_view::next_composer_runtime(s).unwrap_or(&runtime);
     let offer = compact_now::compact_offer(&OfferInput {
         runtime: Some(&runtime),
-        next_runtime: &next,
+        next_runtime: next,
         runtime_name: name,
         commands: &s.runtime_commands.by_runtime,
         running: turn_running(s),

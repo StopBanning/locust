@@ -232,3 +232,134 @@ fn folder_confirmation_also_checks_the_real_project_behind_an_alias() {
     assert!(words(&rt).contains("Start this conversation in .claude?"));
     assert!(rt.state.flight.is_none());
 }
+
+// case: shows the route handed to, over the teammate's saved model
+#[test]
+fn thread_composer_shows_the_handed_to_route_until_a_new_pick_overrides_it() {
+    let (root, mut s) = fresh();
+    s.home.home_open = false;
+    let id = s.teammates[s.selected].id.clone();
+    s.teammates[s.selected].model = Some("gpt-6-luna".into());
+    s.teammates[s.selected].account = Some("codex-account".into());
+    let header = s.teammates[s.selected].clone();
+    s.ledger = Some(LedgerPane {
+        header,
+        conversation: Conversation {
+            conversation_id: Some("mission_handed".into()),
+            turns: vec![],
+        },
+        items: vec![],
+        dir: root.0.clone(),
+        worker: None,
+        snapshot: ledger::Snapshot {
+            tip: "mission_handed".into(),
+            context: Some(locust_core::context_usage::Reading {
+                used: 164_000,
+                window: 200_000,
+                percent: 82,
+            }),
+            turn_metas: vec![ledger::Metadata {
+                mission_id: "mission_handed".into(),
+                runtime: "claude".into(),
+                model: "claude-sonnet-5".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+        cold_tip: None,
+        due: f64::INFINITY,
+        loading: false,
+        after_tip: None,
+        after_tip_deadline: None,
+        backoff: 0.,
+    });
+    s.models.insert(
+        id.clone(),
+        vec![engine::Models {
+            runtime: "claude".into(),
+            model: Some("claude-haiku-5-5".into()),
+            effort: None,
+            teammate: None,
+            models: vec![engine::Model {
+                id: "claude-sonnet-5".into(),
+                name: "Claude Sonnet 5".into(),
+                efforts: vec!["low".into(), "high".into()],
+            }],
+        }],
+    );
+    let cmd = |name: &str, description: &str| locust_core::runtime_commands::CommandInfo {
+        name: name.into(),
+        description: description.into(),
+        argument_hint: String::new(),
+    };
+    s.runtime_commands.by_runtime.insert(
+        "claude".into(),
+        vec![
+            cmd("context", "Claude-only stats"),
+            cmd("compact", "Summarize the conversation"),
+        ],
+    );
+    s.runtime_commands
+        .by_runtime
+        .insert("codex".into(), vec![cmd("review", "Codex-only review")]);
+    let mut rt = window(s);
+    let route = |rt: &rune::Runtime<State>| {
+        rt.elements()
+            .into_iter()
+            .find(|e| e.key.as_deref() == Some("model-chip"))
+            .and_then(|e| e.label.or(e.text))
+            .unwrap()
+    };
+    assert!(route(&rt).contains("Sonnet"), "actual label {}", route(&rt));
+    type_words(&mut rt, "/con");
+    click_word(&mut rt, "/context");
+    assert_eq!(rt.state.draft.text, "/context ");
+    assert!(rt.find("slash-menu").is_none());
+    rt.update(|s, _| s.model_menu = Some(id.clone()));
+    frames(&mut rt);
+    assert!(words(&rt).contains("Conversation’s route"));
+    assert!(words(&rt).contains("Pick a model and account to change effort for this turn."));
+    assert!(rt.find("effort-scale").is_none());
+    rt.update(|s, _| {
+        s.model_menu = None;
+        s.runtime_commands.ring_open = true;
+        s.picks.insert(
+            id,
+            TurnPick {
+                model: "gpt-6-luna".into(),
+                effort: None,
+                runtime: None, // A real picker row on the teammate's saved runtime.
+                account: Some(None),
+            },
+        );
+        s.draft.replace_text("/rev");
+    });
+    frames(&mut rt);
+    assert!(route(&rt).contains("Luna"), "actual label {}", route(&rt));
+    assert!(words(&rt).contains("Codex-only review"));
+    assert!(rt.find("chip-mark-codex").is_some());
+    assert!(words(&rt).contains("Your next message goes to another model."));
+    assert_eq!(
+        rt.state.teammates[rt.state.selected].model.as_deref(),
+        Some("gpt-6-luna")
+    );
+    // Rewriting an earlier message doesn't follow the handed-to route; the engine starts a new branch.
+    rt.update(|s, _| {
+        s.picks.clear();
+        s.runtime_commands.ring_open = false;
+        s.edit.editing = Some(crate::edit_message::Editing {
+            conversation: "mission_handed".into(),
+            tip: "mission_handed".into(),
+            turn: "mission_handed".into(),
+            before: None,
+            set_aside: vec!["mission_handed".into()],
+            folder: None,
+            offer: None,
+            put_back: false,
+        });
+        s.draft.replace_text("Rewritten words.");
+    });
+    frames(&mut rt);
+    assert!(route(&rt).contains("Luna"));
+    assert!(rt.find("chip-mark-codex").is_some());
+}
