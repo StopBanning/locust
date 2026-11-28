@@ -4526,3 +4526,7 @@ mod compare_draft_keeps_typed_criteria_tests;
 #[cfg(test)]
 #[path = "compare_criteria_display_isolation_tests.rs"]
 mod compare_criteria_display_isolation_tests;
+
+#[cfg(test)]
+#[path = "compare_judge_criteria_isolation_tests.rs"]
+mod compare_judge_criteria_isolation_tests;
