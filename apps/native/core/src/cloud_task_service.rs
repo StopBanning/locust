@@ -205,13 +205,13 @@ impl<'a> CloudTaskService<'a> {
         if let Some(message) =
             crate::org_policy::unmetered_refusal(Some(&policy), "codex", None, "auto", true, false)
         {
-            return CloudStartResult::Err { message };
+            return CloudStartResult::Err { message, no_environment: None };
         }
         if let Some(store) = &self.store
             && let Some(message) =
                 crate::claude_background::launch_spend_refusal(store, &policy, input.teammate_id.as_deref())
         {
-            return CloudStartResult::Err { message };
+            return CloudStartResult::Err { message, no_environment: None };
         }
         let prompt = input.prompt.trim().to_string();
         if prompt.is_empty() {

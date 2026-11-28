@@ -2213,6 +2213,7 @@ fn view_exchange(
                 let words = live_turn_words(live.as_ref());
                 let live_el = crate::working_shimmer::live_word(
                     &words,
+                    s.frame_clock,
                     p.muted,
                     l.c("text-name"),
                     s.reduced_motion.get(),
