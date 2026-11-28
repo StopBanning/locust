@@ -48,6 +48,7 @@ fn verdict(running: bool, phase: Option<&str>, restored: bool, held: Option<&str
     queued_verdict(VerdictInput { running, phase, on_screen: true, restored, held })
 }
 
+// case: Restored messages wait for Send even when the previous turn completed.
 #[test]
 fn restored_messages_wait_for_send_even_when_the_previous_turn_completed() {
     let disk = Disk::new("held", &[one(), other()]);
@@ -58,12 +59,14 @@ fn restored_messages_wait_for_send_even_when_the_previous_turn_completed() {
     }
 }
 
+// case: A newly queued message still sends when its turn completes in the same session.
 #[test]
 fn a_newly_queued_message_still_sends_when_its_turn_completes_in_the_same_session() {
     // Queued in this session: the row the window holds, not one read back from the file.
     assert_eq!(verdict(false, Some("completed"), one().restored, None), QueuedVerdict::Send);
 }
 
+// case: Edit and Discard remove only their conversation durably.
 #[test]
 fn edit_and_discard_remove_only_their_conversation_durably() {
     let disk = Disk::new("discard", &[one(), other()]);
@@ -75,6 +78,7 @@ fn edit_and_discard_remove_only_their_conversation_durably() {
     assert_eq!(disk.read(), []);
 }
 
+// case: An explicit Send takes the restored words and files without releasing another conversation.
 #[test]
 fn an_explicit_send_takes_the_restored_words_and_files_without_releasing_another_conversation() {
     let disk = Disk::new("send", &[one(), other()]);
@@ -84,6 +88,7 @@ fn an_explicit_send_takes_the_restored_words_and_files_without_releasing_another
     assert_eq!(disk.keys(), ["run_other"]);
 }
 
+// case: Rekeyed messages reopen under the acknowledged run instead of a temporary key.
 #[test]
 fn rekeyed_messages_reopen_under_the_acknowledged_run_instead_of_a_temporary_key() {
     let disk = Disk::new("rekeyed", &[]);
@@ -95,6 +100,7 @@ fn rekeyed_messages_reopen_under_the_acknowledged_run_instead_of_a_temporary_key
     assert_eq!((named.text.as_str(), named.restored), ("Check it.", true));
 }
 
+// case: A new automatic queue row cannot absorb a restored message.
 #[test]
 fn a_new_automatic_queue_row_cannot_absorb_a_restored_message() {
     let restored = QueuedRow { id: "restored".into(), restored: true, attachments: vec![], ..one() };
@@ -102,6 +108,7 @@ fn a_new_automatic_queue_row_cannot_absorb_a_restored_message() {
 }
 
 /// Electron's queue refuses the update and writes nothing; Rust's writer refuses to replace a file it cannot read.
+// case: An unreadable queue refuses updates instead of silently replacing saved words.
 #[test]
 fn an_unreadable_queue_refuses_updates_instead_of_silently_replacing_saved_words() {
     let disk = Disk::new("unreadable", &[other()]);

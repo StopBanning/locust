@@ -887,3 +887,7 @@ mod queue_durability_tests;
 #[cfg(test)]
 #[path = "blockers1_pdf_attach_tests.rs"]
 mod blockers1_pdf_attach_tests;
+
+#[cfg(test)]
+#[path = "restored_queue_window_persistence_tests.rs"]
+mod restored_queue_window_persistence_tests;
