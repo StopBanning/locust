@@ -1977,6 +1977,15 @@ fn board_card(
     let who = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone()).filter(|name| !name.is_empty());
     let mate = who.as_ref().and_then(|name| s.teammates.iter().find(|t| &t.name == name));
     let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 20.0, s.settings_panel.settings.terminal_faces, l));
+    // BoardScreen.tsx:186-192: no teammate, but a runtime and a model not of your own: its RuntimeMark (13, named), by the
+    // sidebar's own rule (`row_runtime`), in the face's 20.
+    let face = face.or_else(|| {
+        let runtime = crate::sidebar::row_runtime(s, &card.row)?;
+        crate::look::controls::agent_mark(l, runtime, 13.0, l.c("text-muted")).map(|mark| {
+            row().size(20.0, 20.0).center().child(mark).key(format!("board-card-runtime-{mission_id}"))
+                .role("img").label(locust_core::inspector::runtime_display_name(runtime))
+        })
+    });
     let meta = conversation_board::card_meta_line(who.as_deref(), under.as_deref(), &state_line);
     let open_id = mission_id.clone();
     let conv = conversation_board::conv_card(l, column, &mission_id, face, &card.row.title, &meta).on_press(move |s: &mut State| {
@@ -2937,6 +2946,9 @@ mod board_drawn_tests;
 #[cfg(test)]
 #[path = "board_window_tests.rs"]
 mod board_window_tests;
+#[cfg(test)]
+#[path = "board_card_runtime_mark_tests.rs"]
+mod board_card_runtime_mark_tests;
 
 #[cfg(test)]
 #[path = "page_starter_tests.rs"]

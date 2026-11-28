@@ -319,7 +319,7 @@ fn is_own_mark_model(model: &str) -> bool {
 /// The runtime id a conversation without a teammate ran on: from its ledger summary (ignoring custom `own-` models),
 /// else from its `recent` row's runtime display name (as `main.rs` writes via `engine::runtime_name` and `native-live`
 /// sets `"Codex"`). Returns `None` when no known runtime mark applies.
-fn row_runtime<'a>(s: &'a State, item: &SidebarMission) -> Option<&'a str> {
+pub(crate) fn row_runtime<'a>(s: &'a State, item: &SidebarMission) -> Option<&'a str> {
     if let Some(m) = s.ledger_summaries.get(&item.mission_id) {
         return (!m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
             .then_some(m.runtime.as_str());
