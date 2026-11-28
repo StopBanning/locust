@@ -4514,3 +4514,7 @@ mod comparison_edits_tests;
 #[cfg(test)]
 #[path = "compare_judge_prompt_tests.rs"]
 mod compare_judge_prompt_tests;
+
+#[cfg(test)]
+#[path = "compare_criteria_cap_tests.rs"]
+mod compare_criteria_cap_tests;
