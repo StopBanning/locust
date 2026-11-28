@@ -5114,7 +5114,10 @@ fn scenario(store: &Store, guard: native::hooks::Guard, name: &str) -> native::h
 
 /// A conversation of two turns in the window ("Synthetic prompt", then "Synthetic follow-up"), the turn ids oldest first.
 fn two_turns() -> (Dirs, Store, Runtime<State>, native::hooks::Guard, String, String) {
-    let (dirs, store, mut rt) = window();
+    two_turns_in(window())
+}
+
+fn two_turns_in((dirs, store, mut rt): (Dirs, Store, Runtime<State>)) -> (Dirs, Store, Runtime<State>, native::hooks::Guard, String, String) {
     let guard = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
     type_and_send(&mut rt, "Synthetic prompt");
     pump(&mut rt, "the first answer", answered);
@@ -5182,7 +5185,7 @@ fn editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_an
 
 #[test]
 fn sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable() {
-    let (_dirs, store, mut rt, g, first, second) = two_turns();
+    let (_dirs, store, mut rt, g, first, second) = two_turns_in(window_without_browser_bridge("ask"));
     click(&mut rt, &format!("edit-message-{second}"));
     pump(&mut rt, "the records read", |s| !s.edit.offer_job.is_pending());
     let _g = scenario(&store, g, "rewind");
