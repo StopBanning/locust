@@ -1304,3 +1304,7 @@ mod changes_versions_tests;
 #[cfg(test)]
 #[path = "file_versions_strip_tests.rs"]
 mod file_versions_strip_tests;
+
+#[cfg(test)]
+#[path = "changes_files_highlight_tests.rs"]
+mod changes_files_highlight_tests;
