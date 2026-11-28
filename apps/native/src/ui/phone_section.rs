@@ -2669,6 +2669,50 @@ mod tests {
         assert!(rt.state.scout.host.as_ref().unwrap().scout.state().cards.is_empty());
     }
 
+    #[test]
+    fn the_phone_dismiss_route_refuses_an_ambiguous_scout_alias() {
+        use locust_core::phone_host::answer_phone;
+        use locust_core::scout::store::SCOUT_FILE;
+        let (_root, store) = temp_store("scout-phone-alias-collision");
+        let legacy = "card_1234567890123456789";
+        let ambiguous = phone_scout_id(legacy);
+        let unique = "card_0123456789ab";
+        assert_ne!(ambiguous, legacy);
+        assert_ne!(ambiguous, unique);
+
+        // A migrated card may already have the canonical ID that a legacy card hashes to.
+        let path = store.root().join(SCOUT_FILE);
+        std::fs::write(path, serde_json::json!({
+            "cards": [
+                {"cardId": ambiguous, "key": "canonical", "said": "Canonical", "at": "2026-01-03T12:00:00.000Z"},
+                {"cardId": legacy, "key": "legacy", "said": "Legacy", "at": "2026-01-02T12:00:00.000Z"},
+                {"cardId": unique, "key": "unique", "said": "Unique", "at": "2026-01-01T12:00:00.000Z"}
+            ]
+        }).to_string()).unwrap();
+        let mut s = State::default();
+        s.data = Some(store.clone());
+        let calls = phone_calls_with_scout(&mut s, store, Arc::new(|| 0));
+        let get = || answer_phone(calls.as_ref(), "GET", "/api/state", None).unwrap().data;
+        let dismiss = |id: &str| {
+            answer_phone(calls.as_ref(), "POST", "/api/scout/dismiss",
+                Some(&serde_json::json!({"cardId": id}))).unwrap()
+        };
+
+        let before = get();
+        assert_eq!(before["scout"].as_array().unwrap().len(), 3);
+        assert_eq!(before["scout"][0]["cardId"].as_str(), Some(ambiguous.as_str()));
+        assert_eq!(before["scout"][1]["cardId"].as_str(), Some(ambiguous.as_str()));
+        let refused = dismiss(&ambiguous);
+        assert_eq!(refused.status, 200);
+        assert_eq!(refused.data, serde_json::json!({"ok": false}));
+        assert_eq!(get()["scout"], before["scout"]);
+
+        let accepted = dismiss(unique);
+        assert_eq!(accepted.status, 200);
+        assert_eq!(accepted.data, serde_json::json!({"ok": true}));
+        assert_eq!(get()["scout"], serde_json::json!(before["scout"].as_array().unwrap()[..2]));
+    }
+
     /// NSURLSession's place, taken by a client that connects nowhere: it answers the PC's auth as the relay does.
     #[cfg(target_os = "macos")]
     #[derive(Default)]
