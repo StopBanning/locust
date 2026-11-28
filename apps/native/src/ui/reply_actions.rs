@@ -1053,6 +1053,10 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                     let p = &palette;
                     let diagram_tab = el()
                         .key(format!("diagram-{}/tab-diagram", frame.index))
+                        .role("tab")
+                        .label(crate::diagram::TAB_DIAGRAM)
+                        .focusable(true)
+                        .focus_selected(!code_on)
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if !code_on { p.selected } else { p.raised })
@@ -1066,6 +1070,10 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         });
                     let code_tab = el()
                         .key(format!("diagram-{}/tab-code", frame.index))
+                        .role("tab")
+                        .label(crate::diagram::TAB_CODE)
+                        .focusable(true)
+                        .focus_selected(code_on)
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if code_on { p.selected } else { p.raised })
@@ -1542,3 +1550,7 @@ mod settled_text_tests;
 #[cfg(test)]
 #[path = "reply_copy_tests.rs"]
 mod reply_copy_tests;
+
+#[cfg(test)]
+#[path = "blockers1_diagram_tabs_tests.rs"]
+mod blockers1_diagram_tabs_tests;
