@@ -302,6 +302,31 @@ pub struct AgentInstalled {
     pub bin: String,
 }
 
+/// A cloud provider distinguishes permission from an ordinary failure: only permission opens the
+/// cloud-setup recovery flow, never arbitrary text from a failed command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CloudComputerError {
+    Permission(String),
+    Other(String),
+}
+
+impl CloudComputerError {
+    fn into_prepare(self, repo: &str, branch: Option<&str>) -> CloudPrepared {
+        let (message, setup) = match self {
+            Self::Permission(message) => (
+                message,
+                Some(CloudSetup {
+                    repo: repo.to_owned(),
+                    branch: branch.map(str::to_owned),
+                    permission: true,
+                }),
+            ),
+            Self::Other(message) => (message, None),
+        };
+        CloudPrepared::Err { message, setup, sign_in: None }
+    }
+}
+
 fn whole_agent_path(path: &str) -> bool {
     path.strip_prefix('/').is_some_and(|tail| {
         !tail.is_empty()
@@ -312,8 +337,8 @@ fn whole_agent_path(path: &str) -> bool {
 }
 
 pub trait CloudComputers {
-    fn find(&self, repo: &str) -> Result<Option<Codespace>, String>;
-    fn make(&self, repo: &str, branch: Option<&str>) -> Result<String, String>;
+    fn find(&self, repo: &str) -> Result<Option<Codespace>, CloudComputerError>;
+    fn make(&self, repo: &str, branch: Option<&str>) -> Result<String, CloudComputerError>;
     fn when_ready(&self, name: &str) -> Result<(), String>;
     fn ensure_open_code(&self, name: &str, version: &str) -> Result<String, String>;
     fn ensure_agent(
@@ -827,13 +852,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 say(CloudStartPhase::CloudMaking);
                 let name = match self.computers.make(&repo, branch.as_deref()) {
                     Ok(n) => n,
-                    Err(msg) => {
-                        return CloudPrepared::Err {
-                            message: msg,
-                            setup: None,
-                            sign_in: None,
-                        };
-                    }
+                    Err(error) => return error.into_prepare(&repo, branch.as_deref()),
                 };
                 Codespace {
                     name,
@@ -843,13 +862,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                     last_used_at: None,
                 }
             }
-            Err(msg) => {
-                return CloudPrepared::Err {
-                    message: msg,
-                    setup: None,
-                    sign_in: None,
-                };
-            }
+            Err(error) => return error.into_prepare(&repo, branch.as_deref()),
         };
 
         if cloud_state_of(&space.state) != CloudComputerState::Available

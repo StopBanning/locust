@@ -191,3 +191,51 @@ fn cloud_setup_requires_the_whole_path_to_the_installed_agent() {
         },
     );
 }
+
+const PERMISSION: &str = "GitHub has not let Locust make codespaces yet. Allow it once in your browser, then send again.";
+
+fn assert_permission_setup(result: CloudPrepared) {
+    assert_eq!(
+        result,
+        CloudPrepared::Err {
+            message: PERMISSION.into(),
+            setup: Some(crate::cloud_turns::CloudSetup {
+                repo: "acme/hearth".into(),
+                branch: Some("main".into()),
+                permission: true,
+            }),
+            sign_in: None,
+        }
+    );
+}
+
+#[test]
+// case: says plainly when GitHub has not let Locust make codespaces
+fn says_plainly_when_github_has_not_let_locust_make_codespaces() {
+    with_world(
+        FakeOptions::default_github(),
+        |folder, turns, computers, told, _| {
+            *computers.find_failure.borrow_mut() =
+                Some(CloudComputerError::Permission(PERMISSION.into()));
+            assert_permission_setup(prepare(turns, folder, None, Some(OPEN_CODE), true));
+            assert!(computers.calls.borrow().is_empty());
+
+            // An error that happens to contain the same words must not start the permission flow.
+            *computers.find_failure.borrow_mut() =
+                Some(CloudComputerError::Other(PERMISSION.into()));
+            assert_eq!(
+                refused(prepare(turns, folder, None, Some(OPEN_CODE), true)),
+                PERMISSION
+            );
+            assert!(computers.calls.borrow().is_empty());
+
+            *computers.find_failure.borrow_mut() = None;
+            *computers.make_failure.borrow_mut() =
+                Some(CloudComputerError::Permission(PERMISSION.into()));
+            assert_permission_setup(prepare(turns, folder, None, Some(OPEN_CODE), true));
+            assert_eq!(computers.calls.borrow().as_slice(), ["make"]);
+            assert!(told.borrow().is_empty());
+            assert!(turns.of(MISSION).is_none());
+        },
+    );
+}

@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::cloud_tasks::Ran;
 
 use super::{
-    AgentInstalled, CarriedFile, CloudAgent, CloudChange, CloudChangeFile, CloudComputers,
+    AgentInstalled, CarriedFile, CloudAgent, CloudChange, CloudChangeFile, CloudComputerError, CloudComputers,
     CloudPrepared, CloudPullRequestAction, CloudStartPhase, CloudTurnAction, CloudTurnOutcome,
     CloudTurnState, CloudTurns, Codespace, OpenedPullRequest, PrepareInput, PublicCloudTurn,
     PullRequestTarget, PushedBranch, SettleTarget,
@@ -78,6 +78,8 @@ struct FakeComputers {
     signed_checks: std::cell::Cell<usize>,
     install_answer: RefCell<Option<AgentInstalled>>,
     open_code_version: RefCell<Option<String>>,
+    find_failure: RefCell<Option<CloudComputerError>>,
+    make_failure: RefCell<Option<CloudComputerError>>,
 }
 
 impl FakeComputers {
@@ -91,17 +93,21 @@ impl FakeComputers {
             signed_checks: std::cell::Cell::new(0),
             install_answer: RefCell::new(None),
             open_code_version: RefCell::new(None),
+            find_failure: RefCell::new(None),
+            make_failure: RefCell::new(None),
         }
     }
 }
 
 impl CloudComputers for FakeComputers {
-    fn find(&self, _repo: &str) -> Result<Option<Codespace>, String> {
+    fn find(&self, _repo: &str) -> Result<Option<Codespace>, CloudComputerError> {
+        if let Some(error) = self.find_failure.borrow().clone() { return Err(error) }
         Ok(self.space.borrow().clone())
     }
 
-    fn make(&self, _repo: &str, _branch: Option<&str>) -> Result<String, String> {
+    fn make(&self, _repo: &str, _branch: Option<&str>) -> Result<String, CloudComputerError> {
         self.calls.borrow_mut().push("make".into());
+        if let Some(error) = self.make_failure.borrow().clone() { return Err(error) }
         let made = Codespace {
             name: "locust-hearth-x7q9".into(),
             display_name: "locust-hearth".into(),
