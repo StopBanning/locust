@@ -643,3 +643,6 @@ mod live2_claude_account_tests;
 mod claude_context_kept_tests;
 #[cfg(test)]
 mod claude_context_read_tests;
+
+#[cfg(test)]
+mod own_command_boundary_parity_tests;
