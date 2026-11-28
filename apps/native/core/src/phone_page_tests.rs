@@ -154,6 +154,7 @@ fn parses(script: &str) -> Option<bool> {
     Some(out.stdout == b"true")
 }
 
+// case: parses as the browser receives it: the phone page both ways, its service worker, and the way in
 #[test]
 fn parses_as_the_browser_receives_it_the_phone_page_both_ways_its_service_worker_and_the_way_in() {
     // The way in is `desk_page` (Electron's deskPage), which the relay serves at /desk/.
@@ -171,6 +172,7 @@ fn parses_as_the_browser_receives_it_the_phone_page_both_ways_its_service_worker
     assert_eq!(parses("var a = /Edg//; }"), Some(false));
 }
 
+// case: names a computer’s browser by its name and system, as Settings lists it
 #[test]
 fn names_a_computers_browser_by_its_name_and_system_as_settings_lists_it() {
     let page = phone_page(PhonePageVia::Relay, None);
