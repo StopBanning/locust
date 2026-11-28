@@ -133,6 +133,7 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
                                 .font(type_::BODY).color(p.muted).wrap());
                         }
                     }
+                    view = view.children(crate::voice_panel::connector_cards(s, p, Some(name)));
                 } else if piece.last {
                     view = view.child(crate::messages::thread_marker(&format!("Call ended · {duration}"), &format!("call-ended-{id}"), p));
                 }

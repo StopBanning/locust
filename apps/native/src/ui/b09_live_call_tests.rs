@@ -60,3 +60,81 @@ fn b09_call_words_live_divider_and_spoken_lines() {
     settle(&mut rt);
     assert!(!words(&rt).contains("Let me check."), "another thread cannot show this call");
 }
+
+#[path = "b09_call_wire_tests.rs"]
+mod b09_call_wire_tests;
+
+fn ask_question(fields: Vec<(String, String)>) -> CallEvent {
+    CallEvent::Asks { id: "ask_1".into(), question: locust_core::runtime::codex_voice::ConnectorQuestion {
+        what: "locust probe: send note".into(), detail: "text: hello".into(), fields,
+    }}
+}
+
+// case: is an approval card under what was said: the action, each value, what leaves, and Allow once or Deny
+#[test]
+fn b09_call_words_connector_is_under_its_spoken_line() {
+    let (s, tx) = fixture();
+    let mut rt = thread(s);
+    tx.send(CallEvent::Said("you", "Yes, send it.".into())).unwrap();
+    tx.send(ask_question(vec![("text".into(), "hello".into())])).unwrap();
+    poll(&mut rt);
+    let said = words(&rt);
+    assert!(said.find("Yes, send it.").unwrap() < said.find("Approval required").unwrap(), "{said}");
+    for expected in ["On the call with Ada", "locust probe: send note", "Text", "hello", "The input above, to the service the connector reaches. It acts there, not on this machine.", "Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there.", "Allow once", "Deny", "Saying yes on the call does not allow it"] {
+        assert!(said.contains(expected), "{expected}: {said}");
+    }
+}
+
+// case: says what it would do when Codex named no values, and asks nothing once the call has ended
+#[test]
+fn b09_call_words_connector_keeps_detail_and_leaves_when_the_call_ends() {
+    let (s, tx) = fixture();
+    let mut rt = thread(s);
+    tx.send(ask_question(Vec::new())).unwrap();
+    poll(&mut rt);
+    assert!(words(&rt).contains("text: hello"));
+    tx.send(CallEvent::Ended(None)).unwrap();
+    poll(&mut rt);
+    assert!(!words(&rt).contains("Approval required"));
+}
+
+// case: answers through the call that is on, and only through it
+#[test]
+fn b09_call_words_connector_routes_only_the_current_pending_answer() {
+    let (s, tx) = fixture();
+    let mut rt = thread(s);
+    tx.send(ask_question(Vec::new())).unwrap();
+    poll(&mut rt);
+    let now = std::time::Instant::now();
+    let mut answers = Vec::new();
+    rt.update(|s, _| {
+        assert!(!forward_answer(s, "ask_1", true, now, |id, a| answers.push((id,a))), "fresh card does not allow");
+        assert!(!forward_answer(s, "not_asked", true, now + Duration::from_secs(1), |id, a| answers.push((id,a))));
+    });
+    rt.update(|s, _| {
+        s.ledger.as_mut().unwrap().conversation.conversation_id = Some("m_else".into());
+        assert!(!forward_answer(s, "ask_1", true, now + Duration::from_secs(1), |id, a| answers.push((id,a))), "other thread cannot answer");
+        s.ledger.as_mut().unwrap().conversation.conversation_id = Some("m_typed".into());
+        assert!(forward_answer(s, "ask_1", false, now + Duration::from_secs(1), |id, a| answers.push((id,a))));
+        assert!(!forward_answer(s, "ask_1", true, now + Duration::from_secs(1), |id, a| answers.push((id,a))), "already sent once");
+    });
+    tx.send(CallEvent::Ended(None)).unwrap();
+    poll(&mut rt);
+    rt.update(|s, _| { assert!(!forward_answer(s, "ask_1", true, now + Duration::from_secs(1), |id,a| answers.push((id,a)))); });
+    assert_eq!(answers, [("ask_1".to_owned(), false)]);
+}
+
+// case: is never kept with the call
+#[test]
+fn b09_call_words_connector_is_not_in_the_saved_transcript() {
+    let (s, tx) = fixture();
+    let mut rt = thread(s);
+    tx.send(CallEvent::Said("you", "Yes, send it.".into())).unwrap();
+    tx.send(ask_question(Vec::new())).unwrap();
+    poll(&mut rt);
+    let live = rt.state.voice.words.take().unwrap();
+    let kept = live.transcript.finish(9_000);
+    assert!(kept.get("asks").is_none());
+    assert!(!kept.to_string().contains("text: hello"));
+    assert_eq!(kept["lines"][0]["text"], "Yes, send it.");
+}

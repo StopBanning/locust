@@ -61,6 +61,13 @@ impl LiveWords {
     }
 }
 
+struct PendingAsk {
+    id: String,
+    question: locust_core::runtime::codex_voice::ConnectorQuestion,
+    at: std::time::Instant,
+    sent: bool,
+}
+
 #[derive(Default)]
 pub(super) struct Panel {
     platform: Option<&'static str>,
@@ -72,7 +79,7 @@ pub(super) struct Panel {
     call: Option<Talk>,
     note: Option<String>,
     words: Option<LiveWords>,
-    questions: Vec<(String, locust_core::runtime::codex_voice::ConnectorQuestion)>,
+    questions: Vec<PendingAsk>,
 }
 
 impl Panel {
@@ -431,8 +438,8 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     CallEvent::Said(role, text) => {
                         if let Some(words) = &mut s.voice.words { words.heard(role, &text, true); }
                     }
-                    CallEvent::Asks { id, question } => s.voice.questions.push((id, question)),
-                    CallEvent::Asked { id, .. } => s.voice.questions.retain(|(key, _)| *key != id),
+                    CallEvent::Asks { id, question } => s.voice.questions.push(PendingAsk { id, question, at: std::time::Instant::now(), sent: false }),
+                    CallEvent::Asked { id, .. } => s.voice.questions.retain(|ask| ask.id != id),
                     CallEvent::Ended(why) => {
                         if why.is_some() {
                             s.voice.note = why;
@@ -544,81 +551,80 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
                 .wrap(),
         );
     }
-    for (id, question) in &s.voice.questions {
-        let mut card = col()
-            .key(format!("voice-question-{id}"))
-            .gap(6.0)
-            .padding(10.0)
-            .radius(8.0)
-            .fill(p.raised)
-            .child(
-                text("Approval required — exact action")
-                    .font(type_::LABEL)
-                    .color(p.amber),
-            )
-            .child(text(question.what.clone()).font(type_::LABEL).color(p.text))
-            .child(
-                text("A connector needs your approval. This action cannot be undone in Locust.")
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .wrap(),
-            );
-        if s.voice
-            .call
-            .as_ref()
-            .is_some_and(|call| call.conversation.is_none())
-            && !question.detail.is_empty()
-        {
-            card = card.child(
-                text(question.detail.clone())
-                    .font(type_::LABEL)
-                    .color(p.text)
-                    .wrap(),
-            );
-        } else {
-            for (name, value) in &question.fields {
-                card = card.child(
-                    text(format!("{name}: {value}"))
-                        .font(type_::LABEL)
-                        .color(p.text)
-                        .wrap(),
-                );
-            }
+    if let Some(live) = live_thread_call(s) {
+        // A brand-new thread has no message column yet. Show the same live piece above its composer.
+        if s.ledger.as_ref().is_none_or(|pane| pane.items.is_empty()) {
+            let place = locust_core::call_log::Place::End;
+            let piece = locust_core::call_log::Piece {
+                call: live, lines: live["lines"].as_array().into_iter().flatten().collect(), first: true, last: true,
+            };
+            notices.extend(crate::call_words::draw(s, p, &place, &[piece]));
+        }
+    } else {
+        notices.extend(connector_cards(s, p, None));
+    }
+    notices
+}
+
+fn owns_open_call(s: &State) -> bool {
+    s.voice.call.as_ref().is_some_and(|call|
+        call.target == conversation_draft_key(s) && matches!(call.state, TalkState::Connected(_, _, true)))
+}
+
+fn forward_answer(
+    s: &mut State, id: &str, allowed: bool, at: std::time::Instant, send: impl FnOnce(String, bool),
+) -> bool {
+    if !owns_open_call(s) { return false; }
+    let Some(ask) = s.voice.questions.iter_mut().find(|ask| ask.id == id) else { return false; };
+    if ask.sent || at.saturating_duration_since(ask.at) < Duration::from_millis(500) { return false; }
+    ask.sent = true;
+    send(ask.id.clone(), allowed);
+    true
+}
+
+fn answer_connector(s: &mut State, id: &str, allowed: bool) {
+    let Some(service) = s.voice.service.clone() else { return; };
+    forward_answer(s, id, allowed, std::time::Instant::now(), |id, allowed| service.answer(id, allowed));
+}
+
+/// Drawn after the words in the final live piece, or in the composer strip on Home.
+pub(super) fn connector_cards(s: &State, p: &Palette, name: Option<&str>) -> Vec<El> {
+    if !owns_open_call(s) { return Vec::new(); }
+    s.voice.questions.iter().map(|ask| {
+        let question = &ask.question;
+        let id = &ask.id;
+        let facts = |label: &str, value: &str| row().gap(8.0)
+            .child(text(label.to_owned()).font(type_::LABEL).color(p.muted))
+            .child(text(value.to_owned()).font(type_::LABEL).color(p.text).wrap());
+        let mut card = col().key(format!("voice-question-{id}")).role("group")
+            .label(format!("Allow {}?", question.what))
+            .gap(6.0).padding(10.0).radius(8.0).fill(p.raised)
+            .child(text("Approval required — exact action").font(type_::LABEL).color(p.amber));
+        if let Some(name) = name {
+            card = card.child(text(format!("On the call with {name}")).font(type_::LABEL).color(p.muted));
+        }
+        card = card.child(facts("Action", &question.what));
+        if question.fields.is_empty() && !question.detail.is_empty() {
+            card = card.child(facts("Exact", &question.detail));
+        }
+        for (name, value) in &question.fields {
+            let mut chars = name.chars();
+            let label = chars.next().map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect());
+            card = card.child(facts(&label, value));
         }
         let allow = id.clone();
         let deny = id.clone();
-        notices.push(
-            card.child(
-                row()
-                    .gap(12.0)
-                    .child(
-                        text("Deny")
-                            .role("button")
-                            .key(format!("voice-deny-{id}"))
-                            .font(type_::LABEL)
-                            .color(p.text)
-                            .on_press(move |s: &mut State| {
-                                if let Some(service) = &s.voice.service {
-                                    service.answer(deny.clone(), false);
-                                }
-                            }),
-                    )
-                    .child(
-                        text("Allow once")
-                            .role("button")
-                            .key(format!("voice-allow-{id}"))
-                            .font(type_::LABEL)
-                            .color(p.text)
-                            .on_press(move |s: &mut State| {
-                                if let Some(service) = &s.voice.service {
-                                    service.answer(allow.clone(), true);
-                                }
-                            }),
-                    ),
-            ),
-        );
-    }
-    notices
+        let l = crate::look::controls::Look::new(p.dark);
+        card.child(facts("Data sent", "The input above, to the service the connector reaches. It acts there, not on this machine."))
+            .child(facts("Reversible", "Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there."))
+            .child(row().gap(12.0)
+                .child(crate::look::controls::button(&l, "Deny", crate::look::controls::Tone::Neutral, ask.sent)
+                    .key(format!("voice-deny-{id}")).on_press(move |s: &mut State| answer_connector(s, &deny, false)))
+                .child(crate::look::controls::primary_button(&l, "Allow once", ask.sent)
+                    .key(format!("voice-allow-{id}")).on_press(move |s: &mut State| answer_connector(s, &allow, true))))
+            .child(text("Nothing has happened yet. Saying yes on the call does not allow it; Allow once does.")
+                .font(type_::LABEL).color(p.muted).wrap())
+    }).collect()
 }
 
 #[cfg(test)]
