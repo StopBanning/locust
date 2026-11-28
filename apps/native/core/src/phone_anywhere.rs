@@ -2090,8 +2090,6 @@ impl PhoneAnywhereInner {
         ) else {
             return;
         };
-        self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
-        let _ = self.command(json!({ "t": "pair-close" }));
         {
             let mut st = self.state.lock().unwrap();
             st.pairing = None;
@@ -2119,6 +2117,10 @@ impl PhoneAnywhereInner {
             self.state.lock().unwrap().message =
                 Some("The new phone could not be saved. It works until Locust closes.".into());
         }
+        // Once the phone gets its token it can send right away. Its local key must
+        // already be installed; closing the pairing offer can wait for its own ack.
+        self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
+        let _ = self.command(json!({ "t": "pair-close" }));
         self.tell();
     }
 
