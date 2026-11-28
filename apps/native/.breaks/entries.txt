@@ -1,0 +1,8 @@
+src/ui/thread_view.rs|||                                    stop(s); ==>                                     let _ = ();
+src/ui/thread_view.rs|||                                    if s.model_menu.as_deref() != Some(slash_teammate.as_str()) { ==>                                     if s.model_menu.as_deref() == Some(slash_teammate.as_str()) {
+src/ui/folder_confirmation.rs|||    if s.engine != Some(Kind::Native) { ==>     if s.engine == Some(Kind::Native) {
+src/ui/thread_view.rs|||        None => recorded.map(|(runtime, _)| runtime).or(saved), ==>         None => saved.or(recorded.map(|(runtime, _)| runtime)),
+src/ui/runtime_commands_ui.rs|||        .map(|(runtime, _)| runtime.to_owned()) ==>         .map(|(_, model)| model.to_owned())
+src/ui/own_commands_ui.rs|||        Expanded::Ask(lines) => s.own_commands.ask = Some(Ask { name: chosen.name, source: chosen.source, args: chosen.args, lines }), ==>         Expanded::Ask(lines) => { let _ = lines; }
+src/ui/composer_wiring.rs|||            crate::own_commands_ui::choose(s, &command.name, *source, &args); ==>             let _ = ();
+src/ui/composer_wiring.rs|||    if crate::folder_confirmation::hold_send(s) { ==>     if false && crate::folder_confirmation::hold_send(s) {
