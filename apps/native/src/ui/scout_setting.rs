@@ -282,6 +282,79 @@ fn scout_saw_section(s: &State, p: &Palette, l: &Look, tz: FixedOffset) -> El {
     }
 }
 
+/// Only the saved repository's pull request is opened from this row.
+fn open_away_pr(s: &mut State, repo: &str, url: &str) {
+    let Some(url) = locust_core::scout_away::repo_link(repo, Some(url)) else { return };
+    let Some((_, number)) = url.rsplit_once("/pull/") else { return };
+    if number.parse::<u64>().is_ok_and(|number| number > 0) {
+        crate::published_cards::open_web_link(s, &url);
+    }
+}
+
+fn away_line(s: &State, l: &Look, now: chrono::DateTime<FixedOffset>) -> El {
+    use locust_core::scout_away::{ScoutAwaySet, ScoutAwayStatus};
+    let (status, busy) = crate::phone_section::scout_away_view(s);
+    let mut words = Vec::new();
+    let mut actions = row().gap(8.0).center_y();
+    let (on, can_switch) = match status {
+        None => (false, false),
+        Some(ScoutAwayStatus::Off { blocked, message }) => {
+            if let Some(blocked) = blocked { words.push(blocked.clone()); }
+            if let Some(message) = message.as_ref().filter(|message| blocked.as_ref() != Some(*message)) {
+                words.push(message.clone());
+            }
+            (false, blocked.is_none())
+        }
+        Some(ScoutAwayStatus::Cleaning { message }) => {
+            words.push(message.clone());
+            let mut retry = controls::button(l, "Finish turning off", Tone::Neutral, busy).key("scout-away-cleanup");
+            if !busy {
+                retry = retry.on_press(|s: &mut State| crate::phone_section::set_scout_away(s, ScoutAwaySet::Off));
+            }
+            actions = actions.child(retry);
+            (false, false)
+        }
+        Some(ScoutAwayStatus::Waiting { repo, pr, message }) => {
+            words.push(format!("Merge the pull request in {repo}. Scout starts looking from there once it’s merged."));
+            if let Some(message) = message { words.push(message.clone()); }
+            let (repo, pr) = (repo.clone(), pr.clone());
+            actions = actions.child(controls::button(l, "Open the pull request", Tone::Neutral, false)
+                .key("scout-away-open-pr").on_press(move |s: &mut State| open_away_pr(s, &repo, &pr)));
+            (true, true)
+        }
+        Some(ScoutAwayStatus::On { repo, last_look, outdated, update, message, .. }) => {
+            if let Some(last) = last_look {
+                words.push(format!("Last away look: {}.", view::ago(last, now.timestamp_millis())));
+            }
+            if let Some(pr) = update {
+                words.push(format!("Merge the update in {repo}. The away look goes on as it was until then."));
+                let (repo, pr) = (repo.clone(), pr.clone());
+                actions = actions.child(controls::button(l, "Open the pull request", Tone::Neutral, false)
+                    .key("scout-away-open-pr").on_press(move |s: &mut State| open_away_pr(s, &repo, &pr)));
+            } else if *outdated {
+                words.push("A newer away look is ready: your own /locust comments reach your phone as you write them. It comes in by a pull request you merge.".into());
+                let mut update = controls::button(l, "Update it", Tone::Neutral, busy).key("scout-away-update");
+                if !busy {
+                    update = update.on_press(|s: &mut State| crate::phone_section::set_scout_away(s, ScoutAwaySet::Update));
+                }
+                actions = actions.child(update);
+            }
+            if let Some(message) = message { words.push(message.clone()); }
+            (true, true)
+        }
+    };
+    let mut toggle = controls::switch(l, on, "Look while my computer is off", busy || !can_switch).key("scout-away-toggle");
+    if can_switch && !busy {
+        toggle = toggle.on_press(move |s: &mut State| {
+            crate::phone_section::set_scout_away(s, if on { ScoutAwaySet::Off } else { ScoutAwaySet::On });
+        });
+    }
+    let lede = if words.is_empty() {
+        "Scout can look at this GitHub repository while Locust is closed and leave what it finds for your phone.".into()
+    } else { words.join(" ") };
+    setting_line("Look while my computer is off", lede, actions.child(toggle), l).key("scout-away-setting")
+}
+
 pub(super) fn section(s: &State, p: &Palette, check_command: Option<&str>) -> El {
     section_at(s, p, check_command, chrono::Local::now().fixed_offset())
 }
@@ -606,6 +679,8 @@ pub(super) fn section_at(
 
     // 3. What Scout saw (read lazily on press)
     root = root.child(scout_saw_section(s, p, &l, *now.offset()));
+
+    root = root.child(away_line(s, &l, now));
 
     // 4. Watches (GitHub, Your /locust comments, Teammates, Folder check)
     let watches = st.settings.watches;
@@ -1100,6 +1175,54 @@ mod tests {
     fn draw_home_sec(s: &State, _cx: &mut Cx<State>) -> El {
         let l = Look::new(true);
         scout_cards::home_section(s, &l).expect("morning brief section")
+    }
+
+    fn away_test_state(outdated: bool, update: Option<&str>) -> State {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|_| {}, |_| {}));
+        crate::phone_section::set_scout_away_test_status(&mut s, locust_core::scout_away::ScoutAwayStatus::On {
+            repo: "acme/app".into(),
+            every: 1,
+            private: false,
+            last_look: Some("2026-10-22T12:00:00Z".into()),
+            outdated,
+            update: update.map(str::to_owned),
+            message: None,
+        });
+        s
+    }
+
+    // case: offers the newer away look, and says what it does
+    #[test]
+    fn the_real_scout_settings_offer_the_newer_away_look() {
+        let rt = render_state(away_test_state(true, None), draw_no_cmd);
+        assert!(collect_rt_text(&rt).contains("A newer away look is ready: your own /locust comments reach your phone as you write them."));
+        assert!(rt.find("scout-away-update").is_some());
+    }
+
+    // case: says the update waits to be merged, and opens its pull request
+    #[test]
+    fn the_real_scout_settings_open_the_pending_update_pull_request() {
+        let url = "https://github.com/acme/app/pull/13";
+        let mut rt = render_state(away_test_state(false, Some(url)), draw_no_cmd);
+        assert!(collect_rt_text(&rt).contains("Merge the update in acme/app. The away look goes on as it was until then."));
+        assert!(rt.find("scout-away-update").is_none());
+        click_key(&mut rt, "scout-away-open-pr");
+        assert_eq!(rt.state.opened_links, [url]);
+
+        let mut wrong = render_state(away_test_state(false, Some("https://github.com/other/repo/pull/13")), draw_no_cmd);
+        click_key(&mut wrong, "scout-away-open-pr");
+        assert!(wrong.state.opened_links.is_empty());
+    }
+
+    // case: offers nothing on the newest look
+    #[test]
+    fn the_real_scout_settings_show_the_last_look_without_an_update() {
+        let rt = render_state(away_test_state(false, None), draw_no_cmd);
+        let words = collect_rt_text(&rt);
+        assert!(words.contains("Last away look: 5 min ago."), "{words}");
+        assert!(rt.find("scout-away-update").is_none());
+        assert!(rt.find("scout-away-open-pr").is_none());
     }
 
     // case: off, says what turning it on does
