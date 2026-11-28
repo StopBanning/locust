@@ -147,3 +147,31 @@ fn every_asker_in_a_step_shares_its_one_wake_on_the_windows_clock() {
     assert_eq!(on_step(1.5), 1.5);
 }
 
+
+/// Lane check (28 Nov): the band steps on its own wake. Each change of the running row's title lands on the 50 ms grid
+/// of the window's clock. With the wake at the call site removed the band still moved, but only on the frames the
+/// status rail's pulsing dot asks for (30 a second), so most steps came late, unevenly, and no test noticed: the band
+/// leaned on another element's wake to move at all.
+#[test]
+fn the_band_steps_on_its_own_wake_at_each_50_ms_step() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
+    let mut rt = unfocused(window("m_other", false));
+    let mut clock = 0.0;
+    run(&mut rt, &mut clock, 0.5, |_| {});
+    let (start, mut last, mut changes, mut animating) = (clock, title_colouring(&rt), Vec::new(), false);
+    while clock - start < 2.0 {
+        let at = next_frame(&rt, clock, animating);
+        animating = step(&mut rt, &mut clock, at).2;
+        let drawn = title_colouring(&rt);
+        if drawn != last {
+            changes.push(clock);
+            last = drawn;
+        }
+    }
+    assert!(changes.len() >= 30, "the band stepped {} times in two seconds", changes.len());
+    let beat = crate::working_shimmer::FRAME_MS as f64 / 1000.0;
+    for at in &changes {
+        let off = (at / beat - (at / beat).round()).abs() * beat;
+        assert!(off < 0.001, "a band step was drawn {:.1} ms off its 50 ms beat, at {at:.4} s: it moved on another element's wake", off * 1000.0);
+    }
+}
