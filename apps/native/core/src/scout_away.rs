@@ -26,6 +26,8 @@ pub const AWAY_BRANCH: &str = "locust/scout-away";
 pub const AWAY_WORKFLOW_NAME: &str = "Locust Scout";
 pub const AWAY_WORKFLOW_PATH: &str = ".github/workflows/locust-scout.yml";
 pub const AWAY_SCRIPT_PATH: &str = ".github/locust/scout-away.mjs";
+/// The generated scheduled entry installed by the native app and run by GitHub Actions.
+pub const PACKAGED_AWAY_SCRIPT: &str = include_str!("../../../desktop/resources/scout-away.mjs");
 
 // ---- Away letters (shared/away-letter.ts) ---------------------------------------------------------------------------
 
@@ -1746,3 +1748,7 @@ mod sealed_result_tests {
         assert!(open_away_letter(&key, &as_away, room, AwayLetterFrom::Away).is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "scout_away_workflow_tests.rs"]
+mod scout_away_workflow_tests;

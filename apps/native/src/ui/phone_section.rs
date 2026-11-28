@@ -786,7 +786,7 @@ fn ensure_scout_away(s: &mut State) -> Option<Arc<ScoutAway>> {
         }),
         gh,
         relay: Arc::new(move || Some(relay.clone())),
-        script: Arc::new(|| include_str!("../../../desktop/resources/scout-away.mjs").to_owned()),
+        script: Arc::new(|| locust_core::scout_away::PACKAGED_AWAY_SCRIPT.to_owned()),
         tz: Arc::new(scout_away_time_zone),
         now: Arc::new(chrono::Utc::now),
     }).with_scout(&host.scout));
