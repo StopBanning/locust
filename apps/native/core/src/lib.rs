@@ -632,6 +632,8 @@ mod thread_order_tests;
 pub mod steps_line;
 #[cfg(test)]
 mod steps_line_tests;
+#[cfg(test)]
+mod long_command_line_tests;
 pub mod thread_words;
 #[cfg(test)]
 mod thread_words_tests;

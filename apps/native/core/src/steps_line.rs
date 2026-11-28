@@ -278,6 +278,9 @@ struct Detail<'a> {
     duration_ms: u64,
 }
 
+/// How much of a call the ledger keeps as its one-line summary (ledger.rs `one_line`).
+const SUMMARY_CAP: usize = 240;
+
 fn one_line(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -311,7 +314,13 @@ fn detail_of(item: &Item) -> Option<Detail<'_>> {
             } else {
                 Kind::Tool
             };
-            let title = (kind == Kind::Shell && !summary.is_empty() && arguments.is_some_and(|a| one_line(a) != one_line(summary)))
+            // A title only when the runtime sent one (missionView.ts:3393). With none, the ledger's summary is the command
+            // on one line cut at SUMMARY_CAP characters (ledger.rs `one_line`), so a long command's cut summary is that
+            // command, not a title to say in its place, capitalised and whole.
+            let title = (kind == Kind::Shell && !summary.is_empty() && arguments.is_some_and(|a| {
+                let (whole, said) = (one_line(a), one_line(summary));
+                whole != said && whole.chars().take(SUMMARY_CAP).collect::<String>() != said
+            }))
                 .then(|| summary.clone());
             Some(Detail {
                 item,
