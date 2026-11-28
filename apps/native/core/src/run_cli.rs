@@ -64,7 +64,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
     }
     // Like Electron's CLI door, check the machine policy before probing any executable or writing a mission.
     let policy = crate::org_policy::current();
-    check_route(&policy, runtime_name, &turn)?;
+    check_start(&policy, runtime_name, &turn)?;
     turn.folder = turn.folder.canonicalize()?;
     if !turn.folder.is_dir() {
         return Err("--folder must name a directory".into());
@@ -134,6 +134,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
                 &turn.folder,
                 turn.model.as_deref(),
             )?;
+            let require_model = check_acp_selection(&policy, &command)?;
             let args: Vec<String> = command
                 .get_args()
                 .map(|a| a.to_string_lossy().into_owned())
@@ -156,6 +157,12 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
                     return Err(e.into());
                 }
             };
+            if require_model {
+                runtime.set_profile(crate::runtime::acp::Profile {
+                    strict: true,
+                    ..Default::default()
+                });
+            }
             drive(&mut runtime, &mut writer, &turn)
         }
         "opencode" => {
@@ -354,7 +361,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
 
 /// Unlike a normal mission, this CLI launches its runtime directly. Judge the model that the driver
 /// will ask for. A default or an OpenCode id that the legacy driver would ignore is not a named model.
-fn check_route(
+fn check_start(
     policy: &crate::org_policy::PolicyState,
     runtime: &str,
     turn: &Turn,
@@ -373,7 +380,35 @@ fn check_route(
     };
     // --run is local, starts in Ask, and has no saved-account selector.
     crate::org_policy::turn_refusal(Some(policy), runtime, model.as_deref(), turn.mode.as_str(), false, false)
-        .map_or(Ok(()), Err)
+        .map_or(Ok(()), Err)?;
+    // A saved ACP command need not expose model selection. Its label alone cannot establish
+    // what will be billed, so the standalone CLI does not run it in a free-only drive.
+    if crate::model_lists::free_routes_only_now()
+        && (runtime == "acp" || !crate::scout::host::is_free_route(runtime, model.as_deref()))
+    {
+        return Err(crate::model_lists::FREE_ONLY_REFUSAL.into());
+    }
+    Ok(())
+}
+
+/// A saved ACP route is not a model selection unless the configured agent declared a selector.
+fn check_acp_selection(
+    policy: &crate::org_policy::PolicyState,
+    command: &std::process::Command,
+) -> Result<bool, String> {
+    if crate::org_policy::model_allowed(Some(policy), "acp", None) {
+        return Ok(false);
+    }
+    let has = |key| command.get_envs().any(|(name, value)| name == key && value.is_some());
+    if has("LOCUST_NATIVE_ACP_MODEL_OPTION") && has("LOCUST_NATIVE_ACP_MODEL_VALUE") {
+        // With a finite list, require the live session to acknowledge the value before the prompt.
+        return Ok(true);
+    }
+    Err(crate::org_policy::policy_refusal(
+        policy,
+        "allowedModels",
+        "The acp model account default is not allowed. Pick an allowed, explicit model.",
+    ))
 }
 
 /// An unowned CLI run counts the whole month's receipts, just as an unowned Electron start does.
@@ -474,3 +509,7 @@ fn record_start_failure(writer: &mut LedgerWriter, error: &io::Error) -> io::Res
 #[cfg(all(test, unix))]
 #[path = "run_cli_policy_tests.rs"]
 mod policy_tests;
+
+#[cfg(test)]
+#[path = "run_cli_free_route_tests.rs"]
+mod free_route_tests;
