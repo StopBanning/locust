@@ -276,3 +276,77 @@ fn honors_organization_policy_browser_false() {
     assert!(refusal.contains("The browser panel is off. Set by your organization"), "{refusal}");
     assert!(policy_refusal(&json!({}), &policy_path).is_none());
 }
+
+// --- T256: a-teammate-signs-in-apart-in-the-browser.test.ts ---
+
+// case: opens a tab as the teammate in a partition of its own, colored as it, beside the shared one
+#[test]
+fn opens_a_tab_as_the_teammate_in_a_partition_of_its_own_beside_the_shared_one() {
+    let mut host = Host::default();
+    host.profiles = vec![("tm_wren".into(), "Wren".into())];
+    host.add(Profile(None)).unwrap();
+    host.add(Profile(Some("tm_wren".into()))).unwrap();
+    let profiles: Vec<Profile> = host.tabs.iter().map(|t| t.profile.clone()).collect();
+    assert_eq!(profiles, vec![Profile(None), Profile(Some("tm_wren".into()))]);
+}
+
+// case: opens nothing as a teammate that does not have its own sign-ins
+#[test]
+fn opens_nothing_as_a_teammate_that_does_not_have_its_own_sign_ins() {
+    let mut host = Host::default();
+    let err = host.add(Profile(Some("tm_wren".into()))).unwrap_err();
+    assert!(host.tabs.is_empty());
+    assert_eq!(
+        err,
+        "That teammate does not have its own browser sign-ins any more, so no tab was opened."
+    );
+}
+
+// case: lets each run see and use only the tabs in its own sign-ins
+#[test]
+fn lets_each_run_see_and_use_only_the_tabs_in_its_own_sign_ins() {
+    let mut host = Host::default();
+    host.profiles = vec![("tm_wren".into(), "Wren".into())];
+    let shared_id = host.add(Profile(None)).unwrap();
+    let wren_id = host.add(Profile(Some("tm_wren".into()))).unwrap();
+    let wren = Profile(Some("tm_wren".into()));
+    let sable = Profile(None);
+
+    let wren_tabs = host.state(&wren);
+    assert_eq!(wren_tabs.as_array().unwrap().len(), 1);
+    assert_eq!(wren_tabs[0]["id"], format!("tab_{wren_id}"));
+
+    let sable_tabs = host.state(&sable);
+    assert_eq!(sable_tabs.as_array().unwrap().len(), 1);
+    assert_eq!(sable_tabs[0]["id"], format!("tab_{shared_id}"));
+
+    assert!(host.scoped(shared_id, &wren).err().unwrap().contains("signed in as someone else, so it is not yours to use"));
+    assert!(host.scoped(wren_id, &sable).err().unwrap().contains("signed in as someone else, so it is not yours to use"));
+    assert_eq!(host.tabs.len(), 2);
+}
+
+// case: makes a run its own tab in its own sign-ins when it opens one
+#[test]
+fn makes_a_run_its_own_tab_in_its_own_sign_ins_when_it_opens_one() {
+    let mut host = Host::default();
+    host.profiles = vec![("tm_wren".into(), "Wren".into())];
+    let wren = Profile(Some("tm_wren".into()));
+    let id = host.add(wren.clone()).unwrap();
+    assert_eq!(host.tabs.len(), 1);
+    assert_eq!(host.tabs[0].id, id);
+    assert_eq!(host.tabs[0].profile, wren);
+}
+
+// case: forgets them: the teammate’s tabs close and its partition is cleared, the shared tab stays
+#[test]
+fn forgets_them_the_teammates_tabs_close_and_its_partition_is_cleared_the_shared_tab_stays() {
+    let mut host = Host::default();
+    host.profiles = vec![("tm_wren".into(), "Wren".into())];
+    let shared_id = host.add(Profile(None)).unwrap();
+    let _wren_id = host.add(Profile(Some("tm_wren".into()))).unwrap();
+    let wren = Profile(Some("tm_wren".into()));
+    host.forget(wren.clone());
+    assert_eq!(host.tabs.iter().map(|t| t.id).collect::<Vec<_>>(), vec![shared_id]);
+    assert!(host.forgotten.contains(&wren));
+    assert!(host.clearing.contains(&wren));
+}

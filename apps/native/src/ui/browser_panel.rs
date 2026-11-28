@@ -513,3 +513,7 @@ pub(super) fn light_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "browser_rest_tests.rs"]
 mod browser_rest_tests;
+
+#[cfg(test)]
+#[path = "browser_panel_parity_tests.rs"]
+mod browser_panel_parity_tests;
