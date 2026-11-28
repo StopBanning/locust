@@ -551,11 +551,28 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
             // A stopped run's receipt: what this turn's record says finished, was cut off, or never started.
             ledger::Item::Note { level, text: body } if level.is_empty() && body == "Stopped" => {
-                let from = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let from_user = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let snapshot = s.ledger.as_ref().map(|pane| &pane.snapshot);
+                let timing = snapshot.and_then(|snap| snap.timings.iter().enumerate().rev().find(|(_, time)| time.before_item <= index));
+                let from = timing.map_or(from_user, |(_, time)| from_user.max(time.before_item));
+                // A route switch can be stitched into one person's message. For separate
+                // turns, use the metadata at the record boundary, not the teammate's current default.
+                let meta = snapshot.and_then(|snap| {
+                    if snap.timings.len() == snap.turn_metas.len() && let Some((at, _)) = timing {
+                        return snap.turn_metas.get(at);
+                    }
+                    items[from_user..index].iter().rev().find_map(|item| {
+                        if let ledger::Item::Handoff { to, .. } = item { Some(to.as_ref()) } else { None }
+                    }).or_else(|| user_index.checked_sub(1)
+                        .and_then(|ui| person_turn_at(&snap.turn_metas, ui))
+                        .and_then(|at| snap.turn_metas.get(at)))
+                });
                 let teammate = selected_conversation(s).map(|(t, _)| t);
-                let runtime = teammate.and_then(|t| t.runtime.clone()).unwrap_or_default();
-                let folder = teammate.and_then(|t| t.folder.clone());
-                let summary = locust_core::cancellation::summary(&items[from..index], &runtime, folder.as_deref());
+                let runtime = meta.map(|m| m.runtime.as_str()).filter(|runtime| !runtime.is_empty())
+                    .or_else(|| teammate.and_then(|t| t.runtime.as_deref())).unwrap_or("");
+                let folder = meta.and_then(|m| m.cwd.as_deref())
+                    .or_else(|| teammate.and_then(|t| t.folder.as_deref()));
+                let summary = locust_core::cancellation::summary(&items[from..index], runtime, folder);
                 let last_stop = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
                 let newest = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::User(_)));
@@ -565,8 +582,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     text(locust_core::sent_again::STOPPED_BEFORE_IT_REPLIED).key(format!("{key}-stopped-before-it-replied")).font(type_::LABEL).color(p.muted).w_full()
                 } else {
                     // The time of the turn's last event, as Electron's stoppedAt reads it from the record.
-                    let stopped_at = s.ledger.as_ref().and_then(|pane| pane.snapshot.timings.iter().rev().find(|t| t.before_item <= index))
-                        .and_then(|t| t.last_at.as_deref()).map(locust_core::time_marker::clock_time).filter(|at| at != "--:--");
+                    let stopped_at = timing.and_then(|(_, time)| time.last_at.as_deref()).map(locust_core::time_marker::clock_time).filter(|at| at != "--:--");
                     let card = crate::cancellation_card::card(&summary, by_person, stopped_at.as_deref(), p);
                     match (newest && !turn_running(s) && locust_core::cancellation::stopped_before_any_tool(&summary))
                         .then(|| items[..from].iter().rev().find_map(|i| if let ledger::Item::User(words) = i { Some(words.clone()) } else { None }))
@@ -2013,3 +2029,7 @@ mod messages_damaged_receipt_tests;
 #[cfg(test)]
 #[path = "messages_mission_view_cases.rs"]
 mod messages_mission_view_cases;
+
+#[cfg(test)]
+#[path = "messages_cancellation_route_tests.rs"]
+mod messages_cancellation_route_tests;
