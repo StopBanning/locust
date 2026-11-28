@@ -2899,3 +2899,7 @@ mod desk_code_guard_tests {
 #[cfg(test)]
 #[path = "phone_mcp_generation_tests.rs"]
 mod phone_mcp_generation_tests;
+
+#[cfg(test)]
+#[path = "phone_mcp_refused_open_tests.rs"]
+mod phone_mcp_refused_open_tests;
