@@ -2676,6 +2676,7 @@ mod tests {
         (data, width, height)
     }
 
+    // case: is his alone: no other pet has a screen measured for it, or moves of its own
     #[test]
     fn is_his_alone_no_other_pet_has_a_screen_measured_for_it_or_moves_of_its_own() {
         assert!(std::ptr::eq(screen_face_for("codex-buddy").unwrap(), &CODEX_BUDDY));
@@ -2685,6 +2686,7 @@ mod tests {
         assert!(!has_routine("hoodie-cat"));
     }
 
+    // case: has a screen on every one of his drawings, inside the drawing he is painted in
     #[test]
     fn has_a_screen_on_every_one_of_his_drawings_inside_the_drawing_he_is_painted_in() {
         for (row, &count) in CODEX_BUDDY.counts.iter().enumerate() {
@@ -2705,6 +2707,7 @@ mod tests {
         }
     }
 
+    // case: holds its size as he moves: one size for each way he faces
     #[test]
     fn holds_its_size_as_he_moves_one_size_for_each_way_he_faces() {
         use std::collections::BTreeSet;
@@ -2738,6 +2741,7 @@ mod tests {
         }
     }
 
+    // case: at every size, so his face is half as big again as fitted whole, where he is usually seen and larger
     #[test]
     fn at_every_size_so_his_face_is_half_as_big_again_as_fitted_whole_where_he_is_usually_seen_and_larger() {
         let win = pet_window(208.0, BUDDY_RIG_MIDDLE);
@@ -2764,6 +2768,7 @@ mod tests {
         );
     }
 
+    // case: never cuts his face: on every drawing, his screen is inside his window
     #[test]
     fn never_cuts_his_face_on_every_drawing_his_screen_is_inside_his_window() {
         let shown = pet_window(208.0, BUDDY_RIG_MIDDLE);
@@ -2777,18 +2782,21 @@ mod tests {
         }
     }
 
+    // case: takes the sheet that was measured
     #[test]
     fn takes_the_sheet_that_was_measured() {
         let (data, width, height) = sheet_like(&CODEX_BUDDY, None);
         assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: takes it re-compressed: an edge a pixel or two off is the same drawing
     #[test]
     fn takes_it_re_compressed_an_edge_a_pixel_or_two_off_is_the_same_drawing() {
         let (data, width, height) = sheet_like(&CODEX_BUDDY, Some((5, 2, 2)));
         assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: refuses one redrawn, resized, or with a drawing where his has none
     #[test]
     fn refuses_one_redrawn_resized_or_with_a_drawing_where_his_has_none() {
         let (moved, mw, mh) = sheet_like(&CODEX_BUDDY, Some((7, 3, (EDGE_SLACK + 2) as isize)));
@@ -2802,6 +2810,7 @@ mod tests {
         assert!(!screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: reads a drawing’s painted sides
     #[test]
     fn reads_a_drawings_painted_sides() {
         let (data, width, _) = sheet_like(&CODEX_BUDDY, None);
