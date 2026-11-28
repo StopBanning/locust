@@ -457,8 +457,40 @@ pub(super) fn attach_files(s: &mut State, added: &[String]) {
     }
     let teammate = s.ledger.as_ref().map(|pane| &pane.header).or_else(|| s.teammates.get(s.selected));
     if let Some(folder) = teammate.and_then(|t| t.folder.clone()).or_else(|| s.home.folder_path.clone()) {
-        locust_core::pdf::read_attached_pdfs(std::path::Path::new(&folder), &new);
+        let folder = std::path::PathBuf::from(folder);
+        let sources: std::collections::HashMap<_, _> = new.iter()
+            .filter(|path| locust_core::pdf::is_pdf_path(path))
+            .filter_map(|path| attachment_source(&folder, path).map(|stamp| (path.clone(), stamp)))
+            .collect();
+        let jobs = locust_core::pdf::read_attached_pdfs(&folder, &new);
+        let images = s.image_cache.clone();
+        for job in jobs {
+            let folder = folder.clone();
+            let sources = sources.clone();
+            let images = images.clone();
+            std::thread::spawn(move || {
+                let Some(reading) = job.join().ok().flatten() else { return };
+                let path = reading.pdf.clone();
+                if sources.get(&path).is_none_or(|before| attachment_source(&folder, &path).as_ref() != Some(before)) {
+                    return;
+                }
+                let first = reading.pictures.first().cloned();
+                crate::pdf_pages_ui::keep(&folder, &path, reading);
+                // The image cache wakes the window once the first page decodes.
+                if let (Some(images), Some(first)) = (images, first)
+                    && let Ok(picture) = crate::workspace_image::workspace_image(&first, &folder, std::slice::from_ref(&folder))
+                {
+                    let _ = images.file(picture, crate::step_pictures::PICTURE_MAX_HEIGHT, 2.0);
+                }
+            });
+        }
     }
+}
+
+fn attachment_source(folder: &std::path::Path, path: &str) -> Option<(std::path::PathBuf, u64, std::time::SystemTime)> {
+    let source = std::fs::canonicalize(folder.join(path)).ok()?;
+    let meta = std::fs::metadata(&source).ok()?;
+    meta.is_file().then_some((source, meta.len(), meta.modified().ok()?))
 }
 
 pub(super) fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
@@ -851,3 +883,7 @@ mod queued_conversation_owner_tests;
 #[cfg(test)]
 #[path = "queue_durability_tests.rs"]
 mod queue_durability_tests;
+
+#[cfg(test)]
+#[path = "blockers1_pdf_attach_tests.rs"]
+mod blockers1_pdf_attach_tests;
