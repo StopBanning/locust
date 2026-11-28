@@ -1034,6 +1034,15 @@ fn integrity(missions: &[Value], missing_parent: Option<&str>) -> String {
             .unwrap_or("");
         if let Some(issues) = mission.get("issues").and_then(Value::as_array) {
             for issue in issues {
+                // The on-disk native reader returns issue codes. Keep them visible in a saved record.
+                if let Some(code) = issue.as_str() {
+                    let message = match code {
+                        "truncated-tail" => "An incomplete final ledger record was ignored after recovery.",
+                        _ => "An invalid ledger record was ignored.",
+                    };
+                    problems.push(format!("`{code}`: {message} ({fallback_id})"));
+                    continue;
+                }
                 let code = issue.get("code").and_then(Value::as_str).unwrap_or("");
                 let message = issue.get("message").and_then(Value::as_str).unwrap_or("");
                 let id = issue
@@ -1665,13 +1674,6 @@ pub fn recover_mission_from_path(path: &std::path::Path) -> Option<Value> {
             push_issue(&mut issues, "invalid-record");
             continue;
         };
-        if let Some(seq) = rec
-            .get("ledgerSequence")
-            .or_else(|| rec.get("sequence"))
-            .and_then(Value::as_u64)
-        {
-            ledger_sequence = seq;
-        }
         let kind = rec
             .get("recordType")
             .or_else(|| rec.get("type"))
@@ -1758,16 +1760,30 @@ pub fn recover_mission_from_path(path: &std::path::Path) -> Option<Value> {
                 }
             }
             Some("mission.approval") => {
-                if let Some(approval) = rec.get("approval").filter(|v| v.is_object()) {
-                    if let Some(at) = approval.get("occurredAt").and_then(Value::as_str) {
-                        last_updated_at = at.to_owned();
-                    }
-                    approvals.push(approval.clone());
-                } else {
+                let approval = &rec["approval"];
+                // These receipts did not exist before v20. The earlier Always answerer came in v21.
+                // As in Electron, damage in an approval also makes the rest of that turn untrustworthy.
+                if schema_version < 20
+                    || (schema_version < 21 && approval["by"] == "earlier-always")
+                    || crate::ledger_write::validate_approval(approval).is_err()
+                    || rec["occurredAt"] != approval["occurredAt"]
+                {
                     push_issue(&mut issues, "invalid-record");
+                    break;
                 }
+                if let Some(at) = approval["occurredAt"].as_str() {
+                    last_updated_at = at.to_owned();
+                }
+                approvals.push(approval.clone());
             }
             _ => push_issue(&mut issues, "invalid-record"),
+        }
+        if let Some(seq) = rec
+            .get("ledgerSequence")
+            .or_else(|| rec.get("sequence"))
+            .and_then(Value::as_u64)
+        {
+            ledger_sequence = seq;
         }
     }
 
@@ -3072,13 +3088,13 @@ mod tests {
                 "ledgerSequence": 4,
                 "occurredAt": iso(0, 12),
                 "approval": {
+                    "approvalId": "ap_1",
                     "kind": "command",
                     "asked": "git status",
                     "askedAt": iso(0, 10),
                     "occurredAt": iso(0, 12),
                     "answer": "allowed",
-                    "by": "person",
-                    "scope": "once",
+                    "by": "card",
                 }
             })
             .to_string(),
