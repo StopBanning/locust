@@ -303,7 +303,11 @@ fn bursts_scale_long() {
             }
         }
         if let (Some(first), Some(last)) = (per_record.first(), per_record.last()) {
-            let grew = last.1 / first.1;
+            // The engine counts whole milliseconds: a release build reads the smallest burst in under one, which read
+            // as 0 and made any growth infinite (gate 28 Nov: "0.000 ms a record ... (infx)"). The smallest burst is
+            // taken to cost at least that one millisecond; a reader whose time grows with the square of the records
+            // still shows it, since the largest burst then costs hundreds of them.
+            let grew = last.1 / first.1.max(1.0 / first.0 as f64);
             eprintln!("{who}: {:.3} ms a record at {} records, {:.3} at {} ({grew:.1}x)", first.1, first.0, last.1, last.0);
             if grew > 3.0 {
                 faults.push(format!(
