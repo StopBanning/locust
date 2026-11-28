@@ -2796,3 +2796,7 @@ mod routines_page_tests;
 #[cfg(test)]
 #[path = "a_routine_runs_on_its_teammates_route_tests.rs"]
 mod a_routine_runs_on_its_teammates_route_tests;
+
+#[cfg(test)]
+#[path = "routine_editor_title_tests.rs"]
+mod routine_editor_title_tests;
