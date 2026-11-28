@@ -471,6 +471,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 };
                 let detail = command.detail.clone();
                 let cmd = command.clone();
+                let slash_teammate = id.clone();
                 menu = menu.child(
                     el().w_full()
                         .padding(6.0)
@@ -493,7 +494,24 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                     }),
                                 ),
                         )
-                        .on_press(move |s: &mut State| run_slash_command(s, &cmd)),
+                        .on_press(move |s: &mut State| {
+                            match cmd.action {
+                                // Composer.tsx runSlash: clicking follows the same cancellation path as Enter.
+                                composer::SlashAction::Stop => {
+                                    run_slash_command(s, &cmd);
+                                    stop(s);
+                                }
+                                // Open the same picker as the route chip rather than printing a diagnostic.
+                                composer::SlashAction::Route => {
+                                    s.draft.clear();
+                                    s.slash_at = 0;
+                                    if s.model_menu.as_deref() != Some(slash_teammate.as_str()) {
+                                        open_models(s, slash_teammate.clone());
+                                    }
+                                }
+                                _ => run_slash_command(s, &cmd),
+                            }
+                        }),
                 );
             }
             composer_stack = composer_stack.child(menu);
@@ -1952,3 +1970,7 @@ mod stop_beam_ui_tests;
 fn composer_line_height() -> f32 {
     if type_::BODY.line_height > 0.0 { type_::BODY.line_height } else { type_::BODY.size * 1.25 }
 }
+
+#[cfg(test)]
+#[path = "composer_b10_tests.rs"]
+mod composer_b10_tests;

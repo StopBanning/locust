@@ -15,10 +15,19 @@ fn target(s: &State) -> Option<(String, String)> {
     if conversation.conversation_id.is_some() {
         return None;
     }
-    Some((
-        mate.id.clone(),
-        s.home.folder_path.as_ref()?.clone(),
-    ))
+    // The Electron door keeps its own workspace caution. The native engine uses the
+    // teammate's project first; ask about that project rather than an unrelated Home folder.
+    if s.engine != Some(Kind::Native) {
+        return Some((mate.id.clone(), s.home.folder_path.clone()?));
+    }
+    let folder = s.data.as_ref().and_then(|store| native::folder_for(mate, store.electron()).ok())
+        .or_else(|| {
+            mate.folder.as_deref().map(std::path::PathBuf::from)
+                .filter(|p| p.is_absolute() && p.is_dir())
+        })
+        .or_else(|| s.home.folder_path.as_deref().map(std::path::PathBuf::from))?;
+    let folder = folder.canonicalize().unwrap_or(folder).to_string_lossy().into_owned();
+    Some((mate.id.clone(), folder))
 }
 
 fn confirmed(store: &store::Store) -> Result<Vec<String>, String> {
@@ -58,7 +67,10 @@ pub(super) fn hold_send(s: &mut State) -> bool {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .ok();
-    let system = std::env::var("SystemRoot").ok();
+    let canonical = |path: String| std::fs::canonicalize(&path)
+        .map(|real| real.to_string_lossy().into_owned()).unwrap_or(path);
+    let home = home.map(canonical);
+    let system = std::env::var("SystemRoot").ok().map(canonical);
     let Some(why) = locust_core::thread_view::folder_caution(
         &folder,
         home.as_deref(),
