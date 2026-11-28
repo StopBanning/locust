@@ -71,6 +71,10 @@ pub(super) struct Panel {
     pub cover_replays: u32,
     /// The deferred-agents button pressed while nothing is connected (FirstLaunch.tsx `othersOpen`).
     pub others_open: bool,
+    /// The ready agent mark currently hovered on Home's folded accounts line (`AgentMark.tsx`).
+    pub home_mark_hover: Option<String>,
+    /// The ready agent mark toggled open by press/keyboard on Home's folded accounts line.
+    pub home_mark_pinned: Option<String>,
 }
 
 /// Home's own measure: the pane it scrolls in, the cover's card, the column as drawn, and what they decided.
@@ -1247,6 +1251,52 @@ pub(super) fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
     listed.into_iter().chain(crate::teammate_faces::last_worked_for(s, teammate)).max()
 }
 
+/// `.lc-agentcard` over a mark on Home's folded accounts line (`AgentMark.tsx`): name, state,
+/// one bar per reported usage window (amber from 80%, red when spent, reset windows drawn as
+/// reset), and no empty meter when the agent reported none.
+fn home_agent_card(
+    l: &crate::look::controls::Look,
+    runtime: &str,
+    name: &str,
+    state: &str,
+    usage: Option<&str>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> El {
+    let card = locust_core::agent_card::agent_card(name, state, usage, now);
+    let mut head = row().gap(8.0).center_y();
+    if let Some(mark) = crate::look::controls::agent_mark(l, runtime, 16.0, l.c("text-secondary")) {
+        head = head.child(mark);
+    }
+    head = head.child(
+        col()
+            .grow(1.0)
+            .shrink()
+            .gap(1.0)
+            .child(text(card.name.clone()).font(l.ty.control).color(l.c("text-primary")).truncate())
+            .child(text(card.state.clone()).font(l.ty.body).color(l.c("text-muted")).truncate()),
+    );
+    let mut body = col()
+        .w(232.0)
+        .px(12.0)
+        .pt(10.0)
+        .pb(11.0)
+        .gap(9.0)
+        .radius(l.t.px("radius-card"))
+        .fill(l.c("bg-raised"))
+        .border(1.0, l.c("border-card"))
+        .child(head);
+    if !card.windows.is_empty()
+        && let Some(said) = usage
+    {
+        body = body.child(crate::agent_card_ui::usage_meters(
+            l,
+            crate::agent_card_ui::MeterReading::Card(said, &card),
+            now,
+        ));
+    }
+    body
+}
+
 /// Home's AI agents: the whole list, or, once they are all ready (`agents_fold`), one line -- "Connected accounts",
 /// how many are ready, their marks and Show all -- so a returning Home fits its team on one screen (FirstLaunch.tsx).
 fn home_agents(s: &State, p: &Palette) -> El {
@@ -1270,12 +1320,58 @@ fn home_agents(s: &State, p: &Palette) -> El {
         [one] => line = line.child(text(format!("· checking {}", one.display_name)).font(l.ty.label).color(l.c("text-muted"))),
         many => line = line.child(text(format!("· checking {} more", many.len())).font(l.ty.label).color(l.c("text-muted"))),
     }
+    let now = chrono::Utc::now();
     let mut marks = row().gap(6.0).center_y();
     for f in &ready {
-        if let Some(mark) = crate::look::controls::agent_mark(&l, &f.id, 13.0, l.c("text-secondary")) {
-            // AgentMark (0.389): a thing to point at that names itself and its state, "Codex CLI. Ready · 1.0.0".
-            let said = locust_core::agent_card::mark_said(&f.display_name, &locust_core::agent_card::ready_state(f.version.as_deref()), None, chrono::Utc::now());
-            marks = marks.child(el().child(mark).role("img").label(said).help(f.display_name.clone()).key(format!("home-agents-mark-{}", f.id)));
+        if let Some(mark) = crate::look::controls::agent_mark(&l, &f.id, 15.0, l.c("text-secondary")) {
+            // AgentMark (0.389): a thing to point at that names itself, its state and its usage,
+            // opening its status/usage card above it on hover or press.
+            let state_line = locust_core::agent_card::ready_state(f.version.as_deref());
+            let usage = s
+                .usage_readings
+                .get(&locust_core::agent_accounts::usage_key(&f.id, None))
+                .map(String::as_str);
+            let said = locust_core::agent_card::mark_said(&f.display_name, &state_line, usage, now);
+            let mark_key = format!("home-agents-mark-{}", f.id);
+            let hover_id = f.id.clone();
+            let press_id = f.id.clone();
+            let mut trigger = el()
+                .child(mark)
+                .px(3.0)
+                .py(2.0)
+                .radius(4.0)
+                .hover(l.c("hover-surface"))
+                .focusable(true)
+                .focus_ring(2.0, 2.0, l.c("focus-ring"))
+                .role("img")
+                .label(said)
+                .key(mark_key.clone())
+                .on_hover_change(move |s: &mut State, over: bool, _tx: &mut Tx| {
+                    if over {
+                        s.home.home_mark_hover = Some(hover_id.clone());
+                        crate::agent_card_ui::request(s);
+                    } else if s.home.home_mark_hover.as_deref() == Some(hover_id.as_str()) {
+                        s.home.home_mark_hover = None;
+                    }
+                })
+                .on_press(move |s: &mut State| {
+                    if s.home.home_mark_pinned.as_deref() == Some(press_id.as_str()) {
+                        s.home.home_mark_pinned = None;
+                    } else {
+                        s.home.home_mark_pinned = Some(press_id.clone());
+                        crate::agent_card_ui::request(s);
+                    }
+                });
+            let open = s.home.home_mark_hover.as_deref() == Some(f.id.as_str())
+                || s.home.home_mark_pinned.as_deref() == Some(f.id.as_str());
+            if open {
+                trigger = trigger.child(
+                    home_agent_card(&l, &f.id, &f.display_name, &state_line, usage, now)
+                        .key(format!("home-agents-card-{}", f.id))
+                        .anchored_fit(mark_key, rune::Side::Top, rune::Align::Center, 8.0),
+                );
+            }
+            marks = marks.child(trigger);
         }
     }
     line.child(marks).child(rune::spacer()).child(
@@ -1288,7 +1384,11 @@ fn home_agents(s: &State, p: &Palette) -> El {
             .hover(l.c("hover-surface"))
             .role("button")
             .key("home-agents-show-all")
-            .on_press(|s: &mut State| s.home.agents_open = true),
+            .on_press(|s: &mut State| {
+                s.home.agents_open = true;
+                s.home.home_mark_hover = None;
+                s.home.home_mark_pinned = None;
+            }),
     )
 }
 
@@ -3092,3 +3192,7 @@ mod home_free_promise_tests;
 #[cfg(test)]
 #[path = "home_two_rows_fit_tests.rs"]
 mod home_two_rows_fit_tests;
+
+#[cfg(test)]
+#[path = "home_agent_marks_tests.rs"]
+mod home_agent_marks_tests;
