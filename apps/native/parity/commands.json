@@ -1,5 +1,5 @@
 {
- "electronCommit": "2378138f",
+ "electronCommit": "3f8b2e0b",
  "generatedBy": "scripts/command-grid.mjs",
  "cases": [
   {
@@ -40,7 +40,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -83,7 +85,9 @@
      "model-x"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -126,7 +130,9 @@
      "high"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -169,7 +175,9 @@
      "session-1"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -213,7 +221,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -257,7 +267,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -296,7 +308,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -341,7 +355,9 @@
      "/locust/skills"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -384,7 +400,9 @@
      "/work/reference"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -426,7 +444,9 @@
      "mcp__locust__approve"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -484,7 +504,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -525,7 +547,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -568,7 +592,9 @@
      "model-x"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -611,7 +637,9 @@
      "high"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -654,7 +682,9 @@
      "session-1"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -698,7 +728,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -742,7 +774,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -781,7 +815,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -826,7 +862,9 @@
      "/locust/skills"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -869,7 +907,9 @@
      "/work/reference"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -911,7 +951,9 @@
      "mcp__locust__approve"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -969,7 +1011,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1010,7 +1054,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1053,7 +1099,9 @@
      "model-x"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1096,7 +1144,9 @@
      "high"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1139,7 +1189,9 @@
      "session-1"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1183,7 +1235,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1227,7 +1281,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1266,7 +1322,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1311,7 +1369,9 @@
      "/locust/skills"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1356,7 +1416,9 @@
      "Edit(//work/reference/**)"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1400,7 +1462,9 @@
      "mcp__locust__approve"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1460,7 +1524,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1501,7 +1567,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1544,7 +1612,9 @@
      "model-x"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1587,7 +1657,9 @@
      "high"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1630,7 +1702,9 @@
      "session-1"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1674,7 +1748,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1718,7 +1794,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1757,7 +1835,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1802,7 +1882,9 @@
      "/locust/skills"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1847,7 +1929,9 @@
      "Edit(//work/reference/**)"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1889,7 +1973,9 @@
      "mcp__locust__approve"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1949,7 +2035,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -1985,7 +2073,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2023,7 +2113,9 @@
      "model-x"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2061,7 +2153,9 @@
      "high"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2099,7 +2193,9 @@
      "session-1"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2138,7 +2234,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2176,7 +2274,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2210,7 +2310,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2248,7 +2350,9 @@
      "/locust/skills"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2284,7 +2388,9 @@
      "--strict-mcp-config"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2321,7 +2427,9 @@
      "/locust/guard/settings.json"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
@@ -2369,7 +2477,9 @@
      "--fork-session"
     ],
     "stdin": "stream-json",
-    "env": {}
+    "env": {
+     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+    }
    }
   },
   {
