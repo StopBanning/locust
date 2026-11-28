@@ -584,3 +584,7 @@ mod command_wraps_tests;
 #[cfg(test)]
 #[path = "approval_active_thread_tests.rs"]
 mod approval_active_thread_tests;
+
+#[cfg(test)]
+#[path = "approval_secret_rule_tests.rs"]
+mod approval_secret_rule_tests;

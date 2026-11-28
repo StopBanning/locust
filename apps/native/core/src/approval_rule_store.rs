@@ -314,6 +314,7 @@ mod tests {
         ["sk", "ant", "api03", "Zq9xR2mT7vLp4WcN8bYd3KfH6sJ1gQe5"].join("-")
     }
 
+    // case: is refused by the store, in words, and nothing is written
     #[test]
     fn a_command_with_a_key_is_never_saved_as_a_rule() {
         let (dir, store) = fixture();
@@ -328,12 +329,9 @@ mod tests {
             ),
         )
         .unwrap_err();
-        assert!(
-            err.contains("holds")
-                && err.contains("so it isn't saved as a rule")
-                && err.contains("Allow it once instead."),
-            "{err}"
-        );
+        assert_eq!(err, "That command holds an Anthropic API key, so it isn't saved as a rule: a rule keeps the command as written. Allow it once instead.");
+        let file = dir.0.join("native").join("approval-rules.json");
+        assert!(!file.exists(), "rejecting the secret does not touch disk");
         assert!(list(&store).unwrap().is_empty());
 
         add(
