@@ -1,0 +1,10 @@
+core/src/phone_anywhere.rs|||        if state.disposed || state.refused_by_relay || held.closing || !held.relay.starts_with("https://") { ==>         if state.disposed || state.refused_by_relay || held.closing {
+core/src/your_account.rs|||            if self.read_saved().is_some_and(|saved| saved.on && saved.account == link.user) { ==>             if self.read_saved().is_some_and(|saved| saved.on) {
+src/ui/your_account_section.rs|||                account.link_changed(); ==>                 let _ = &who;
+src/ui/phone_section.rs|||        crate::your_account_section::setup(s, s.phone_anywhere_link.shared.clone(), waker); ==>         let _ = waker;
+core/src/claude_cloud.rs|||        if let Some(changed) = (self.git_changes)(&session.folder) ==>         if let Some(changed) = None::<usize>
+core/src/claude_cloud.rs|||        let name = format!("locust-cloud-{bare}-here"); ==>         let name = format!("locust-cloud-{}-here", bare.chars().take(12).collect::<String>());
+core/src/claude_cloud.rs|||        reserve_detached_copy(&place).map_err(|_| cannot_create())?; ==>         fs::create_dir_all(&place).map_err(|_| cannot_create())?;
+core/src/claude_cloud.rs|||            let removed = (self.git)(&["worktree", "remove", where_], &session.folder, None); ==>             let removed = (self.git)(&["worktree", "remove", "--force", where_], &session.folder, None);
+src/ui/claude_cloud_panel.rs|||    off_thread(s, move |claude| Some(Answer::Continued { result: claude.continue_in_terminal(&id), id })); ==>     let _ = id;
+src/ui/claude_cloud_panel.rs|||        el = el.child(note(CONTINUE_NOTE.into()).key(key("terminal-note"))); ==>         let _ = CONTINUE_NOTE;
