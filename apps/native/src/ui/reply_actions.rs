@@ -321,14 +321,18 @@ fn office_document_view(s: &State, path: &str, p: &Palette) -> Option<El> {
     }
     for block in &document.blocks {
         let block = match block {
-            DocumentBlock::Heading { level, text: words } => paragraph(words).role("heading").level((*level).clamp(1, 3) as u32)
-                .font(rune::TextStyle::new(18.0 - (*level).clamp(1, 3) as f32, 600.0)),
+            // DocumentView.tsx: the reply's own heading sizes, the third in the secondary ink (shell.css .lc-heading--3).
+            DocumentBlock::Heading { level, text: words } => match (*level).clamp(1, 3) {
+                1 => paragraph(words).role("heading").level(1).font(type_::HEADING_1),
+                2 => paragraph(words).role("heading").level(2).font(type_::HEADING_2),
+                _ => paragraph(words).role("heading").level(3).font(type_::HEADING_3).color(p.secondary),
+            },
             DocumentBlock::Paragraph { text } => paragraph(text),
             DocumentBlock::Item { depth, text } => paragraph(text).pl(14.0 + (*depth).min(12) as f32 * 18.0),
             DocumentBlock::Slide { number, title } => {
                 let words = format!("Slide {number}");
                 let label = match title.as_deref() { Some(title) => format!("{words}: {title}"), None => words };
-                paragraph(&label).role("heading").level(3).font(rune::TextStyle::new(16.0, 600.0))
+                paragraph(&label).role("heading").level(3).font(type_::HEADING_2)
             }
             DocumentBlock::Table { rows } => {
                 let table = rows.iter().enumerate().fold(col().role("table").gap(2.0), |table, (index, cells)| {

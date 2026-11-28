@@ -23,10 +23,10 @@ Replay the recorded run. Ran node -e "console.log(40+2)" Wren 42 (time) · ran n
 Replay the recorded run. Antigravity CLI does not have this conversation: it began in the Antigravity app. Send it again and it starts fresh, with the conversation so far. DURABLE RECEIPT FAILED restored from local ledger antigravity / recorded · no checkpoints · record readable
 
 ## agy-2026-10-02/edit-then-command-denied.jsonl
-Replay the recorded run. Edited made.txt 1 refused It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. Edited 1 file …/agy-probe/made.txt · change not reported (time) · 1 refused
+Replay the recorded run. Edited made.txt 1 refused It stopped there. Antigravity was not allowed to run a command in this mode. Edit lets it change files but not run commands; Auto lets it do both. Edited 1 file …/agy-probe/made.txt · Antigravity did not report the change (time) · 1 refused
 
 ## agy-2026-10-02/plan-mode-writes-its-plan.jsonl
-Replay the recorded run. Read a file, edited a file Wren I have inspected words (which contains hi ) and prepared the implementation plan without running any commands. Please review the plan in plan.md and let me know if you would like me to proceed with creating greet.js . 1 step 1 refused Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. Edited 1 file …/462c9e8d-e735-42be-a44a-6ce9f7689a1f/plan.md · change not reported (time) · 2 tool calls · 1 refused words plan.md
+Replay the recorded run. Read a file, edited a file Wren I have inspected words (which contains hi ) and prepared the implementation plan without running any commands. Please review the plan in plan.md and let me know if you would like me to proceed with creating greet.js . 1 step 1 refused Antigravity was not allowed to change files in this mode. Choose Edit or Auto to let it. Edited 1 file …/462c9e8d-e735-42be-a44a-6ce9f7689a1f/plan.md · Antigravity did not report the change (time) · 2 tool calls · 1 refused words plan.md
 
 ## agy-2026-10-02/reads-a-file.jsonl
 Replay the recorded run. Read note.txt Wren hello from a file DONE (time) · 1 tool call
@@ -41,7 +41,7 @@ Replay the recorded run. 1 step 1 refused It stopped there. Antigravity was not 
 Replay the recorded run. Wren OK
 
 ## antigravity/transcript-write-then-followup.jsonl
-Replay the recorded run. Edited hello.txt Wren DONE DONE Edited 1 file Writing hello.txt · change not reported (time)
+Replay the recorded run. Edited hello.txt Wren DONE DONE Edited 1 file Writing hello.txt · Antigravity did not report the change (time)
 
 ## claude/background-stopped-with-run.jsonl
 Replay the recorded run. Background task: sleep 8 seconds then write to out.txt Wren I've started the background task that will sleep for 8 seconds and then write "finished" to out.txt. (time) · ran sleep 8 && echo finished > out.txt
@@ -56,7 +56,7 @@ Replay the recorded run. Asked a helper: Count files in the working directory Wr
 Replay the recorded run. Wren I’ll run the requested marker command with the specified approval prompt. 1 step 1 declined APPROVAL_DECLINED (time) · 1 declined
 
 ## codex/file-change.jsonl
-Replay the recorded run. Edited notes.txt Wren FILE_CHANGED Edited 1 file …/codex/notes.txt · change not reported (time)
+Replay the recorded run. Edited notes.txt Wren FILE_CHANGED Edited 1 file …/codex/notes.txt · Codex did not report the change (time)
 
 ## codex/steer.jsonl
 Replay the recorded run. Wren I’ll run the exact command once, then return its output. Ran Start-Sleep -Seconds 2; Write-Output BE… STEER_ACCEPTED (time) · ran Start-Sleep -Seconds 2; Write-Output BEFORE_STEER
@@ -83,7 +83,7 @@ Replay the recorded run. Edited notes.txt +2 Wren DONE Edited 1 file C:/work/peb
 Replay the recorded run. Read a file, edited a file +1 −1 Wren DONE A Copilot record could not be parsed. Edited 1 file C:/work/pebble/notes.ts MODIFIED +1 −1 Open Copy Show (time) · 1 tool call
 
 ## cursor/edit-result-too-large.jsonl
-Replay the recorded run. Edited 4 files Edited 4 files src/app.ts · change not reported src/view.ts · change not reported src/main.ts · change not reported src/notes.ts · change not reported (time)
+Replay the recorded run. Edited 4 files Edited 4 files src/app.ts · result too large to keep src/view.ts · result too large to keep src/main.ts · result too large to keep src/notes.ts · result too large to keep (time)
 
 ## cursor/read-only-partial.jsonl
 Replay the recorded run. Thought: Reading README.md to summarize the project in one sentence. Wren I'll read the README and summarize the project in one sentence. Read README.md Thought: I'll read the README and provide a one-sentence summary of the projec… Pebble is a tiny CLI timer whose single command, pebble start , counts down 25 minutes and rings a bell. (time) · 1 tool call
