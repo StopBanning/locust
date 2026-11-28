@@ -63,10 +63,12 @@ fn codex_cloud_prioritizes_organization_refusal_and_never_launches_in_a_free_onl
         install(json!({"cloud":false}));
         assert_eq!(task.start(input()), CloudStartResult::Err {
             message: "Cloud computers and cloud tasks are off. Set by your organization (cloud in /test/organization-policy.json). Nothing was started.".into(),
+            no_environment: None,
         });
         install(json!({}));
         assert_eq!(task.start(input()), CloudStartResult::Err {
             message: "This window was opened by a test drive that may only use free routes, and this route is not one. Nothing was started.".into(),
+            no_environment: None,
         });
         assert_eq!((git.get(), codex.get()), (0, 0));
         assert!(!path.exists());

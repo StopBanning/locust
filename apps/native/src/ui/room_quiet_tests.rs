@@ -31,6 +31,7 @@ fn room(started_at: &str) -> Runtime<State> {
         started_at: started_at.into(),
         runtime: "opencode".into(),
         model: "free".into(),
+        live: None,
     });
     Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1100.0, 820.0), Env::new(true, 1.0))
 }

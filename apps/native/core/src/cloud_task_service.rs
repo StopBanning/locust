@@ -216,6 +216,7 @@ impl<'a> CloudTaskService<'a> {
         if crate::model_lists::free_routes_only_now() {
             return CloudStartResult::Err {
                 message: crate::model_lists::FREE_ONLY_REFUSAL.into(),
+                no_environment: None,
             };
         }
         let prompt = input.prompt.trim().to_string();

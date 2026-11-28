@@ -736,7 +736,6 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         if let Some(ms) = elapsed {
             line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
         }
-        let mut peek = None;
         if let Some(step) = &live.detail {
             let words = format!(" · {step}");
             let look = crate::look::controls::Look::new(p.dark);
