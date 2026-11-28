@@ -83,3 +83,20 @@ fn the_room_does_not_guess_silence_from_an_unreadable_timestamp() {
     assert_eq!(drawn.text.as_deref(), Some("asked"));
     assert_eq!(drawn.text_color, Some(Palette::new(true).muted));
 }
+
+#[test]
+fn a_late_reply_still_running_removes_the_room_silence_notice() {
+    let mut rt = room(START);
+    let quiet = tick(&mut rt, 20_000);
+    assert_eq!(quiet.text.as_deref(), Some("asked · 20s · no word back yet"));
+    assert_eq!(quiet.text_color, Some(Palette::new(true).amber));
+
+    // The running transcript has received its first words; it has not finished.
+    rt.update(|s, _| {
+        s.rooms.transcripts.get_mut("m1").unwrap().answer_text = "A peach.".into();
+    });
+    let answered = tick(&mut rt, 21_000);
+    assert_eq!(answered.text.as_deref(), Some("running · 21s"));
+    assert_eq!(answered.text_color, Some(Palette::new(true).muted));
+    assert!(rt.elements().iter().any(|el| !el.exiting && el.text.as_deref() == Some("A peach.")));
+}
