@@ -463,6 +463,68 @@ fn the_working_title_is_compared_and_two_renders_draw_its_band_alike() {
     assert_eq!(changed_inside(&same, first.image.width, title[0]), 0, "two renders at {AT} s draw the band in the same place");
 }
 
+/// The running thread with the person's motion setting as the scene left it: the window's own view reads it from the
+/// system each build (main.rs `view`), which a headless render cannot set, so this draws the thread itself.
+fn thread_only(s: &State, _: &mut Cx<State>) -> El {
+    thread_view(s, &Palette::new(s.appearance.unwrap_or(true)))
+}
+
+fn ledger_live_still_scene(s: &mut State) {
+    ledger_live_scene(s);
+    s.reduced_motion.set(true);
+}
+
+const LIVE_WORD_SCENES: &[(&str, fn(&mut State))] = &[("live", ledger_live_scene), ("live-still", ledger_live_still_scene)];
+
+/// The window's own poll (which sets `frame_clock`), then a change, so the view is built again every frame as a shown
+/// window's is while the sweep is drawn (main.rs `poll`, `live_sweeping`): a scene is a demo, and a demo's poll returns
+/// before that rule.
+fn poll_every_frame(s: &mut State, now: f64, tx: &mut Tx) -> bool {
+    poll(s, now, tx);
+    true
+}
+
+/// The live word's pixels in `scene` drawn `--snap` style at `at` seconds, with the window's own poll setting its clock.
+fn live_word_at(scene: &str, at: &str) -> (Image, [u32; 4]) {
+    let base = std::env::temp_dir().join(format!("locust-live-word-{}-{scene}-{at}", std::process::id()));
+    let (out, tree) = (base.with_extension("png"), base.with_extension("json"));
+    let args = ["--scene", scene, "--snap", &out.to_string_lossy(), "--tree", &tree.to_string_lossy(), "--at", at, "--scale", SCALE];
+    let app = App::new(AppSpec {
+        setup: Some(setup),
+        poll: Some(poll_every_frame),
+        scenes: LIVE_WORD_SCENES,
+        fonts: look::FONTS,
+        families: look::families_for(&locust_core::workspace_settings::startup_code_font(None)),
+        ..AppSpec::new("Locust", (1215.0, 800.0), State::default, thread_only)
+    });
+    rune::tooling::headless(main_window_look(app), rune::tooling::Args::parse_from(args.iter().map(|a| a.to_string()).collect::<Vec<_>>()));
+    let image = Image::read_png(&out).unwrap_or_else(|e| panic!("{scene} at {at}: the render was not written: {e}"));
+    let tree: serde_json::Value = serde_json::from_slice(&std::fs::read(&tree).unwrap_or_default()).unwrap_or_default();
+    let _ = (std::fs::remove_file(&out), std::fs::remove_file(base.with_extension("json")));
+    assert_eq!(tree["t"].as_f64(), at.parse().ok(), "{scene}: drawn at {at} s");
+    let label = rects_of(&tree, &["live-step-label"], SCALE.parse().unwrap_or(1.0));
+    assert_eq!(label.len(), 1, "{scene}: the live word is drawn: {label:?}");
+    (image, label[0])
+}
+
+/// The live word's highlight stands where the window's clock puts it (`working_shimmer::live_word` at the thread's
+/// `frame_clock`, harden-1): two moments of one pass paint the word differently, and for a person who asked for less
+/// motion they paint it alike. 0.8 s and 1.2 s are both inside the third of the 2 s pass when the band is over the word.
+#[test]
+fn the_live_word_sweeps_on_the_windows_clock_and_stands_still_under_less_motion() {
+    for (scene, moves) in [("live", true), ("live-still", false)] {
+        let (early, rect) = live_word_at(scene, "0.8");
+        let (late, rect_late) = live_word_at(scene, "1.2");
+        assert_eq!(rect, rect_late, "{scene}: the word stays where it is");
+        let changed = changed_inside(&compare(&early, &late, &[]).unwrap(), early.width, rect);
+        if moves {
+            assert!(changed > 20, "{scene}: the band moved across the word between 0.8 s and 1.2 s ({changed} pixels in {rect:?})");
+        } else {
+            assert_eq!(changed, 0, "{scene}: under less motion the word stands still ({rect:?})");
+        }
+    }
+}
+
 #[test]
 fn a_tree_rectangle_is_rounded_outward_into_device_pixels() {
     let tree = serde_json::json!({"elements": [{"key": "a", "rect": [48.0, 319.88, 136.0, 17.5], "children": [
