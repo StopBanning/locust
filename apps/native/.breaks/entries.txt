@@ -1,0 +1,29 @@
+core/src/phone_anywhere.rs|||        if on && accepted { ==>         if on {
+core/src/phone_anywhere.rs|||            st.socket.as_ref().filter(|(id, _)| connection.is_none_or(|expected| expected == *id)) ==>             st.socket.as_ref().filter(|(id, _)| connection.is_none_or(|expected| expected == *id || true))
+core/src/phone_anywhere.rs|||        if on && *opened_on == Some(connection) {
+            return true; ==>         if on && *opened_on == Some(connection) {
+            return false;
+core/src/phone_anywhere.rs|||        let frame = json!({ "t": if on { "mcp-open" } else { "mcp-close" } }); ==>         let frame = json!({ "t": if on { "mcp-close" } else { "mcp-open" } });
+core/src/remote_mcp.rs|||        let enabled = self.lock().enabled;
+        self.options.relay.open(enabled); ==>         let enabled = self.lock().enabled;
+        let _ = enabled;
+core/src/acp_agent.rs|||(Instant::now() >= pending.expires).then_some(false) ==> (Instant::now() >= pending.expires).then_some(true)
+core/src/acp_agent.rs|||                        if !offered.contains(pending.approval.as_str()) { return false; } ==>                         if false { return false; }
+core/src/acp_agent.rs|||                && pending.answered.is_none()
+                && Instant::now() < pending.expires ==>                 && pending.answered.is_none()
+core/src/acp_agent.rs|||                            self.offer_permission(&session_id, card, &cancel); ==>                             let _ = card;
+core/src/cli_client.rs|||answer_in_locust: a["answerInLocust"] != false, ==> answer_in_locust: a["answerInLocust"] == true,
+core/src/door.rs|||    if name == "list_background_runs" && !answer.is_error { ==>     if name == "list_background_runs" {
+core/src/shell_path.rs|||    let args = ["-ilc",  ==>     let args = ["-lc", 
+src/diagram.rs|||            Block::Quote(children) => count(children), ==>             Block::Quote(_) => 0,
+src/ui/sheet_view.rs|||    SHOWN.lock().unwrap_or_else(|e| e.into_inner()).remove(&key); ==>     let _ = &key;
+src/ui/pdf_pages_ui.rs|||    let source = source_stamp(folder, path); ==>     let source = None;
+src/ui/scout_cards.rs|||text("Scout is reading it…") ==> text("Reading against your goal…")
+src/ui/room_screen.rs|||        let quiet = ans.text.is_empty() && ans.elapsed_s.is_some_and(|secs| secs >= NO_WORD_BACK_SECS); ==>         let quiet = ans.elapsed_s.is_some_and(|secs| secs >= NO_WORD_BACK_SECS);
+src/ui/sidebar.rs|||        return Err(trash_error.unwrap_or_else(|| locust_core::trash::ELECTRON_ONLY.to_owned())); ==>         return Err(locust_core::trash::ELECTRON_ONLY.to_owned());
+src/ui/phone_section.rs|||    if s.demo || scout_away_policy().is_some() { return None; } ==>     if s.demo { return None; }
+src/ui/phone_section.rs|||            (Some(card), None) => { ==>             (Some(card), _) => {
+src/ui/routines_panel.rs|||        if current_route.is_none() {
+            line.push_str(" (this one, until they have worked on one)"); ==>         if current_route.is_some() {
+            line.push_str(" (this one, until they have worked on one)");
+src/ui/routines_panel.rs|||        let route = if saved { ==>         let route = if !saved {
