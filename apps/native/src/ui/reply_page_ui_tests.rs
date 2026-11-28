@@ -104,3 +104,31 @@ fn mac_scheme_handler_reads_previews_through_host_read_preview() {
     assert!(mac.contains("h.read_preview("), "browser_mac.rs must route WKURLSchemeHandler through Host::read_preview");
     assert!(!mac.contains("h.preview.read("), "browser_mac.rs must not bypass Host::read_preview");
 }
+
+// My break: without the early check in `page_control`, a file that is not a web page still reached `run_beside`,
+// which made a browser tab before refusing it. Nothing noticed (28 Nov 2026).
+#[test]
+fn pressing_page_on_a_file_that_is_not_a_web_page_says_so_and_makes_no_browser_tab() {
+    let t = temp("not-a-page");
+    let store = crate::store::Store::new(t.0.join("native"), t.0.join("electron")).unwrap();
+    let workspace = t.0.join("workspace");
+    std::fs::write(workspace.join("notes.txt"), "plain words").unwrap();
+    let mut s = State::default();
+    s.data = Some(store);
+    s.home.folder_path = Some(workspace.to_string_lossy().into_owned());
+    let mut rt = rune::Runtime::new(
+        s,
+        |_, _| rune::col().w_full().h_full().child(page_control("page-run".into(), "notes.txt".into(), &Palette::new(true))),
+        (400.0, 200.0),
+        rune::Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    let (x, y) = rt.find("page-run").expect("the Page control is drawn");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.05);
+    assert_eq!(rt.state.status, "Only a web page (.html) opens as a page.");
+    let host = crate::invariants::lock(&rt.state.browser.host);
+    assert!(host.tabs.is_empty(), "no tab is made for a file that cannot run as a page");
+    assert!(!host.open, "and the browser stays closed");
+}
