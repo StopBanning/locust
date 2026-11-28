@@ -545,3 +545,7 @@ mod catalog_usage_shown_tests;
 #[cfg(test)]
 #[path = "usage_limits_window_tests.rs"]
 mod usage_limits_window_tests;
+
+#[cfg(test)]
+#[path = "usage_meter_tone_tests.rs"]
+mod usage_meter_tone_tests;
