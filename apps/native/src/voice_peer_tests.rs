@@ -275,3 +275,21 @@ fn turns_the_microphone_off_when_the_audio_cannot_be_built_8() {
     assert!(held.output.is_none());
     assert!(held.fed.is_empty());
 }
+
+// My break: with `Access::Cancelled => {}` in `call`, a person who pressed Escape while the system was still asking
+// for the microphone got a call opened anyway. The cancel flag does not say so here; the answer does (28 Nov 2026).
+#[test]
+fn talk_peer_escape_while_the_system_asks_for_the_microphone_opens_nothing() {
+    let (mut audio, shared) = fixture(false, None);
+    let asked = shared.clone();
+    audio.access = Box::new(move |_| {
+        asked.lock().unwrap().order.push("access cancelled");
+        Access::Cancelled
+    });
+    assert_eq!(audio.call(&AtomicBool::new(false)).err().unwrap(), peer::CANCELLED);
+    assert_eq!(
+        &shared.lock().unwrap().order,
+        &["access cancelled"],
+        "no peer, microphone or speaker was opened"
+    );
+}
