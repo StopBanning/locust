@@ -166,3 +166,7 @@ pub(crate) fn card_label(name: &str) -> String {
 #[cfg(test)]
 #[path = "agent_card_ui_meters_tests.rs"]
 mod meters_tests;
+
+#[cfg(test)]
+#[path = "agent_usage_parity_tests.rs"]
+mod agent_usage_parity_tests;
