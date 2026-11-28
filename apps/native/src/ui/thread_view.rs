@@ -473,6 +473,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if !slash.is_empty() {
             let mut menu = col()
                 .key("slash-menu")
+                .role("listbox")
+                .label("Commands")
                 .w_full()
                 .max_h(220.0)
                 .scroll(ScrollSpec {
@@ -504,6 +506,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 let slash_teammate = id.clone();
                 menu = menu.child(
                     el().w_full()
+                        .role("option")
+                        .label(name.clone())
+                        .focus_selected(active)
                         .padding(6.0)
                         .radius(6.0)
                         .fill(if active { p.selected } else { p.raised })

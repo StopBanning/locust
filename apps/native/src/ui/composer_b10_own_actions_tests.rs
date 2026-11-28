@@ -24,6 +24,31 @@ fn own_actions_poll(rt: &mut rune::Runtime<State>) {
 }
 
 #[test]
+fn composer_chooses_a_command_file_by_click_and_only_fills_the_draft() {
+    let (root, s) = fresh();
+    let folder = root.0.join("electron/commands/team");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("review.md"), "Review $ARGUMENTS\n").unwrap();
+    let mut rt = window(s);
+    own_actions_poll(&mut rt);
+    type_words(&mut rt, "/team/review the notes");
+    assert!(
+        rt.elements()
+            .iter()
+            .any(|e| e.key.as_deref() == Some("slash-menu")
+                && e.role == "listbox"
+                && e.label.as_deref() == Some("Commands"))
+    );
+    assert!(rt.elements().iter().any(|e| e.role == "option"
+        && e.label.as_deref() == Some("/team/review")
+        && e.item_selected));
+    click_word(&mut rt, "/team/review");
+    own_actions_poll(&mut rt);
+    assert_eq!(rt.state.draft.text, "Review the notes\n");
+    assert!(rt.state.flight.is_none() && rt.state.sent_history.is_empty());
+}
+
+#[test]
 fn composer_clicking_a_project_bang_command_asks_first_and_not_now_runs_nothing() {
     let (root, mut s) = fresh();
     s.home.home_open = true;
