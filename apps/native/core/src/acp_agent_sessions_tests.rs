@@ -427,3 +427,106 @@ fn speaks_newline_framed_json_on_real_stdio_and_stops_its_turn_on_eof() {
         assert!(!line.contains("secret-fake-key"));
     }
 }
+
+/// Drives the production HTTP door and session guard, with only the engine behind them replaced.
+#[test]
+fn grant_first_then_an_editor_can_answer_only_its_own_edit_once() {
+    use crate::cli_sessions::{CliBegun, CliCard, CliHost, CliSessions, CliSink, CliStart, CliTeammate, CliUpdate};
+    use crate::door::{Caller, Door as HttpDoor, Settings};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Default)]
+    struct Engine {
+        settings: Arc<Mutex<Settings>>,
+        starts: AtomicUsize,
+        pending: Mutex<Option<(String, CliSink)>>,
+        decisions: Mutex<Vec<(String, bool)>>,
+    }
+
+    impl CliHost for Engine {
+        fn teammates(&self) -> Result<Vec<CliTeammate>, String> {
+            Ok(vec![CliTeammate { id: "tm_codec".into(), name: "Codec".into(), runtime: Some("codex".into()),
+                model: Some("gpt-6".into()), runs_in: "ask".into() }])
+        }
+        fn workspace(&self) -> Option<String> { Some("/work/app".into()) }
+        fn start(&self, request: CliStart, update: CliSink) -> Result<CliBegun, String> {
+            assert_eq!(request.mode, "ask");
+            assert_eq!(request.teammate_id, "tm_codec");
+            let i = self.starts.fetch_add(1, Ordering::SeqCst);
+            let mission_id = format!("mission-{i}");
+            let run_id = format!("run-{i}");
+            *self.pending.lock().unwrap() = Some((mission_id.clone(), update));
+            Ok(CliBegun { mission_id, run_id })
+        }
+        fn cancel(&self, _: &str) {}
+        fn approvals(&self) -> Vec<CliCard> {
+            let held = self.pending.lock().unwrap();
+            let Some((mission_id, _)) = held.as_ref() else { return Vec::new(); };
+            let own = CliCard { approval_id: format!("{mission_id}-edit"), mission_id: mission_id.clone(),
+                run_id: mission_id.replace("mission-", "run-"), kind: "file-change".into(),
+                summary: "Review generated note".into(), detail: "notes.txt".into(),
+                cwd: Some("/work/app".into()), answer_in: None };
+            let foreign = CliCard { approval_id: "foreign-edit".into(), mission_id: "foreign".into(), ..own.clone() };
+            vec![foreign, own]
+        }
+        fn answer(&self, id: &str, approve: bool) -> bool {
+            self.decisions.lock().unwrap().push((id.into(), approve));
+            self.finish();
+            true
+        }
+        fn editor_answers(&self) -> bool { self.settings.lock().unwrap().editor_answers }
+        fn status(&self) -> Result<Value, String> { Ok(json!({"turns":[]})) }
+    }
+
+    impl Engine {
+        fn finish(&self) {
+            if let Some((_, sink)) = self.pending.lock().unwrap().take() {
+                sink(CliUpdate::Event(json!({"type":"run.completed","payload":{}})));
+            }
+        }
+    }
+
+    let root = std::env::temp_dir().join(format!("locust-acp-http-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+    struct Temp(std::path::PathBuf);
+    impl Drop for Temp { fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); } }
+    let _tmp = Temp(root.clone());
+    let engine = Arc::new(Engine::default());
+    let sessions = Arc::new(CliSessions::live(engine.clone()));
+    let called = Arc::new(Mutex::new(Vec::<String>::new()));
+    let called2 = called.clone();
+    let call: Caller = Arc::new(move |name, args| {
+        called2.lock().unwrap().push(name.into());
+        if name == "list_teammates" {
+            crate::door_tools::ToolResult::ok(team().to_string()).to_json()
+        } else {
+            sessions.call(name, args).to_json()
+        }
+    });
+    let door = HttpDoor::with(root.clone(), "fake", engine.settings.clone(), call);
+    assert!(door.set_enabled(true).settings.enabled, "the test needs its own loopback door");
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let sent2 = sent.clone();
+    let agent = Arc::new(AcpAgent::new(LocustClient::new(root), Arc::new(move |m| sent2.lock().unwrap().push(m)), None));
+    let session = open(&agent, &sent);
+
+    ask(&agent, &session);
+    find_message(&sent, "session/update");
+    assert!(chunks(&sent).contains("Waiting for you in Locust: Review generated note"));
+    assert!(!sent.lock().unwrap().iter().any(|m| m["method"] == "session/request_permission"));
+    assert!(engine.decisions.lock().unwrap().is_empty());
+    engine.finish();
+    assert_eq!(answer(&sent, 3)["result"]["stopReason"], "end_turn");
+
+    assert!(door.set_editor_answers(true).settings.editor_answers);
+    agent.accept(&rpc(4, "session/prompt", json!({"sessionId":session,"prompt":[{"type":"text","text":"Check again"}]})));
+    let permission = find_message(&sent, "session/request_permission");
+    assert_eq!(permission["params"]["toolCall"]["toolCallId"], "mission-1-edit");
+    assert!(!sent.lock().unwrap().iter().any(|m| m.to_string().contains("foreign-edit")));
+    let allow = json!({"jsonrpc":"2.0","id":permission["id"],"result":{"outcome":{"outcome":"selected","optionId":"allow"}}}).to_string();
+    agent.accept(&allow);
+    agent.accept(&allow);
+    assert_eq!(answer(&sent, 4)["result"]["stopReason"], "end_turn");
+    assert_eq!(*engine.decisions.lock().unwrap(), [("mission-1-edit".to_string(), true)]);
+    assert_eq!(called.lock().unwrap().iter().filter(|n| *n == "cli/decide").count(), 1);
+    agent.close();
+}

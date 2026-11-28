@@ -75,7 +75,7 @@ impl AcpAgent {
 
     #[cfg(test)]
     fn quick(mut self) -> Self {
-        self.poll = Duration::from_millis(0);
+        self.poll = Duration::from_millis(5);
         self
     }
 
