@@ -6572,8 +6572,8 @@ apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	knows each kind by its address, and names it	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes the reply’s own words for a link’s name, and vouches for nothing it does not know	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes
-apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	no
-apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	no
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	yes
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is its last final message’s question, once the run has completed	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is read the same the second time	yes
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is nothing when nothing does	yes

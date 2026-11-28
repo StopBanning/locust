@@ -78,6 +78,7 @@ pub(super) fn cards(s: &State, body: &str, p: &Palette) -> Option<El> {
             .key(format!("published-{index}"))
             .role("button")
             .label(item.url.clone())
+            .help(item.url.clone())
             .child(crate::look::controls::glyph(&l, &crate::look::icons::FILE, 16.0, Some(l.c("text-muted"))))
             .child(
                 col()
@@ -97,3 +98,7 @@ pub(super) fn cards(s: &State, body: &str, p: &Palette) -> Option<El> {
     }
     Some(out)
 }
+
+#[cfg(test)]
+#[path = "published_cards_tests.rs"]
+mod published_cards_tests;
