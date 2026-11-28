@@ -7,6 +7,7 @@
 use super::*;
 use locust_core::voice_typing::{Mode, Settings, VoiceSettings};
 
+pub(super) const DEFAULT_TALK_VOICE: &str = "cove";
 pub(super) const HEADING: &str = "Voice typing";
 pub(super) const LEDE: &str = "Fast and Accurate run on this computer (a one-time 41 or 69 MB download; Accurate is slower). Your OpenAI account sends audio to OpenAI on your API key, which OpenAI bills.";
 const NO_KEY: &str = "Add your OpenAI API key. A ChatGPT subscription does not include API usage.";
@@ -21,6 +22,9 @@ pub(super) struct Line {
     pub message: String,
     /// The platform in Node's names; None is this computer (tests name one).
     pub platform: Option<&'static str>,
+    talk_open: bool,
+    talk_choice: Option<String>,
+    talk_error: String,
 }
 
 fn platform(s: &State) -> &'static str {
@@ -37,7 +41,10 @@ fn secrets() -> std::sync::Arc<dyn locust_core::own_models::SecretBox> {
 
 /// Read what voice typing has saved (when Settings opens).
 pub(super) fn read(s: &mut State) {
+    s.settings_panel.voice.talk_open = false;
+    s.settings_panel.voice.talk_error.clear();
     let Some(store) = s.data.clone() else { return };
+    s.settings_panel.voice.talk_choice = locust_core::talk_shortcut::chosen_voice(&store);
     let box_ = secrets();
     s.settings_panel.voice.settings = Some(VoiceSettings::new(&store, box_.as_ref(), platform(s)).settings());
 }
@@ -144,7 +151,63 @@ pub(super) fn section(s: &State, p: &Palette, first: bool) -> El {
         .gap(4.0)
         .child(text(HEADING.to_owned()).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
         .child(text(LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
-    crate::settings_panel::line(&l, "settings-line-voice-typing", 10.0, first, words, control)
+    let typing = crate::settings_panel::line(&l, "settings-line-voice-typing", 10.0, first, words, control);
+    if !locust_core::voice_audio::talk_runs_on(platform) || s.demo || s.data.is_none() {
+        return typing;
+    }
+    col().w_full().child(typing).child(talk_section(s, &l))
+}
+
+fn talk_section(s: &State, l: &crate::look::controls::Look) -> El {
+    use crate::look::controls::{button, Tone};
+    use locust_core::{talk_shortcut, voice_call_rules::VOICES};
+    let line = &s.settings_panel.voice;
+    let chosen = line.talk_choice.as_deref().unwrap_or(DEFAULT_TALK_VOICE);
+    let display = |id: &str| {
+        // Valid voice IDs are ASCII, and the same nine display names are used in Electron.
+        let mut name = id.to_owned();
+        name[0..1].make_ascii_uppercase();
+        name
+    };
+    let words = col().gap(4.0)
+        .child(text("Talk’s voice").role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
+        .child(text("The voice ChatGPT speaks in when you press Talk. The next call uses it; a call already on keeps its voice.")
+            .font(l.ty.body).color(l.c("text-secondary")).wrap());
+    let control = col().w(320.0).gap(6.0).child(
+        button(l, &display(chosen), Tone::Neutral, false)
+            .key("settings-talk-voice")
+            .label("Talk’s voice")
+            .expanded(line.talk_open)
+            .on_press(|s: &mut State| {
+                s.settings_panel.voice.talk_open = !s.settings_panel.voice.talk_open;
+            }),
+    );
+    let mut control = if line.talk_open {
+        let mut choices = col().gap(4.0).role("radiogroup").label("ChatGPT voices");
+        for &(id, description) in VOICES {
+            let on = id == chosen;
+            choices = choices.child(button(l, &format!("{} — {description}", display(id)),
+                if on { Tone::Active } else { Tone::Neutral }, false)
+                .key(format!("settings-talk-voice-{id}")).role("radio").checked(on)
+                .on_press(move |s: &mut State| {
+                    let Some(store) = &s.data else { return };
+                    let result = talk_shortcut::choose_voice(store, id);
+                    if result.is_ok() {
+                        s.settings_panel.voice.talk_choice = Some(id.into());
+                    }
+                    s.settings_panel.voice.talk_open = result.is_err();
+                    s.settings_panel.voice.talk_error = result.err().unwrap_or_default();
+                }));
+        }
+        control.child(choices)
+    } else {
+        control
+    };
+    if !line.talk_error.is_empty() {
+        control = control.child(text(line.talk_error.clone()).role("status")
+            .font(l.ty.body).color(l.c("text-muted")).wrap());
+    }
+    crate::settings_panel::line(l, "settings-line-talk-voice", 10.0, false, words, control)
 }
 
 #[cfg(test)]

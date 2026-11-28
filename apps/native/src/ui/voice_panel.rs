@@ -306,6 +306,10 @@ fn poll_capture(s: &mut State) -> bool {
     true
 }
 
+#[cfg(test)]
+#[path = "voice_talk_choice_tests.rs"]
+mod talk_choice_tests;
+
 fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
     let (teammate, conversation) = selected_conversation(s)?;
     let folder = teammate
@@ -342,7 +346,8 @@ fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
         folder: folder.into(),
         offer: String::new(),
         teammate: voice_teammate,
-        voice: locust_core::talk_shortcut::chosen_voice(store),
+        voice: Some(locust_core::talk_shortcut::chosen_voice(store)
+            .unwrap_or_else(|| crate::voice_settings::DEFAULT_TALK_VOICE.to_owned())),
         preview: None,
         connectors: true,
         anchor_turn: s
