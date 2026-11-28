@@ -2893,3 +2893,7 @@ mod desk_code_guard_tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "phone_mcp_generation_tests.rs"]
+mod phone_mcp_generation_tests;
