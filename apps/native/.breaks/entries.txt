@@ -1,0 +1,10 @@
+src/look/faces.rs|||            return terminal_faces && pet.screen.unwrap_or(true); ==>             return pet.screen.unwrap_or(true);
+src/look/bot_stage.rs|||        out_pose.y -= slot.bounce_lift / 1.1; ==>         out_pose.y += slot.bounce_lift / 1.1;
+src/look/bot_stage.rs|||        shut: 1.0 - frame.squash, ==>         shut: frame.squash,
+src/look/bot_stage.rs|||            let paused = (now_s - away_at).max(0.0); ==>             let paused = (away_at - away_at).max(0.0);
+src/look/bot_stage.rs|||        hop: !still && motion.hops, ==>         hop: !still,
+src/look/bots.rs|||        let eff_open = 1.0 - 0.92 * (1.0 - open.clamp(0.0, 1.0)).max(shut.clamp(0.0, 1.0)); ==>         let eff_open = 1.0 - 0.92 * (1.0 - open.clamp(0.0, 1.0)).max(0.0);
+src/look/bots.rs|||    let (visor_gx, visor_gy, eye_gx, eye_gy) = if spec.snap.screen { ==>     let (visor_gx, visor_gy, eye_gx, eye_gy) = if !spec.snap.screen {
+src/look/bots.rs|||            let squash = ((1.0 - spec.snap.shut).clamp(0.08, 1.0) * eyes_phase).clamp(0.08, 1.0); ==>             let squash = eyes_phase.clamp(0.08, 1.0);
+src/ui/home_panel.rs|||            let said = locust_core::agent_card::mark_said(&f.display_name, &state_line, usage, now); ==>             let said = locust_core::agent_card::mark_said(&f.display_name, &state_line, None, now);
+src/ui/home_panel.rs|||                        motion: locust_core::bot_rig::BotMotionLevel::Subtle, ==>                         motion: locust_core::bot_rig::BotMotionLevel::Full,
