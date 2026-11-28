@@ -2444,7 +2444,12 @@ pub fn record_reply_changes(
                 .as_array()
                 .cloned()
                 .unwrap_or_default();
-            if !secret(&text) && !suggestions.iter().any(|s| s["text"] == text) {
+            // Electron's suggestAboutYou (index.ts:4573): once while waiting (trimmed, any case), and never when
+            // the note already says it.
+            let said = |line: &str| line.trim().to_lowercase();
+            let noted = current["settings"]["aboutYou"].as_str().unwrap_or("").to_lowercase().contains(&said(&text));
+            let waiting = suggestions.iter().any(|s| s["text"].as_str().is_some_and(|t| said(t) == said(&text)));
+            if !secret(&text) && !noted && !waiting {
                 suggestions.push(json!({"id":id("ays")?,"text":text,"by":by["name"],"at":now()}));
                 push_once(&mut changed.about_you_suggested, &text);
             }

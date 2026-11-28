@@ -92,3 +92,21 @@ fn memory_off_without_an_about_you_line_neither_writes_nor_notifies() {
         assert_eq!(memories(&reopened).unwrap()["memories"], json!([]));
     });
 }
+
+// index.ts:4573 (suggestAboutYou, 0.424): a teammate's line waits for the person once -- not again while it is
+// waiting (trimmed, any case), and not if the note already says it.
+#[test]
+fn an_about_you_line_waits_once_and_not_when_the_note_already_says_it() {
+    with_store("auto", |store, folder, open| {
+        let line = |text: &str| format!("Done.\n<locust-memory>\nabout you :: {text}\n</locust-memory>");
+        let (_, first) = record_reply_changes(store, "tm_ada", folder, &line("Prefers a short summary before any detail."), Some("mission_1"), None).unwrap();
+        assert_eq!(first.about_you_suggested, ["Prefers a short summary before any detail."]);
+        // The same line again, in another case and with spaces around it: still waiting, so not asked again.
+        let (_, again) = record_reply_changes(store, "tm_ada", folder, &line("  PREFERS a short summary before any detail.  "), Some("mission_2"), None).unwrap();
+        assert!(again.about_you_suggested.is_empty());
+        // The note already says "Keep it short.": a line it contains is never put to the person.
+        let (_, said) = record_reply_changes(store, "tm_ada", folder, &line("keep it short"), Some("mission_3"), None).unwrap();
+        assert!(said.about_you_suggested.is_empty());
+        assert_suggestion_after_reopening(&open(), "Prefers a short summary before any detail.");
+    });
+}
