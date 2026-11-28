@@ -503,7 +503,7 @@ fn build_buddy_snapshot(
         flash_progress: slot.conductor.active_flash()
             .map_or(1.0, |(_, at)| flash_fade((rel_s - at).max(0.0))),
         power_on: frame.booting.map(power_on_light),
-        shut: frame.squash,
+        shut: 1.0 - frame.squash,
         glass: frame.glass,
         screen: desired.screen,
         plush: desired.plush,

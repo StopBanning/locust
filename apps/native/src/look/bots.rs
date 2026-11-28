@@ -1148,7 +1148,7 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
 
     let gaze_offset = spec.snap.look * 4.5;
     if spec.snap.screen {
-        let glass = spec.snap.glass.unwrap_or_else(|| {
+        let glass_src = spec.snap.glass.unwrap_or_else(|| {
             let cell = screen_face_for(CODEX_BUDDY.id)
                 .and_then(|f| {
                     f.cells
@@ -1164,33 +1164,75 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
                 h: cell[3] as f64,
             }
         });
-        let tl = map([head_cx - glass.w * 0.52 + gaze_offset * 0.4, head_cy - 3.5]);
-        let br = map([head_cx + glass.w * 0.52 + gaze_offset * 0.4, head_cy + 14.5]);
-        let gw = (br[0] - tl[0]).max(4.0);
-        let gh = (br[1] - tl[1]).max(3.0);
-        let glass_poly = rounded_rect_points(tl[0], tl[1], gw, gh, gh * 0.38, 5);
-        s = s.stroke_with(glass_poly.clone(), true, ink_w * 0.9, LineCap::Round, ink);
-        let unit = glass_units(glass.w);
-        let le = [head_cx + gaze_offset * 0.5 - glass.w * 0.22, head_cy + 5.5];
-        let re = [head_cx + gaze_offset * 0.5 + glass.w * 0.22, head_cy + 5.5];
-        s = draw_screen_panel(
+        let tl = map([head_cx - glass_src.w * 0.52 + gaze_offset * 0.4, head_cy - 3.5]);
+        let br = map([head_cx + glass_src.w * 0.52 + gaze_offset * 0.4, head_cy + 14.5]);
+        let glass_rect = locust_core::buddy_moves::ScreenRectF {
+            x: f64::from(tl[0]),
+            y: f64::from(tl[1]),
+            w: f64::from((br[0] - tl[0]).max(4.0)),
+            h: f64::from((br[1] - tl[1]).max(3.0)),
+        };
+        let unit = 1.0 / glass_units(glass_rect.w);
+        s = paint_buddy_glass(
             s,
-            &glass_poly,
-            spec.snap.tone,
-            spec.snap.flash,
-            spec.snap.flash_progress,
-            spec.snap.power_on,
-            &spec.snap.eyes,
-            le,
-            re,
+            glass_rect,
+            CODEX_BUDDY.ink,
+            CODEX_BUDDY.glass,
+            GLASS_INK * f64::from(scale),
             unit,
-            1.0,
-            1.0,
-            &map,
-            scale * 0.5,
-            spec.snap.s_seconds,
-            spec.snap.shut,
         );
+        let pair_str = format!("{}{}", spec.snap.eyes[0], spec.snap.eyes[1]);
+        let motions = [
+            glyph_motion(&pair_str, 0, spec.snap.s_seconds),
+            glyph_motion(&pair_str, 1, spec.snap.s_seconds),
+        ];
+        let own = phosphor_rgb(spec.snap.tone).map(f64::from);
+        let rgb = if let Some((colour, _)) = spec.snap.flash.filter(|_| spec.snap.s_seconds > 0.0) {
+            let from = phosphor_rgb(colour).map(f64::from);
+            let k = spec.snap.flash_progress.clamp(0.0, 1.0);
+            std::array::from_fn(|i| from[i] + (own[i] - from[i]) * k)
+        } else {
+            own
+        };
+        let lit_col = color_from_rgb_f64(rgb, 0.96);
+        let glow_col = color_from_rgb_f64(rgb, 0.28);
+        let eyes_phase = if let Some(p_light) = spec.snap.power_on.filter(|_| spec.snap.s_seconds > 0.0) {
+            let line_k = p_light.width.clamp(0.0, 1.0);
+            if p_light.height > 0.0 && p_light.alpha > 0.0 {
+                let half_w = (glass_rect.w * 0.5) * line_k;
+                let half_h = 0.9 * unit + (glass_rect.h * 0.5 - 0.9 * unit) * p_light.height;
+                let cx = glass_rect.x + glass_rect.w * 0.5;
+                let cy = glass_rect.y + glass_rect.h * 0.5;
+                s = s.fill(
+                    rounded_rect_points(
+                        (cx - half_w) as f32,
+                        (cy - half_h) as f32,
+                        (half_w * 2.0) as f32,
+                        (half_h * 2.0) as f32,
+                        1.0,
+                        3,
+                    ),
+                    lit_col.alpha(p_light.alpha as f32),
+                );
+            }
+            p_light.eyes
+        } else {
+            1.0
+        };
+        if eyes_phase > 0.05 {
+            let squash = ((1.0 - spec.snap.shut).clamp(0.08, 1.0) * eyes_phase).clamp(0.08, 1.0);
+            s = paint_buddy_screen_eyes(
+                s,
+                glass_rect,
+                &spec.snap.eyes,
+                motions,
+                squash,
+                squash,
+                lit_col,
+                glow_col,
+                spec.snap.look,
+            );
+        }
     } else {
         let le = map([head_cx - 7.5 + gaze_offset, head_cy + 3.5]);
         let re = map([head_cx + 7.5 + gaze_offset, head_cy + 3.5]);
@@ -1424,6 +1466,147 @@ mod presence_tests {
     }
 }
 
+/// PetSprite.tsx `GLASS_CORNER` and `GLASS_INK`: corner ratio of the glass and ink border width in drawing pixels.
+const GLASS_CORNER: f64 = 0.32;
+const GLASS_INK: f64 = 2.0;
+
+/// PetSprite.tsx `paintGlass`: fills the pet's ink border around `rect` first, then the glass inside it,
+/// with a top-half sheen and fine lit rim.
+fn paint_buddy_glass(
+    mut s: Shape,
+    rect: locust_core::buddy_moves::ScreenRectF,
+    ink_css: &str,
+    glass_css: &str,
+    ink_w: f64,
+    unit: f64,
+) -> Shape {
+    let corner = rect.w.min(rect.h) * GLASS_CORNER;
+    if !ink_css.is_empty() && ink_w > 0.0 {
+        let ink_poly = rounded_rect_points(
+            (rect.x - ink_w) as f32,
+            (rect.y - ink_w) as f32,
+            (rect.w + 2.0 * ink_w) as f32,
+            (rect.h + 2.0 * ink_w) as f32,
+            (corner + ink_w) as f32,
+            5,
+        );
+        s = s.fill(ink_poly, color_from_css(ink_css, 1.0));
+    }
+    let [r, g, b, _] = same_hue_rgba(glass_css, 0.46, 0.125, 1.0);
+    let glass_poly = rounded_rect_points(
+        rect.x as f32,
+        rect.y as f32,
+        rect.w as f32,
+        rect.h as f32,
+        corner as f32,
+        5,
+    );
+    s = s.fill(glass_poly.clone(), rgb8(r, g, b));
+    s = s.fill(
+        rounded_rect_points(
+            rect.x as f32,
+            rect.y as f32,
+            rect.w as f32,
+            (rect.h * 0.5) as f32,
+            corner.min(rect.h * 0.25) as f32,
+            5,
+        ),
+        rgba8(255, 255, 255, 17),
+    );
+    s.stroke_with(
+        glass_poly,
+        true,
+        (1.6 * unit) as f32,
+        LineCap::Round,
+        rgba8(255, 255, 255, 41),
+    )
+}
+
+/// PetSprite.tsx `paintScreenEyes`: places and sizes eyes on Codex Buddy's glass using `glass_units`
+/// and `screen_eye_layout` so every stroke stays inside the glass for every glyph, motion, and look.
+#[allow(clippy::too_many_arguments)]
+fn paint_buddy_screen_eyes(
+    mut s: Shape,
+    rect: locust_core::buddy_moves::ScreenRectF,
+    pair: &[String; 2],
+    motions: [locust_core::bot_rig::GlyphMotion; 2],
+    squash: f64,
+    closed_squash: f64,
+    lit_col: Color,
+    glow_col: Color,
+    look: f64,
+) -> Shape {
+    use locust_core::bot_spec::{blinking_dot, screen_eye_layout, VisorBox, EYES_VISOR};
+    let u = glass_units(rect.w);
+    let corner = rect.w.min(rect.h) * GLASS_CORNER;
+    let box_ = VisorBox {
+        half_width: EYES_VISOR.half_width,
+        half_height: (rect.h / 2.0) * u,
+        corner: corner * u,
+        y: 0.0,
+    };
+    let laid = screen_eye_layout(box_, [&pair[0], &pair[1]], [look, 0.0], 0.0);
+    let eye_scale = laid.scale / u;
+    for eye in [0usize, 1usize] {
+        let motion = motions[eye];
+        if !motion.shown {
+            continue;
+        }
+        let Some(gs) = glyph_shape(&pair[eye]).or_else(|| glyph_shape("•")) else {
+            continue;
+        };
+        let blink_squash = if gs.closed { closed_squash } else { squash };
+        let cx = rect.x + rect.w / 2.0 + laid.centres[eye][0] / u;
+        let cy = rect.y + rect.h / 2.0 + laid.centres[eye][1] / u;
+        if pair[eye] == "•" {
+            let closing = ((1.0 - blink_squash) / 0.92).clamp(0.0, 1.0);
+            let (line, weight) = if closing > 0.0 {
+                blinking_dot(closing)
+            } else {
+                ([0.0, -0.01, 0.0, 0.01], gs.weight)
+            };
+            let pts = vec![
+                [
+                    (cx + (line[0] * motion.sx + motion.dx) * eye_scale) as f32,
+                    (cy + (line[1] * motion.sy + motion.dy) * eye_scale) as f32,
+                ],
+                [
+                    (cx + (line[2] * motion.sx + motion.dx) * eye_scale) as f32,
+                    (cy + (line[3] * motion.sy + motion.dy) * eye_scale) as f32,
+                ],
+            ];
+            let w = (weight * eye_scale) as f32;
+            s = s.stroke_with(pts.clone(), false, w * 1.4, LineCap::Round, glow_col);
+            s = s.stroke_with(pts, false, w, LineCap::Round, lit_col);
+            continue;
+        }
+        let w = (gs.weight * eye_scale) as f32;
+        for seg in gs.lines {
+            let mut pts = Vec::with_capacity(seg.len() / 2);
+            for chunk in seg.chunks_exact(2) {
+                pts.push([
+                    (cx + (chunk[0] * motion.sx + motion.dx) * eye_scale) as f32,
+                    (cy + (chunk[1] * motion.sy * blink_squash + motion.dy) * eye_scale) as f32,
+                ]);
+            }
+            if pts.len() >= 2 {
+                s = s.stroke_with(pts.clone(), gs.closed, w * 1.4, LineCap::Round, glow_col);
+                s = s.stroke_with(pts, gs.closed, w, LineCap::Round, lit_col);
+            }
+        }
+        if let Some(r) = gs.ring {
+            let rx = (r * motion.sx * eye_scale) as f32;
+            let ry = ((r * motion.sy * blink_squash * eye_scale).max(0.3)) as f32;
+            let ox = (cx + motion.dx * eye_scale) as f32;
+            let oy = (cy + motion.dy * eye_scale) as f32;
+            let pts = disc_points(ox, oy, rx.max(0.3), ry.max(0.3), 16);
+            s = s.stroke_with(pts.clone(), true, w * 1.4, LineCap::Round, glow_col);
+            s = s.stroke_with(pts, true, w, LineCap::Round, lit_col);
+        }
+    }
+    s
+}
+
 #[cfg(test)]
 #[path = "glyph_eyes_tests.rs"]
 mod glyph_eyes_tests;
@@ -1431,3 +1614,7 @@ mod glyph_eyes_tests;
 #[cfg(test)]
 #[path = "screen_switches_tests.rs"]
 mod screen_switches_tests;
+
+#[cfg(test)]
+#[path = "buddy_screen_drawn_tests.rs"]
+mod buddy_screen_drawn_tests;
