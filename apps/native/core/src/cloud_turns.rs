@@ -26,7 +26,7 @@ const CLOUD_IDLE_MS: i64 = 600_000;
 
 fn version_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^\d+\.\d+\.\d+$").expect("version regex"))
+    RE.get_or_init(|| Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+$").expect("version regex"))
 }
 
 fn task_id_re() -> &'static Regex {
@@ -300,6 +300,15 @@ pub struct CarriedFile {
 pub struct AgentInstalled {
     pub version: String,
     pub bin: String,
+}
+
+fn whole_agent_path(path: &str) -> bool {
+    path.strip_prefix('/').is_some_and(|tail| {
+        !tail.is_empty()
+            && tail.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'/' | b'-')
+            })
+    })
 }
 
 pub trait CloudComputers {
@@ -889,6 +898,20 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                         };
                     }
                 };
+                if installed.version != version {
+                    return CloudPrepared::Err {
+                        message: format!("{} could not be installed on your cloud computer at version {version}.", rt.display_name()),
+                        setup: None,
+                        sign_in: None,
+                    };
+                }
+                if !whole_agent_path(&installed.bin) {
+                    return CloudPrepared::Err {
+                        message: format!("That is not where Locust put {} there.", rt.display_name()),
+                        setup: None,
+                        sign_in: None,
+                    };
+                }
                 let signed_in = match self.on_computer(&space.name, || self.computers.agent_signed_in(&space.name, rt)) {
                     Ok(s) => s,
                     Err(msg) => {
@@ -915,12 +938,14 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 }
                 Some(installed.bin)
             } else {
-                if let Err(msg) = self.on_computer(&space.name, || self.computers.ensure_open_code(&space.name, version)) {
-                    return CloudPrepared::Err {
-                        message: msg,
-                        setup: None,
-                        sign_in: None,
-                    };
+                match self.on_computer(&space.name, || self.computers.ensure_open_code(&space.name, version)) {
+                    Ok(installed) if installed == version => {}
+                    result => {
+                        let message = result.err().unwrap_or_else(|| {
+                            format!("OpenCode could not be installed on your cloud computer at version {version}.")
+                        });
+                        return CloudPrepared::Err { message, setup: None, sign_in: None };
+                    }
                 }
                 None
             };

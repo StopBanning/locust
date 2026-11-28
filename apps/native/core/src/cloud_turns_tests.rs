@@ -74,6 +74,10 @@ struct FakeComputers {
     calls: RefCell<Vec<String>>,
     still_open: bool,
     refuse_open: bool,
+    signed_in: std::cell::Cell<bool>,
+    signed_checks: std::cell::Cell<usize>,
+    install_answer: RefCell<Option<AgentInstalled>>,
+    open_code_version: RefCell<Option<String>>,
 }
 
 impl FakeComputers {
@@ -83,6 +87,10 @@ impl FakeComputers {
             calls: RefCell::new(Vec::new()),
             still_open: opts.still_open,
             refuse_open: opts.refuse_open,
+            signed_in: std::cell::Cell::new(true),
+            signed_checks: std::cell::Cell::new(0),
+            install_answer: RefCell::new(None),
+            open_code_version: RefCell::new(None),
         }
     }
 }
@@ -113,7 +121,7 @@ impl CloudComputers for FakeComputers {
 
     fn ensure_open_code(&self, _name: &str, version: &str) -> Result<String, String> {
         self.calls.borrow_mut().push(format!("opencode@{version}"));
-        Ok(version.into())
+        Ok(self.open_code_version.borrow().clone().unwrap_or(version.into()))
     }
 
     fn ensure_agent(
@@ -125,14 +133,15 @@ impl CloudComputers for FakeComputers {
         self.calls
             .borrow_mut()
             .push(format!("{}@{version}", agent.as_str()));
-        Ok(AgentInstalled {
+        Ok(self.install_answer.borrow().clone().unwrap_or_else(|| AgentInstalled {
             version: version.into(),
             bin: format!("/home/codespace/.locust/npm/bin/{}", agent.as_str()),
-        })
+        }))
     }
 
     fn agent_signed_in(&self, _name: &str, _agent: CloudAgent) -> Result<bool, String> {
-        Ok(true)
+        self.signed_checks.set(self.signed_checks.get() + 1);
+        Ok(self.signed_in.get())
     }
 
     fn bring(
@@ -940,3 +949,6 @@ fn cannot_put_a_different_opencode_there_than_the_one_it_reads_here() {
 
 #[path = "cloud_turn_usage_tests.rs"]
 mod usage;
+
+#[path = "cloud_turn_setup_tests.rs"]
+mod setup;
