@@ -92,7 +92,7 @@ fn starts_on_the_folders_own_repository_and_branch_and_is_kept() {
                 assert_eq!(task.branch.as_deref(), Some("main"));
                 assert!(notes.is_empty());
             }
-            CloudStartResult::Err { message } => panic!("expected ok, got {message}"),
+            CloudStartResult::Err { message, .. } => panic!("expected ok, got {message}"),
         }
         assert_eq!(
             calls.borrow()[0],
@@ -137,7 +137,7 @@ fn says_before_it_runs_what_the_cloud_will_not_see() {
                     ]
                 );
             }
-            CloudStartResult::Err { message } => panic!("expected ok, got {message}"),
+            CloudStartResult::Err { message, .. } => panic!("expected ok, got {message}"),
         }
     });
 }
@@ -154,7 +154,7 @@ fn refuses_a_folder_with_no_github_repository_and_starts_nothing() {
             teammate_id: None,
         });
         match started {
-            CloudStartResult::Err { message } => {
+            CloudStartResult::Err { message, .. } => {
                 assert!(message.contains("GitHub repository, and this folder has none"));
             }
             CloudStartResult::Ok { .. } => panic!("expected refusal"),
@@ -234,4 +234,44 @@ fn from_runners_reports_codex_readiness_and_environment() {
     assert!(!svc.codex_ready());
     assert_eq!(svc.environment("acme/ready", &dir.path), CloudEnvironment::Ready);
     assert_eq!(svc.environment("acme/missing", &dir.path), CloudEnvironment::Missing);
+}
+
+fn refusing_service<R>(exec: Ran, body: impl FnOnce(&CloudTaskService<'_>, &RefCell<Vec<Vec<String>>>) -> R) -> R {
+    let dir = TempDir::new("locust-cloud-svc-refused");
+    let calls: RefCell<Vec<Vec<String>>> = RefCell::new(Vec::new());
+    let codex = |args: &[&str], _cwd: &Path| -> Result<Ran, String> {
+        calls.borrow_mut().push(args.iter().map(|s| (*s).to_string()).collect());
+        Ok(exec.clone())
+    };
+    let git = |args: &[&str], _cwd: &Path| -> Result<Ran, String> {
+        Ok(match args.first().copied().unwrap_or("") {
+            "remote" => ran("https://github.com/acme/widgets.git\n", 0, ""),
+            "rev-parse" => ran("main\n", 0, ""),
+            _ => ran("", 0, ""),
+        })
+    };
+    let service = CloudTaskService::new(dir.path.join("cloud-tasks.json"), &codex, &git);
+    body(&service, &calls)
+}
+
+#[test]
+// case: says which repository has no environment, so the window can offer the cloud computer, and keeps nothing (27 Nov)
+fn says_which_repository_has_no_environment_and_keeps_nothing() {
+    let missing = ran("", 1, "Error: environment 'acme/widgets' not found; run `codex cloud` to list available environments");
+    refusing_service(missing, |service, calls| {
+        let started = service.start(CloudStartInput { folder: "/w".into(), prompt: "Make the greeting louder.".into(), teammate_id: None });
+        let words = crate::cloud_tasks::refusal_for(&crate::cloud_tasks::CloudStartProblem::NoEnvironment { repo: "acme/widgets".into() });
+        assert_eq!(started, CloudStartResult::Err { message: words, no_environment: Some("acme/widgets".into()) });
+        assert_eq!(calls.borrow().len(), 1, "one exec, nothing more");
+        assert!(service.list(Some("/w")).is_empty(), "a refused task is never kept");
+    });
+}
+
+#[test]
+// case: says any other refusal in Codex's words, with no cloud computer offer
+fn says_any_other_refusal_in_codexs_words_with_no_cloud_computer_offer() {
+    refusing_service(ran("", 1, "Error: rate limited, try later"), |service, _calls| {
+        let started = service.start(CloudStartInput { folder: "/w".into(), prompt: "x".into(), teammate_id: None });
+        assert_eq!(started, CloudStartResult::Err { message: "Codex Cloud did not start the task: Error: rate limited, try later".into(), no_environment: None });
+    });
 }

@@ -314,6 +314,7 @@ mod tests {
         ["sk", "ant", "api03", "Zq9xR2mT7vLp4WcN8bYd3KfH6sJ1gQe5"].join("-")
     }
 
+    // case: is refused by the store, in words, and nothing is written
     #[test]
     fn a_command_with_a_key_is_never_saved_as_a_rule() {
         let (dir, store) = fixture();
@@ -328,12 +329,9 @@ mod tests {
             ),
         )
         .unwrap_err();
-        assert!(
-            err.contains("holds")
-                && err.contains("so it isn't saved as a rule")
-                && err.contains("Allow it once instead."),
-            "{err}"
-        );
+        assert_eq!(err, "That command holds an Anthropic API key, so it isn't saved as a rule: a rule keeps the command as written. Allow it once instead.");
+        let file = dir.0.join("native").join("approval-rules.json");
+        assert!(!file.exists(), "rejecting the secret does not touch disk");
         assert!(list(&store).unwrap().is_empty());
 
         add(
@@ -347,6 +345,7 @@ mod tests {
         assert!(!dir.0.join("electron").join(FILE_NAME).exists());
     }
 
+    // case: leaves zero rules, a readable file, and room for the next one
     #[test]
     fn every_saved_rule_can_go_at_once() {
         let (dir, store) = fixture();
@@ -370,6 +369,7 @@ mod tests {
         assert_eq!(remove_all(&store).unwrap(), 2);
         assert!(list(&store).unwrap().is_empty());
         let raw = fs::read_to_string(dir.0.join("native").join(FILE_NAME)).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), json!({"schemaVersion": 1, "rules": []}));
         assert!(parsed_rule_file(&raw).unwrap().is_empty());
 
         let next = add(
@@ -387,11 +387,14 @@ mod tests {
         );
     }
 
+    // case: is nothing to do on an empty store (control)
     #[test]
     fn remove_all_on_empty_store_is_zero() {
-        let (_dir, store) = fixture();
+        let (dir, store) = fixture();
         assert_eq!(remove_all(&store).unwrap(), 0);
         assert!(list(&store).unwrap().is_empty());
+        let raw = fs::read_to_string(dir.0.join("native").join("approval-rules.json")).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), json!({"schemaVersion": 1, "rules": []}));
     }
 
     fn seed_rules(native: &Path, count: usize) -> Vec<StoredRule> {
@@ -409,19 +412,23 @@ mod tests {
             })
             .collect();
         fs::create_dir_all(native).unwrap();
-        fs::write(
-            native.join(FILE_NAME),
-            serde_json::to_string_pretty(&to_json(&rules)).unwrap(),
-        )
-        .unwrap();
+        // Electron's persisted schema, not the serializer under test.
+        let raw_rules: Vec<Value> = (0..count).map(|i| json!({
+            "ruleId": format!("rule_{i}"), "effect": "deny", "kind": "command",
+            "pattern": format!("command_{i}"), "createdAt": "2026-10-04T00:00:00.000Z"
+        })).collect();
+        fs::write(native.join("approval-rules.json"), json!({
+            "schemaVersion": 1, "rules": raw_rules
+        }).to_string()).unwrap();
         rules
     }
 
+    // case: refuses the 201st rule with the reason and keeps the first rule and the file intact
     #[test]
     fn full_store_refuses_the_201st_and_keeps_file_intact() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES);
+        let rules = seed_rules(&native, 200);
         let path = native.join(FILE_NAME);
         let before = fs::read_to_string(&path).unwrap();
 
@@ -436,11 +443,12 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), before);
     }
 
+    // case: returns the existing rule for a duplicate even when the store is full
     #[test]
     fn duplicate_returns_existing_even_when_full() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES);
+        let rules = seed_rules(&native, 200);
         let path = native.join(FILE_NAME);
         let before = fs::read_to_string(&path).unwrap();
 
@@ -453,12 +461,16 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), before);
     }
 
+    // case: reads all 201 rules already on disk without dropping the first one
     #[test]
     fn reads_all_rules_already_on_disk_past_the_cap() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES + 1);
+        let rules = seed_rules(&native, 201);
+        let path = native.join("approval-rules.json");
+        let before = fs::read(&path).unwrap();
         assert_eq!(list(&store).unwrap(), rules);
+        assert_eq!(fs::read(&path).unwrap(), before, "reading must not trim a rule on disk");
     }
 
     #[test]

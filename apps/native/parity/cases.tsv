@@ -948,7 +948,7 @@ apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test
 apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	macOS opens the same normal Claude setup command with its environment, not a server.	no
 apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	macOS terminal failures are shown verbatim.	no
 apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	Linux opens the same setup command in the terminal its desktop has (0.789).	no
-apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	An unsupported setup terminal gives manual guidance without starting a process.	no
+apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	An unsupported setup terminal gives manual guidance without starting a process.	yes
 apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts	reads back the newest check on the mission it ran after	yes
 apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts	has no check when none ran	yes
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts	are the oldest, after the ones it was started for	yes
@@ -2437,7 +2437,7 @@ apps/desktop/src/main/question-answers.test.ts	still reads a singular question, 
 apps/desktop/src/main/question-answers.test.ts	drops a question with no id, because an answer would have nowhere to go	yes
 apps/desktop/src/main/question-answers.test.ts	drops an option with no label, because a label IS its identity	no
 apps/desktop/src/main/question-answers.test.ts	survives a malformed request without inventing a question	no
-apps/desktop/src/main/question-answers.test.ts	sends answers keyed by question id, not a decision	no
+apps/desktop/src/main/question-answers.test.ts	sends answers keyed by question id, not a decision	yes
 apps/desktop/src/main/question-answers.test.ts	sends an option by its literal label, never an index	no
 apps/desktop/src/main/question-answers.test.ts	keeps an unanswered question present and empty rather than absent	no
 apps/desktop/src/main/question-answers.test.ts	still sends a decision for an authorization	yes
@@ -3354,13 +3354,13 @@ apps/desktop/src/main/voice-model-choices-stay-private.test.ts	does not echo fet
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	cancellation discards a late fake response	yes
 apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	types through the OpenAI route once allowed, as on Windows	yes
 apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing	yes
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses and deletes a SHA-256 mismatch, including stale cached files	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	promotes only the checked file and reuses it without a connection	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	restarts an interrupted partial file cleanly	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses an oversized response and removes it	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	runs a stand-in executable and returns its text	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	stops a hung executable at its time limit and waits for termination	no
-apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	cancels a running executable without returning text	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses and deletes a SHA-256 mismatch, including stale cached files	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	promotes only the checked file and reuses it without a connection	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	restarts an interrupted partial file cleanly	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses an oversized response and removes it	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	runs a stand-in executable and returns its text	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	stops a hung executable at its time limit and waits for termination	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	cancels a running executable without returning text	yes
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	accepts only bounded canonical 16-kHz mono PCM	yes
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	constructs and disposes without creating a voice directory	no
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	allows audio only from the owned main frame	yes
@@ -3638,11 +3638,11 @@ apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy p
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass sent with the brief before 0.372, its example in a code fence: the same	yes
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a review: whose work, not the review material	yes
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a person's own words, even ones that begin the same way, are left as they are	yes
-apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	keeps the words still being said, from when they began, and nothing blank	no
-apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	stamps cut-off words with the end when nothing says when they began	no
-apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	live: opens with its divider and your words and theirs, each marked as said	no
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	keeps the words still being said, from when they began, and nothing blank	yes
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	stamps cut-off words with the end when nothing says when they began	yes
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	live: opens with its divider and your words and theirs, each marked as said	yes
 apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	ended: folds to one line that says how long and how much, and opens to every word	yes
-apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	is kept, with its first 40 turns and every line	no
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	is kept, with its first 40 turns and every line	yes
 apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx	is not said of a conversation the person typed, that a call joined later	yes
 apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx	is said of one a call began, however many turns follow, and of a call that is its only turn	yes
 apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx	is never said of a conversation with no call in it	yes
@@ -3650,13 +3650,13 @@ apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	each sa
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	open nothing while the call is on: opening a conversation would leave the one the call lives in	no
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	read as starting until the window has seen them run	yes
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is under the call once it has ended, folded or open	yes
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is not there while the call is on, at a piece that is not its last, or for a call kept before it	no
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is not there while the call is on, at a piece that is not its last, or for a call kept before it	yes
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	sums up: one to-do in another conversation is said, one whose turn is right above is not repeated	yes
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	follows its run while the window holds it, else the record; waiting on you outranks both	no
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	lists each turn it starts once, and a call with a teammate keeps them	no
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	leaves out what a kept call could not hold, rather than have the whole call refused when it is saved	no
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	begins again with each call, and a call from Home keeps nothing	no
-apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is refused when saved only for a to-do no call could hold	no
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	follows its run while the window holds it, else the record; waiting on you outranks both	yes
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	lists each turn it starts once, and a call with a teammate keeps them	yes
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	leaves out what a kept call could not hold, rather than have the whole call refused when it is saved	yes
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	begins again with each call, and a call from Home keeps nothing	yes
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is refused when saved only for a to-do no call could hold	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
@@ -6498,7 +6498,7 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows th
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is a button named Talk, saying what the call can and cannot do	yes
-apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is there on a Mac too, and so is Talk's voice in Settings (the first Mac run, 2026-10-30)	no
+apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is there on a Mac too, and so is Talk's voice in Settings (the first Mac run, 2026-10-30)	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is not there where no call can be placed	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	sits right after voice typing in the chat box	yes
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	yes
