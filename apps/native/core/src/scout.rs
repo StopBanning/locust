@@ -286,6 +286,7 @@ struct GatherResult {
 }
 
 pub struct Scout {
+    away: Mutex<Option<std::sync::Weak<crate::scout_away::ScoutAway>>>,
     deps: Arc<dyn ScoutDeps>,
     scheduler: Arc<dyn ScoutScheduler>,
     state: Mutex<EngineState>,
@@ -413,6 +414,7 @@ impl Scout {
             write_lock: Mutex::new(()),
             log_write_lock: Mutex::new(()),
             comment_read_lock: Mutex::new(()),
+            away: Mutex::new(None),
             disposed: AtomicBool::new(false),
         })
     }
@@ -1074,7 +1076,19 @@ impl Scout {
         self.look_mode(true)
     }
 
+    pub fn connect_away(&self, away: &Arc<crate::scout_away::ScoutAway>) {
+        *self.away.lock().unwrap() = Some(Arc::downgrade(away));
+    }
+
     fn look_mode(self: &Arc<Self>, scheduled: bool) -> ScoutState {
+        let away = self.away.lock().unwrap().as_ref().and_then(std::sync::Weak::upgrade);
+        if let Some(away) = &away { away.catch_up(); }
+        let result = self.look_local(scheduled);
+        if let Some(away) = &away { away.leave_told(); }
+        result
+    }
+
+    fn look_local(self: &Arc<Self>, scheduled: bool) -> ScoutState {
         let from = self.load();
         {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -1661,6 +1675,26 @@ impl Scout {
         self.load().state(self.deps.now())
     }
 
+    /// What Scout already told the person, without the clock (the away owner adds it after comparing).
+    pub fn away_receipt(&self, repo: &str) -> crate::scout_away::AwayLetter {
+        let st = self.load();
+        let mut told = st.seen;
+        if told.len() > crate::scout_away::MAX_TOLD {
+            told.drain(..told.len() - crate::scout_away::MAX_TOLD);
+        }
+        crate::scout_away::AwayLetter {
+            v: crate::scout_away::AWAY_LETTER_VERSION,
+            kind: crate::scout_away::AwayLetterKind::Told,
+            at: String::new(),
+            repo: repo.to_owned(),
+            read: true,
+            found: vec![],
+            prs: st.prs.into_iter().filter(|pr| crate::scout_away::repo_link(repo, Some(&pr.url)).is_some()).collect(),
+            told,
+            brief_day: st.last_brief_day,
+        }
+    }
+
     /// Absorbs away looks' letters once the PC is back (`scout.ts` `absorb`, 0.829 / 0.838):
     /// `/locust` asks passed to the phone (`AWAY_ASK_KEY`) never become cards here because the
     /// comment itself becomes the card on the PC.
@@ -1731,7 +1765,7 @@ impl Scout {
                 .find(|(k, _, _)| k.starts_with("brief:"))
                 .map(|(k, _, _)| k.as_str());
             let mut cards = Vec::new();
-            for (idx, (k, finding, at_str)) in fresh.iter().enumerate() {
+            for (k, finding, at_str) in &fresh {
                 if k.starts_with("brief:") && Some(k.as_str()) != last_brief_key {
                     continue;
                 }
@@ -1744,7 +1778,7 @@ impl Scout {
                 fact.chips = Some(chips);
                 let at = chrono::DateTime::parse_from_rfc3339(at_str)
                     .unwrap_or_else(|_| self.deps.now());
-                cards.push(card_of(fact, format!("card_away_{idx}"), at, false));
+                cards.push(card_of(fact, new_card_id(), at, false));
             }
             let new_brief = cards.iter().any(|c| c.fact.key.starts_with("brief:"));
             let mut next = latest.clone();
