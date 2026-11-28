@@ -570,3 +570,23 @@ fn withdrawing_an_editor_card_drops_its_already_selected_decision() {
     assert!(names(&d).iter().any(|name| name == "cli/poll"));
     assert!(!names(&d).iter().any(|name| name == "cli/decide"), "a withdrawn card must not reach the door");
 }
+
+#[test]
+fn the_editor_cannot_select_allow_after_its_permission_expires() {
+    let d = door(vec![status("completed", json!([]), json!([approval("file-change", false)]))]);
+    let (a, sent) = agent(&d, None);
+    let session = open(&a, &sent);
+    let id = "locust-permission-1";
+    a.lock().permissions.insert(id.into(), Permission {
+        editor_session: session.clone(), approval: "card-1".into(),
+        expires: Instant::now() - Duration::from_secs(1), answered: None,
+    });
+
+    a.accept(&json!({"jsonrpc":"2.0","id":id,"result":{"outcome":{"outcome":"selected","optionId":"allow"}}}).to_string());
+    assert_eq!(a.lock().permissions[id].answered, None, "an expired choice must not be recorded");
+    run_permission_prompt(&a, &session);
+
+    let calls = d.calls.lock().unwrap();
+    let decisions: Vec<_> = calls.iter().filter(|(name, _)| name == "cli/decide").map(|(_, args)| args.clone()).collect();
+    assert_eq!(decisions, [json!({"sessionId":"fake-1","key":"secret-fake-key","approvalId":"card-1","approve":false})]);
+}
