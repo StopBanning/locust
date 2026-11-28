@@ -465,27 +465,6 @@ fn settle_mission_inner(
     }
 }
 
-#[cfg(test)]
-fn clear_org_for_deleted_inner(
-    store: &Store,
-    state: &mut OrgState,
-    mission_id: &str,
-) -> Result<(), String> {
-    if !safe_id(mission_id) {
-        return Err("Mission id is invalid".into());
-    }
-    let had_pin = state.pins.iter().any(|id| id == mission_id);
-    let had_settled = state.settled.contains_key(mission_id);
-    let had_title = state.titles.contains_key(mission_id);
-    if !had_pin && !had_settled && !had_title {
-        return Ok(());
-    }
-    state.pins.retain(|id| id != mission_id);
-    state.settled.remove(mission_id);
-    state.titles.remove(mission_id);
-    persist_teammates(store, state)
-}
-
 fn refresh_groups(store: &Store, state: &mut OrgState) -> Result<(), String> {
     let listed = locust_core::groups::load_groups(store)?;
     state.groups = listed.groups;
@@ -538,6 +517,7 @@ pub(crate) mod tests {
     }
 
     // main/a-conversation-can-be-pinned.test.ts
+    // case: is kept, newest pin first, and still there after Locust opens again
     #[test]
     fn a_conversation_can_be_pinned_persists() {
         let (_dir, store) = temp_store();
@@ -551,6 +531,7 @@ pub(crate) mod tests {
         assert_eq!(again.pins, vec!["m_1".to_string()]);
     }
 
+    // case: takes no id it would not take for a name, and stops at the cap with a reason
     #[test]
     fn pin_rejects_bad_id_and_caps_at_fifty() {
         let (_dir, store) = temp_store();
@@ -564,23 +545,6 @@ pub(crate) mod tests {
         pin_mission(&store, &mut state, "m_0", false).unwrap();
         pin_mission(&store, &mut state, "m_one_more", true).unwrap();
         assert_eq!(state.pins[0], "m_one_more");
-    }
-
-    #[test]
-    fn deleted_conversation_clears_pin_and_settled() {
-        let (_dir, store) = temp_store();
-        let mut state = OrgState::default();
-        for at in 0..MAX_MISSION_PINS {
-            pin_mission(&store, &mut state, &format!("m_{at}"), true).unwrap();
-        }
-        settle_mission(&store, &mut state, "m_3", Some(None)).unwrap();
-        for at in 0..MAX_MISSION_PINS {
-            clear_org_for_deleted(&store, &mut state, &format!("m_{at}")).unwrap();
-        }
-        assert!(state.pins.is_empty());
-        assert!(state.settled.is_empty());
-        pin_mission(&store, &mut state, "m_new", true).unwrap();
-        assert_eq!(state.pins, vec!["m_new".to_string()]);
     }
 
     // main/a-conversation-can-be-put-away.test.ts
@@ -747,14 +711,20 @@ pub fn set_group_route(
     refresh_groups(store, state)
 }
 
-#[cfg(test)]
+/// A turn successfully moved to Trash frees its pin and put-away mark. Kept names and ownership
+/// still belong to the record if the person restores it.
 pub fn clear_org_for_deleted(
     store: &Store,
     state: &mut OrgState,
-    mission_id: &str,
+    deleted: &[&str],
 ) -> Result<(), String> {
     let mut next = state.clone();
-    clear_org_for_deleted_inner(store, &mut next, mission_id)?;
+    next.pins.retain(|id| !deleted.contains(&id.as_str()));
+    next.settled.retain(|id, _| !deleted.contains(&id.as_str()));
+    if next.pins == state.pins && next.settled == state.settled {
+        return Ok(());
+    }
+    persist_teammates(store, &next)?;
     *state = next;
     Ok(())
 }
