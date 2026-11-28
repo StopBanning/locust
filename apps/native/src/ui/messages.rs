@@ -673,6 +673,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(card) = crate::key_card::card(s, p) {
         messages = messages.child(card);
     }
+    let mut shown_plan = None;
     if live_sweeping(s)
         && let Some(live) = live_for_thread(s)
     {
@@ -710,9 +711,48 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
         }
         if let Some(step) = &live.detail {
-            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
+            let words = format!(" · {step}");
+            let look = crate::look::controls::Look::new(p.dark);
+            if !stopping && let Some(steps) = live.plan.as_deref().filter(|steps| !steps.is_empty()) {
+                let tip = s.ledger.as_ref().map_or("", |pane| pane.snapshot.tip.as_str());
+                let conversation = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()).unwrap_or("");
+                let state_key = format!("live-plan/{conversation}/{tip}/{}", live.started_at);
+                let open = s.activity_open.get(&state_key).copied().unwrap_or(false);
+                let toggle_key = state_key.clone();
+                line = line.child(text(words).key("live-step-peek").font(type_::LABEL).color(p.muted)
+                    .role("button").label(format!("Show the plan, {step}"))
+                    .focusable(true).expanded(open).hover(look.c("hover-surface"))
+                    .on_press(move |s: &mut State| {
+                        if s.activity_open.remove(&toggle_key).is_none() {
+                            s.activity_open.insert(toggle_key.clone(), true);
+                        }
+                    }));
+                shown_plan = Some(state_key.clone());
+                if open {
+                    // Rune owns Escape and click-away while this disclosure is mounted. Its
+                    // focus and dismissal handlers go away with it, including on a turn change.
+                    messages = messages.child(col().w_full().gap(4.0).child(line)
+                        .child(live_plan_card(steps, &look))
+                        .modal(true, move |s: &mut State| { s.activity_open.remove(&state_key); }));
+                } else {
+                    messages = messages.child(line);
+                }
+            } else {
+                messages = messages.child(line.child(text(words).key("live-step-peek").font(type_::LABEL).color(p.muted)));
+            }
+        } else {
+            messages = messages.child(line);
         }
-        messages = messages.child(line);
+    }
+    if s.activity_open.keys().any(|key| key.starts_with("live-plan/") && Some(key) != shown_plan.as_ref()) {
+        // Rune's layout observer reports only changed rectangles. Mount a keyed
+        // observer only when a previous plan disappeared, so even a fixed viewport
+        // clears its stale disclosure without inspecting the map on every layout.
+        let life = format!("reap-live-plan/{}", shown_plan.as_deref().unwrap_or("none"));
+        messages = messages.child(el().key(life).absolute(0.0, 0.0).size(1.0, 1.0)
+            .on_layout_tx(move |s: &mut State, _, _| {
+                s.activity_open.retain(|key, _| !key.starts_with("live-plan/") || Some(key) == shown_plan.as_ref());
+            }));
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -731,6 +771,33 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
         })
 }
+
+/// A compact plan, with each step announced as it is now, not as tool results guessed from the log.
+fn live_plan_card(
+    steps: &[locust_core::thread_view::PlanStepView],
+    look: &crate::look::controls::Look,
+) -> El {
+    let mut list = col().w_full().gap(5.0).role("list").label("Plan steps");
+    for (index, step) in steps.iter().enumerate() {
+        let (mark, state, ink) = match step.state {
+            "done" => ("✓", "Done", "green-text"),
+            "running" => ("•", "Current step", "text-primary"),
+            _ => ("○", "Next", "text-muted"),
+        };
+        let row = row().w_full().gap(8.0).key(format!("live-plan-step-{index}"))
+            .role("listitem").label(step.text.clone()).description(state)
+            .child(text(mark).font(type_::LABEL).color(look.c(ink)).w(14.0))
+            .child(text(step.text.clone()).font(look.ty.body).color(look.c(ink)).grow(1.0).shrink().wrap());
+        list = list.child(row);
+    }
+    col().key("live-plan-card").w_full().max_h(220.0).padding(10.0).radius(8.0)
+        .fill(look.c("bg-raised")).border(1.0, look.c("border-hairline"))
+        .scroll(ScrollSpec { stick_bottom: false }).child(list)
+}
+
+#[cfg(test)]
+#[path = "live_plan_peek_ui_tests.rs"]
+mod live_plan_peek_ui_tests;
 
 /// Under a run stopped before any tool ran: Send again, the same words sent again (Thread.tsx `onSendAgain`). On OpenCode
 /// the card above already says to check the folder, so the line beside the press says nothing (0.696).
