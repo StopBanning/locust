@@ -1433,5 +1433,9 @@ mod glyph_eyes_tests;
 mod screen_switches_tests;
 
 #[cfg(test)]
+#[path = "buddy_screen_drawing_tests.rs"]
+mod buddy_screen_drawing_tests;
+
+#[cfg(test)]
 #[path = "thinking_face_sweep_tests.rs"]
 mod thinking_face_sweep_tests;
