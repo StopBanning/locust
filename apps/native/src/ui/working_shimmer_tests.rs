@@ -222,3 +222,20 @@ fn the_window_wakes_for_the_sweep_only_while_the_live_line_is_drawn() {
     s.ledger.as_mut().unwrap().snapshot.live = None;
     assert!(!crate::messages::live_sweeping(&s));
 }
+
+/// The band's time is the window's own clock, the `now` Rune hands its poll (harden-1): never the wall clock, so a
+/// snap of a scene at one second draws the title the same on every machine, and the picture tests compare it. A scene
+/// polls too, and keeps the time it last drew at.
+#[test]
+fn the_band_stands_where_the_windows_own_clock_puts_it() {
+    // A whole poll reads the one engine in this process: held under its test lock, as every engine-reading test is.
+    let _engine = locust_core::native::hooks::no_saved_rules();
+    for demo in [false, true] {
+        let mut rt = rune::Runtime::new(State { demo, ..Default::default() }, |_: &State, _: &mut rune::Cx<State>| rune::col(), (100.0, 100.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.update(|s, tx| {
+            crate::poll(s, 1.5, tx);
+        });
+        assert_eq!(rt.state.frame_clock, 1.5, "demo {demo}: the band stands at this poll's time");
+    }
+}

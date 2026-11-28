@@ -622,7 +622,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ).map(|orb| orb.mr(6.0)))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
-            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
+            .child(crate::working_shimmer::live_word(&words, s.frame_clock, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
                 .key("live-step-label").shrink().truncate().help(headline));
         // ThreadItems.tsx (0.631): the clock sits right after the words, before the plan's "step N of M".
         if let Some(ms) = elapsed {

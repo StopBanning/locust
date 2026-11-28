@@ -63,22 +63,25 @@ than **0.02%** of its compared pixels changed (~190 of 1215x800).
 Why: anti-aliasing noise moves an edge pixel by a few levels, so 8 lets it through. Any real recolour moves every pixel
 it covers by more. The 0.02% share lets a few strays through, but not a moved, recoloured or missing element; one short
 label already covers several hundred pixels. In practice, renders of the same scene matched within 1 level outside the
-two unlocked elements below.
+unlocked elements below.
 
-**Two elements are left out of the comparison** (`UNLOCKED`). Each rectangle is read from the render's own `--tree`
+**One element is left out of the comparison** (`UNLOCKED`). Its rectangle is read from the render's own `--tree`
 by element key, so it follows the element if the layout moves it. The left-out area may be at most 2.5% of the picture
-(`left_out_too_much`); the two together are ~1.9%.
-- `conversation-title-sample-2`, the sidebar's working row ("Review the native preview"). Every locked scene is built
-  on the team fixture, whose Argon is working, so this title shimmers. The band runs on the wall clock
-  (`src/ui/working_shimmer.rs` `clock()`: an `Instant` started at the first shimmer drawn), not Rune's frame clock. So
-  where it stands in a snap depends on how fast the machine drew the 60 frames before it. Two runs of the same release
-  binary moved up to ~500 pixels of that title by up to 134 levels. The in-process debug render, slower, moved it
-  further. **Fix that belongs to the sidebar's owner:** take the band's time from the frame clock (`poll`'s `now`),
-  then remove this entry.
+(`left_out_too_much`); it is ~1.6%.
 - `settings-meta`, the Settings header's "Locust 0.883.0 · local only". It names the version, which every release
   bumps. A debug build (the tests) also adds " · development build" (`cfg!(debug_assertions)`, settings_panel.rs),
   which the release-drawn references never show. The element grows across the header, so its rectangle is the strip
   from after "Settings" to Close (832x19).
+
+The sidebar's working row ("Review the native preview", `conversation-title-sample-2`) was left out too until 27 Nov:
+every locked scene is built on the team fixture, whose Argon is working, so this title shimmers, and the band ran on
+the wall clock (an `Instant` started at the first shimmer drawn). Where it stood in a snap depended on how fast the
+machine drew the 60 frames before it (two runs of one release binary moved ~500 pixels of it by up to 134 levels). The
+band now takes its time from the window's clock, `poll`'s `now` (`State::frame_clock`, `working_shimmer::title`). A
+scene's view is built only when its state changes, so a snap draws the band where the window's clock stood at the last
+build, the same on every run, and the title is compared (harden-1;
+`the_working_title_is_compared_and_two_renders_draw_its_band_alike`). A real window builds its view every 50 ms while a
+row works, so there the band moves.
 
 ## How long it takes
 
