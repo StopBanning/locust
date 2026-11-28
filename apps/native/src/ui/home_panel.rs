@@ -3059,3 +3059,7 @@ mod home_issue_starter_tests {
 #[cfg(test)]
 #[path = "home_folder_strip_tests.rs"]
 mod home_folder_strip_tests;
+
+#[cfg(test)]
+#[path = "free_promise_window_tests.rs"]
+mod free_promise_window_tests;
