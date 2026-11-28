@@ -58,6 +58,13 @@ fn window_in(mode: &str) -> (Dirs, Store, Runtime<State>) {
     (Dirs(root), store, rt)
 }
 
+/// This headless fixture has no browser surface. Leave its process-wide browser bridge uninstalled.
+fn window_without_browser_bridge(mode: &str) -> (Dirs, Store, Runtime<State>) {
+    let (dirs, store, mut rt) = window_in(mode);
+    rt.state.browser.initialized = true;
+    (dirs, store, rt)
+}
+
 fn fake(script: &str, scenario: &str) -> Option<(PathBuf, Vec<String>)> {
     Some((PathBuf::from("python3"), vec![format!("{}/scripts/fixtures/{script}", env!("CARGO_MANIFEST_DIR")), scenario.into()]))
 }
@@ -1353,7 +1360,7 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
 
 #[test]
 fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let work = dirs.0.join("work");
     let ws_id = locust_core::workspace_settings::workspace_id_for(&work);
     let mut settings = locust_core::workspace_settings::WorkspaceSettings::default();
