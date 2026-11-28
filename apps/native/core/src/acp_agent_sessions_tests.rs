@@ -554,3 +554,19 @@ fn an_expired_editor_permission_is_denied_at_the_door() {
     let decisions: Vec<_> = calls.iter().filter(|(name, _)| name == "cli/decide").map(|(_, args)| args.clone()).collect();
     assert_eq!(decisions, [json!({"sessionId":"fake-1","key":"secret-fake-key","approvalId":"card-1","approve":false})]);
 }
+
+#[test]
+fn withdrawing_an_editor_card_drops_its_already_selected_decision() {
+    let d = door(vec![status("completed", json!([]), json!([]))]);
+    let (a, sent) = agent(&d, None);
+    let session = open(&a, &sent);
+    a.lock().permissions.insert("locust-permission-1".into(), Permission {
+        editor_session: session.clone(), approval: "card-1".into(),
+        expires: Instant::now() + Duration::from_secs(120), answered: Some(true),
+    });
+
+    run_permission_prompt(&a, &session);
+
+    assert!(names(&d).iter().any(|name| name == "cli/poll"));
+    assert!(!names(&d).iter().any(|name| name == "cli/decide"), "a withdrawn card must not reach the door");
+}
