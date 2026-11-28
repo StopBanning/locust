@@ -29,6 +29,7 @@ fn card(command: &str) -> Runtime<State> {
 // case: is offered no "always allow" rule on its card
 #[test]
 fn approval_a_command_with_a_key_cannot_save_a_rule() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let key = ["sk", "ant", "api03", "Zq9xR2mT7vLp4WcN8bYd3KfH6sJ1gQe5"].join("-");
     for command in [format!("curl -H \"x-api-key: {key}\" https://api.example.com"), format!("ANTHROPIC_API_KEY={key} npm test")] {
         let mut rt = card(&command);
@@ -46,6 +47,7 @@ fn approval_a_command_with_a_key_cannot_save_a_rule() {
 // case: still offers one for an ordinary command (the control)
 #[test]
 fn approval_an_ordinary_command_still_offers_an_exact_rule() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let rt = card("npm test");
     assert!(rt.find("dont-ask-again").is_some(), "npm test still offers an exact saved rule");
 }

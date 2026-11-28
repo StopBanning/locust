@@ -66,6 +66,7 @@ impl Drop for Stop {
 // case: carries the person’s reason for a denial, when they gave one (0.374)
 #[test]
 fn approval_routes_a_denial_to_the_active_thread_and_only_its_request() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let ch = native::approvals_channel();
     let stop = Stop(Arc::new(AtomicBool::new(false)));
     let suffix = locust_core::invariants::unique_nanos();
@@ -132,6 +133,7 @@ fn approval_routes_a_denial_to_the_active_thread_and_only_its_request() {
 // case: sends answers keyed by question id, not a decision
 #[test]
 fn approval_a_question_sends_its_answers_only_from_its_own_thread() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let ch = native::approvals_channel();
     let stop = Stop(Arc::new(AtomicBool::new(false)));
     let mission = format!("approval_question_{}", locust_core::invariants::unique_nanos());
