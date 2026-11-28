@@ -1000,6 +1000,11 @@ impl BotStage {
         self.inner.borrow().bots.get(key).map(|slot| slot.cached.hop)
     }
 
+    #[cfg(test)]
+    pub fn buddy_snapshot(&self, key: &str) -> Option<BuddySnapshot> {
+        self.inner.borrow().buddies.get(key).map(|slot| slot.cached.clone())
+    }
+
     pub fn slot_count(&self) -> usize {
         let inner = self.inner.borrow();
         inner.bots.len() + inner.buddies.len()

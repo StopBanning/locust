@@ -143,18 +143,18 @@ pub fn bot_of(id: &str, look: Option<&FaceLook>) -> (String, &'static str, Strin
 
 /// Whether a teammate's face wears a CRT terminal screen given their look and `terminal_faces`.
 pub fn wears_screen(look: Option<&FaceLook>, shape: &str, terminal_faces: bool) -> bool {
+    if let Some(pet) = look.and_then(|l| l.pet.as_ref()) {
+        if pet.id == CODEX_BUDDY.id {
+            return terminal_faces && pet.screen.unwrap_or(true);
+        }
+        return false;
+    }
     // A built-in screen is the shape itself, even with terminal faces off.
     if locust_core::bot_spec::outline_of(shape).screen {
         return true;
     }
     if !terminal_faces {
         return false;
-    }
-    if let Some(pet) = look.and_then(|l| l.pet.as_ref())
-        && pet.id == CODEX_BUDDY.id
-        && matches!(pet.source, PetSource::Codex | PetSource::Bundled)
-    {
-        return pet.screen.unwrap_or(true);
     }
     if let Some(explicit) = look.and_then(|l| l.bot_screen) {
         return explicit;
@@ -616,3 +616,7 @@ mod renderer_screen_tests {
 #[cfg(test)]
 #[path = "teammate_bot_markup_tests.rs"]
 mod teammate_bot_markup_tests;
+
+#[cfg(test)]
+#[path = "codex_buddy_screen_tests.rs"]
+mod codex_buddy_screen_tests;
