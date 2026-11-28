@@ -944,3 +944,7 @@ mod identity_review_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "conversation_naming_tests.rs"]
+mod conversation_naming_tests;
