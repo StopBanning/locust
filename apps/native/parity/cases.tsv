@@ -4867,11 +4867,11 @@ apps/desktop/src/renderer/src/an-unsupported-opencode-version-is-not-offered.tes
 apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx	says, before the click, that Locust closes while it installs and opens again by itself	yes
 apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx	has the words for after the click: installing, and no need to open it	yes
 apps/desktop/src/renderer/src/answer-state.test.ts	comes from measured numbers, not a round one that felt right	yes
-apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads "Thought for Ns" from the time agy gives the step, though the step arrives already over	no
-apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads as a wait on that helper, at the length agy timed, with what its list said under it	no
-apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a check on a background command reads as one, never as manage_task	no
-apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a command the mode refused reads refused, never failed or non-zero	no
-apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a refused command did not run, and a runtime note is its sentence, not its code	no
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads "Thought for Ns" from the time agy gives the step, though the step arrives already over	yes
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads as a wait on that helper, at the length agy timed, with what its list said under it	yes
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a check on a background command reads as one, never as manage_task	yes
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a command the mode refused reads refused, never failed or non-zero	yes
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	a refused command did not run, and a runtime note is its sentence, not its code	yes
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	uses consumption for bar width and warning tone, but names the remaining percentage	no
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	does not carry an expired reading into the current warning	yes
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	leaves existing used readings unchanged	yes
