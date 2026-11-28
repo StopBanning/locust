@@ -2176,7 +2176,13 @@ pub(super) fn benchmark_runs_for(s: &State, origin: &Compare) -> Vec<BenchmarkRu
                     } else {
                         format!("{}:{}", col.route.runtime, col.route.model)
                     };
-                    let name = compare_route_name(&col.route);
+                    let name = if setups && origin.kept.is_some() {
+                        locust_core::compare::setup_name(col)
+                    } else if setups {
+                        blind_name(col.slot, true)
+                    } else {
+                        compare_route_name(&col.route)
+                    };
                     BenchmarkAnswer {
                         key,
                         runtime: col.route.runtime.clone(),
@@ -3081,6 +3087,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         }
         btn_row = btn_row.child(ask_btn);
         ask_box = ask_box.child(btn_row);
+        let judge_blind_line = if setups {
+            "It reads the answers without the setups’ names. One run of each setup can be luck. Once the judge has scored them, run the three again, and keep the setup whose scores hold up."
+        } else {
+            "It reads the answers without the models’ names."
+        };
+        ask_box = ask_box.child(text(judge_blind_line).font(l.ty.body).color(p.muted).wrap());
         if let Some(note) = &judge_check_note {
             ask_box = ask_box.child(text(note.clone()).key("compare-check-note").font(l.ty.label).color(p.muted).wrap());
         }
@@ -3604,7 +3616,12 @@ fn render_benchmark_section(
     box_col = box_col.child(table);
     let scored_runs = runs_input.iter().filter(|r| r.answers.iter().any(|a| a.of.is_some())).count();
     box_col = box_col.child(
-        text(benchmark_note(scored_runs, checked))
+        text(if setups {
+            "Each run asks the same model the same question under each setup’s instructions. ".to_owned()
+                + &benchmark_note(scored_runs, checked)
+        } else {
+            benchmark_note(scored_runs, checked)
+        })
             .key("benchmark-note")
             .font(l.ty.label)
             .color(p.muted)
@@ -4474,3 +4491,7 @@ mod column_layout_tests {
 #[cfg(test)]
 #[path = "comparison_edits_tests.rs"]
 mod comparison_edits_tests;
+
+#[cfg(test)]
+#[path = "tune_benchmark_parity_tests.rs"]
+mod tune_benchmark_parity_tests;
