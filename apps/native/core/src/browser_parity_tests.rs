@@ -196,6 +196,26 @@ fn asks_first_before_credentials_form_submission_purchases_sends_downloads_and_l
 // case: wires per-run browser MCP config into Claude, OpenCode, and Copilot commands and names runtimes that lack per-run MCP
 #[test]
 fn wires_per_run_browser_mcp_config_into_claude_opencode_and_copilot_and_skips_cursor() {
+    // Browser installation is process-wide (browser_tools::install keeps it for the whole process): left installed
+    // here, every Claude, Codex and OpenCode turn another test started afterwards carried a locust_browser MCP server,
+    // and 20 core tests failed in the one-process release run (gate 28 Nov 03:14). Confine it to this test's child,
+    // as copilot_browser_grid_tests does.
+    const CHILD: &str = "LOCUST_BROWSER_MCP_WIRE_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let test = concat!(module_path!(), "::wires_per_run_browser_mcp_config_into_claude_opencode_and_copilot_and_skips_cursor");
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", test.split_once("::").unwrap().1, "--nocapture"])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success() && stdout.contains("1 passed"),
+            "{stdout}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
     let dir = temp("mcp-wire");
     let host = Arc::new(Mutex::new(Host::default()));
     crate::browser_tools::install(host);
