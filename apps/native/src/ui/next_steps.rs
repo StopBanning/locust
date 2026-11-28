@@ -338,3 +338,7 @@ mod next_steps_refusal_tests;
 #[cfg(test)]
 #[path = "next_steps_disabled_buttons_tests.rs"]
 mod next_steps_disabled_buttons_tests;
+
+#[cfg(test)]
+#[path = "next_steps_restore_draft_tests.rs"]
+mod next_steps_restore_draft_tests;
