@@ -530,3 +530,27 @@ fn grant_first_then_an_editor_can_answer_only_its_own_edit_once() {
     assert_eq!(called.lock().unwrap().iter().filter(|n| *n == "cli/decide").count(), 1);
     agent.close();
 }
+
+fn run_permission_prompt(a: &AcpAgent, session: &str) {
+    let prompt = a.prepare_prompt(&json!({"sessionId":session,"prompt":[{"type":"text","text":"Check it"}]}))
+        .unwrap_or_else(|RpcError(_, words)| panic!("{words}"));
+    let result = a.prompt(prompt).unwrap_or_else(|RpcError(_, words)| panic!("{words}"));
+    assert_eq!(result["stopReason"], "end_turn");
+}
+
+#[test]
+fn an_expired_editor_permission_is_denied_at_the_door() {
+    let d = door(vec![status("completed", json!([]), json!([approval("file-change", false)]))]);
+    let (a, sent) = agent(&d, None);
+    let session = open(&a, &sent);
+    a.lock().permissions.insert("locust-permission-1".into(), Permission {
+        editor_session: session.clone(), approval: "card-1".into(),
+        expires: Instant::now() - Duration::from_secs(1), answered: None,
+    });
+
+    run_permission_prompt(&a, &session);
+
+    let calls = d.calls.lock().unwrap();
+    let decisions: Vec<_> = calls.iter().filter(|(name, _)| name == "cli/decide").map(|(_, args)| args.clone()).collect();
+    assert_eq!(decisions, [json!({"sessionId":"fake-1","key":"secret-fake-key","approvalId":"card-1","approve":false})]);
+}
