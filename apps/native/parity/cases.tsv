@@ -301,6 +301,26 @@ apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	a refusal comes ba
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	something that is not a connector yet goes to no agent at all	yes
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	runs each agent’s own remove, and says where OpenCode keeps its copy	yes
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	the last line that says something, without colours, frames or Codex’s PATH warning	yes
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	keeps the name	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	does not touch the mission ledger	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	trims, because a name that is only spaces is not a name	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	clears with an empty name, which is how you get the typed words back	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	treats blank as empty	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	clearing a name that was never set is not an error	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	refuses an id that is not one	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	caps how long one name may be	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	caps how many conversations may carry one	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	still lets an existing one be renamed at the cap	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	drops a title that is not a string	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	drops one whose id could not be an id	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	survives the field being absent, which every file written before today is	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	never applies ownership from a roster read without applying titles too	no
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	reads them in the load that runs at startup, not only on a refresh	no
+apps/desktop/src/main/a-conversation-can-be-pinned.test.ts	is kept, newest pin first, and still there after Locust opens again	no
+apps/desktop/src/main/a-conversation-can-be-pinned.test.ts	takes no id it would not take for a name, and stops at the cap with a reason	no
+apps/desktop/src/main/a-conversation-can-be-pinned.test.ts	lets a deleted conversation go: its pin, its put-away mark, owned or not	no
+apps/desktop/src/main/a-conversation-can-be-put-away.test.ts	keeps a settle and a snooze, after Locust opens again, until it is brought back	no
+apps/desktop/src/main/a-conversation-can-be-put-away.test.ts	takes no id it would not take for a name, and no time that is not one	no
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists a conversation older than the newest twenty	yes
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	carries its prompt, because the row is named from it	yes
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists it WITHOUT its transcript	yes
@@ -586,6 +606,11 @@ apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, n
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	on macOS puts the login shell's PATH first, then what it was given, then the usual install folders	no
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	still finds the usual folders when the shell cannot be asked	yes
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	is left alone on Windows	yes
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	reads only what is between the markers, whatever a shell profile prints	yes
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	merges without repeats or empty entries	yes
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	removes installed images at startup and preserves newer images and everything outside its exact file names	yes
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	leaves ambiguous running versions alone and tolerates a cache that cannot be listed	yes
 apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	yes
@@ -5380,12 +5405,12 @@ apps/desktop/src/renderer/src/missionView.test.ts	is not reported as a turn that
 apps/desktop/src/renderer/src/missionView.test.ts	still says so when the runtime really wrote nothing at all	yes
 apps/desktop/src/renderer/src/missionView.test.ts	takes the target from the completion when the start had none	yes
 apps/desktop/src/renderer/src/missionView.test.ts	leaves a row the start already named alone	yes
-apps/desktop/src/renderer/src/missionView.test.ts	shows what ran, not the host that ran it	no
-apps/desktop/src/renderer/src/missionView.test.ts	keeps a command that was never wrapped	no
-apps/desktop/src/renderer/src/missionView.test.ts	unwraps a cmd.exe host too	no
-apps/desktop/src/renderer/src/missionView.test.ts	undoes the quote doubling the host introduced	no
+apps/desktop/src/renderer/src/missionView.test.ts	shows what ran, not the host that ran it	yes
+apps/desktop/src/renderer/src/missionView.test.ts	keeps a command that was never wrapped	yes
+apps/desktop/src/renderer/src/missionView.test.ts	unwraps a cmd.exe host too	yes
+apps/desktop/src/renderer/src/missionView.test.ts	undoes the quote doubling the host introduced	yes
 apps/desktop/src/renderer/src/missionView.test.ts	shows the runtime's own last word, because the host's sentence names only the shape	yes
-apps/desktop/src/renderer/src/missionView.test.ts	says capacity exhaustion in English rather than passing the jargon through alone	no
+apps/desktop/src/renderer/src/missionView.test.ts	says capacity exhaustion in English rather than passing the jargon through alone	yes
 apps/desktop/src/renderer/src/missionView.test.ts	says a limit once when the message already names it in plain words	yes
 apps/desktop/src/renderer/src/missionView.test.ts	adds nothing when the runtime said nothing	yes
 apps/desktop/src/renderer/src/missionView.test.ts	strips the terminal colour codes a runtime writes around its own words	yes
@@ -5557,11 +5582,11 @@ apps/desktop/src/renderer/src/missionView.test.ts	shows what was typed, not what
 apps/desktop/src/renderer/src/missionView.test.ts	still reports the files, so nothing is hidden by the fix	no
 apps/desktop/src/renderer/src/missionView.test.ts	leaves an ordinary turn exactly as it was	no
 apps/desktop/src/renderer/src/missionView.test.ts	claims no attachments on a turn the person did not type	no
-apps/desktop/src/renderer/src/missionView.test.ts	keeps a short output whole, and asks for no elision control	no
-apps/desktop/src/renderer/src/missionView.test.ts	keeps BOTH ends of a long one, as two halves the caller can put a control between	no
-apps/desktop/src/renderer/src/missionView.test.ts	bounds by LINES rather than pixels, so nothing needs an inner scroller	no
-apps/desktop/src/renderer/src/missionView.test.ts	does not end on the blank line almost every command leaves behind	no
-apps/desktop/src/renderer/src/missionView.test.ts	says how much it left out rather than trailing off	no
+apps/desktop/src/renderer/src/missionView.test.ts	keeps a short output whole, and asks for no elision control	yes
+apps/desktop/src/renderer/src/missionView.test.ts	keeps BOTH ends of a long one, as two halves the caller can put a control between	yes
+apps/desktop/src/renderer/src/missionView.test.ts	bounds by LINES rather than pixels, so nothing needs an inner scroller	yes
+apps/desktop/src/renderer/src/missionView.test.ts	does not end on the blank line almost every command leaves behind	yes
+apps/desktop/src/renderer/src/missionView.test.ts	says how much it left out rather than trailing off	yes
 apps/desktop/src/renderer/src/missionView.test.ts	carries the output the runtime reported	no
 apps/desktop/src/renderer/src/missionView.test.ts	carries nothing where the runtime reported nothing	no
 apps/desktop/src/renderer/src/missionView.test.ts	keeps an empty output distinct from an absent one	no
@@ -5591,17 +5616,17 @@ apps/desktop/src/renderer/src/missionView.test.ts	previews its words closed, and
 apps/desktop/src/renderer/src/missionView.test.ts	are named for what they are, not by their UUID	no
 apps/desktop/src/renderer/src/missionView.test.ts	draws a notice that came before any work when there is no fold to put it under	yes
 apps/desktop/src/renderer/src/missionView.test.ts	keeps it under the fold when there was work (control)	no
-apps/desktop/src/renderer/src/missionView.test.ts	names why a run failed before it said anything	no
-apps/desktop/src/renderer/src/missionView.test.ts	does not say a failure twice when a diagnostic already carries it (control)	no
+apps/desktop/src/renderer/src/missionView.test.ts	names why a run failed before it said anything	yes
+apps/desktop/src/renderer/src/missionView.test.ts	does not say a failure twice when a diagnostic already carries it (control)	yes
 apps/desktop/src/renderer/src/missionView.test.ts	is relative inside the folder, as before	no
 apps/desktop/src/renderer/src/missionView.test.ts	is the last two segments of a path elsewhere, behind an ellipsis	no
 apps/desktop/src/renderer/src/missionView.test.ts	keeps a short absolute path whole, and names a scratch file for what it is	no
 apps/desktop/src/renderer/src/missionView.test.ts	reads as changed on the runtime's own row, with its word, not as "did not report"	no
 apps/desktop/src/renderer/src/missionView.test.ts	says the start's phase when given one, else Starting	no
 apps/desktop/src/renderer/src/missionView.test.ts	says the model is being tried again once its provider has answered busy, not the start it is past	no
-apps/desktop/src/renderer/src/missionView.test.ts	shows the command as the shell got it, when Codex escaped every backslash	no
-apps/desktop/src/renderer/src/missionView.test.ts	leaves a command alone when one backslash is not half of a pair	no
-apps/desktop/src/renderer/src/missionView.test.ts	still undoes an escaped quote inside an escaped payload	no
+apps/desktop/src/renderer/src/missionView.test.ts	shows the command as the shell got it, when Codex escaped every backslash	yes
+apps/desktop/src/renderer/src/missionView.test.ts	leaves a command alone when one backslash is not half of a pair	yes
+apps/desktop/src/renderer/src/missionView.test.ts	still undoes an escaped quote inside an escaped payload	yes
 apps/desktop/src/renderer/src/missionView.test.ts	says Codex's image tool in words, on the live line and in the steps line	no
 apps/desktop/src/renderer/src/missionView.test.ts	reads as what it did, not the program name	no
 apps/desktop/src/renderer/src/missionView.test.ts	says the git a run with no shell ran, as a shell’s git reads	no
@@ -5731,6 +5756,10 @@ apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	says which OpenCode mode
 apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	draws the rows it was given	yes
 apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	does not tell the person to sign in, because there is nothing to sign in to	yes
 apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	still says sign in when a runtime is installed but not usable	yes
+apps/desktop/src/renderer/src/quiet.test.ts	says nothing while the silence is still ordinary	no
+apps/desktop/src/renderer/src/quiet.test.ts	speaks up at the threshold and stays up	no
+apps/desktop/src/renderer/src/quiet.test.ts	is the number the room uses, not a second opinion about it	no
+apps/desktop/src/renderer/src/quiet.test.ts	an unreadable timestamp is never reported as quiet	no
 apps/desktop/src/renderer/src/railFlyout.test.ts	puts the live one first, then newest first	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	never lets an unknown age outrank a known recent one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	shows at most six and says how many there are	yes
@@ -6078,7 +6107,7 @@ apps/desktop/src/renderer/src/status.test.ts	shows nothing when nothing matches,
 apps/desktop/src/renderer/src/status.test.ts	collapses a three-turn exchange into one row	yes
 apps/desktop/src/renderer/src/status.test.ts	names the row for what the person typed first, and opens its newest turn	yes
 apps/desktop/src/renderer/src/status.test.ts	reads as running while any turn of it is running	yes
-apps/desktop/src/renderer/src/status.test.ts	surfaces an integrity issue from any turn, not just the last	no
+apps/desktop/src/renderer/src/status.test.ts	surfaces an integrity issue from any turn, not just the last	yes
 apps/desktop/src/renderer/src/status.test.ts	leaves an ordinary single-run mission exactly as it was	yes
 apps/desktop/src/renderer/src/status.test.ts	keeps separate conversations separate, in the order they were read	yes
 apps/desktop/src/renderer/src/status.test.ts	still returns a row when a hand-edited chain has no leaf	no
@@ -6362,10 +6391,10 @@ apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	gives a soft bo
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	Codex Buddy’s, for the changes worth looking up for, and only when asked	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	moves a little every frame while he works, never held and never snapped (buddyRig.ts)	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	rests only once his last pose has settled, so his clock still stops	yes
-apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the control is a button with its label and aria-expanded	no
-apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the card lists the steps in order with done/current/next marked	no
-apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	closes on Escape and cleans up listeners	no
-apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	no card without a plan: plain step words with no button or popover	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the control is a button with its label and aria-expanded	yes
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the card lists the steps in order with done/current/next marked	yes
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	closes on Escape and cleans up listeners	yes
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	no card without a plan: plain step words with no button or popover	yes
 apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	buildThread attaches the plan to live-step only when step N of M is present	yes
 apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	leads with the phase, swept, in the place of the word "starting"	yes
 apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	names the runtime in the runtime's phase	yes
