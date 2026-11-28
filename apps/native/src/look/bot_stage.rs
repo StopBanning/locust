@@ -1368,3 +1368,7 @@ mod stage_rests_behind_tests;
 #[path = "face_motion_behavior_tests.rs"]
 mod face_motion_behavior_tests;
 
+#[cfg(test)]
+#[path = "subtle_bounce_tests.rs"]
+mod subtle_bounce_tests;
+
