@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::cloud_tasks::Ran;
 
 use super::{
-    AgentInstalled, CarriedFile, CloudAgent, CloudChange, CloudChangeFile, CloudComputers,
+    AgentInstalled, CarriedFile, CloudAgent, CloudChange, CloudChangeFile, CloudComputerError, CloudComputers,
     CloudPrepared, CloudPullRequestAction, CloudStartPhase, CloudTurnAction, CloudTurnOutcome,
     CloudTurnState, CloudTurns, Codespace, OpenedPullRequest, PrepareInput, PublicCloudTurn,
     PullRequestTarget, PushedBranch, SettleTarget,
@@ -74,6 +74,12 @@ struct FakeComputers {
     calls: RefCell<Vec<String>>,
     still_open: bool,
     refuse_open: bool,
+    signed_in: std::cell::Cell<bool>,
+    signed_checks: std::cell::Cell<usize>,
+    install_answer: RefCell<Option<AgentInstalled>>,
+    open_code_version: RefCell<Option<String>>,
+    find_failure: RefCell<Option<CloudComputerError>>,
+    make_failure: RefCell<Option<CloudComputerError>>,
 }
 
 impl FakeComputers {
@@ -83,17 +89,25 @@ impl FakeComputers {
             calls: RefCell::new(Vec::new()),
             still_open: opts.still_open,
             refuse_open: opts.refuse_open,
+            signed_in: std::cell::Cell::new(true),
+            signed_checks: std::cell::Cell::new(0),
+            install_answer: RefCell::new(None),
+            open_code_version: RefCell::new(None),
+            find_failure: RefCell::new(None),
+            make_failure: RefCell::new(None),
         }
     }
 }
 
 impl CloudComputers for FakeComputers {
-    fn find(&self, _repo: &str) -> Result<Option<Codespace>, String> {
+    fn find(&self, _repo: &str) -> Result<Option<Codespace>, CloudComputerError> {
+        if let Some(error) = self.find_failure.borrow().clone() { return Err(error) }
         Ok(self.space.borrow().clone())
     }
 
-    fn make(&self, _repo: &str, _branch: Option<&str>) -> Result<String, String> {
+    fn make(&self, _repo: &str, _branch: Option<&str>) -> Result<String, CloudComputerError> {
         self.calls.borrow_mut().push("make".into());
+        if let Some(error) = self.make_failure.borrow().clone() { return Err(error) }
         let made = Codespace {
             name: "locust-hearth-x7q9".into(),
             display_name: "locust-hearth".into(),
@@ -113,7 +127,7 @@ impl CloudComputers for FakeComputers {
 
     fn ensure_open_code(&self, _name: &str, version: &str) -> Result<String, String> {
         self.calls.borrow_mut().push(format!("opencode@{version}"));
-        Ok(version.into())
+        Ok(self.open_code_version.borrow().clone().unwrap_or(version.into()))
     }
 
     fn ensure_agent(
@@ -125,14 +139,15 @@ impl CloudComputers for FakeComputers {
         self.calls
             .borrow_mut()
             .push(format!("{}@{version}", agent.as_str()));
-        Ok(AgentInstalled {
+        Ok(self.install_answer.borrow().clone().unwrap_or_else(|| AgentInstalled {
             version: version.into(),
             bin: format!("/home/codespace/.locust/npm/bin/{}", agent.as_str()),
-        })
+        }))
     }
 
     fn agent_signed_in(&self, _name: &str, _agent: CloudAgent) -> Result<bool, String> {
-        Ok(true)
+        self.signed_checks.set(self.signed_checks.get() + 1);
+        Ok(self.signed_in.get())
     }
 
     fn bring(
@@ -937,3 +952,9 @@ fn cannot_put_a_different_opencode_there_than_the_one_it_reads_here() {
         },
     );
 }
+
+#[path = "cloud_turn_usage_tests.rs"]
+mod usage;
+
+#[path = "cloud_turn_setup_tests.rs"]
+mod setup;

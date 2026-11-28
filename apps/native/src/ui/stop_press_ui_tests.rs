@@ -46,9 +46,7 @@ fn terminals(store: &locust_core::store::Store) -> Vec<String> {
     out
 }
 
-// case: remembers the press when the run is still starting, instead of dropping it
-#[test]
-fn stop_pressed_before_the_run_is_named_stops_it_once_it_starts() {
+fn stop_window() -> (Dirs, locust_core::store::Store, native::hooks::Guard, Runtime<State>) {
     let root = std::env::temp_dir().join(format!("locust-stop-starting-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()));
     let dirs = Dirs(root.clone());
     std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
@@ -58,7 +56,7 @@ fn stop_pressed_before_the_run_is_named_stops_it_once_it_starts() {
         .save_json("teammates.json", &serde_json::json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec"}], "missionOwners": {}, "settings": {}}))
         .unwrap();
     let script = format!("{}/scripts/fixtures/m1-app-server.py", env!("CARGO_MANIFEST_DIR"));
-    let _hook = native::hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![script, "interrupt".into()])));
+    let hook = native::hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![script, "interrupt".into()])));
     let mut s = State::default();
     s.engine = Some(Kind::Native);
     s.data = Some(store.clone());
@@ -75,11 +73,23 @@ fn stop_pressed_before_the_run_is_named_stops_it_once_it_starts() {
     }]);
     let mut rt = Runtime::new(s, crate::view, (1400.0, 800.0), Env::new(true, 1.0));
     rt.frame(0.0);
-    click(&mut rt, "composer");
+    (dirs, store, hook, rt)
+}
+
+fn send_from_composer(rt: &mut Runtime<State>) {
+    click(rt, "composer");
     rt.paste("Synthetic prompt");
     rt.frame(0.016);
     rt.key(Key::Enter.into());
-    settle(&mut rt);
+    settle(rt);
+
+}
+
+// case: remembers the press when the run is still starting, instead of dropping it
+#[test]
+fn stop_pressed_before_the_run_is_named_stops_it_once_it_starts() {
+    let (dirs, store, _hook, mut rt) = stop_window();
+    send_from_composer(&mut rt);
 
     // Sent, and nothing has named the run: the composer already offers Stop, and pressing it is remembered.
     assert!(rt.state.flight.is_some(), "the send is out: {:?}", rt.state.status);
@@ -105,4 +115,68 @@ fn stop_pressed_before_the_run_is_named_stops_it_once_it_starts() {
     assert_eq!(terminals(&store), vec!["run.cancelled".to_owned()]);
     on_quit(&mut rt.state, &mut Tx::default());
     drop(dirs);
+}
+
+
+// Runs in the isolated application test process. This exercises the actual Stop UI
+// while the engine's existing boundary supplies a named, owned run without a child process.
+struct NamedRun {
+    calls: std::sync::Mutex<Vec<String>>,
+    release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+}
+
+impl locust_core::engine_api::EngineApi for NamedRun {
+    fn send(&self, _: native::Send, _: native::Origin) -> Result<engine::Started, String> { unreachable!() }
+    fn stop(&self, id: &str) -> Result<String, String> {
+        self.calls.lock().unwrap().push(id.to_owned());
+        self.release.lock().unwrap().recv_timeout(Duration::from_secs(5))
+            .map_err(|_| "fixture did not finish the Stop".to_owned())?;
+        Ok("Stopped".into())
+    }
+    fn owns(&self, id: &str) -> bool { id == "m_1" }
+    fn running(&self) -> Vec<String> { vec!["m_1".into()] }
+    fn waiting(&self) -> Vec<locust_core::approval::Request> { Vec::new() }
+    fn decide(&self, _: &str, _: locust_core::approval::Decision, _: Option<String>) -> Result<(), String> { unreachable!() }
+    fn answer(&self, _: &str, _: Vec<(String, Vec<String>)>) -> Result<(), String> { unreachable!() }
+    fn save_rule_and_decide(&self, _: &locust_core::approval::Request, _: locust_core::approval_rules::RuleEffect) -> Result<(), String> { unreachable!() }
+    fn carry(&self, _: &str, _: &str, _: Option<&str>) -> Result<(String, Option<String>, String), String> { unreachable!() }
+    fn shut_down(&self) {}
+    fn wait_for_shutdown(&self) {}
+    fn room_notices(&self) -> Vec<locust_core::room_tasks::RoomNotice> { Vec::new() }
+}
+
+// Electron also clears a transient error on this action. Native's Stop handler lives
+// outside this lane; this test isolates the real cancelling phase of an already named run.
+#[test]
+fn messages_stop_on_a_named_live_turn_switches_the_live_line_immediately() {
+    let (release, wait) = std::sync::mpsc::channel();
+    let fake = std::sync::Arc::new(NamedRun {
+        calls: std::sync::Mutex::new(Vec::new()),
+        release: std::sync::Mutex::new(wait),
+    });
+    locust_core::engine_api::install(fake.clone()).unwrap();
+    let mut s = crate::messages::tests_live_state();
+    s.engine = Some(Kind::Native);
+    s.flight = Some(Flight {
+        teammate_id: "tm_codec".into(), conversation_id: Some("m_1".into()),
+        header: None, after_tip: None, message: None,
+    });
+    let pane = s.ledger.as_mut().unwrap();
+    pane.snapshot.tip = "m_1".into();
+    pane.items = vec![ledger::Item::User("Synthetic prompt".into())];
+    s.teammates = vec![pane.header.clone()];
+    let mut rt = Runtime::new(s, crate::view, (1400.0, 800.0), Env::new(true, 1.0));
+    settle(&mut rt);
+    assert_eq!(native_stop_key(&rt.state).as_deref(), Some("m_1"));
+    assert_eq!(label(&rt, "send"), "Stop");
+    click(&mut rt, "send");
+    assert!(rt.state.stopping.is_pending(), "the actual Stop press must enter cancelling");
+    assert!(rt.elements().into_iter().any(|e| !e.exiting && e.text.as_deref() == Some("Stopping…")));
+    let until = Instant::now() + Duration::from_secs(5);
+    while fake.calls.lock().unwrap().is_empty() {
+        assert!(Instant::now() < until, "the window did not stop the named run");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(*fake.calls.lock().unwrap(), ["m_1"]);
+    release.send(()).unwrap();
 }

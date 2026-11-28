@@ -144,11 +144,20 @@ fn owner_of<'a>(s: &'a State, entry: &Entry) -> Option<&'a str> {
     entry.members.iter().find_map(|id| s.mission_owners.get(id)).map(String::as_str)
 }
 
+/// A conversation remains live while any of its turns is actually running.
+fn entry_phase(s: &State, entry: &Entry, running: &HashSet<String>) -> &'static str {
+    if entry.members.iter().any(|id| running.contains(id)) {
+        "running"
+    } else {
+        phase(s, &entry.leaf, running)
+    }
+}
+
 /// What the filters and the owner leave on screen.
 pub(crate) fn shown(s: &State, entries: &[Entry], running: &HashSet<String>) -> Vec<Entry> {
     entries
         .iter()
-        .filter(|entry| matches(&s.missions.filter, phase(s, &entry.leaf, running)))
+        .filter(|entry| matches(&s.missions.filter, entry_phase(s, entry, running)))
         .filter(|entry| s.missions.owner.as_deref().is_none_or(|owner| owner_of(s, entry) == Some(owner)))
         .cloned()
         .collect()
@@ -507,9 +516,11 @@ fn mission_row(
 ) -> El {
     let key = entry.key.clone();
     let is_picked = s.missions.picked.contains(&key);
-    let live = entry.members.iter().any(|id| running.contains(id));
-    let integrity_issues = s.ledger_summaries.get(&entry.leaf).is_some_and(|mission| mission.integrity_issues);
-    let (word, ink) = phase_tag(phase(s, &entry.leaf, running), integrity_issues);
+    let phase = entry_phase(s, entry, running);
+    let live = phase == "running";
+    let integrity_issues = entry.members.iter()
+        .any(|id| s.ledger_summaries.get(id).is_some_and(|mission| mission.integrity_issues));
+    let (word, ink) = phase_tag(phase, integrity_issues);
     let owner = owner_of(s, entry).and_then(|id| s.teammates.iter().find(|t| t.id == id)).map(|t| t.name.clone());
     let mut wrap = row()
         .key(format!("missions-row-{key}"))

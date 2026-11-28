@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use chrono::Utc;
+use chrono::{DateTime, Months, Utc};
 use regex::Regex;
 use serde_json::{Value, json};
 
@@ -22,10 +22,11 @@ use crate::folder_commit::branch_from_subject;
 pub const CLOUD_TASK_ROOT: &str = "/workspaces/.locust";
 const MAX_TURNS: usize = 500;
 const READY_FOR: Duration = Duration::from_secs(10 * 60);
+const CLOUD_IDLE_MS: i64 = 600_000;
 
 fn version_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^\d+\.\d+\.\d+$").expect("version regex"))
+    RE.get_or_init(|| Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+$").expect("version regex"))
 }
 
 fn task_id_re() -> &'static Regex {
@@ -301,9 +302,43 @@ pub struct AgentInstalled {
     pub bin: String,
 }
 
+/// A cloud provider distinguishes permission from an ordinary failure: only permission opens the
+/// cloud-setup recovery flow, never arbitrary text from a failed command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CloudComputerError {
+    Permission(String),
+    Other(String),
+}
+
+impl CloudComputerError {
+    fn into_prepare(self, repo: &str, branch: Option<&str>) -> CloudPrepared {
+        let (message, setup) = match self {
+            Self::Permission(message) => (
+                message,
+                Some(CloudSetup {
+                    repo: repo.to_owned(),
+                    branch: branch.map(str::to_owned),
+                    permission: true,
+                }),
+            ),
+            Self::Other(message) => (message, None),
+        };
+        CloudPrepared::Err { message, setup, sign_in: None }
+    }
+}
+
+fn whole_agent_path(path: &str) -> bool {
+    path.strip_prefix('/').is_some_and(|tail| {
+        !tail.is_empty()
+            && tail.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'/' | b'-')
+            })
+    })
+}
+
 pub trait CloudComputers {
-    fn find(&self, repo: &str) -> Result<Option<Codespace>, String>;
-    fn make(&self, repo: &str, branch: Option<&str>) -> Result<String, String>;
+    fn find(&self, repo: &str) -> Result<Option<Codespace>, CloudComputerError>;
+    fn make(&self, repo: &str, branch: Option<&str>) -> Result<String, CloudComputerError>;
     fn when_ready(&self, name: &str) -> Result<(), String>;
     fn ensure_open_code(&self, name: &str, version: &str) -> Result<String, String>;
     fn ensure_agent(
@@ -402,6 +437,86 @@ struct StoredTurn {
 struct CloudStore {
     tasks: BTreeMap<String, StoredTask>,
     turns: BTreeMap<String, StoredTurn>,
+    usage: UsageMonths,
+    use_since: Option<String>,
+}
+
+type UsageSpan = (String, String);
+type UsageMonths = BTreeMap<String, BTreeMap<String, Vec<UsageSpan>>>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CloudUsage {
+    pub hours: f64,
+    pub words: String,
+    pub by_computer: BTreeMap<String, f64>,
+    pub since: Option<String>,
+}
+
+fn time(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value).ok().map(|t| t.with_timezone(&Utc))
+}
+
+fn cloud_month(at: DateTime<Utc>) -> String {
+    at.format("%Y-%m").to_string()
+}
+
+fn hours(spans: &[UsageSpan], now: DateTime<Utc>) -> f64 {
+    let mut spans: Vec<_> = spans.iter().filter_map(|(from, to)| {
+        let from = time(from)?.timestamp_millis();
+        let to = time(to)?.timestamp_millis();
+        (to >= from).then_some((from, to))
+    }).collect();
+    spans.sort_unstable();
+    let until = now.timestamp_millis();
+    let mut open: Option<(i64, i64)> = None;
+    let mut counted = 0_i64;
+    for (from, to) in spans {
+        let end = to.saturating_add(CLOUD_IDLE_MS).min(until).max(from);
+        if let Some((start, last)) = open {
+            if from <= last {
+                open = Some((start, last.max(end)));
+                continue;
+            }
+            counted += last - start;
+        }
+        open = Some((from, end));
+    }
+    if let Some((from, to)) = open {
+        counted += to - from;
+    }
+    counted as f64 / 3_600_000.0
+}
+
+fn hours_words(hours: f64) -> String {
+    if hours < 0.1 {
+        "a few minutes".into()
+    } else if hours < 1.0 {
+        format!("{} minutes", (hours * 60.0).round())
+    } else if hours < 10.0 {
+        format!("{:.1} hours", (hours * 10.0).round() / 10.0)
+    } else {
+        format!("{} hours", hours.round())
+    }
+}
+
+/// Locust's recorded time, not GitHub's bill. Reading it never wakes a provider.
+pub fn recorded_usage(file: &Path, now: DateTime<Utc>) -> Option<CloudUsage> {
+    let store = read_store_at(file);
+    let month = cloud_month(now);
+    let computers = store.usage.get(&month)?;
+    if computers.is_empty() {
+        return None;
+    }
+    let by_computer: BTreeMap<_, _> = computers.iter().map(|(name, spans)| {
+        (name.clone(), hours(spans, now))
+    }).collect();
+    let hours = by_computer.values().sum();
+    Some(CloudUsage {
+        hours,
+        words: hours_words(hours),
+        by_computer,
+        since: store.use_since.filter(|s| time(s).is_some_and(|at| cloud_month(at) == month)),
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -479,6 +594,59 @@ pub fn recorded_of(file: &Path, mission_id: &str) -> Option<(String, String)> {
     Some((task.task_id.clone(), task.codespace.clone()))
 }
 
+/// Retained, read-only attribution. No provider is needed to open an earlier conversation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudPlace {
+    pub repository: String,
+    pub branch: Option<String>,
+    pub ended_note: Option<String>,
+}
+
+pub fn recorded_places(file: &Path) -> BTreeMap<String, CloudPlace> {
+    use std::io::Read;
+    const LIMIT: u64 = 4 * 1024 * 1024;
+    let Some(held) = fs::metadata(file).ok().filter(|m| m.is_file() && m.len() <= LIMIT)
+        .and_then(|_| fs::File::open(file).ok()) else { return BTreeMap::new() };
+    let mut data = Vec::new();
+    if held.take(LIMIT + 1).read_to_end(&mut data).is_err() || data.len() as u64 > LIMIT {
+        return BTreeMap::new();
+    }
+    let Ok(store) = serde_json::from_slice::<Value>(&data) else { return BTreeMap::new() };
+    let Some(tasks) = store["tasks"].as_object() else { return BTreeMap::new() };
+    let Some(turns) = store["turns"].as_object() else { return BTreeMap::new() };
+    turns.iter().filter_map(|(id, held)| {
+        if !crate::ledger::safe_id(id) || held["missionId"].as_str().is_some_and(|inner| inner != id) {
+            return None;
+        }
+        let task_id = held["taskId"].as_str()?;
+        if !task_id_re().is_match(task_id) { return None; }
+        let task = tasks.get(task_id)?;
+        if task["codespace"].as_str()?.is_empty() { return None; }
+        let (_, repository) = task["repo"].as_str()?.split_once('/')?;
+        if repository.is_empty() || !repository.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)) {
+            return None;
+        }
+        Some((id.clone(), CloudPlace {
+            repository: repository.to_owned(),
+            branch: task["branch"].as_str().filter(|b| safe_branch_name(b)).map(str::to_owned),
+            ended_note: match held["state"].as_str() {
+                Some("none") => Some("No files changed on your cloud computer".into()),
+                Some("failed") => {
+                    let words = "What it changed on your cloud computer could not be read.";
+                    Some(match held["problem"].as_str().filter(|p| !p.trim().is_empty()) {
+                        Some(problem) => {
+                            let safe = crate::secrets::redact_secrets(problem);
+                            format!("{words} {}", safe.chars().take(400).collect::<String>())
+                        }
+                        None => words.into(),
+                    })
+                }
+                _ => None,
+            },
+        }))
+    }).collect()
+}
+
 pub struct CloudTurns<'a, C: CloudComputers> {
     file: PathBuf,
     computers: &'a C,
@@ -523,6 +691,48 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
         read_store_at(&self.file)
     }
 
+    /// Count a stretch before telling its caller the remote step is done, even if the step was refused.
+    fn on_computer<T>(&self, name: &str, work: impl FnOnce() -> T) -> T {
+        let from = (self.now)();
+        let result = work();
+        self.note_use(name, &from, &(self.now)());
+        result
+    }
+
+    fn note_use(&self, name: &str, from: &str, to: &str) {
+        let Some((begin, end)) = time(from).zip(time(to)) else { return };
+        if name.is_empty() || begin > end {
+            return;
+        }
+        let month = cloud_month(begin);
+        let _guard = self.store_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut store = self.read_store();
+        let newest = store.usage.keys().next_back().map_or(month.as_str(), |s| s.as_str().max(month.as_str()));
+        let newest = newest.to_owned();
+        let previous = time(&format!("{newest}-01T00:00:00Z"))
+            .and_then(|at| at.checked_sub_months(Months::new(1))).map(cloud_month);
+        if month != newest && previous.as_deref() != Some(&month) {
+            return; // A late receipt must not evict newer months.
+        }
+        store.usage.retain(|key, _| key == &newest || previous.as_ref() == Some(key));
+        let spans = store.usage.entry(month).or_default().entry(name.to_owned()).or_default();
+        let iso = |at: DateTime<Utc>| at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        if let Some((last_from, last_to)) = spans.last_mut()
+            && let Some((a, b)) = time(last_from).zip(time(last_to))
+            && b.timestamp_millis().saturating_add(CLOUD_IDLE_MS) >= begin.timestamp_millis()
+            && end.timestamp_millis().saturating_add(CLOUD_IDLE_MS) >= a.timestamp_millis()
+        {
+            *last_from = iso(a.min(begin));
+            *last_to = iso(b.max(end));
+        } else {
+            spans.push((iso(begin), iso(end)));
+        }
+        if store.use_since.as_deref().and_then(time).is_none_or(|at| begin < at) {
+            store.use_since = Some(iso(begin));
+        }
+        let _ = self.write_store(&store);
+    }
+
     fn write_store(&self, store: &CloudStore) -> Result<(), String> {
         let mut turns: Vec<StoredTurn> = store.turns.values().cloned().collect();
         turns.sort_by(|a, b| a.at.cmp(&b.at));
@@ -542,6 +752,8 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 .into_iter()
                 .map(|t| (t.mission_id.clone(), t))
                 .collect(),
+            usage: store.usage.clone(),
+            use_since: store.use_since.clone(),
         };
         if let Some(parent) = self.file.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -640,13 +852,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 say(CloudStartPhase::CloudMaking);
                 let name = match self.computers.make(&repo, branch.as_deref()) {
                     Ok(n) => n,
-                    Err(msg) => {
-                        return CloudPrepared::Err {
-                            message: msg,
-                            setup: None,
-                            sign_in: None,
-                        };
-                    }
+                    Err(error) => return error.into_prepare(&repo, branch.as_deref()),
                 };
                 Codespace {
                     name,
@@ -656,13 +862,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                     last_used_at: None,
                 }
             }
-            Err(msg) => {
-                return CloudPrepared::Err {
-                    message: msg,
-                    setup: None,
-                    sign_in: None,
-                };
-            }
+            Err(error) => return error.into_prepare(&repo, branch.as_deref()),
         };
 
         if cloud_state_of(&space.state) != CloudComputerState::Available
@@ -691,7 +891,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
             }
         };
         let bin = if needs_check {
-            if let Err(msg) = self.computers.when_ready(&space.name) {
+            if let Err(msg) = self.on_computer(&space.name, || self.computers.when_ready(&space.name)) {
                 self.ready.lock().unwrap_or_else(|e| e.into_inner()).clear();
                 return CloudPrepared::Err {
                     message: msg,
@@ -701,7 +901,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
             }
             say(CloudStartPhase::CloudInstalling);
             let bin = if let Some(rt) = agent_rt {
-                let installed = match self.computers.ensure_agent(&space.name, rt, version) {
+                let installed = match self.on_computer(&space.name, || self.computers.ensure_agent(&space.name, rt, version)) {
                     Ok(i) => i,
                     Err(msg) => {
                         return CloudPrepared::Err {
@@ -711,7 +911,21 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                         };
                     }
                 };
-                let signed_in = match self.computers.agent_signed_in(&space.name, rt) {
+                if installed.version != version {
+                    return CloudPrepared::Err {
+                        message: format!("{} could not be installed on your cloud computer at version {version}.", rt.display_name()),
+                        setup: None,
+                        sign_in: None,
+                    };
+                }
+                if !whole_agent_path(&installed.bin) {
+                    return CloudPrepared::Err {
+                        message: format!("That is not where Locust put {} there.", rt.display_name()),
+                        setup: None,
+                        sign_in: None,
+                    };
+                }
+                let signed_in = match self.on_computer(&space.name, || self.computers.agent_signed_in(&space.name, rt)) {
                     Ok(s) => s,
                     Err(msg) => {
                         return CloudPrepared::Err {
@@ -737,12 +951,14 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 }
                 Some(installed.bin)
             } else {
-                if let Err(msg) = self.computers.ensure_open_code(&space.name, version) {
-                    return CloudPrepared::Err {
-                        message: msg,
-                        setup: None,
-                        sign_in: None,
-                    };
+                match self.on_computer(&space.name, || self.computers.ensure_open_code(&space.name, version)) {
+                    Ok(installed) if installed == version => {}
+                    result => {
+                        let message = result.err().unwrap_or_else(|| {
+                            format!("OpenCode could not be installed on your cloud computer at version {version}.")
+                        });
+                        return CloudPrepared::Err { message, setup: None, sign_in: None };
+                    }
                 }
                 None
             };
@@ -767,7 +983,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 static TASK_SEQ: AtomicU64 = AtomicU64::new(1);
                 let n = TASK_SEQ.fetch_add(1, Ordering::Relaxed);
                 let task_id = format!("t_{n:012x}");
-                let base = match self.computers.bring(&space.name, &repo, input.folder, &task_id) {
+                let base = match self.on_computer(&space.name, || self.computers.bring(&space.name, &repo, input.folder, &task_id)) {
                     Ok(b) => b,
                     Err(msg) => {
                         return CloudPrepared::Err {
@@ -838,10 +1054,15 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
         let Some(task) = store.tasks.get(&turn.task_id).cloned() else {
             return;
         };
-        let next = match self
-            .computers
-            .counts(&task.codespace, &task.task_id, &task.base)
-        {
+        if turn.state != CloudTurnState::Working {
+            return;
+        }
+        if let Some(began) = &turn.began {
+            self.note_use(&task.codespace, began, &(self.now)());
+        }
+        let next = match self.on_computer(&task.codespace, || {
+            self.computers.counts(&task.codespace, &task.task_id, &task.base)
+        }) {
             Ok(files) => StoredTurn {
                 state: if files.is_empty() {
                     CloudTurnState::None
@@ -907,20 +1128,18 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 message: "That change is not waiting on your cloud computer any more.".into(),
             };
         }
-        let found = match self
-            .computers
-            .change(&task.codespace, &task.task_id, &task.base)
-        {
+        let found = match self.on_computer(&task.codespace, || {
+            self.computers.change(&task.codespace, &task.task_id, &task.base)
+        }) {
             Ok(c) => c,
             Err(message) => return CloudTurnAction::Err { message },
         };
         if let Err(message) = apply_here(Path::new(&task.folder), &found.patch, self.git_run) {
             return CloudTurnAction::Err { message };
         }
-        let new_base = match self
-            .computers
-            .settle(&task.codespace, &task.task_id, SettleTarget::Here)
-        {
+        let new_base = match self.on_computer(&task.codespace, || {
+            self.computers.settle(&task.codespace, &task.task_id, SettleTarget::Here)
+        }) {
             Ok(b) => b,
             Err(message) => return CloudTurnAction::Err { message },
         };
@@ -968,10 +1187,9 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 message: "That change is not waiting on your cloud computer any more.".into(),
             };
         }
-        if let Err(message) =
-            self.computers
-                .discard(&task.codespace, &task.task_id, &task.base)
-        {
+        if let Err(message) = self.on_computer(&task.codespace, || {
+            self.computers.discard(&task.codespace, &task.task_id, &task.base)
+        }) {
             return CloudTurnAction::Err { message };
         }
         let _guard = self.store_lock.lock().unwrap_or_else(|e| e.into_inner());
@@ -1045,14 +1263,14 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 branch: pr.branch.clone(),
             },
         };
-        let pushed = match self.computers.push_change(
+        let pushed = match self.on_computer(&task.codespace, || self.computers.push_change(
             &task.codespace,
             &task.repo,
             &task.task_id,
             &task.base,
             &target,
             text,
-        ) {
+        )) {
             Ok(p) => p,
             Err(message) => return CloudPullRequestAction::Err { message },
         };
@@ -1082,11 +1300,9 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
             }
         };
 
-        let new_base = match self.computers.settle(
-            &task.codespace,
-            &task.task_id,
-            SettleTarget::PullRequest,
-        ) {
+        let new_base = match self.on_computer(&task.codespace, || {
+            self.computers.settle(&task.codespace, &task.task_id, SettleTarget::PullRequest)
+        }) {
             Ok(b) => b,
             Err(message) => return CloudPullRequestAction::Err { message },
         };
@@ -1148,7 +1364,9 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
                 });
             }
         }
-        let _ = self.computers.carry(&task.codespace, &task.task_id, &loaded);
+        let _ = self.on_computer(&task.codespace, || {
+            self.computers.carry(&task.codespace, &task.task_id, &loaded)
+        });
     }
 }
 
@@ -1271,14 +1489,23 @@ fn store_to_json(store: &CloudStore) -> Value {
         turns.insert(k.clone(), Value::Object(obj));
     }
 
-    json!({
+    let mut out = json!({
         "tasks": Value::Object(tasks),
         "turns": Value::Object(turns),
-    })
+        "use": store.usage,
+    });
+    if let Some(since) = &store.use_since {
+        out["useSince"] = json!(since);
+    }
+    out
 }
 
 fn store_from_json(value: &Value) -> CloudStore {
-    let mut store = CloudStore::default();
+    let mut store = CloudStore {
+        usage: value.get("use").cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default(),
+        use_since: value.get("useSince").and_then(Value::as_str).map(str::to_owned),
+        ..CloudStore::default()
+    };
     if let Some(tasks_obj) = value.get("tasks").and_then(Value::as_object) {
         for (k, v) in tasks_obj {
             let Some(obj) = v.as_object() else { continue };
