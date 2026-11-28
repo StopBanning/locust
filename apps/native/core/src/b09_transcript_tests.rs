@@ -51,3 +51,52 @@ fn b09_keeps_the_first_forty_turns_and_the_words_after_them() {
     let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
     assert_eq!(call_log::placements(&saved, &ids)[&call_log::Place::After("m_39")][0].lines[0]["text"], "And one more.");
 }
+
+// case: lists each turn it starts once, and a call with a teammate keeps them
+#[test]
+fn b09_handoffs_are_kept_once_each() {
+    let mut t = Transcript::new("tm_ada".into(), "Ada".into(), None, 1_000);
+    for _ in 0..2 { t.record_handoff("mis_fix", "tm_ada", "Ada", "Fix the flaky login test", 2_000); }
+    t.record_handoff("mis_note", "tm_wren", "Wren", "Draft the release note", 3_000);
+    let kept = t.finish(9_000);
+    assert!(call_log::is_saved_call(&kept));
+    assert_eq!(kept["handed"], json!([
+        {"missionId":"mis_fix","teammateId":"tm_ada","name":"Ada","task":"Fix the flaky login test","at":2000},
+        {"missionId":"mis_note","teammateId":"tm_wren","name":"Wren","task":"Draft the release note","at":3000}
+    ]));
+    assert_eq!(kept["turns"], json!([{"missionId":"mis_fix","at":2000}]));
+}
+
+// case: leaves out what a kept call could not hold, rather than have the whole call refused when it is saved
+#[test]
+fn b09_handoffs_refuse_bad_entries_and_keep_forty() {
+    let mut t = Transcript::new("tm_ada".into(), "Ada".into(), None, 1_000);
+    t.record_handoff("not an id!", "tm_wren", "Wren", "Draft the release note", 3_000);
+    t.record_handoff("mis_2", "", "Wren", "Draft the release note", 3_000);
+    t.record_handoff("mis_3", "tm_wren", "Wren", "   ", 3_000);
+    t.record_handoff("mis_4", "tm_wren", "", "Draft the release note", 3_000);
+    t.record_handoff("mis_5", "tm_wren", "Wren", &"x".repeat(900), 3_000);
+    assert_eq!(t.snapshot()["handed"], json!([
+        {"missionId":"mis_4","teammateId":"tm_wren","name":"Teammate","task":"Draft the release note","at":3000},
+        {"missionId":"mis_5","teammateId":"tm_wren","name":"Wren","task":"x".repeat(400),"at":3000}
+    ]));
+    for i in 0..45 { t.record_handoff(&format!("mis_many_{i}"), "tm_wren", "Wren", "Draft the release note", 3_000); }
+    assert_eq!(t.snapshot()["handed"].as_array().unwrap().len(), 40);
+    assert!(call_log::is_saved_call(&t.finish(9_000)));
+}
+
+// case: is refused when saved only for a to-do no call could hold
+#[test]
+fn b09_invalid_handoffs_do_not_make_a_saved_call() {
+    let t = Transcript::new("tm_ada".into(), "Ada".into(), None, 1_000);
+    let base = t.finish(9_000);
+    assert!(call_log::is_saved_call(&base));
+    let hand = |i: usize| json!({"missionId":format!("mis_{i}"),"teammateId":"tm_wren","name":"Wren","task":"Draft the release note","at":3000});
+    let mut blank = hand(0); blank["task"] = json!("");
+    let mut long = hand(0); long["name"] = json!("x".repeat(81));
+    for invalid in [json!([blank]), json!([long]), json!("all of them"), json!((0..41).map(hand).collect::<Vec<_>>())] {
+        let mut invalid_call = base.clone();
+        invalid_call["handed"] = invalid;
+        assert!(!call_log::is_saved_call(&invalid_call));
+    }
+}

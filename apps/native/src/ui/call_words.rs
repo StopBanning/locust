@@ -45,13 +45,18 @@ pub(super) fn pieces(s: &State) -> std::collections::BTreeMap<Place<'_>, Vec<Pie
 }
 
 pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_>]) -> Vec<El> {
+    draw_with_live(s, p, place, pieces, crate::voice_panel::live_thread_call(s))
+}
+
+fn draw_with_live(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_>], active: Option<&serde_json::Value>) -> Vec<El> {
     pieces
         .iter()
         .filter_map(|piece| {
-            let call = &piece.call;
+            let call = piece.call;
             let id = call["callId"].as_str()?;
             let name = call["name"].as_str()?;
-            let live = call.get("partial").is_some();
+            // Disk data cannot impersonate the active call or offer its approval controls.
+            let live = active.is_some_and(|active| std::ptr::eq(active, call));
             let open = live || s.calls.open.contains(id);
             let mut view = col().key(format!("call-{id}-{place:?}")).w_full().gap(8.0);
             let duration = length(call);
@@ -148,6 +153,17 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
         .collect()
 }
 
+fn todo_status(waiting: bool, live: Option<&str>, record: Option<&str>) -> &'static str {
+    if waiting { return "Needs you"; }
+    match live.or(record) {
+        Some("completed") => "Done",
+        Some("failed") => "Failed",
+        Some("cancelled" | "interrupted") => "Stopped",
+        Some("running" | "cancelling") => "Working",
+        _ => "Starting",
+    }
+}
+
 fn handed_summary(s: &State, call: &serde_json::Value, p: &Palette) -> Option<El> {
     let handed = call["handed"]
         .as_array()
@@ -184,26 +200,23 @@ fn handed_summary(s: &State, call: &serde_json::Value, p: &Palette) -> Option<El
         ) else {
             continue;
         };
-        let (status, color) = if s.home.waiting_for.contains_key(id) {
-            ("Needs you", p.amber)
-        } else if s
-            .recent
-            .iter()
-            .any(|row| row.id == id && row.state == "running")
-        {
-            ("Working", p.secondary)
-        } else if let Some(row) = s.ledger_summaries.get(id) {
-            if row.running {
-                ("Working", p.secondary)
-            } else if row.failed {
-                ("Failed", p.red)
-            } else if row.cancelled {
-                ("Stopped", p.muted)
-            } else {
-                ("Done", p.green)
-            }
-        } else {
-            ("Starting", p.muted)
+        let live = s.ledger.as_ref().filter(|pane| pane.snapshot.tip == id && pane.snapshot.running)
+            .map(|_| if s.stopping.is_pending() { "cancelling" } else { "running" })
+            .or_else(|| s.flight.as_ref().filter(|flight| flight.conversation_id.as_deref() == Some(id)).map(|_| "starting"));
+        let record = s.recent.iter().find(|row| row.id == id).map(|row| row.state.as_str())
+            .or_else(|| s.ledger_summaries.get(id).map(|row| {
+                if row.running { "running" }
+                else if row.cancelled { "cancelled" }
+                else if row.failed { "failed" }
+                else { "completed" }
+            }));
+        let status = todo_status(s.home.waiting_for.contains_key(id), live, record);
+        let color = match status {
+            "Needs you" => p.amber,
+            "Working" => p.secondary,
+            "Failed" => p.red,
+            "Done" => p.green,
+            _ => p.muted,
         };
         let mut row = row()
             .key(format!("call-todo-{id}"))

@@ -66,3 +66,47 @@ fn b09_call_words_pressing_deny_declines_on_the_live_wire() {
     let until = Instant::now() + Duration::from_secs(5);
     while rt.state.voice.call.is_some() && Instant::now() < until { poll(&mut rt); }
 }
+
+struct WithStore { fake: Fake, store: store::Store }
+impl CallHost for WithStore {
+    fn discover(&self) -> Option<Command> { self.fake.discover() }
+    fn transcript_store(&self) -> Option<&store::Store> { Some(&self.store) }
+}
+
+// case: begins again with each call, and a call from Home keeps nothing
+#[test]
+fn b09_call_words_home_calls_start_fresh_and_do_not_save_a_transcript() {
+    let root = std::env::temp_dir().join(format!("locust-b09-home-{}", locust_core::invariants::unique_nanos()));
+    std::fs::create_dir_all(&root).unwrap();
+    let store = store::Store::new(root.join("app"), root.join("electron")).unwrap();
+    let fake = Arc::new(WithStore { fake: Fake(root.clone()), store: store.clone() });
+    let service = VoiceCalls::new(fake);
+    for index in 0..2 {
+        std::fs::write(root.join("notifications"), b"").unwrap();
+        let window = service.start(CallOptions {
+            folder: root.clone(), offer: "v=0\r\noffer".into(), teammate: None, voice: None,
+            preview: None, connectors: false, anchor_turn: Some("m_typed".into()),
+        }).unwrap();
+        window.started.recv_timeout(Duration::from_secs(15)).unwrap().unwrap();
+        std::fs::write(root.join("notifications"), format!("{}\n", json!({
+            "method":"thread/realtime/transcript/done", "params":{
+                "threadId":"thread_1","role":"user","text":format!("Home call {index}")
+            }
+        }))).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if let Ok(CallEvent::Said(_, said)) = window.events.recv_timeout(Duration::from_millis(100)) {
+                assert_eq!(said, format!("Home call {index}"));
+                break;
+            }
+        }
+        assert!(Instant::now() < deadline, "the current call delivers its own words");
+        service.stop();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if let Ok(CallEvent::Ended(None)) = window.events.recv_timeout(Duration::from_millis(100)) { break; }
+        }
+        assert!(Instant::now() < deadline, "the Home call finished");
+    }
+    assert!(!store.root().join("calls.json").exists(), "a call from Home leaves no transcript on disk");
+}
