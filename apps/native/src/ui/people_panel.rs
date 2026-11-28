@@ -873,6 +873,10 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             .child(crate::look_picker::preview(s, &l))
             .child(identity_fields),
     );
+    // Choose the new teammate's model before adjusting its look.
+    if creating {
+        form = form.child(model_row(s, p));
+    }
     // The look comes before the role, as in Electron's dialog.
     form = form.child(crate::look_picker::section(s, &l));
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].into_iter().enumerate().skip(1) {
@@ -880,7 +884,9 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
-    form = form.child(model_row(s, p));
+    if !creating {
+        form = form.child(model_row(s, p));
+    }
     if let Some(folder) = teammate_folder_row(s, p) { form = form.child(folder); }
     form = form.child(text(locust_core::mode_facts::mode_summary(shown_route(s).as_ref().map(|r| r.mode.as_str()).unwrap_or("ask"))).key("team-permissions").font(type_::LABEL).color(p.secondary).wrap());
     let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
@@ -3187,3 +3193,7 @@ mod team_card_words_tests;
 #[cfg(test)]
 #[path = "team_last_run_tests.rs"]
 mod team_last_run_tests;
+
+#[cfg(test)]
+#[path = "first_hour_teammate_model_tests.rs"]
+mod first_hour_teammate_model_tests;
