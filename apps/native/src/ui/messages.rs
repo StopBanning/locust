@@ -2009,3 +2009,7 @@ mod cloud_attribution_tests;
 #[cfg(test)]
 #[path = "messages_damaged_receipt_tests.rs"]
 mod messages_damaged_receipt_tests;
+
+#[cfg(test)]
+#[path = "messages_mission_view_cases.rs"]
+mod messages_mission_view_cases;
