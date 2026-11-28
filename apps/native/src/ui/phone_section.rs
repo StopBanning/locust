@@ -1800,6 +1800,7 @@ mod tests {
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         closed: Arc<std::sync::atomic::AtomicBool>,
         github_off: bool,
+        refuse_next_mcp_open: Arc<std::sync::atomic::AtomicBool>,
         notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
@@ -1810,6 +1811,9 @@ mod tests {
             let kind = val.get("t").and_then(serde_json::Value::as_str).unwrap_or("");
             let id = val.get("id").and_then(serde_json::Value::as_str).map(str::to_owned);
             let reply = match kind {
+                "mcp-open" if self.refuse_next_mcp_open.swap(false, std::sync::atomic::Ordering::SeqCst) => {
+                    id.map(|id| serde_json::json!({ "t": "err", "id": id, "code": "refused" }))
+                }
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
                 "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected"
                 | "mcp-open" | "mcp-close" | "allow" | "pair-close" => {
@@ -1855,6 +1859,7 @@ mod tests {
         closed: Arc<std::sync::atomic::AtomicBool>,
         callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         github_off: bool,
+        refuse_next_mcp_open: Arc<std::sync::atomic::AtomicBool>,
         notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
@@ -1866,6 +1871,7 @@ mod tests {
                 closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 callbacks: Arc::new(std::sync::Mutex::new(None)),
                 github_off: false,
+                refuse_next_mcp_open: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 notes: Arc::new(std::sync::Mutex::new(Vec::new())),
             }
         }
@@ -1882,6 +1888,7 @@ mod tests {
             let closed = Arc::clone(&self.closed);
             let callbacks = Arc::clone(&self.callbacks);
             let github_off = self.github_off;
+            let refuse_next_mcp_open = Arc::clone(&self.refuse_next_mcp_open);
             let notes = Arc::clone(&self.notes);
             Arc::new(move |_url: &str| {
                 connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -1890,6 +1897,7 @@ mod tests {
                     frames: Arc::clone(&frames),
                     closed: Arc::clone(&closed),
                     github_off,
+                    refuse_next_mcp_open: Arc::clone(&refuse_next_mcp_open),
                     notes: Arc::clone(&notes),
                 }) as Arc<dyn locust_core::phone_anywhere::RelaySocket>)
             })
@@ -2458,6 +2466,55 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         assert!(remote.look().apps.is_empty());
+    }
+
+    #[test]
+    fn a_late_apps_sync_only_opens_each_phone_connection_once() {
+        let (_root, store) = temp_store("apps-sync");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.connected));
+
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        // Force the observed ordering: the real auth callback runs after the setting's open
+        // is acknowledged, rather than relying on the host to schedule it late enough.
+        let callback = ServeMcp(rt.state.phone_anywhere_link.shared.mcp.clone());
+        callback.sync();
+        assert_eq!(sent(&relay, "mcp-open"), 1, "late sync must not advertise the same opening twice");
+
+        assert!(!remote.set_enabled(&serde_json::json!(false)).enabled);
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 2, "an explicit close needs a fresh open");
+
+        // Drop the actual socket, not the preference. The next authentication must advertise again.
+        let old = relay.callbacks.lock().unwrap().clone().expect("authenticated socket");
+        old.on_close();
+        pump_until(&mut rt, "a new authenticated socket", |s| {
+            relay.connects.load(std::sync::atomic::Ordering::SeqCst) == 2
+                && s.phone_anywhere_link.live.as_ref().is_some_and(PhoneAnywhere::connected)
+        });
+        callback.sync();
+        assert_eq!(sent(&relay, "mcp-open"), 3, "the old socket cannot cache the new one's open");
+    }
+
+    #[test]
+    fn apps_can_be_enabled_after_the_relay_refuses_one_open() {
+        use std::sync::atomic::Ordering;
+
+        let (_root, store) = temp_store("apps-not-open-yet");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.connected));
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+
+        relay.refuse_next_mcp_open.store(true, Ordering::SeqCst);
+        assert!(!remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 1, "the refused open was tried");
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 2, "a refused open did not authorize a later opening");
     }
 
     #[test]
