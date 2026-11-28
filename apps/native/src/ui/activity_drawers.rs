@@ -538,7 +538,8 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
         let control = |word: &str, label: String, end: &str| {
             text(word.to_owned()).font(type_::LABEL).color(p.secondary).role("button").label(label).key(format!("{key}/{end}"))
         };
-        let mut heading = row().w_full().center_y().gap(6.0).child(el().grow(1.0).shrink().child(disclosure(key.clone(), label, open, p)));
+        let filename = disclosure(key.clone(), label, open, p).grow(1.0).shrink().self_center();
+        let mut heading = row().w_full().center_y().gap(6.0).child(filename);
         if folder.is_some() {
             let path = entry.file.path.clone();
             heading = heading.child(control("Open", format!("Open {shown}"), "view").on_press(move |s: &mut State| {
@@ -1703,3 +1704,7 @@ mod blockers1_sheet_fold_tests;
 #[cfg(test)]
 #[path = "activity_shell_output_sweep_tests.rs"]
 mod activity_shell_output_sweep_tests;
+
+#[cfg(test)]
+#[path = "narrow_file_row_case_tests.rs"]
+mod narrow_file_row_case_tests;
