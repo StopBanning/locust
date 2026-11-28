@@ -20,12 +20,18 @@ fn record(id: &str, created_at: &str) -> String {
     format!("{header}\n{event}\n")
 }
 
+// History chooses the page by file mtime, not by the dates inside the JSON.
+fn set_file_order(path: &Path, index: usize) {
+    let at = UNIX_EPOCH + std::time::Duration::from_secs(60 * (1 + index as u64));
+    fs::File::options().write(true).open(path).unwrap().set_modified(at).unwrap();
+}
+
 /// `count` clean records, m_00 the oldest, each file newer than the one before.
 fn ledger_of(folder: &Folder, count: usize, day: &str) {
     for index in 0..count {
         let id = format!("m_{index:02}");
-        folder.write(&id, &record(&id, &format!("2026-09-{day}T00:00:{index:02}.000Z")), false);
-        std::thread::sleep(std::time::Duration::from_millis(2));
+        let path = folder.write(&id, &record(&id, &format!("2026-09-{day}T00:00:{index:02}.000Z")), false);
+        set_file_order(&path, index + 1);
     }
 }
 
@@ -58,11 +64,11 @@ fn does_not_call_a_damaged_but_recovered_mission_unreadable_when_it_falls_off_th
     let mut text = std::fs::read_to_string(&oldest).unwrap();
     text.push_str("not a record at all\n");
     std::fs::write(&oldest, text).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(2));
+    set_file_order(&oldest, 0);
     for index in 1..=20 {
         let id = format!("m_{index:02}");
-        folder.write(&id, &record(&id, &format!("2026-09-09T00:00:{index:02}.000Z")), false);
-        std::thread::sleep(std::time::Duration::from_millis(2));
+        let path = folder.write(&id, &record(&id, &format!("2026-09-09T00:00:{index:02}.000Z")), false);
+        set_file_order(&path, index);
     }
     let (page, damage) = listed(&folder, 20);
     assert_eq!(page.len(), 20);
@@ -86,8 +92,8 @@ fn counts_a_file_whose_header_is_unreadable_and_only_that_file() {
     assert_eq!(damage.unreadable, 1);
     // Counted however far past the page it sits: older than three good records, under a page of one.
     let folder = Folder::new();
-    folder.write("m_bad", "this is not json at all\n", false);
-    std::thread::sleep(std::time::Duration::from_millis(2));
+    let oldest = folder.write("m_bad", "this is not json at all\n", false);
+    set_file_order(&oldest, 0);
     ledger_of(&folder, 3, "08");
     let (page, damage) = listed(&folder, 1);
     assert_eq!(page, ["m_02"]);
