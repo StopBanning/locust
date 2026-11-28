@@ -292,6 +292,7 @@ mod renderer_conversation_tests {
     }
     fn said(id: &str, key: &str, text: &str) -> QueuedRow { QueuedRow { text: text.into(), ..row(id, key) } }
     fn ids(rows: &[QueuedRow]) -> Vec<&str> { rows.iter().map(|r| r.id.as_str()).collect() }
+    // case: is its own rows, in the order they were typed
     #[test]
     fn is_its_own_rows_in_the_order_they_were_typed() {
         let rows = [row("a", "pip"), row("b", "gem"), row("c", "pip")];
@@ -300,17 +301,20 @@ mod renderer_conversation_tests {
         assert!(queued_in(&rows, Some("nobody")).is_empty());
         assert!(queued_in(&rows, None).is_empty());
     }
+    // case: never folds into another conversation's message
     #[test]
     fn never_folds_into_another_conversations_message() {
         let folded = combine_queued(&[row("a", "pip"), row("b", "gem"), row("c", "pip")]);
         assert_eq!(folded.iter().map(|r| r.text.as_str()).collect::<Vec<_>>(), ["pip: a", "gem: b", "pip: c"]);
     }
+    // case: still folds lines typed during one run into one message
     #[test]
     fn still_folds_lines_typed_during_one_run_into_one_message() {
         let folded = combine_queued(&[row("a", "pip"), row("b", "pip")]);
         assert_eq!(folded.len(), 1);
         assert_eq!(folded[0].text, ["pip: a", "pip: b"].join(QUEUE_SEPARATOR));
     }
+    // case: takes that conversation's rows, folded, and leaves every other row where it was
     #[test]
     fn takes_that_conversations_rows_folded_and_leaves_every_other_row_where_it_was() {
         let (going, rest) = take_next(&[row("a", "pip"), row("b", "gem"), row("c", "pip"), row("d", "gem")], "gem");
@@ -319,11 +323,13 @@ mod renderer_conversation_tests {
         assert_eq!(going.key, "gem");
         assert_eq!(ids(&rest), ["a", "c"]);
     }
+    // case: takes nothing from a conversation with nothing queued
     #[test]
     fn takes_nothing_from_a_conversation_with_nothing_queued() {
         let rows = vec![row("a", "pip")];
         assert_eq!(take_next(&rows, "gem"), (None, rows.clone()));
     }
+    // case: goes by the row itself: two rows can be given the same id
     #[test]
     fn goes_by_the_row_itself_two_rows_can_be_given_the_same_id() {
         let first = row("q_1_pip", "pip");
@@ -332,12 +338,14 @@ mod renderer_conversation_tests {
         assert_eq!(going.unwrap().text, "pip: q_1_pip");
         assert_eq!(rest, [other]);
     }
+    // case: empty that conversation's queue and nobody else's
     #[test]
     fn empty_that_conversations_queue_and_nobody_elses() {
         let rows = vec![row("a", "pip"), row("b", "gem"), row("c", "pip")];
         assert_eq!(ids(&without_queue_of(&rows, Some("gem"))), ["a", "c"]);
         assert_eq!(without_queue_of(&rows, None), rows);
     }
+    // case: the reviewer's case: Gem's line edited, Pip's untouched, each sent to its own
     #[test]
     fn the_reviewers_case_gems_line_edited_pips_untouched_each_sent_to_its_own() {
         let rows = [said("p", "pip", "PIP_QUEUED"), said("g", "gem", "GEM_QUEUED")];
@@ -350,6 +358,7 @@ mod renderer_conversation_tests {
         assert_eq!(gem.unwrap().text, "GEM_EDITED");
         assert!(rest.is_empty());
     }
+    // case: sends each its own as each run ends, in either order, the other's staying pending
     #[test]
     fn sends_each_its_own_as_each_run_ends_in_either_order_the_others_staying_pending() {
         let rows = [said("p1", "pip", "PIP_1"), said("g1", "gem", "GEM_1"), said("p2", "pip", "PIP_2")];
@@ -363,6 +372,7 @@ mod renderer_conversation_tests {
         assert_eq!(pip.unwrap().text, ["PIP_1", "PIP_2"].join(QUEUE_SEPARATOR));
         assert_eq!(queued_in(&rest, Some("gem"))[0].text, "GEM_1");
     }
+    // case: sends nothing -- the words are back in the box, not the queue -- and leaves the other conversation queued
     #[test]
     fn sends_nothing_the_words_are_back_in_the_box_not_the_queue_and_leaves_the_other_conversation_queued() {
         let rows = [said("g", "gem", "GEM_QUEUED"), said("p", "pip", "PIP_QUEUED")];
