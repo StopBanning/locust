@@ -30,33 +30,30 @@ fn button_state(tree: &Value, label: &str) -> Option<String> {
 // Flyout regression. teammate_faces.rs already covers Electron’s compact-rail accessibility case.
 #[test]
 fn attention_rail_names_only_the_teammate_waiting_for_the_person() {
-    // The running app uses one shared approval channel. Keep this fixture's card out of other window tests.
-    const CHILD: &str = "LOCUST_ATTENTION_RAIL_FIXTURE";
-    if std::env::var_os(CHILD).is_none() {
-        let test = concat!(module_path!(), "::attention_rail_names_only_the_teammate_waiting_for_the_person");
-        let result = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", test.split_once("::").unwrap().1, "--nocapture"])
-            .env(CHILD, "1")
-            .output().unwrap();
-        let stdout = String::from_utf8_lossy(&result.stdout);
-        assert!(result.status.success() && stdout.contains("1 passed"), "{stdout}\n{}", String::from_utf8_lossy(&result.stderr));
-        return;
-    }
+    // The card is on the whole process's shared approval channel: hold the engine's test lock with an empty
+    // saved-rules store, as the other tests that raise cards do, so no saved rule answers it and no other engine
+    // test sees it while it is live.
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let (mission, run) = ("mission_attention_rail", "run_attention_rail");
     let channel = native::approvals_channel();
     let deadline = std::time::Duration::from_secs(10);
     // Feed the real in-process channel at the same boundary the permission bridge uses.
     // The cloud runner disallows binding Unix sockets; no permission transport is faked here.
     let cancel = Arc::new(AtomicBool::new(false));
-    struct Cancel(Arc<AtomicBool>);
+    struct Cancel(Arc<AtomicBool>, Option<std::thread::JoinHandle<Result<Value, String>>>);
     impl Drop for Cancel {
-        fn drop(&mut self) { self.0.store(true, Ordering::Relaxed); }
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+            if let Some(handle) = self.1.take() {
+                let _ = handle.join();
+            }
+        }
     }
-    let _release = Cancel(cancel.clone());
-    let request = std::thread::spawn(move || channel.ask_claude(
+    let ask_cancel = cancel.clone();
+    let mut request_guard = Cancel(cancel, Some(std::thread::spawn(move || channel.ask_claude(
         run, mission, "permission", "Write", &json!({"file_path": "C:/work/a.txt", "content": "OK"}), "C:/work",
-        &|| cancel.load(Ordering::Relaxed),
-    ));
+        &|| ask_cancel.load(Ordering::Relaxed),
+    ))));
     let engine = locust_core::engine_api::api();
     let until = std::time::Instant::now() + deadline;
     let pending = loop {
@@ -90,7 +87,7 @@ fn attention_rail_names_only_the_teammate_waiting_for_the_person() {
 
     press(&mut rt, "rail-tm_wren");
     engine.decide(&pending.approval_id, Decision::Deny, None).unwrap();
-    assert_eq!(request.join().unwrap().unwrap()["behavior"], "deny");
+    assert_eq!(request_guard.1.take().unwrap().join().unwrap().unwrap()["behavior"], "deny");
     assert!(engine.waiting_for(mission).is_empty());
 
     rt.update(|s, _| { home_panel::sync_board_asks(s); });
