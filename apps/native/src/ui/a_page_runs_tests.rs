@@ -212,6 +212,7 @@ fn runs_a_page_in_a_sandboxed_frame_at_its_own_address_with_page_and_source() {
     assert!(urls[0].starts_with("locust-page://") && urls[0].ends_with("/index.html") && !urls[0].contains("site/"), "{urls:?}");
 }
 
+// case: runs nothing without a page address -- the same file shows as its source
 #[test]
 fn runs_nothing_without_a_page_address_the_same_file_shows_as_its_source() {
     let (_t, work) = temp("source");

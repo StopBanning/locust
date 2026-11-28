@@ -1061,6 +1061,7 @@ mod new_document_tests {
     const EDITED_GUIDE: &str = "diff --git a/brand-guide.md b/brand-guide.md\n--- a/brand-guide.md\n+++ b/brand-guide.md\n@@ -1,3 +1,3 @@\n # Small Bakery Brand Guide\n-Warm and plain.\n+Warm, plain and proud.\n ## Colour Palette";
     const NEW_SCRIPT: &str = "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1";
 
+    // case: previews a new page, and only a new one
     #[test]
     fn previews_a_new_page_and_only_a_new_one() {
         // a-page-opens-running.test.tsx, the card of the turn that made it.
