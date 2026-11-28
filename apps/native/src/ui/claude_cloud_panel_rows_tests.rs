@@ -97,7 +97,6 @@ fn fake_claude(root: &Path, seen: &Arc<Seen>) -> MakeClaude {
         .with_terminal(teleport(folder.clone(), home.clone(), seen.clone()))
         .with_claude_home(home.clone())
         .with_process_env(Vec::new)
-        .with_git_changes(|_| Some(0))
         .with_exec(move |_file: &str, args: &[String], options: &ExecOptions| {
             let mut seen = args.to_vec();
             seen.extend(options.env.get("LOCUST_CLAUDE_CLOUD_TASK").cloned());
@@ -300,6 +299,21 @@ fn bring_it_home_opens_claude_code_here_and_remove_forgets_the_session() {
     assert!(!words(&rt).contains("Tidy the readme"));
     pump(&mut rt, "the session forgotten in the store", |s| !w.stored(s).contains(UNKNOWN));
     assert!(w.stored(&rt.state).contains(ID));
+}
+
+// The core already names the Electron case. This proves the real window route with real Git.
+#[test]
+fn claude_cloud_bring_home_refuses_dirty_tracked_and_untracked_files() {
+    let (w, mut rt) = window(true);
+    std::fs::write(w.folder().join("cart.js"), "the person's tracked work").unwrap();
+    std::fs::write(w.folder().join("notes.txt"), "the person's untracked notes").unwrap();
+    open_cloud(&mut rt);
+    click(&mut rt, &key("home", ID));
+    pump(&mut rt, "Claude Code refused a dirty checkout", |s| s.cloud.note.is_some());
+    assert!(words(&rt).contains("only into a folder with no changes, and this one has 2 changed files"));
+    assert!(w.seen.windows.lock().unwrap().is_empty());
+    assert_eq!(std::fs::read_to_string(w.folder().join("cart.js")).unwrap(), "the person's tracked work");
+    assert_eq!(std::fs::read_to_string(w.folder().join("notes.txt")).unwrap(), "the person's untracked notes");
 }
 
 #[test]
