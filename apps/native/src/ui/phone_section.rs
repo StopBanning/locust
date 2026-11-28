@@ -18,8 +18,10 @@ use locust_core::desk_host::{
 };
 use locust_core::desk_snapshot::{DeskSnapshot, snapshot_key, snapshot_with};
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine, PhoneNotes};
-use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use locust_core::phone_anywhere::{DeskCallbacks, HooksCallbacks, McpCallbacks};
+use locust_core::phone_host::{PhoneCalls, PhoneHost, PhoneSent, PhoneSettings, PhoneState, PhoneTurn, phone_scout_cards};
+use locust_core::phone_anywhere::{AwayCallbacks, AwayForPhone, DeskCallbacks, HooksCallbacks, LettersPage, McpCallbacks, RelayLetter};
+use locust_core::scout_away::{ScoutAway, ScoutAwayDeps, ScoutAwayGh, ScoutAwayRelay, ScoutAwaySet, ScoutAwayStatus, SCOUT_AWAY_FILE};
+use std::sync::atomic::{AtomicBool, Ordering};
 use locust_core::remote_mcp::{McpRelay, RemoteMcp, RemoteMcpAsk, RemoteMcpReply};
 use locust_core::routine_hooks::{HookLettersPage, HookRelay, HookRoom, RoutineHooks};
 use locust_core::routine_host::LiveHost;
@@ -69,6 +71,14 @@ enum PhoneMode {
 #[derive(Default)]
 pub(crate) struct PhoneAnywhereLink {
     live: Option<PhoneAnywhere>,
+    away: Option<Arc<ScoutAway>>,
+    away_status: Option<ScoutAwayStatus>,
+    away_job: rune::Latest<ScoutAwayStatus>,
+    away_pulse: Arc<AtomicBool>,
+    away_gone: bool,
+    away_check_at: Option<std::time::Instant>,
+    #[cfg(test)]
+    away_gh: Option<Arc<dyn ScoutAwayGh>>,
     rx: Option<std::sync::mpsc::Receiver<PhoneAnywhereSettings>>,
     waker: Option<Waker>,
     started: bool,
@@ -653,12 +663,269 @@ fn poll_desk(s: &mut State) -> bool {
     true
 }
 
+/// A weak reference to the existing line, not a second phone room or connection.
+struct ScoutRelay(Weak<Mutex<Option<PhoneAnywhere>>>);
+
+impl ScoutRelay {
+    fn live(&self) -> Option<PhoneAnywhere> {
+        self.0.upgrade()?.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+
+impl ScoutAwayRelay for ScoutRelay {
+    fn room(&self) -> Option<(String, String)> { self.live()?.room() }
+    fn connected(&self) -> bool { self.live().is_some_and(|line| line.connected()) }
+    fn away_open(&self, hash: &str) -> bool { self.live().is_some_and(|line| line.away_open(hash)) }
+    fn away_close(&self) -> bool { self.live().is_some_and(|line| line.away_close()) }
+    fn keep_away_alerts(&self) -> bool { self.live().is_some_and(|line| line.keep_away_alerts()) }
+    fn post(&self, n: &str, c: &str) -> bool { self.live().is_some_and(|line| line.post(n, c)) }
+    fn letters(&self, after: Option<&str>) -> Option<LettersPage> { self.live()?.letters(after) }
+}
+
+struct ScoutAwayCallbacks {
+    away: Arc<ScoutAway>,
+    pending: Arc<AtomicBool>,
+    relay: ScoutRelay,
+    waker: Option<Waker>,
+}
+impl AwayCallbacks for ScoutAwayCallbacks {
+    fn for_phone(&self) -> Option<AwayForPhone> {
+        let (_, room) = self.relay.room()?;
+        self.away.for_phone_in_room(&room)
+    }
+    fn refresh(&self) {
+        // The receiver must keep running to answer the paging request made by the worker.
+        self.pending.store(true, Ordering::Release);
+        if let Some(wake) = &self.waker { wake(); }
+    }
+    fn letter(&self, letter: RelayLetter) {
+        if letter.from == "away" { self.refresh(); }
+    }
+}
+
+/// Explicit args and supplied stdin only. Never echo CLI stderr: it may include secret material.
+struct AwayGithub;
+impl ScoutAwayGh for AwayGithub {
+    fn run(&self, args: &[&str], cwd: &str, input: Option<&str>) -> Result<String, String> {
+        use std::io::{Read, Write};
+        use std::process::{Command, Stdio};
+        if cfg!(test) {
+            return Err("This test has no synthetic GitHub client.".into());
+        }
+        let mut child = Command::new("gh")
+            .args(args)
+            .current_dir(cwd)
+            .env("GH_PROMPT_DISABLED", "1")
+            .env("GH_NO_UPDATE_NOTIFIER", "1")
+            .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
+            .stdout(Stdio::piped()).stderr(Stdio::null())
+            .spawn().map_err(|_| "GitHub’s CLI could not start.".to_owned())?;
+        if let Some((input, mut stdin)) = input.zip(child.stdin.take()) {
+            let bytes = input.as_bytes().to_vec();
+            std::thread::spawn(move || stdin.write_all(&bytes));
+        }
+        let stdout = child.stdout.take().expect("piped stdout");
+        let reader = std::thread::spawn(move || {
+            let mut output = Vec::new();
+            stdout.take(4 * 1024 * 1024).read_to_end(&mut output).map(|_| output)
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => {
+                    return reader.join().ok().and_then(Result::ok).and_then(|bytes| String::from_utf8(bytes).ok())
+                        .ok_or_else(|| "GitHub’s reply could not be read.".into());
+                }
+                Ok(Some(_)) => return Err("GitHub did not complete the request.".into()),
+                Ok(None) if std::time::Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
+                _ => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err("GitHub did not answer in time.".into());
+                }
+            }
+        }
+    }
+}
+
+fn scout_away_policy() -> Option<String> {
+    locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone")
+}
+
+fn scout_away_time_zone() -> String {
+    fn zone(s: &str) -> Option<&str> {
+        let s = s.trim();
+        (!s.is_empty() && !s.starts_with('/') && s.len() <= 100
+            && s.bytes().all(|c| c.is_ascii_alphanumeric() || b"/_+-".contains(&c))).then_some(s)
+    }
+    if let Some(tz) = std::env::var("TZ").ok().as_deref().and_then(zone) {
+        return tz.to_owned();
+    }
+    if let Some(tz) = std::fs::read_to_string("/etc/timezone").ok().as_deref().and_then(zone) {
+        return tz.to_owned();
+    }
+    std::fs::read_link("/etc/localtime").ok().and_then(|p| {
+        zone(p.to_str()?.split_once("zoneinfo/")?.1).map(str::to_owned)
+    }).unwrap_or_else(|| "UTC".into())
+}
+
+fn ensure_scout_away(s: &mut State) -> Option<Arc<ScoutAway>> {
+    if s.demo || scout_away_policy().is_some() { return None; }
+    if let Some(away) = &s.phone_anywhere_link.away { return Some(away.clone()); }
+    let root = s.data.as_ref()?.root().to_path_buf();
+    let host = crate::scout_cards::ensure_host(s)?;
+    let weak_deps = Arc::downgrade(&host.deps);
+    let relay = Arc::new(ScoutRelay(Arc::downgrade(&s.phone_anywhere_link.shared.live)));
+    let gh: Arc<dyn ScoutAwayGh> = Arc::new(AwayGithub);
+    #[cfg(test)]
+    let gh = s.phone_anywhere_link.away_gh.clone().unwrap_or(gh);
+    let away = Arc::new(ScoutAway::new(ScoutAwayDeps {
+        file: root.join(SCOUT_AWAY_FILE),
+        folder: Arc::new(move || {
+            weak_deps.upgrade()?.workspace_folder()?.to_str().map(str::to_owned)
+        }),
+        gh,
+        relay: Arc::new(move || Some(relay.clone())),
+        script: Arc::new(|| locust_core::scout_away::PACKAGED_AWAY_SCRIPT.to_owned()),
+        tz: Arc::new(scout_away_time_zone),
+        now: Arc::new(chrono::Utc::now),
+    }).with_scout(&host.scout));
+    host.scout.connect_away(&away);
+    s.phone_anywhere_link.away = Some(away.clone());
+    Some(away)
+}
+
+pub(super) fn scout_away_view(s: &State) -> (Option<&ScoutAwayStatus>, bool) {
+    (s.phone_anywhere_link.away_status.as_ref(), s.phone_anywhere_link.away_job.is_pending())
+}
+
+#[cfg(test)]
+pub(super) fn set_scout_away_test_status(s: &mut State, status: ScoutAwayStatus) {
+    s.phone_anywhere_link.away_status = Some(status);
+}
+
+pub(super) fn set_scout_away(s: &mut State, action: ScoutAwaySet) {
+    if let Some(away) = ensure_scout_away(s) {
+        s.phone_anywhere_link.away_job.request(action, move |action| {
+            let on = action == ScoutAwaySet::On;
+            let status = away.set(action);
+            if on && !matches!(&status, ScoutAwayStatus::Off { .. }) {
+                away.leave_told();
+            }
+            status
+        });
+    }
+}
+
+fn poll_scout_away(s: &mut State, phone_went_off: bool) -> bool {
+    let showing = s.settings_panel.open
+        && s.settings_panel.page == Some(crate::settings_pages::SettingsPageId::App)
+        && s.scout.state.as_ref().is_some_and(|state| state.settings.on);
+    if s.phone_anywhere_link.away.is_none() && !showing { return false; }
+    let Some(away) = ensure_scout_away(s) else { return false };
+    let room_gone = s.data.as_ref().is_some_and(|store| {
+        std::fs::metadata(store.root().join(PHONE_ANYWHERE_FILE))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+    });
+    let link = &mut s.phone_anywhere_link;
+    let result = link.away_job.take();
+    let mut changed = false;
+    if let Some(status) = result {
+        changed = true;
+        link.away_status = Some(status);
+    }
+    link.away_gone |= phone_went_off;
+    if link.away_job.is_pending() { return changed; }
+    if link.away_gone {
+        link.away_gone = false;
+        link.away_job.request((), move |()| away.phone_gone(room_gone));
+        return true;
+    }
+    let now = std::time::Instant::now();
+    let refresh = link.away_pulse.swap(false, Ordering::AcqRel);
+    let check = showing && link.away_check_at.is_none_or(|at| at <= now);
+    if refresh || check {
+        if check { link.away_check_at = Some(now + Duration::from_secs(8)); }
+        link.away_job.request((), move |()| {
+            if refresh { away.refresh(); }
+            away.status(check)
+        });
+        changed = true;
+    } else if !showing {
+        link.away_check_at = None;
+    }
+    changed
+}
+
+/// Keep normal phone calls on the existing engine, and add the same Scout this window draws.
+struct PhoneScoutCalls {
+    engine: EnginePhoneCalls,
+    scout: Option<Weak<locust_core::scout::Scout>>,
+}
+
+// Electron's phone route accepts card_ followed by 12 lowercase hex digits. Native's
+// older IDs may be longer. Keep the stored ID and use a stable wire alias instead.
+fn phone_scout_id(id: &str) -> String {
+    if id.strip_prefix("card_").is_some_and(|tail| {
+        tail.len() == 12 && tail.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    }) {
+        return id.to_owned();
+    }
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(id.as_bytes());
+    let hex: String = digest[..6].iter().map(|b| format!("{b:02x}")).collect();
+    format!("card_{hex}")
+}
+
+impl PhoneCalls for PhoneScoutCalls {
+    fn state(&self) -> PhoneState {
+        let mut state = self.engine.state();
+        state.scout = self.scout.as_ref().and_then(Weak::upgrade).map(|scout| {
+            let mut cards = phone_scout_cards(&scout.state().cards);
+            for card in &mut cards { card.card_id = phone_scout_id(&card.card_id); }
+            cards
+        });
+        state
+    }
+
+    fn turns(&self, mission_id: &str) -> Option<Vec<PhoneTurn>> { self.engine.turns(mission_id) }
+
+    fn answer_card(&self, approval_id: &str, approve: bool) -> bool {
+        self.engine.answer_card(approval_id, approve)
+    }
+
+    fn send(&self, mission_id: &str, text: &str) -> PhoneSent { self.engine.send(mission_id, text) }
+
+    fn dismiss_scout(&self, card_id: &str) -> Option<bool> {
+        let scout = self.scout.as_ref().and_then(Weak::upgrade)?;
+        let visible = phone_scout_cards(&scout.state().cards);
+        let mut matching = visible.iter().filter(|card| phone_scout_id(&card.card_id) == card_id);
+        match (matching.next(), matching.next()) {
+            (Some(card), None) => {
+                scout.dismiss(&card.card_id, None);
+                Some(true)
+            }
+            // No card, or an ambiguous alias: don't dismiss another card.
+            _ => Some(false),
+        }
+    }
+}
+
+fn phone_calls_with_scout(
+    s: &mut State,
+    store: locust_core::store::Store,
+    now: Arc<dyn Fn() -> i64 + Send + Sync>,
+) -> Arc<PhoneScoutCalls> {
+    let engine = Arc::new(NativePhoneEngine::new(store));
+    let scout = crate::scout_cards::ensure_host(s).map(|host| Arc::downgrade(&host.scout));
+    Arc::new(PhoneScoutCalls { engine: EnginePhoneCalls::new(engine, now), scout })
+}
+
 fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let store = s.data.clone().or_else(locust_core::native::store)?;
     let dir = store.root().to_path_buf();
     let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(now_ms);
-    let engine = Arc::new(NativePhoneEngine::new(store));
-    let calls = Arc::new(EnginePhoneCalls::new(engine, now.clone()));
+    let calls = phone_calls_with_scout(s, store, now.clone());
     // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
     let notes = Arc::new(PhoneNotes::new(calls.clone()));
     let (tx, rx) = std::sync::mpsc::channel::<PhoneAnywhereSettings>();
@@ -693,10 +960,12 @@ fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
         now: Some(now),
         protect_file: None,
         retry_ms: None,
-        // index.ts `away: { forPhone, refresh, letter }` waits on Scout away (scout-away.ts) in Rust: ScoutAway
-        // (core/src/scout_away.rs) has no for-phone key, no catch-up of the letters left while this computer was off
-        // and no told letter, its relay has no `letters`, and this app makes no ScoutAway at all.
-        away: None,
+        away: ensure_scout_away(s).map(|away| Arc::new(ScoutAwayCallbacks {
+            away,
+            pending: s.phone_anywhere_link.away_pulse.clone(),
+            relay: ScoutRelay(Arc::downgrade(&s.phone_anywhere_link.shared.live)),
+            waker: s.phone_anywhere_link.waker.clone(),
+        }) as Arc<dyn AwayCallbacks>),
         hooks: Some(Arc::new(SyncHooks(s.phone_anywhere_link.shared.hooks.clone()))),
         desk: Some(desk),
         notes: Some(notes),
@@ -727,12 +996,14 @@ fn start_saved(s: &mut State) {
             s.phone_anywhere = Some(next);
         }
     } else if s.phone_anywhere.is_none() {
+        s.phone_anywhere_link.away_gone = dir.join(SCOUT_AWAY_FILE).is_file();
         s.phone_anywhere = Some(disabled_anywhere());
     }
 }
 
 /// Registers the window waker and restores a saved "From anywhere" link if it was left on.
 pub(crate) fn setup(s: &mut State, waker: Waker) {
+    s.phone_anywhere_link.away_job.set_waker(waker.clone());
     s.phone_anywhere_link.waker = Some(waker);
     start_saved(s);
 }
@@ -753,7 +1024,10 @@ pub(crate) fn poll(s: &mut State) -> bool {
         s.phone_anywhere = Some(next);
     }
     let covered = poll_desk(s);
-    s.phone_anywhere != before || covered
+    let phone_went_off = before.as_ref().is_some_and(|phone| phone.enabled)
+        && s.phone_anywhere.as_ref().is_some_and(|phone| !phone.enabled);
+    let away = poll_scout_away(s, phone_went_off);
+    s.phone_anywhere != before || covered || away
 }
 
 /// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
@@ -786,6 +1060,7 @@ fn enable_anywhere(s: &mut State) {
 }
 
 fn disable_anywhere(s: &mut State) {
+    s.phone_anywhere_link.away_gone = true;
     if let Some(pa) = s.phone_anywhere_link.set_live(None) {
         let mut next = pa.set_enabled(false);
         ServeMcp(s.phone_anywhere_link.shared.mcp.clone()).follow(&next);
@@ -1800,7 +2075,9 @@ mod tests {
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         closed: Arc<std::sync::atomic::AtomicBool>,
         github_off: bool,
+        refuse_next_mcp_open: Arc<std::sync::atomic::AtomicBool>,
         notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
+        away_letters: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl locust_core::phone_anywhere::RelaySocket for FakeRelayLine {
@@ -1810,7 +2087,21 @@ mod tests {
             let kind = val.get("t").and_then(serde_json::Value::as_str).unwrap_or("");
             let id = val.get("id").and_then(serde_json::Value::as_str).map(str::to_owned);
             let reply = match kind {
+                "mcp-open" if self.refuse_next_mcp_open.swap(false, std::sync::atomic::Ordering::SeqCst) => {
+                    id.map(|id| serde_json::json!({ "t": "err", "id": id, "code": "refused" }))
+                }
                 "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
+                "letters" => id.map(|id| {
+                    let after = val["after"].as_str().unwrap_or("");
+                    let letters = self.away_letters.lock().unwrap();
+                    let next: Vec<_> = letters.iter()
+                        .filter(|item| item["id"].as_str().is_some_and(|item| item > after))
+                        .take(3).cloned().collect();
+                    serde_json::json!({ "t": "letters", "id": id, "items": next.iter().take(2).collect::<Vec<_>>(), "more": next.len() > 2 })
+                }),
+                "away-open" | "away-close" | "away-alerts" | "post" => {
+                    id.map(|id| serde_json::json!({ "t": "done", "id": id }))
+                }
                 "pair-open" | "reset" | "github-close" | "remove" | "hook-open" | "hook-close" | "hook-collected"
                 | "mcp-open" | "mcp-close" | "allow" | "pair-close" => {
                     id.map(|id| serde_json::json!({ "t": "done", "id": id }))
@@ -1855,7 +2146,9 @@ mod tests {
         closed: Arc<std::sync::atomic::AtomicBool>,
         callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         github_off: bool,
+        refuse_next_mcp_open: Arc<std::sync::atomic::AtomicBool>,
         notes: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
+        away_letters: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
     }
 
     impl FakeRelay {
@@ -1866,7 +2159,9 @@ mod tests {
                 closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 callbacks: Arc::new(std::sync::Mutex::new(None)),
                 github_off: false,
+                refuse_next_mcp_open: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 notes: Arc::new(std::sync::Mutex::new(Vec::new())),
+                away_letters: Arc::new(std::sync::Mutex::new(Vec::new())),
             }
         }
 
@@ -1882,7 +2177,9 @@ mod tests {
             let closed = Arc::clone(&self.closed);
             let callbacks = Arc::clone(&self.callbacks);
             let github_off = self.github_off;
+            let refuse_next_mcp_open = Arc::clone(&self.refuse_next_mcp_open);
             let notes = Arc::clone(&self.notes);
+            let away_letters = Arc::clone(&self.away_letters);
             Arc::new(move |_url: &str| {
                 connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Arc::new(FakeRelayLine {
@@ -1890,7 +2187,9 @@ mod tests {
                     frames: Arc::clone(&frames),
                     closed: Arc::clone(&closed),
                     github_off,
+                    refuse_next_mcp_open: Arc::clone(&refuse_next_mcp_open),
                     notes: Arc::clone(&notes),
+                    away_letters: Arc::clone(&away_letters),
                 }) as Arc<dyn locust_core::phone_anywhere::RelaySocket>)
             })
         }
@@ -1969,6 +2268,449 @@ mod tests {
             rt.frame(0.05);
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
+    }
+
+    #[derive(Default)]
+    struct ScoutGithubFake {
+        calls: Mutex<Vec<(Vec<String>, Option<String>)>>,
+        merged: AtomicBool,
+        closed: AtomicBool,
+        non_admin: AtomicBool,
+        private: AtomicBool,
+        fail_cleanup: AtomicBool,
+    }
+
+    impl ScoutAwayGh for ScoutGithubFake {
+        fn run(&self, args: &[&str], _cwd: &str, input: Option<&str>) -> Result<String, String> {
+            self.calls.lock().unwrap().push((args.iter().map(|s| (*s).to_owned()).collect(), input.map(str::to_owned)));
+            let verb = args.first().copied().unwrap_or("");
+            let joined = args.join(" ");
+            let val = if verb == "repo" {
+                serde_json::json!({"nameWithOwner":"acme/app", "visibility":if self.private.load(Ordering::Acquire) { "PRIVATE" } else { "PUBLIC" },
+                    "defaultBranchRef":{"name":"main"},
+                    "viewerPermission":if self.non_admin.load(Ordering::Acquire) { "WRITE" } else { "ADMIN" }})
+            } else if joined.contains("api user") {
+                return Ok("person".into());
+            } else if joined.contains("/contents/") {
+                if self.merged.load(Ordering::Acquire) {
+                    let text = if joined.contains("yml") {
+                        locust_core::scout_away::away_workflow(if self.private.load(Ordering::Acquire) { 2 } else { 1 })
+                    } else { include_str!("../../../desktop/resources/scout-away.mjs").into() };
+                    return Ok(text);
+                }
+                return Err("Not merged".into());
+            } else if joined.contains("/pulls/12") {
+                return Ok(if self.closed.load(Ordering::Acquire) { "closed" } else { "open" }.into());
+            } else if joined.contains("/git/ref/heads") {
+                return Ok("commit0".into());
+            } else if joined.contains("/git/commits/") {
+                serde_json::json!({"tree":{"sha":"tree0"}})
+            } else if joined.contains("/git/trees") {
+                serde_json::json!({"sha":"newtree"})
+            } else if joined.contains("/git/commits") {
+                serde_json::json!({"sha":"commit1"})
+            } else if joined.ends_with("number}") && joined.contains("/pulls") {
+                serde_json::json!({"url":"https://github.com/acme/app/pull/12","number":12})
+            } else if joined.starts_with("workflow disable") && self.fail_cleanup.load(Ordering::Acquire) {
+                return Err("Could not disable".into());
+            } else {
+                serde_json::json!({})
+            };
+            Ok(val.to_string())
+        }
+    }
+
+    fn away_desk(tag: &str, gh: Arc<ScoutGithubFake>) -> (TempRoot, locust_core::store::Store, FakeRelay, rune::Runtime<State>) {
+        let (root, store) = temp_store(tag);
+        let folder = root.0.join("work");
+        std::fs::create_dir_all(&folder).unwrap();
+        let relay = FakeRelay::new();
+        let connector = relay.connector();
+        let mut rt = headless_window(store.clone(), |link| {
+            link.away_gh = Some(gh);
+            link.set_test_relay(connector, "https://relay.test", None);
+        });
+        rt.update(move |s, _| s.home.folder_path = Some(folder.to_string_lossy().into_owned()));
+        rt.frame(0.05);
+        (root, store, relay, rt)
+    }
+
+    fn enable_phone_for_scout(rt: &mut rune::Runtime<State>) {
+        click_key(rt, "phone-switch");
+        pump_until(rt, "phone connected", |s| s.phone_anywhere.as_ref().is_some_and(|phone| phone.enabled && phone.connected));
+    }
+
+    fn request_away(rt: &mut rune::Runtime<State>, action: ScoutAwaySet) {
+        rt.update(move |s, _| set_scout_away(s, action));
+        rt.frame(0.05);
+        pump_until(rt, "Scout away request", |s| !s.phone_anywhere_link.away_job.is_pending() && s.phone_anywhere_link.away_status.is_some());
+        // Latest can have an untaken answer even when the request finished.
+        rt.update(|s, _| { poll(s); });
+        rt.frame(0.05);
+    }
+
+    fn saved_away(store: &locust_core::store::Store) -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(store.root().join(SCOUT_AWAY_FILE)).unwrap()).unwrap()
+    }
+
+    fn sealed_result(saved: &serde_json::Value, number: u64, repo: &str, word: &str, wrong_key: bool) -> serde_json::Value {
+        use locust_core::scout_away::{AwayFinding, AwayLetter, AwayLetterFrom, AwayLetterKind, seal_away_letter};
+        let day = (chrono::Utc::now() - chrono::Duration::days(1)).date_naive();
+        let letter = AwayLetter {
+            v: 1, kind: AwayLetterKind::Look, at: format!("{day}T{number:02}:00:00Z"),
+            repo: repo.into(), read: true,
+            found: vec![AwayFinding { key: format!("finding:{number}"), urgency: locust_core::scout::types::ScoutUrgency::Now,
+                said: word.into(), detail: None, lines: None, chips: None, url: None }],
+            prs: vec![], told: vec![], brief_day: None,
+        };
+        let other = locust_core::scout_away::new_away_key();
+        let key = if wrong_key { other.as_str() } else { saved["key"].as_str().unwrap() };
+        let boxed = seal_away_letter(key, &letter, saved["room"].as_str().unwrap(), AwayLetterFrom::Away).unwrap();
+        serde_json::json!({"id":format!("{number:013}-aaaaaaaa"), "at":number, "from":"away", "n":boxed.n, "c":boxed.c})
+    }
+
+    #[test]
+    fn scout_away_launch_respects_the_phone_policy_even_with_a_cached_owner() {
+        use locust_core::org_policy::{PolicyState, use_policy_on_this_thread};
+        struct ResetPolicy;
+        impl Drop for ResetPolicy {
+            fn drop(&mut self) { use_policy_on_this_thread(None); }
+        }
+        let _reset = ResetPolicy;
+        let policy = |phone: bool| PolicyState {
+            path: "/test/policy.json".into(),
+            present: true,
+            policy: serde_json::json!({"version": 1, "phone": phone}).as_object().unwrap().clone(),
+            error: None,
+        };
+        let (_root, store) = temp_store("away-launch-policy");
+        let mut s = State::default();
+        s.data = Some(store);
+        s.phone_anywhere_link.away_gh = Some(Arc::new(ScoutGithubFake::default()));
+
+        use_policy_on_this_thread(Some(policy(false)));
+        set_scout_away(&mut s, ScoutAwaySet::On);
+        assert!(s.phone_anywhere_link.away.is_none(), "phone policy blocks creation of an Away owner");
+
+        use_policy_on_this_thread(Some(policy(true)));
+        assert!(ensure_scout_away(&mut s).is_some(), "the same window can construct its owner when allowed");
+
+        use_policy_on_this_thread(Some(policy(false)));
+        set_scout_away(&mut s, ScoutAwaySet::On);
+        let job = &s.phone_anywhere_link.away_job;
+        // With no poll, a forbidden request would either still be pending or have an untaken result.
+        assert!(!job.is_pending() && job.take().is_none(), "a cached owner must not start a forbidden launch");
+    }
+
+    // case: cannot be turned on without the phone’s way from anywhere
+    #[test]
+    fn scout_away_refuses_before_github_without_a_phone_room() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, _store, relay, mut rt) = away_desk("away-needs-phone", gh.clone());
+        request_away(&mut rt, ScoutAwaySet::On);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::Off { blocked: Some(_), .. })));
+        assert!(gh.calls.lock().unwrap().is_empty());
+        assert_eq!(sent(&relay, "away-open"), 0);
+    }
+
+    // case: needs an owner or admin of the repository, who can add its secret
+    #[test]
+    fn scout_away_refuses_a_non_admin_before_opening_a_room() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        gh.non_admin.store(true, Ordering::Release);
+        let (_root, _store, relay, mut rt) = away_desk("away-needs-admin", gh.clone());
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status.as_ref(), Some(ScoutAwayStatus::Off { message: Some(message), .. }) if message.contains("Only an owner or admin")));
+        assert_eq!(sent(&relay, "away-open"), 0);
+        assert_eq!(gh.calls.lock().unwrap().len(), 1);
+    }
+
+    // case: puts its settings in the secret on stdin only, and opens a pull request with the workflow and its file
+    #[test]
+    fn scout_away_opens_a_pr_without_putting_the_secret_on_the_command_line() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        gh.private.store(true, Ordering::Release);
+        let (_root, store, relay, mut rt) = away_desk("away-secret", gh.clone());
+        enable_phone_for_scout(&mut rt);
+        use locust_core::scout::types::{ScoutChange, ScoutQuietHours};
+        rt.state.scout.host.as_ref().unwrap().scout.set(&ScoutChange {
+            quiet: Some(Some(ScoutQuietHours { from: 22, to: 7 })),
+            brief_at: Some(Some(7)),
+            ..ScoutChange::default()
+        });
+        request_away(&mut rt, ScoutAwaySet::On);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status.as_ref(), Some(ScoutAwayStatus::Waiting { pr, .. }) if pr == "https://github.com/acme/app/pull/12"));
+        let saved = saved_away(&store);
+        assert_eq!(sent(&relay, "away-open"), 1);
+        let calls = gh.calls.lock().unwrap();
+        let token = saved["token"].as_str().unwrap();
+        let key = saved["key"].as_str().unwrap();
+        let (args, text) = calls.iter().find(|(args, _)| args.first().map(String::as_str) == Some("secret") && args.get(1).map(String::as_str) == Some("set")).unwrap();
+        assert!(args.iter().all(|arg| !arg.contains(token) && !arg.contains(key)));
+        assert!(calls.iter().flat_map(|(args, _)| args).all(|arg| !arg.contains(token) && !arg.contains(key)));
+        let config: serde_json::Value = serde_json::from_str(text.as_deref().unwrap()).unwrap();
+        assert_eq!(config["token"], token);
+        assert_eq!(config["key"], key);
+        assert_eq!(config["quiet"], serde_json::json!({"from":22, "to":7}));
+        assert_eq!(config["briefAt"], 7);
+        let tree: serde_json::Value = serde_json::from_str(calls.iter().find(|(args, _)| args.iter().any(|arg| arg.ends_with("/git/trees"))).unwrap().1.as_deref().unwrap()).unwrap();
+        assert_eq!(tree["tree"][0]["path"], locust_core::scout_away::AWAY_WORKFLOW_PATH);
+        assert_eq!(tree["tree"][0]["content"], locust_core::scout_away::away_workflow(2));
+        assert_eq!(tree["tree"][1]["path"], locust_core::scout_away::AWAY_SCRIPT_PATH);
+        assert!(tree["tree"][1]["content"].as_str().unwrap().contains("scout-away-entry.ts"));
+        let pr: serde_json::Value = serde_json::from_str(calls.iter().find(|(args, _)| args.iter().any(|arg| arg.ends_with("/pulls"))).unwrap().1.as_deref().unwrap()).unwrap();
+        assert_eq!(pr["base"], "main");
+        assert!(pr["body"].as_str().unwrap().contains("about 360 of the 2,000 free Actions minutes"));
+        let frames = relay.frames.lock().unwrap();
+        let open = frames.iter().find(|frame| frame["t"] == "away-open").unwrap();
+        assert_eq!(open["hash"], locust_core::relay_crypto::sha256_b64url(token));
+        assert_ne!(open["hash"], token);
+        drop(frames);
+        drop(calls);
+        assert_eq!(sent(&relay, "post"), 1);
+    }
+
+    // case: gives Scout the away looks’ letters in order, a page at a time, and only theirs
+    #[test]
+    fn the_phone_receiver_refreshes_only_its_authenticated_scout_results() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, relay, mut rt) = away_desk("away-inbox", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        let saved = saved_away(&store);
+        let first = sealed_result(&saved, 11, "acme/app", "Old valid result", false);
+        let last = sealed_result(&saved, 15, "acme/app", "New valid result", false);
+        let mut pc = sealed_result(&saved, 12, "acme/app", "Not from the away sender", false);
+        pc["from"] = serde_json::json!("pc");
+        *relay.away_letters.lock().unwrap() = vec![first, pc,
+            sealed_result(&saved, 13, "other/project", "Wrong repository", false),
+            sealed_result(&saved, 14, "acme/app", "Wrong key", true),
+            last.clone(),
+        ];
+        relay.push_frame(serde_json::json!({ "t": "letter", "item": last }));
+        pump_until(&mut rt, "native Scout cards from the phone receiver", |s| {
+            s.scout.state.as_ref().is_some_and(|st| st.cards.iter().any(|card| card.fact.said == "New valid result"))
+        });
+        let scout = &rt.state.scout.host.as_ref().unwrap().scout;
+        assert_eq!(scout.state().cards.len(), 2);
+        let log: Vec<_> = scout.log().entries.into_iter().filter(|entry| entry.away).map(|entry| entry.at).collect();
+        assert_eq!(log.len(), 2);
+        assert!(log[0].ends_with("T11:00:00.000Z"), "{log:?}");
+        assert!(log[1].ends_with("T15:00:00.000Z"), "{log:?}");
+        assert_eq!(saved_away(&store)["cursor"], "0000000000015-aaaaaaaa");
+        let frames = relay.frames.lock().unwrap();
+        assert!(frames.iter().any(|frame| frame["t"] == "letters" && frame["after"] == "0000000000012-aaaaaaaa"));
+        assert!(frames.iter().any(|frame| frame["t"] == "letters" && frame["after"] == "0000000000014-aaaaaaaa"));
+    }
+
+    // case: leaves what Scout told only when it changed
+    #[test]
+    fn a_scout_receipt_is_not_repeated_until_the_saved_findings_change() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, relay, mut rt) = away_desk("away-receipt", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        let away = rt.state.phone_anywhere_link.away.as_ref().unwrap();
+        away.leave_told();
+        assert_eq!(sent(&relay, "post"), 1);
+        let result = sealed_result(&saved_away(&store), 11, "acme/app", "A new checked result", false);
+        *relay.away_letters.lock().unwrap() = vec![result.clone()];
+        relay.push_frame(serde_json::json!({ "t": "letter", "item": result }));
+        pump_until(&mut rt, "a changed receipt", |_| sent(&relay, "post") == 2);
+        let away = rt.state.phone_anywhere_link.away.as_ref().unwrap();
+        away.leave_told();
+        assert_eq!(sent(&relay, "post"), 2);
+    }
+
+    // case: off: the relay lets it go, the secret is deleted, and the merged workflow is turned off
+    #[test]
+    fn switching_scout_away_off_cleans_remote_state_and_keeps_an_incomplete_cleanup_retryable() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        gh.merged.store(true, Ordering::Release);
+        let (_root, store, relay, mut rt) = away_desk("away-off", gh.clone());
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::On { .. })));
+        let away = rt.state.phone_anywhere_link.away.as_ref().unwrap().clone();
+        assert!(away.for_phone().is_some());
+        gh.fail_cleanup.store(true, Ordering::Release);
+        request_away(&mut rt, ScoutAwaySet::Off);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::Cleaning { .. })));
+        assert!(away.for_phone().is_none());
+        assert_eq!(saved_away(&store)["cleanup"]["secret"], true);
+        gh.fail_cleanup.store(false, Ordering::Release);
+        request_away(&mut rt, ScoutAwaySet::Off);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::Off { .. })));
+        assert!(!store.root().join(SCOUT_AWAY_FILE).exists());
+        let calls = gh.calls.lock().unwrap();
+        assert_eq!(calls.iter().filter(|(args, _)| args.first().map(String::as_str) == Some("secret") && args.get(1).map(String::as_str) == Some("delete")).count(), 1);
+        assert_eq!(calls.iter().filter(|(args, _)| args.first().map(String::as_str) == Some("workflow") && args.get(1).map(String::as_str) == Some("disable")).count(), 2);
+        assert_eq!(sent(&relay, "away-close"), 1);
+    }
+
+    fn probe_away_merge(rt: &mut rune::Runtime<State>) {
+        let away = rt.state.phone_anywhere_link.away.as_ref().unwrap().clone();
+        rt.update(move |s, _| s.phone_anywhere_link.away_job.request((), move |()| away.status(true)));
+        rt.frame(0.05);
+        pump_until(rt, "Scout away GitHub check", |s| !s.phone_anywhere_link.away_job.is_pending());
+        rt.update(|s, _| { poll(s); });
+        rt.frame(0.05);
+    }
+
+    // case: is on once the pull request is merged, and off when it is closed unmerged
+    #[test]
+    fn scout_away_checks_the_default_branch_and_cleans_a_closed_unmerged_request() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, _store, _relay, mut rt) = away_desk("away-merged", gh.clone());
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        probe_away_merge(&mut rt);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::Waiting { .. })));
+        gh.merged.store(true, Ordering::Release);
+        probe_away_merge(&mut rt);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status, Some(ScoutAwayStatus::On { .. })));
+
+        let other = Arc::new(ScoutGithubFake::default());
+        let (_root, other_store, relay, mut rt) = away_desk("away-unmerged", other.clone());
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        other.closed.store(true, Ordering::Release);
+        probe_away_merge(&mut rt);
+        assert!(matches!(rt.state.phone_anywhere_link.away_status.as_ref(),
+            Some(ScoutAwayStatus::Off { message: Some(message), .. }) if message.contains("without merging")));
+        assert!(!other_store.root().join(SCOUT_AWAY_FILE).exists());
+        assert_eq!(sent(&relay, "away-close"), 1);
+        assert!(other.calls.lock().unwrap().iter().any(|(args, _)| args.join(" ").starts_with("secret delete")));
+    }
+
+    // case: stops, and says why, when the phones were turned off and their room is gone
+    #[test]
+    fn turning_off_the_actual_phone_link_clears_scout_away() {
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, _relay, mut rt) = away_desk("away-phone-off", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        assert!(store.root().join(SCOUT_AWAY_FILE).exists());
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "Scout stopped because its phone went off", |s| {
+            matches!(s.phone_anywhere_link.away_status.as_ref(), Some(ScoutAwayStatus::Off { message: Some(message), .. })
+                if message.contains("Your phones were turned off"))
+        });
+        assert!(!store.root().join(SCOUT_AWAY_FILE).exists());
+    }
+
+    // case: as cards told already, said nowhere else, each look in What Scout saw
+    #[test]
+    fn away_results_are_silent_saved_cards_with_each_look_in_scout_activity() {
+        use locust_core::scout_away::{AwayLetterFrom, SealedAwayBox, open_away_letter, seal_away_letter};
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, relay, mut rt) = away_desk("scout-away-activity", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        let saved = saved_away(&store);
+        let old = sealed_result(&saved, 11, "acme/app", "A check failed", false);
+        let mut unread = sealed_result(&saved, 12, "acme/app", "Ignored", false);
+        let room = saved["room"].as_str().unwrap();
+        let key = saved["key"].as_str().unwrap();
+        let boxed = SealedAwayBox { n: unread["n"].as_str().unwrap().into(), c: unread["c"].as_str().unwrap().into() };
+        let mut letter = open_away_letter(key, &boxed, room, AwayLetterFrom::Away).unwrap();
+        letter.read = false;
+        letter.found.clear();
+        let boxed = seal_away_letter(key, &letter, room, AwayLetterFrom::Away).unwrap();
+        unread["n"] = serde_json::json!(boxed.n);
+        unread["c"] = serde_json::json!(boxed.c);
+        *relay.away_letters.lock().unwrap() = vec![old, unread.clone()];
+        relay.push_frame(serde_json::json!({"t":"letter","item":unread}));
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            poll_scout_away(&mut rt.state, false);
+            if saved_away(&store)["cursor"] == "0000000000012-aaaaaaaa" { break; }
+            assert!(std::time::Instant::now() < deadline, "Scout did not keep the look");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let host = rt.state.scout.host.as_ref().unwrap();
+        assert!(host.deps.drain_notifications().is_empty());
+        let state = host.scout.state();
+        assert_eq!(state.cards.len(), 1);
+        let fact = &state.cards[0].fact;
+        assert!(fact.chips.as_ref().unwrap().iter().any(|chip| chip.text == "while your PC was off"));
+        assert!(host.scout.away_receipt("acme/app").told.contains(&fact.key));
+        let entries = host.scout.log().entries;
+        assert_eq!(entries.iter().filter(|entry| entry.away).count(), 2);
+        assert!(entries.iter().any(|entry| entry.away && entry.github_unread && entry.at.ends_with("T12:00:00.000Z")));
+    }
+
+    #[test]
+    fn the_phone_state_and_dismiss_routes_use_the_windows_scout() {
+        use locust_core::phone_host::answer_phone;
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, relay, mut rt) = away_desk("scout-phone-cards", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        let letter = sealed_result(&saved_away(&store), 11, "acme/app", "A phone-visible finding", false);
+        *relay.away_letters.lock().unwrap() = vec![letter.clone()];
+        relay.push_frame(serde_json::json!({"t":"letter","item":letter}));
+        pump_until(&mut rt, "Scout card came in", |s| s.scout.state.as_ref().is_some_and(|state| !state.cards.is_empty()));
+
+        let calls = phone_calls_with_scout(&mut rt.state, store, Arc::new(|| 0));
+        let get = || answer_phone(calls.as_ref(), "GET", "/api/state", None).unwrap();
+        let card = get().data["scout"][0].clone();
+        assert_eq!(card["said"], "A phone-visible finding");
+        let native_id = rt.state.scout.host.as_ref().unwrap().scout.state().cards[0].card_id.clone();
+        assert_ne!(card["cardId"], native_id, "long native IDs need a compatible phone alias");
+        assert_eq!(get().data["scout"][0]["cardId"], card["cardId"], "aliases are stable across polls");
+        assert!(card.get("take").is_none() && card.get("draft").is_none() && card.get("quote").is_none());
+        let dismissed = answer_phone(calls.as_ref(), "POST", "/api/scout/dismiss",
+            Some(&serde_json::json!({"cardId": card["cardId"]}))).unwrap();
+        assert_eq!(dismissed.data["ok"], true);
+        assert_eq!(get().data["scout"], serde_json::json!([]));
+        assert!(rt.state.scout.host.as_ref().unwrap().scout.state().cards.is_empty());
+    }
+
+    #[test]
+    fn the_phone_dismiss_route_refuses_an_ambiguous_scout_alias() {
+        use locust_core::phone_host::answer_phone;
+        use locust_core::scout::store::SCOUT_FILE;
+        let (_root, store) = temp_store("scout-phone-alias-collision");
+        let legacy = "card_1234567890123456789";
+        let ambiguous = phone_scout_id(legacy);
+        let unique = "card_0123456789ab";
+        assert_ne!(ambiguous, legacy);
+        assert_ne!(ambiguous, unique);
+
+        // A migrated card may already have the canonical ID that a legacy card hashes to.
+        let path = store.root().join(SCOUT_FILE);
+        std::fs::write(path, serde_json::json!({
+            "cards": [
+                {"cardId": ambiguous, "key": "canonical", "said": "Canonical", "at": "2026-01-03T12:00:00.000Z"},
+                {"cardId": legacy, "key": "legacy", "said": "Legacy", "at": "2026-01-02T12:00:00.000Z"},
+                {"cardId": unique, "key": "unique", "said": "Unique", "at": "2026-01-01T12:00:00.000Z"}
+            ]
+        }).to_string()).unwrap();
+        let mut s = State::default();
+        s.data = Some(store.clone());
+        let calls = phone_calls_with_scout(&mut s, store, Arc::new(|| 0));
+        let get = || answer_phone(calls.as_ref(), "GET", "/api/state", None).unwrap().data;
+        let dismiss = |id: &str| {
+            answer_phone(calls.as_ref(), "POST", "/api/scout/dismiss",
+                Some(&serde_json::json!({"cardId": id}))).unwrap()
+        };
+
+        let before = get();
+        assert_eq!(before["scout"].as_array().unwrap().len(), 3);
+        assert_eq!(before["scout"][0]["cardId"].as_str(), Some(ambiguous.as_str()));
+        assert_eq!(before["scout"][1]["cardId"].as_str(), Some(ambiguous.as_str()));
+        let refused = dismiss(&ambiguous);
+        assert_eq!(refused.status, 200);
+        assert_eq!(refused.data, serde_json::json!({"ok": false}));
+        assert_eq!(get()["scout"], before["scout"]);
+
+        let accepted = dismiss(unique);
+        assert_eq!(accepted.status, 200);
+        assert_eq!(accepted.data, serde_json::json!({"ok": true}));
+        assert_eq!(get()["scout"], serde_json::json!(before["scout"].as_array().unwrap()[..2]));
     }
 
     /// NSURLSession's place, taken by a client that connects nowhere: it answers the PC's auth as the relay does.
@@ -2466,6 +3208,55 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         assert!(remote.look().apps.is_empty());
+    }
+
+    #[test]
+    fn a_late_apps_sync_only_opens_each_phone_connection_once() {
+        let (_root, store) = temp_store("apps-sync");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.connected));
+
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        // Force the observed ordering: the real auth callback runs after the setting's open
+        // is acknowledged, rather than relying on the host to schedule it late enough.
+        let callback = ServeMcp(rt.state.phone_anywhere_link.shared.mcp.clone());
+        callback.sync();
+        assert_eq!(sent(&relay, "mcp-open"), 1, "late sync must not advertise the same opening twice");
+
+        assert!(!remote.set_enabled(&serde_json::json!(false)).enabled);
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 2, "an explicit close needs a fresh open");
+
+        // Drop the actual socket, not the preference. The next authentication must advertise again.
+        let old = relay.callbacks.lock().unwrap().clone().expect("authenticated socket");
+        old.on_close();
+        pump_until(&mut rt, "a new authenticated socket", |s| {
+            relay.connects.load(std::sync::atomic::Ordering::SeqCst) == 2
+                && s.phone_anywhere_link.live.as_ref().is_some_and(PhoneAnywhere::connected)
+        });
+        callback.sync();
+        assert_eq!(sent(&relay, "mcp-open"), 3, "the old socket cannot cache the new one's open");
+    }
+
+    #[test]
+    fn apps_can_be_enabled_after_the_relay_refuses_one_open() {
+        use std::sync::atomic::Ordering;
+
+        let (_root, store) = temp_store("apps-not-open-yet");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| s.phone_anywhere.as_ref().is_some_and(|a| a.connected));
+        let remote = crate::remote_mcp_card::made(&rt.state).expect("the window's pairing");
+
+        relay.refuse_next_mcp_open.store(true, Ordering::SeqCst);
+        assert!(!remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 1, "the refused open was tried");
+        assert!(remote.set_enabled(&serde_json::json!(true)).enabled);
+        assert_eq!(sent(&relay, "mcp-open"), 2, "a refused open did not authorize a later opening");
     }
 
     #[test]

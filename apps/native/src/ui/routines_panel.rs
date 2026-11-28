@@ -465,16 +465,51 @@ fn edited_while_running(r: &Value) -> bool {
     matches!(r["execution"]["status"].as_str(), Some("running" | "dispatching"))
 }
 
+/// RoutineDialog's title: Edit routine for a saved one, New routine for one written from nothing, else Save as routine.
+fn editor_title(entry: &Value) -> &'static str {
+    if entry["routineId"].as_str().is_some_and(|id| !id.is_empty()) {
+        "Edit routine"
+    } else if entry["learnedFrom"].as_array().is_none_or(Vec::is_empty) {
+        "New routine"
+    } else {
+        "Save as routine"
+    }
+}
+
 fn runner_choice(s: &State, p: &Palette) -> El {
     let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
     let named = s.teammates.iter().find(|t| t.id == owner);
     if !s.routines.choose_runner {
-        let who = named.map_or_else(|| "The teammate who runs it".into(), |t| format!("{} runs it", t.name));
-        let line = match shown_mode(s) {
-            Some(mode) => format!("{who}, in {mode}."),
-            None => who,
+        let mode = shown_mode(s);
+        let Some(teammate) = named else {
+            let line = mode.map_or_else(|| "The teammate who runs it".to_owned(), |mode| format!("The teammate who runs it, in {mode}."));
+            return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
         };
-        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
+        let saved = s.routines.entry["routineId"].as_str().is_some_and(|id| !id.is_empty());
+        let current_route = teammate.runtime.as_deref().zip(teammate.model.as_deref());
+        let route = if saved {
+            current_route
+        } else {
+            let route = &s.routines.entry["route"];
+            route["runtime"].as_str().zip(route["model"].as_str())
+        };
+        let mut line = format!("{} runs it", teammate.name);
+        if let Some((runtime, model)) = route {
+            line.push_str(" on ");
+            line.push_str(&locust_core::teammate_tooltip::route_label(runtime, model));
+        }
+        if let Some(mode) = mode {
+            line.push_str(&format!(", in {mode}"));
+        }
+        line.push_str(&format!(". Each run uses the model {} last worked on", teammate.name));
+        if current_route.is_none() {
+            line.push_str(" (this one, until they have worked on one)");
+        }
+        if let Some(mode) = mode {
+            line.push_str(&format!(", and always {mode}"));
+        }
+        line.push('.');
+        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary).wrap();
     }
     let mut choice = col().gap(6.0)
         .child(text("Who runs it").font(type_::LABEL).color(p.secondary))
@@ -517,6 +552,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     }
     if !panel.fields.is_empty() {
         let refusal = save_refusal(s);
+        body = body.child(text(editor_title(&panel.entry)).key("routine-editor-title").font(type_::LABEL).color(p.text));
         body = body.child(runner_choice(s, p));
         if let Some(reason) = &refusal {
             body = body.child(text(reason.clone()).key("routine-save-refusal").font(type_::LABEL).color(p.secondary).wrap());
@@ -2532,6 +2568,32 @@ mod renderer_unowned_tests {
             assert!(note.is_none() && !shown.contains("That run keeps the steps"), "{execution}: {shown}");
         }
     }
+    // case: says the model and the mode it runs in, not a rule about read-only
+    // The title, and RoutineDialog.tsx:252-267's one note: "Wren runs it on <route>, in Edit." then "Each run uses the
+    // model Wren last worked on, and always Edit.", with no read-only rule.
+    #[test]
+    fn says_the_model_and_the_mode_it_runs_in_not_a_rule_about_read_only() {
+        let wren = |route: Value| {
+            let mut s = State::default();
+            let mut mate = json!({"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-09-01T00:00:00.000Z"});
+            if !route.is_null() {
+                mate["route"] = route;
+            }
+            s.teammates = native::parse_roster(&json!({"schemaVersion":1,"teammates":[mate]}).to_string()).unwrap();
+            edit(&mut s, json!({"routineId":"rt_todo","name":"Todo page chain","steps":["Write a todo page."],"teammateId":"tm_wren",
+                "route":{"runtime":"cursor","model":"grok-4.7-high","mode":"accept-edits"}}));
+            runtime(s)
+        };
+        let rt = wren(json!({"runtime":"cursor","model":"grok-4.7-high","mode":"accept-edits"}));
+        let key = |rt: &rune::Runtime<State>, key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text);
+        assert_eq!(key(&rt, "routine-editor-title").as_deref(), Some("Edit routine"));
+        let note = key(&rt, "routine-runs-it").unwrap_or_default();
+        assert!(note.starts_with("Wren runs it on ") && note.ends_with(", in Edit. Each run uses the model Wren last worked on, and always Edit."), "{note}");
+        assert!(!words(&rt).contains("stays read-only"), "{}", words(&rt));
+        // A teammate who has worked on no model yet (`teammate.route === undefined`).
+        let rt = wren(Value::Null);
+        assert_eq!(key(&rt, "routine-runs-it").as_deref(), Some("Wren runs it, in Edit. Each run uses the model Wren last worked on (this one, until they have worked on one), and always Edit."));
+    }
     #[test]
     fn asks_who_will_run_it() {
         let shown = words(&runtime(editor(false, true, &["Tidy the notes folder."])));
@@ -2744,3 +2806,15 @@ mod routine_waiting_on_board_tests;
 #[cfg(test)]
 #[path = "routines_page_tests.rs"]
 mod routines_page_tests;
+
+#[cfg(test)]
+#[path = "routine_route_mode_window_tests.rs"]
+mod routine_route_mode_window_tests;
+
+#[cfg(test)]
+#[path = "a_routine_runs_on_its_teammates_route_tests.rs"]
+mod a_routine_runs_on_its_teammates_route_tests;
+
+#[cfg(test)]
+#[path = "routine_editor_title_tests.rs"]
+mod routine_editor_title_tests;

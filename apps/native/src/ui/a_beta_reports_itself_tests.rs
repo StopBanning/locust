@@ -196,7 +196,9 @@ fn show_the_log_takes_no_path() {
 #[test]
 fn a_delete_is_remembered_and_written() {
     let (_dirs, store) = own_data();
-    let id = format!("m_gone_{}", locust_core::native::uuid_v4().unwrap());
+    // A random UUID can contain a card-shaped run of digits across its hyphens, which the log correctly scrubs.
+    // This one test uses this prefix. Its process ID is a u32, so it cannot produce the 13 digits that pattern needs.
+    let id = format!("m_gone_fixture_p{}", std::process::id());
     record(&store, &id, "Plan the launch");
     let in_flight = native::list_recent(native::MAX_LISTED_MISSIONS, true);
     let mut s = State::default();

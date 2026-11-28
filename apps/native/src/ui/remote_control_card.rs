@@ -140,3 +140,7 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
 #[cfg(test)]
 #[path = "remote_control_card_tests.rs"]
 mod tests;
+
+#[cfg(all(test, not(target_os = "macos")))]
+#[path = "remote_control_setup_approval_tests.rs"]
+mod remote_control_setup_approval_tests;

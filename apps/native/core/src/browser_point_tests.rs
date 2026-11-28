@@ -25,6 +25,7 @@ fn chip(id: &str, note: &str, attachment: Option<&str>, point: BrowserPoint) -> 
     PagePointChip { id: id.into(), point, note: note.into(), attachment: attachment.map(str::to_owned) }
 }
 
+// case: the picker script parses
 #[test]
 fn the_picker_script_parses() {
     for script in BROWSER_POINT_SCRIPTS {
@@ -64,6 +65,7 @@ fn the_picker_request_goes_through_main_only() {
     assert_eq!(photographed.get(), 1);
 }
 
+// case: form values never appear in a pick
 #[test]
 fn form_values_never_appear_in_a_pick() {
     let html = r#"<form><input type="text" value="typed-in"><input type="password" value="s3cret-pass"><textarea>typed words</textarea><select><option value="secret-opt" selected>Shown</option></select><input value='single' /><input value=bare></form>"#;
@@ -80,6 +82,7 @@ fn form_values_never_appear_in_a_pick() {
     }
 }
 
+// case: lists the styles that matter for a visual fix
 #[test]
 fn lists_the_styles_that_matter_for_a_visual_fix() {
     let raw = json!({
@@ -105,6 +108,7 @@ fn lists_the_styles_that_matter_for_a_visual_fix() {
     assert_eq!(map["opacity"], "1");
 }
 
+// case: a trimmed HTML says it was trimmed
 #[test]
 fn a_trimmed_html_says_it_was_trimmed() {
     let html = format!("x{}", "y".repeat(MAX_POINTED_HTML + 40));
@@ -115,6 +119,7 @@ fn a_trimmed_html_says_it_was_trimmed() {
     assert!(browser_point_block(&point("pre", "<pre>```js</pre>"), "").contains("````html"));
 }
 
+// case: several picks become several blocks
 #[test]
 fn several_picks_become_several_blocks() {
     let chips = [chip("one", "the spacing is tight", None, point("button#one", "<button id=\"one\">one</button>")), chip("two", "", None, point("button#two", "<button id=\"two\">two</button>"))];
@@ -126,6 +131,7 @@ fn several_picks_become_several_blocks() {
     assert!(text.contains("width: 180px"));
 }
 
+// case: removing a chip removes its picture
 #[test]
 fn removing_a_chip_removes_its_picture() {
     let mut chips = vec![chip("a", "", Some("shot-a.png"), point("button#save", "<button>Save</button>")), chip("b", "", Some("shot-b.png"), point("p", "<p>Hi</p>"))];
@@ -146,6 +152,7 @@ fn browser_false_turns_pointing_off_too() {
     assert!(control.disabled && control.sentence && control.label == refused);
 }
 
+// case: a password field is not pictured with its contents
 #[test]
 fn a_password_field_is_not_pictured_with_its_contents() {
     let html = r#"<input id="pw" type="password" value="s3cret-pass">"#;
@@ -184,6 +191,7 @@ fn a_card_or_one_time_code_field_is_never_pictured_either() {
     assert_eq!(picture_rect(&read, 1.0), Some(Rect { x: 4.0, y: 8.0, width: 180.0, height: 40.0 }));
 }
 
+// case: says when the page does not allow pointing
 #[test]
 fn says_when_the_page_does_not_allow_pointing() {
     let blocked = PointAnswer::Refused { message: POINT_BLOCKED.into(), blocked: true };
@@ -242,6 +250,7 @@ fn takes_ctrl_or_cmd_with_shift_and_c_and_says_so_on_the_button() {
 
 // a-part-of-a-page-can-be-pointed-at.test.ts, the picture of it (captureRectOf), with Electron's numbers.
 
+// case: is the part inside the frame, in the window’s pixels at its zoom
 #[test]
 fn is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom() {
     let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };
@@ -250,6 +259,7 @@ fn is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom() {
     assert_eq!(capture_rect_of(frame, part, 1.25), Some(Rect { x: 763.0, y: 150.0, width: 125.0, height: 63.0 }));
 }
 
+// case: is cut to what the frame shows, and is none when nothing of it is
 #[test]
 fn is_cut_to_what_the_frame_shows_and_is_none_when_nothing_of_it_is() {
     let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };

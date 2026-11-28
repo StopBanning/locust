@@ -366,3 +366,95 @@ fn transcribe_openai(
 #[cfg(test)]
 #[path = "voice_typing_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "voice_unchecked_files_tests.rs"]
+mod unchecked_files_tests;
+
+/// Run an already checked local Whisper executable, with already checked model and WAV paths.
+/// On the shelf until the Windows installer and local capture provide those checked paths.
+/// Never pass an executable or model path chosen by a remote caller.
+pub fn run_local_cli(
+    mut command: std::process::Command,
+    wav: &std::path::Path,
+    model: &std::path::Path,
+    cancel: &AtomicBool,
+    timeout: std::time::Duration,
+) -> Result<String, String> {
+    use std::{
+        io::Read,
+        process::Stdio,
+        sync::mpsc,
+        thread,
+        time::{Duration, Instant},
+    };
+    const FAILED: &str =
+        "Voice typing could not read the recording. Your message is unchanged; try again.";
+    const TIMED_OUT: &str =
+        "Voice typing took too long and was stopped. Your message is unchanged; try a shorter recording.";
+    const OUTPUT_LIMIT: usize = 256_000;
+    let cancelled = || cancel.load(Ordering::Acquire);
+    if cancelled() {
+        return Err(CANCELLED.into());
+    }
+    command.arg("-m").arg(model).arg("-f").arg(wav)
+        .args(["-t", "2", "-l", "en", "-ng", "-nt", "-np"])
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let started = Instant::now();
+    let mut child = command.spawn().map_err(|_| FAILED)?;
+    let stdout = child.stdout.take().expect("child stdout was piped");
+    // Drain while the child runs, or the OS pipe can fill before it exits. Do not wait
+    // forever on a reader if a child unexpectedly leaves a descendant holding the pipe.
+    let (send, receive) = mpsc::sync_channel(1);
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let answer = stdout.take(OUTPUT_LIMIT as u64 + 1).read_to_end(&mut bytes)
+            .map(|_| bytes);
+        let _ = send.send(answer);
+    });
+    let stop = |child: &mut std::process::Child| {
+        let _ = child.kill();
+        let _ = child.wait();
+    };
+    let tick = Duration::from_millis(10);
+    let mut exited = false;
+    loop {
+        if cancelled() {
+            stop(&mut child);
+            return Err(CANCELLED.into());
+        }
+        if started.elapsed() >= timeout {
+            stop(&mut child);
+            return Err(TIMED_OUT.into());
+        }
+        if !exited {
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => exited = true,
+                Ok(None) => {}
+                _ => {
+                    stop(&mut child);
+                    return Err(FAILED.into());
+                }
+            }
+        }
+        if exited {
+            match receive.recv_timeout(tick) {
+                Ok(Ok(bytes)) if bytes.len() <= OUTPUT_LIMIT => {
+                    if cancelled() {
+                        return Err(CANCELLED.into());
+                    }
+                    return Ok(String::from_utf8_lossy(&bytes).trim().into());
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                _ => return Err(FAILED.into()),
+            }
+        } else {
+            thread::sleep(tick);
+        }
+    }
+}

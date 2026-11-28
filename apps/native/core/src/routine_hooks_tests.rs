@@ -640,6 +640,7 @@ fn a_called_link_is_not_a_browser_read_or_replace() {
     assert!(WINDOW_ONLY.contains(&ROUTINE_HOOK_NEW));
 }
 
+// case: redacts the password a call already sent once the link has been replaced
 #[test]
 fn redacts_the_password_a_call_already_sent_once_the_link_has_been_replaced() {
     let f = Fixture::new(&["Summarize the event."]);
@@ -653,6 +654,7 @@ fn redacts_the_password_a_call_already_sent_once_the_link_has_been_replaced() {
     assert!(!starts[0].prompt.contains(&old));
 }
 
+// case: drops a retired password from the file once it is older than a week
 #[test]
 fn drops_a_retired_password_from_the_file_once_it_is_older_than_a_week() {
     let f = Fixture::new(&["Summarize the event."]);
@@ -684,6 +686,7 @@ fn drops_a_retired_password_from_the_file_once_it_is_older_than_a_week() {
     assert!(!open_all().contains(&old));
 }
 
+// case: does not leave the caller's content type outside the untrusted block
 #[test]
 fn does_not_leave_the_callers_content_type_outside_the_untrusted_block() {
     let ctype = "caller-label";

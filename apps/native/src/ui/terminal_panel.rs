@@ -14,6 +14,8 @@ pub(super) struct Panel {
     pub asked: Option<String>,
     pub asked_by_hand: bool,
     pub was_focused: bool,
+    focus_due: bool,
+    catchup_from: Option<String>,
     /// How many catch-ups the window asked for on its own.
     pub asks: u32,
     pub selection: Option<(usize, usize)>,
@@ -30,16 +32,62 @@ pub(super) struct Entry {
 fn key(s: &State) -> String {
     conversation_draft_key(s).unwrap_or_default()
 }
+// Only the creation record is needed. A shell's folder does not depend on reading the rest of the turn.
+fn recorded_workspace(id: &str) -> Option<String> {
+    use std::io::{BufRead, Read};
+    let file = std::fs::File::open(native::find_ledger(id)?).ok()?;
+    let mut line = String::new();
+    std::io::BufReader::new(file.take(1024 * 1024)).read_line(&mut line).ok()?;
+    let row: serde_json::Value = serde_json::from_str(&line).ok()?;
+    (row["recordType"] == "mission.created" && row["metadata"]["missionId"] == id)
+        .then(|| row["metadata"]["workspaceId"].as_str().map(str::to_owned))
+        .flatten()
+}
+
 fn folder(s: &State) -> Option<std::path::PathBuf> {
-    let (teammate, _) = selected_conversation(s)?;
-    // Same host resolution the engine uses for turns (teammate → workspace.json → ~/Documents/Locust).
-    let electron = s
-        .data
-        .as_ref()
-        .map(|store| store.electron().to_path_buf())
-        .or_else(|| native::store().map(|store| store.electron().to_path_buf()))
-        .or_else(engine::default_data_folder)?;
-    native::folder_for(teammate, &electron).ok()
+    use locust_core::{folders, people, worktrees};
+    let store = s.data.clone().or_else(native::store)?;
+    let selection = selected_conversation(s);
+    let context = terminal::TerminalContext {
+        mission_id: s.ledger.as_ref().map(|pane| pane.snapshot.tip.as_str()).filter(|tip| !tip.is_empty())
+            .or_else(|| selection.and_then(|(_, conversation)| conversation.conversation_id.as_deref()))
+            .map(str::to_owned),
+        teammate_id: selection.map(|(teammate, _)| teammate.id.clone()),
+    };
+    // Resolve the selected turn through the receipt, folder registry and roster. The window's current
+    // project is only the starting point before a message; opening a shell never makes a worktree.
+    let result = terminal::terminal_folder(&context, &terminal::TerminalFolderFacts {
+        current: &|| native::open_folder().map(|path| path.to_string_lossy().into_owned()),
+        mission: &recorded_workspace,
+        folder_of: &|id| folders::path_of(&store, id).ok().flatten(),
+        owner_of: &|id| people::owner_of(&store, id),
+        teammates: &|| {
+            people::team(&store).ok().and_then(|team| {
+                Some(team["teammates"].as_array()?.iter().filter_map(|row| Some(terminal::TerminalTeammate {
+                    teammate_id: row["teammateId"].as_str()?.to_owned(),
+                    folder: row["folder"].as_str().map(str::to_owned),
+                    worktree: row["worktree"] == true,
+                })).collect())
+            }).unwrap_or_default()
+        },
+        trees: &|root| {
+            let Some(root) = existing_folder(root) else { return vec![]; };
+            worktrees::run_git(&["worktree", "list", "--porcelain"], &root, Duration::from_secs(2)).ok()
+                .map(|out| worktrees::parse_worktree_list(&out, &root, worktrees::WORKTREE_DIR)
+                    .into_iter().map(|tree| (tree.teammate_id, tree.path)).collect())
+                .unwrap_or_default()
+        },
+    })?;
+    existing_folder(&result)
+}
+
+fn existing_folder(path: &str) -> Option<std::path::PathBuf> {
+    let path = std::path::Path::new(path);
+    if !path.is_absolute() {
+        return None;
+    }
+    let path = path.canonicalize().ok()?;
+    (path.is_dir() && !path.ancestors().any(|p| p.join("resources/app.asar").is_file())).then_some(path)
 }
 fn add(s: &mut State) {
     if s.terminal.tabs.len() >= 8 {
@@ -143,14 +191,18 @@ pub(super) fn catch_up_id(s: &State) -> Option<String> {
 /// WHAT HAPPENED IN THE TERMINAL COMES BACK (App.tsx 0.391): what the person did in the terminal is asked for when the
 /// conversation is shown, and again whenever the window comes back into focus on it, so the promise the terminal
 /// offer makes ("What you do there comes back into this conversation") is kept without a press.
-fn ask_terminal_back(s: &mut State) {
+fn ask_terminal_back(s: &mut State, can_ask: bool) {
     let focus_back = s.window_focused && !s.terminal.was_focused;
     s.terminal.was_focused = s.window_focused;
     let Some(id) = catch_up_id(s) else {
+        s.terminal.focus_due = false;
         return;
     };
-    if (s.terminal.asked.as_deref() != Some(id.as_str()) || focus_back) && !s.terminal.catchup.is_pending() {
+    s.terminal.focus_due |= focus_back;
+    if can_ask && (s.terminal.asked.as_deref() != Some(id.as_str()) || s.terminal.focus_due) {
+        s.terminal.focus_due = false;
         s.terminal.asked = Some(id.clone());
+        s.terminal.catchup_from = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
         s.terminal.asked_by_hand = false;
         s.terminal.asks += 1;
         s.terminal.catchup.request(id, |id| runtime_terminal::catch_up(&id));
@@ -159,17 +211,30 @@ fn ask_terminal_back(s: &mut State) {
 
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = s.terminal.open;
-    ask_terminal_back(s);
-    if let Some(result) = s.terminal.catchup.take() {
-        // Asked on its own, it speaks only when something came back.
+    // Take a landed answer before sending another request. Latest would otherwise drop it.
+    let can_ask = !s.terminal.catchup.is_pending();
+    if can_ask && let Some(result) = s.terminal.catchup.take() {
         let by_hand = std::mem::take(&mut s.terminal.asked_by_hand);
+        let from = s.terminal.catchup_from.take();
+        let pane = s.ledger.as_mut().filter(|pane| {
+            !by_hand && from.is_some() && from == pane.conversation.conversation_id
+        });
         match result {
             Ok(0) | Err(_) if !by_hand => {}
-            Ok(n) => s.composer_note = Some(format!("Brought back {n} terminal turns.")),
+            Ok(n) if by_hand || pane.is_some() => {
+                // The settled conversation normally stops reading its ledger. Read it again only if
+                // this is still the conversation on screen, so the imported turns can be shown in it.
+                if n != 0 && let Some(pane) = pane {
+                    pane.due = 0.;
+                }
+                s.composer_note = Some(format!("Brought back {n} terminal turns."));
+            }
             Err(e) => s.composer_note = Some(e),
+            Ok(_) => {}
         }
         changed = true;
     }
+    ask_terminal_back(s, can_ask);
     for t in &mut s.terminal.tabs {
         if let Err(e) = t.poll() {
             s.terminal.error = Some(e);
@@ -840,3 +905,7 @@ mod command_carry_tests;
 #[cfg(test)]
 #[path = "terminal_comes_back_tests.rs"]
 mod terminal_comes_back_tests;
+
+#[cfg(test)]
+#[path = "terminal_install_folder_refusal_tests.rs"]
+mod terminal_install_folder_refusal_tests;

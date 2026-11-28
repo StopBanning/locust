@@ -224,3 +224,55 @@ fn a_single_handoff_already_in_this_thread_needs_no_summary() {
     let here = thread(with_todos(&[todo("m_asked", "Ada", "Fix login")]));
     assert!(!words(&here).contains("From the call"));
 }
+
+// case: is not there while the call is on, at a piece that is not its last, or for a call kept before it
+#[test]
+fn b09_call_words_summary_only_follows_a_kept_last_piece_with_todos() {
+    let s = with_todos(&[todo("m_note", "Wren", "Draft the release note")]);
+    let call = &s.calls.saved[0];
+    for (live, last, has_handoff) in [(true, true, true), (false, false, true), (false, true, false)] {
+        let mut fixture = call.clone();
+        if live { fixture["partial"] = json!({"you":"","voice":""}); }
+        if !has_handoff { fixture.as_object_mut().unwrap().remove("handed"); }
+        fixture["fixtureLast"] = json!(last);
+        let mut s = state(&[false, true]);
+        s.calls.saved = vec![fixture];
+        let mut rt = Runtime::new(s, |s, _| {
+            let call = &s.calls.saved[0];
+            let piece = Piece { call, lines: Vec::new(), first: true, last: call["fixtureLast"] == true };
+            col().children(draw_with_live(s, &Palette::new(true), &Place::End, &[piece], call.get("partial").map(|_| call)))
+        }, (960., 1200.), Env::new(true, 1.));
+        settle(&mut rt);
+        assert!(!words(&rt).contains("From the call"), "live={live} last={last} has_handoff={has_handoff}");
+    }
+}
+
+// case: follows its run while the window holds it, else the record; waiting on you outranks both
+#[test]
+fn b09_call_words_live_phase_and_waiting_override_the_record() {
+    for (live, record, waiting, expected) in [
+        (None, None, false, "Starting"),
+        (Some("starting"), None, false, "Starting"),
+        (Some("running"), None, false, "Working"),
+        (Some("cancelling"), None, false, "Working"),
+        (Some("running"), None, true, "Needs you"),
+        (Some("completed"), None, true, "Needs you"),
+        (Some("completed"), None, false, "Done"),
+        (None, Some("completed"), false, "Done"),
+        (Some("running"), Some("completed"), false, "Working"),
+        (None, Some("failed"), false, "Failed"),
+        (None, Some("cancelled"), false, "Stopped"),
+        (Some("interrupted"), None, false, "Stopped"),
+    ] {
+        assert_eq!(todo_status(waiting, live, record), expected);
+    }
+    let mut s = with_todos(&[todo("m_note", "Wren", "Draft the release note")]);
+    s.recent.push(ConversationRow { id: "m_note".into(), title: "Note".into(), teammate: "Wren".into(),
+        started_by: "voice".into(), state: "interrupted".into(), updated: String::new() });
+    let mut rt = thread(s);
+    assert!(words(&rt).contains("Stopped"));
+    rt.update(|s,_| { s.home.waiting_for.insert("m_note".into(), "Wren".into()); });
+    settle(&mut rt);
+    assert!(words(&rt).contains("Needs you"));
+    assert!(!words(&rt).contains("Stopped"));
+}

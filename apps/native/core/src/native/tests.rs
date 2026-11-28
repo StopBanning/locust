@@ -2159,6 +2159,7 @@ fn checks_the_monthly_cap_even_when_a_turn_has_no_teammate_owner() {
     assert_eq!(turns_recorded(&store), 0);
 }
 
+// case: uses receipts for the current month and refuses at the effective cap
 #[test]
 fn uses_receipts_for_the_current_month_and_refuses_at_the_effective_cap() {
     let t = Temp::new();
@@ -2183,6 +2184,7 @@ fn uses_receipts_for_the_current_month_and_refuses_at_the_effective_cap() {
     );
 }
 
+// case: also caps unowned turns and cannot escape by naming a missing teammate
 #[test]
 fn also_caps_unowned_turns_and_cannot_escape_by_naming_a_missing_teammate() {
     let t = Temp::new();
@@ -2203,6 +2205,7 @@ fn also_caps_unowned_turns_and_cannot_escape_by_naming_a_missing_teammate() {
     assert!(refused.contains("monthlyLimitUsd") && refused.contains("10.00 USD"), "{refused}");
 }
 
+// case: fails closed when a managed spending record cannot be checked
 #[test]
 fn fails_closed_when_a_managed_spending_record_cannot_be_checked() {
     let t = Temp::new();
@@ -2220,6 +2223,7 @@ fn fails_closed_when_a_managed_spending_record_cannot_be_checked() {
     assert_eq!(turns_recorded(&store), 0);
 }
 
+// case: fails closed if even one saved receipt has become unreadable
 #[test]
 fn fails_closed_if_even_one_saved_receipt_has_become_unreadable() {
     let t = Temp::new();

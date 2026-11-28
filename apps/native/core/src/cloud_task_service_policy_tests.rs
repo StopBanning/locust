@@ -80,7 +80,7 @@ fn fake_runners<'a>(store: &Store, calls: &'a RefCell<Vec<String>>) -> CloudTask
 }
 
 fn refused(result: CloudStartResult, why: &str) {
-    let CloudStartResult::Err { message } = result else {
+    let CloudStartResult::Err { message, .. } = result else {
         panic!("expected refusal mentioning {why}, got {result:?}");
     };
     assert!(message.contains(why), "{message}");

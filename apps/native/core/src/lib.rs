@@ -632,6 +632,8 @@ mod thread_order_tests;
 pub mod steps_line;
 #[cfg(test)]
 mod steps_line_tests;
+#[cfg(test)]
+mod long_command_line_tests;
 pub mod thread_words;
 #[cfg(test)]
 mod thread_words_tests;
@@ -643,3 +645,9 @@ mod live2_claude_account_tests;
 mod claude_context_kept_tests;
 #[cfg(test)]
 mod claude_context_read_tests;
+
+#[cfg(test)]
+mod own_command_boundary_parity_tests;
+
+#[cfg(test)]
+mod status_folded_effort_sweep_tests;

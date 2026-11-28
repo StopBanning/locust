@@ -319,7 +319,7 @@ fn is_own_mark_model(model: &str) -> bool {
 /// The runtime id a conversation without a teammate ran on: from its ledger summary (ignoring custom `own-` models),
 /// else from its `recent` row's runtime display name (as `main.rs` writes via `engine::runtime_name` and `native-live`
 /// sets `"Codex"`). Returns `None` when no known runtime mark applies.
-fn row_runtime<'a>(s: &'a State, item: &SidebarMission) -> Option<&'a str> {
+pub(crate) fn row_runtime<'a>(s: &'a State, item: &SidebarMission) -> Option<&'a str> {
     if let Some(m) = s.ledger_summaries.get(&item.mission_id) {
         return (!m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
             .then_some(m.runtime.as_str());
@@ -804,22 +804,34 @@ pub(super) fn delete_conversation(s: &mut State, store: &crate::store::Store, ke
     if keys.iter().any(|k| running.contains(k)) {
         return Err(locust_core::trash::STILL_RUNNING.to_owned());
     }
-    let mut deleted = 0;
+    let mut deleted = Vec::new();
+    let mut trash_error = None;
     for key in keys {
-        if locust_core::trash::delete_mission(&dir, key, &running)? {
-            locust_core::diagnostic_log::this_session().deleted(store.root(), key);
-            deleted += 1;
+        match locust_core::trash::delete_mission(&dir, key, &running) {
+            Ok(true) => {
+                locust_core::diagnostic_log::this_session().deleted(store.root(), key);
+                deleted.push(key.as_str());
+            }
+            Ok(false) => {}
+            Err(error) => { trash_error = Some(error); break; }
         }
     }
-    if deleted == 0 {
+    if deleted.is_empty() {
         // Not in this app's record: Electron's conversations are read here, never changed.
-        return Err(locust_core::trash::ELECTRON_ONLY.to_owned());
+        return Err(trash_error.unwrap_or_else(|| locust_core::trash::ELECTRON_ONLY.to_owned()));
     }
+    let cleared = org::clear_org_for_deleted(store, &mut s.org, &deleted);
     let shown = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
     if shown.is_some_and(|id| keys.contains(&id)) {
         s.ledger = None;
     }
-    Ok(())
+    if let Err(error) = cleared {
+        return Err(format!("Moved to Trash, but its pins and put-away marks could not be cleared: {error}"));
+    }
+    match trash_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 /// What follows a delete, once however many conversations went: the trash and storage lines, and the list read again.
@@ -2290,3 +2302,7 @@ fn drawn_list_built() {
 
 #[cfg(not(test))]
 fn drawn_list_built() {}
+
+#[cfg(test)]
+#[path = "sidebar_deleted_org_tests.rs"]
+mod sidebar_deleted_org_tests;

@@ -28,6 +28,13 @@ pub const TITLE: TextStyle = TextStyle::new(13.0, 600.0);
 /// (shell.css 0.862's receipt labels; approval_card.rs says where).
 pub const FACT_LABEL: TextStyle = TextStyle::new(12.0, 600.0);
 
+/// Headings inside a reply, and inside a Word or PowerPoint file read as one (DocumentView.tsx: "the reply's own heading
+/// sizes"): shell.css .lc-heading--1/2/3 are 1.15em, 1.05em and 1em of the running text at weight 600, line height 1.3.
+/// A slide's title (.lc-docview__slide) is 1.05em, as HEADING_2.
+pub const HEADING_1: TextStyle = TextStyle::new(13.0 * 1.15, 600.0).lh(13.0 * 1.15 * 1.3);
+pub const HEADING_2: TextStyle = TextStyle::new(13.0 * 1.05, 600.0).lh(13.0 * 1.05 * 1.3);
+pub const HEADING_3: TextStyle = TextStyle::new(13.0, 600.0).lh(13.0 * 1.3);
+
 #[cfg(test)]
 #[path = "type_tests.rs"]
 mod type_tests;

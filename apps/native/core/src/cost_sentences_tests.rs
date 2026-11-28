@@ -21,7 +21,7 @@ fn a_run_that_has_not_finished_has_not_reported_a_cost_yet() {
     assert_eq!(cost_label_and_line(&[], true), ("Usage", "reported when the run ends".to_owned()));
 }
 
-// "a model whose own id says it is free reads free" (and "a reported number still wins over the name").
+// case: a model whose own id says it is free reads free
 #[test]
 fn a_model_whose_own_id_says_it_is_free_reads_free_and_a_reported_number_still_wins() {
     assert_eq!(cost_cell(None, "opencode/ling-3.0-flash-fin-free"), "free");

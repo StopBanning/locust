@@ -319,3 +319,7 @@ mod tests;
 #[cfg(test)]
 #[path = "page_points_parity_tests.rs"]
 mod parity_tests;
+
+#[cfg(test)]
+#[path = "page_points_policy_case_tests.rs"]
+mod page_points_policy_case_tests;

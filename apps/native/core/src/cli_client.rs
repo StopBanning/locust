@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 const SWITCH: &str = "Open Locust and turn on Settings > General > Let your other AI apps use Locust.";
@@ -20,7 +20,7 @@ const MAX_REPLY: u64 = 5 * 1024 * 1024;
 /// The file Locust writes beside its settings (`MCP_CONNECTION_FILE`).
 pub const CONNECTION_FILE: &str = "locust-mcp-connection.json";
 
-pub const HELP: &str = "Usage: locust [--profile <Locust profile folder>] teammates | status | send <teammate> \"<message>\"
+pub const HELP: &str = "Usage: locust [--profile <Locust profile folder>] teammates | status | send <teammate> \"<message>\" | acp [--teammate <name or id>]
 Locust must already be open, with Settings > General > Let your other AI apps use Locust on.
 Turns use Ask mode unless Use each teammate's own mode is on in Locust. Cards are answered in Locust; an editor
 answers its own turn's cards only when Let editors answer cards for their own turns is on. This command never signs
@@ -154,7 +154,7 @@ impl Abort {
     }
 
     /// Sleep that ends early when this is aborted.
-    fn sleep(&self, how_long: Duration) {
+    pub(crate) fn sleep(&self, how_long: Duration) {
         let until = Instant::now() + how_long;
         while !self.aborted() {
             let now = Instant::now();
@@ -264,11 +264,16 @@ fn settle(sent: &Mutex<Sent>) -> Result<(), LocalError> {
 }
 
 /// The command's connection to Locust.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LocustClient {
     profile: PathBuf,
     timeout: Duration,
+    #[cfg(test)]
+    test_call: Option<TestCall>,
 }
+
+#[cfg(test)]
+type TestCall = Arc<dyn Fn(&str, Value) -> Result<Value, LocalError> + Send + Sync>;
 
 impl LocustClient {
     pub fn new(profile: impl Into<PathBuf>) -> Self {
@@ -276,11 +281,20 @@ impl LocustClient {
     }
 
     pub fn with_timeout(profile: impl Into<PathBuf>, timeout: Duration) -> Self {
-        Self { profile: profile.into(), timeout }
+        Self { profile: profile.into(), timeout, #[cfg(test)] test_call: None }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(call: TestCall) -> Self {
+        Self { test_call: Some(call), ..Self::new(PathBuf::new()) }
     }
 
     /// One call: the connection file read fresh, one request with the token, the answer's text read as JSON.
     pub fn call(&self, name: &str, args: Value) -> Result<Value, LocalError> {
+        #[cfg(test)]
+        if let Some(call) = &self.test_call {
+            return call(name, args);
+        }
         let not_open = || local(format!("Locust is not open, or its local server is off. {SWITCH}"));
         let raw = std::fs::read_to_string(self.profile.join(CONNECTION_FILE)).map_err(|_| not_open())?;
         let (url, token) = connection_of(&raw).ok_or_else(not_open)?;
@@ -381,6 +395,10 @@ impl LocustClient {
         json!({"sessionId": session.session_id, "key": session.key})
     }
 
+    pub(crate) fn keepalive(&self, session: &CliSession) -> Result<Value, LocalError> {
+        self.call("cli/keepalive", Self::auth(session))
+    }
+
     pub fn close(&self, session: &CliSession) -> Result<Value, LocalError> {
         self.call("cli/close", Self::auth(session))
     }
@@ -393,7 +411,9 @@ impl LocustClient {
         self.call("cli/cancel", args)
     }
 
-    pub fn decide(&self, session: &CliSession, approval_id: &str, approve: bool) -> Result<Value, LocalError> {
+    /// Forward the editor's answer to its authenticated door session. Only the door may decide:
+    /// it rechecks the saved opt-in and that this card is still pending on this session's current turn.
+    pub(crate) fn answer_editor_card(&self, session: &CliSession, approval_id: &str, approve: bool) -> Result<Value, LocalError> {
         let mut args = Self::auth(session);
         args["approvalId"] = json!(approval_id);
         args["approve"] = json!(approve);
@@ -408,8 +428,34 @@ impl LocustClient {
         message: &str,
         signal: Option<&Abort>,
         on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
+        on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
+        poll: Duration,
+    ) -> Result<Ended, LocalError> {
+        self.follow(session, message, signal, on_text, on_approvals, poll, false)
+    }
+
+    pub(crate) fn prompt_owned(
+        &self,
+        session: &CliSession,
+        message: &str,
+        signal: Option<&Abort>,
+        on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
+        on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
+        poll: Duration,
+    ) -> Result<Ended, LocalError> {
+        self.follow(session, message, signal, on_text, on_approvals, poll, true)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn follow(
+        &self,
+        session: &CliSession,
+        message: &str,
+        signal: Option<&Abort>,
+        on_text: &mut dyn FnMut(&CliText) -> Result<(), LocalError>,
         mut on_approvals: Option<&mut dyn FnMut(&[CliApproval], &Abort)>,
         poll: Duration,
+        strict_owner: bool,
     ) -> Result<Ended, LocalError> {
         let aborted = || signal.is_some_and(Abort::aborted);
         if aborted() {
@@ -434,6 +480,7 @@ impl LocustClient {
             s.on_abort(Box::new(move || stop()))
         });
         let followed = (|| -> Result<Ended, LocalError> {
+            if aborted() { return Ok(Ended::Cancelled); }
             let mut start = Self::auth(session);
             start["message"] = json!(message);
             start["requestId"] = json!(request_id);
@@ -452,6 +499,11 @@ impl LocustClient {
                     return Ok(Ended::Cancelled);
                 }
                 let (turn, events, next, approvals) = poll_of(&answer).ok_or_else(unreadable)?;
+                if strict_owner && !turn.as_ref()
+                    .is_some_and(|t| t["requestId"].as_str() == Some(request_id.as_str()))
+                {
+                    return Err(unreadable());
+                }
                 for event in &events {
                     on_text(event)?;
                 }
@@ -528,7 +580,7 @@ fn poll_of(answer: &Value) -> Option<Poll> {
                 summary: a["summary"].as_str()?.to_owned(),
                 detail: a["detail"].as_str().unwrap_or_default().to_owned(),
                 cwd: a["cwd"].as_str().map(str::to_owned),
-                answer_in_locust: a["answerInLocust"] == true,
+                answer_in_locust: a["answerInLocust"] != false,
             })
         })
         .collect::<Option<Vec<_>>>()?;
@@ -564,7 +616,13 @@ impl<'a> TextStream<'a> {
 /// The command: its arguments in, its exit code out. What it prints goes to `out`; waits and refusals to `err`.
 /// `signal` is the terminal's interrupt: a reply being followed is cancelled, and the command answers 130.
 pub fn run(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abort) -> i32 {
-    match main(argv, out, err, signal) {
+    run_command(argv, out, err, signal, None)
+}
+
+type AcpEntry = fn(&Path, Option<String>);
+
+fn run_command(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abort, acp: Option<AcpEntry>) -> i32 {
+    match main(argv, out, err, signal, acp) {
         Ok(code) => code,
         Err(error) => {
             let _ = writeln!(err, "{error}");
@@ -573,7 +631,7 @@ pub fn run(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &A
     }
 }
 
-fn main(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abort) -> Result<i32, LocalError> {
+fn main(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abort, acp: Option<AcpEntry>) -> Result<i32, LocalError> {
     let wrote = |_| local("Locust could not finish. Check the conversation in Locust.");
     let mut args: Vec<String> = argv.to_vec();
     let mut profile: Option<PathBuf> = None;
@@ -589,10 +647,19 @@ fn main(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abor
         writeln!(out, "{HELP}").map_err(wrote)?;
         return Ok(0);
     }
-    let client = LocustClient::new(match profile {
+    if args[0] == "acp" && args.len() != 1 && !(args.len() == 3 && args[1] == "--teammate") {
+        writeln!(err, "{HELP}").map_err(wrote)?;
+        return Ok(2);
+    }
+    let profile = match profile {
         Some(profile) => profile,
         None => default_profile()?,
-    });
+    };
+    if args[0] == "acp" && let Some(acp) = acp {
+        acp(&profile.join(CONNECTION_FILE), args.get(2).cloned());
+        return Ok(0);
+    }
+    let client = LocustClient::new(profile);
     if args[0] == "teammates" && args.len() == 1 {
         let team = client.teammates()?;
         if team.is_empty() {
@@ -641,6 +708,164 @@ fn main(argv: &[String], out: &mut dyn Write, err: &mut dyn Write, signal: &Abor
     Ok(2)
 }
 
+const TERMINAL_PENDING_LIMIT: usize = 2 * 1024 * 1024;
+const TERMINAL_SLOW: &str = "The terminal did not keep up with the reply. Read it in Locust.";
+
+#[derive(Default)]
+struct TerminalState {
+    queued: Vec<u8>,
+    in_flight: usize,
+    failed: bool,
+    closed: bool,
+}
+
+type TerminalQueue = Arc<(Mutex<TerminalState>, Condvar)>;
+
+/// Do not block door polling or cancellation on a terminal that no longer reads its pipe.
+struct TerminalOutput {
+    queue: TerminalQueue,
+    writer: Option<std::thread::JoinHandle<()>>,
+}
+
+impl TerminalOutput {
+    fn new(mut out: impl Write + Send + 'static) -> std::io::Result<Self> {
+        let queue: TerminalQueue = Arc::default();
+        let copy = queue.clone();
+        let writer = std::thread::Builder::new().name("locust-stdout".into()).spawn(move || {
+            let (state, wake) = &*copy;
+            loop {
+                let mut held = state.lock().unwrap_or_else(|e| e.into_inner());
+                held = wake.wait_while(held, |s| s.queued.is_empty() && !s.closed && !s.failed)
+                    .unwrap_or_else(|e| e.into_inner());
+                if held.failed || held.queued.is_empty() {
+                    return;
+                }
+                let bytes = std::mem::take(&mut held.queued);
+                held.in_flight = bytes.len();
+                drop(held);
+                let ok = out.write_all(&bytes).and_then(|_| out.flush()).is_ok();
+                let mut held = state.lock().unwrap_or_else(|e| e.into_inner());
+                held.in_flight = 0;
+                if !ok {
+                    held.failed = true;
+                }
+                wake.notify_all();
+            }
+        })?;
+        Ok(Self { queue, writer: Some(writer) })
+    }
+
+    /// Tests and the worker can pause a physical write; queued and in-flight bytes still share one limit.
+    fn finish(mut self, signal: &Abort) -> Result<(), LocalError> {
+        let (state, wake) = &*self.queue;
+        let queue = self.queue.clone();
+        let listener = signal.on_abort(Box::new(move || {
+            let _held = queue.0.lock().unwrap_or_else(|e| e.into_inner());
+            queue.1.notify_all();
+        }));
+        let mut held = state.lock().unwrap_or_else(|e| e.into_inner());
+        held.closed = true;
+        wake.notify_all();
+        let held = wake.wait_while(held, |s| !s.failed && !signal.aborted()
+            && (!s.queued.is_empty() || s.in_flight > 0))
+            .unwrap_or_else(|e| e.into_inner());
+        let failed = held.failed;
+        let interrupted = signal.aborted();
+        drop(held);
+        if let Some(id) = listener { signal.off(id); }
+        if interrupted {
+            return Ok(());
+        }
+        if failed {
+            return Err(local(TERMINAL_SLOW));
+        }
+        if let Some(writer) = self.writer.take() {
+            writer.join().map_err(|_| local(TERMINAL_SLOW))?;
+        }
+        Ok(())
+    }
+
+    fn slow(&self) -> std::io::Error {
+        std::io::Error::other(TERMINAL_SLOW)
+    }
+}
+
+impl Write for TerminalOutput {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let (state, wake) = &*self.queue;
+        let mut held = state.lock().unwrap_or_else(|e| e.into_inner());
+        if held.failed || held.closed
+            || held.queued.len() + held.in_flight + bytes.len() > TERMINAL_PENDING_LIMIT
+        {
+            held.failed = true;
+            held.queued.clear();
+            wake.notify_all();
+            return Err(self.slow());
+        }
+        held.queued.extend_from_slice(bytes);
+        wake.notify_all();
+        Ok(bytes.len())
+    }
+
+    // Flushing happens on the writer thread. The final successful drain is in finish.
+    fn flush(&mut self) -> std::io::Result<()> {
+        if self.queue.0.lock().unwrap_or_else(|e| e.into_inner()).failed { Err(self.slow()) } else { Ok(()) }
+    }
+}
+
+impl Drop for TerminalOutput {
+    fn drop(&mut self) {
+        let (state, wake) = &*self.queue;
+        let mut held = state.lock().unwrap_or_else(|e| e.into_inner());
+        held.closed = true;
+        if self.writer.is_some() {
+            // An overflowing, interrupted or broken pipe can be blocked in write(2). Do not join it.
+            held.failed = true;
+            held.queued.clear();
+        }
+        wake.notify_all();
+    }
+}
+
+/// Standalone executable entry. No GUI or engine starts here; all terminal calls go through the existing door.
+pub fn run_process(argv: &[String]) -> i32 {
+    let signal = Abort::new();
+    let mut err = std::io::stderr();
+    // The existing ACP adapter owns its own stdio. Don't disguise it as the bounded terminal text path.
+    let is_acp = argv.iter().enumerate().find(|(i, arg)| {
+        arg.as_str() != "--profile" && (*i == 0 || argv[*i - 1] != "--profile")
+    }).is_some_and(|(_, arg)| arg == "acp");
+    if is_acp {
+        return run_command(argv, &mut std::io::stdout(), &mut err, &signal, Some(crate::acp_agent::acp_main));
+    }
+    let stop = signal.clone();
+    if ctrlc::set_handler(move || stop.abort()).is_err() {
+        let _ = writeln!(err, "Locust could not watch for an interrupt. Nothing was sent.");
+        return 1;
+    }
+    let Ok(mut out) = TerminalOutput::new(std::io::stdout()) else {
+        let _ = writeln!(err, "{TERMINAL_SLOW}");
+        return 1;
+    };
+    let code = run_command(argv, &mut out, &mut err, &signal, None);
+    if code != 0 {
+        return code;
+    }
+    if let Err(error) = out.finish(&signal) {
+        let _ = writeln!(err, "{error}");
+        return 1;
+    }
+    if signal.aborted() { 130 } else { 0 }
+}
+
 #[cfg(test)]
 #[path = "cli_client_tests.rs"]
 mod cli_client_tests;
+
+#[cfg(test)]
+#[path = "cli_terminal_tests.rs"]
+mod cli_terminal_tests;
+
+#[cfg(test)]
+#[path = "cli_approval_default_tests.rs"]
+mod cli_approval_default_tests;

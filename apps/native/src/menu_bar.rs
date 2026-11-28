@@ -135,3 +135,7 @@ impl<H: TrayHost> MenuBar<H> {
 #[cfg(test)]
 #[path = "menu_bar_tests.rs"]
 mod menu_bar_tests;
+
+#[cfg(test)]
+#[path = "quit_guard_tray_parity_tests.rs"]
+mod quit_guard_tray_parity_tests;

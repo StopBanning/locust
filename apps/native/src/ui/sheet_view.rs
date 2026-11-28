@@ -15,16 +15,19 @@ pub(super) const FORMULA_SAID: &str = "A formula the file holds no result for is
 const CELL_W: f32 = 88.0;
 const ROW_HEAD_W: f32 = 36.0;
 
-/// What `read_document` read of each workbook it opened, by folder and path, for the viewer to draw as a grid.
-static READ: LazyLock<Mutex<HashMap<(std::path::PathBuf, String), Workbook>>> = LazyLock::new(Default::default);
+type WorkbookKey = (std::path::PathBuf, String);
 
-/// The sheet each open workbook shows, by path: its tabs choose it.
-static SHOWN: LazyLock<Mutex<HashMap<String, usize>>> = LazyLock::new(Default::default);
+/// What `read_document` read of each workbook it opened, by folder and path, for the viewer to draw as a grid.
+static READ: LazyLock<Mutex<HashMap<WorkbookKey, Workbook>>> = LazyLock::new(Default::default);
+
+/// The sheet each open workbook shows, by folder and path: its tabs choose it.
+static SHOWN: LazyLock<Mutex<HashMap<WorkbookKey, usize>>> = LazyLock::new(Default::default);
 
 /// Keep the workbook read at `path` in `folder`, for [`grid`]; it opens on its first sheet.
 pub(super) fn keep(folder: &std::path::Path, path: &str, book: Workbook) {
-    READ.lock().unwrap_or_else(|e| e.into_inner()).insert((folder.to_path_buf(), path.to_owned()), book);
-    SHOWN.lock().unwrap_or_else(|e| e.into_inner()).remove(path);
+    let key = (folder.to_path_buf(), path.to_owned());
+    READ.lock().unwrap_or_else(|e| e.into_inner()).insert(key.clone(), book);
+    SHOWN.lock().unwrap_or_else(|e| e.into_inner()).remove(&key);
 }
 
 /// What lay past the bounds and why a formula shows as written, in one line, or nothing when there is neither.
@@ -55,11 +58,12 @@ fn note(sheet: &SheetTable, more_sheets: usize) -> Option<String> {
 /// The workbook at `path` in the viewer, as its grid (`SheetView`), when the viewer read one; `None` leaves its text.
 pub(super) fn grid(s: &State, path: &str, p: &Palette) -> Option<El> {
     let folder = std::path::PathBuf::from(selected_conversation(s)?.0.folder.as_deref()?);
-    let book = READ.lock().unwrap_or_else(|e| e.into_inner()).get(&(folder, path.to_owned())).cloned()?;
+    let key = (folder, path.to_owned());
+    let book = READ.lock().unwrap_or_else(|e| e.into_inner()).get(&key).cloned()?;
     let Some(last) = book.sheets.len().checked_sub(1) else {
         return Some(text("This workbook has no sheets.").font(type_::LABEL).color(p.muted));
     };
-    let shown = SHOWN.lock().unwrap_or_else(|e| e.into_inner()).get(path).copied().unwrap_or(0).min(last);
+    let shown = SHOWN.lock().unwrap_or_else(|e| e.into_inner()).get(&key).copied().unwrap_or(0).min(last);
     let sheet = &book.sheets[shown];
     let mut view = col().key("sheet").w_full().gap(8.0).grow(1.0).min_h(0.0);
     if sheet.rows.is_empty() {
@@ -108,7 +112,7 @@ pub(super) fn grid(s: &State, path: &str, p: &Palette) -> Option<El> {
     if book.sheets.len() > 1 {
         let mut tabs = row().key("sheet/tabs").role("tablist").label("Sheets").gap(4.0);
         for (i, one) in book.sheets.iter().enumerate() {
-            let path = path.to_owned();
+            let key = key.clone();
             tabs = tabs.child(
                 text(one.name.clone())
                     .key(format!("sheet/tab/{i}"))
@@ -120,7 +124,7 @@ pub(super) fn grid(s: &State, path: &str, p: &Palette) -> Option<El> {
                     .radius(4.0)
                     .fill(if i == shown { p.selected } else { p.raised })
                     .on_press(move |_s: &mut State| {
-                        SHOWN.lock().unwrap_or_else(|e| e.into_inner()).insert(path.clone(), i);
+                        SHOWN.lock().unwrap_or_else(|e| e.into_inner()).insert(key.clone(), i);
                     }),
             );
         }

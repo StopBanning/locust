@@ -30,17 +30,20 @@ fn footprint_816() -> f64 {
     (COVER_HEIGHT + COVER_REACH) * (816.0 / 960.0)
 }
 
+// case: is short at its normal spacing, so it tightens
 #[test]
 fn is_short_at_its_normal_spacing_so_it_tightens() {
     assert!(home_is_short(SECTIONS, 5, footprint_816(), PANE_782));
 }
 
+// case: then fits: tight spacing saves enough with the cover at its floor
 #[test]
 fn then_fits_tight_spacing_saves_enough_with_the_cover_at_its_floor() {
     let tight = SECTIONS + footprint_816() * COVER_MIN_GROW + HOME_TIGHT_GAP * 4.0 + HOME_TIGHT_PAD * 2.0;
     assert!(tight <= PANE_782, "{tight}");
 }
 
+// case: is not short with room to spare (control), nor with nothing measured
 #[test]
 fn is_not_short_with_room_to_spare_control_nor_with_nothing_measured() {
     assert!(!home_is_short(SECTIONS, 5, footprint_816(), 760.0));
@@ -48,6 +51,7 @@ fn is_not_short_with_room_to_spare_control_nor_with_nothing_measured() {
     assert!(!home_is_short(SECTIONS, 5, footprint_816(), 0.0));
 }
 
+// case: counts the bots' reach above the cover, which the old measure left out
 #[test]
 fn counts_the_bots_reach_above_the_cover_which_the_old_measure_left_out() {
     let box_only = COVER_HEIGHT * (816.0 / 960.0);

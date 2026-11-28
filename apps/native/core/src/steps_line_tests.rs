@@ -58,18 +58,21 @@ fn line(items: &[Item]) -> String {
 }
 const LONG: &str = "a-full-rule-store-keeps-every-rule.test.ts";
 
+// case: names a lone command by what the model said it was for (Claude Code)
 #[test]
 fn names_a_lone_command_by_what_the_model_said_it_was_for_claude_code() {
     let item = shell_with("pnpm esbuild x.ts", Shell { title: Some("Bundle with pnpm esbuild and run benchmark"), ..OK });
     assert_eq!(line(&[item]), "Bundle with pnpm esbuild and run benchmark");
 }
 
+// case: says a lone described command that failed as the thing not done
 #[test]
 fn says_a_lone_described_command_that_failed_as_the_thing_not_done() {
     let item = shell_with("python ce3.py", Shell { title: Some("Add per-column effort chip and CSS"), failed: true, exit: Some(2), ..OK });
     assert_eq!(line(&[item]), "[Failed to add per-column effort chip and CSS]");
 }
 
+// case: counts reads and commands the way Claude Code does, naming nothing when it mixes kinds (0.610)
 #[test]
 fn counts_reads_and_commands_the_way_claude_code_does_naming_nothing_when_it_mixes_kinds_0_610() {
     assert_eq!(line(&[tool("Read", "src/a.ts"), tool("Read", "src/b.ts"), shell("git status")]), "Read 2 files, ran a command");
@@ -77,6 +80,7 @@ fn counts_reads_and_commands_the_way_claude_code_does_naming_nothing_when_it_mix
     assert_eq!(line(&[shell("git status")]), "Ran git status");
 }
 
+// case: reads a command that only looks as looking (Codex and Cursor send no descriptions)
 #[test]
 fn reads_a_command_that_only_looks_as_looking_codex_and_cursor_send_no_descriptions() {
     assert_eq!(line(&[shell("sed -n '1,80p' src/app.ts"), shell("rg effort src"), shell("ls")]), "Read a file, ran a search, listed a folder");
@@ -86,6 +90,7 @@ fn reads_a_command_that_only_looks_as_looking_codex_and_cursor_send_no_descripti
     assert_eq!(crate::steps_line::command_looks_at("pnpm test"), None);
 }
 
+// case: names what it made when that is all it did, and counts it beside other steps (0.610)
 #[test]
 fn names_what_it_made_when_that_is_all_it_did_and_counts_it_beside_other_steps_0_610() {
     assert_eq!(line(&[created("ce3.py")]), "Created ce3.py");
@@ -95,12 +100,14 @@ fn names_what_it_made_when_that_is_all_it_did_and_counts_it_beside_other_steps_0
     );
 }
 
+// case: says the thought only when nothing else was done: Claude Code's lines never lead with it (0.610)
 #[test]
 fn says_the_thought_only_when_nothing_else_was_done_claude_codes_lines_never_lead_with_it_0_610() {
     assert_eq!(line(&[thought("", Some(12_000)), shell("npm test")]), "Ran npm test");
     assert_eq!(line(&[thought("", Some(12_000))]), "Thought for 12s");
 }
 
+// case: never hides what went wrong: failures, silence, refusals in amber after the words
 #[test]
 fn never_hides_what_went_wrong_failures_silence_refusals_in_amber_after_the_words() {
     assert_eq!(line(&[shell_with("npm test", Shell { exit: Some(1), failed: true, ..OK }), shell("npm run lint")]), "Ran 2 commands · [1 failed]");
@@ -108,6 +115,7 @@ fn never_hides_what_went_wrong_failures_silence_refusals_in_amber_after_the_word
     assert_eq!(line(&[shell_with("rm -rf dist", Shell { status: "refused", ..OK }), shell("ls")]), "Listed a folder · [1 refused]");
 }
 
+// case: says searches, waits and a phrase-named read the way a person would
 #[test]
 fn says_searches_waits_and_a_phrase_named_read_the_way_a_person_would() {
     assert_eq!(line(&[tool("Grep", "effort"), tool("Grep", "slot")]), "Ran 2 searches");
@@ -116,6 +124,7 @@ fn says_searches_waits_and_a_phrase_named_read_the_way_a_person_would() {
     assert_eq!(line(&[tool("view_file", "\"C:/work/src/app.ts\"")]), "Read app.ts");
 }
 
+// case: reads a script, a phrase-named command and a folder searched as a person would
 #[test]
 fn reads_a_script_a_phrase_named_command_and_a_folder_searched_as_a_person_would() {
     assert_eq!(line(&[shell("@'\nconsole.log(1)\n'@ | node -")]), "Ran a script");
@@ -139,12 +148,14 @@ fn reads_a_script_a_phrase_named_command_and_a_folder_searched_as_a_person_would
     assert_eq!(line(&[thought("x", None), tool("Read", "a.ts")]), "Read a.ts");
 }
 
+// case: names a connector and a tool it does not know by their own names
 #[test]
 fn names_a_connector_and_a_tool_it_does_not_know_by_their_own_names() {
     assert_eq!(line(&[tool("robinhood", "get_watchlists")]), "Used robinhood");
     assert_eq!(line(&[tool("WebSearch", "claude code app"), tool("WebFetch", "https://example.com")]), "Searched the web, fetched a page");
 }
 
+// case: cuts a long file name in the middle and keeps its extension
 #[test]
 fn cuts_a_long_file_name_in_the_middle_and_keeps_its_extension() {
     assert_eq!(line(&[edited(LONG)]), "Edited a-full-rule-stor\u{2026}very-rule.test.ts");
@@ -157,6 +168,7 @@ fn cuts_a_long_file_name_in_the_middle_and_keeps_its_extension() {
     assert!(!head.is_empty() && !tail.is_empty() && head.chars().chain(tail.chars()).all(|c| c == 'a'), "{bare}");
 }
 
+// case: offers shorter forms: names give way to counts, then the last phrases to "and N more"
 #[test]
 fn offers_shorter_forms_names_give_way_to_counts_then_the_last_phrases_to_and_n_more() {
     let steps = [edited(LONG), shell("cat NOTES.md"), shell("pnpm test"), shell("pnpm tsc"), shell("rg approval src"), shell("ls -la")];
@@ -175,6 +187,7 @@ fn offers_shorter_forms_names_give_way_to_counts_then_the_last_phrases_to_and_n_
     assert_eq!(steps_line(&[shell("cat NOTES.md")], true, None, false).title, "Read NOTES.md");
 }
 
+// case: leaves a thought out of a line with other steps, and has nothing shorter for a lone failure
 #[test]
 fn leaves_a_thought_out_of_a_line_with_other_steps_and_has_nothing_shorter_for_a_lone_failure() {
     let built = steps_line(&[thought("Checking the store first.", Some(4_000)), edited(LONG), shell("pnpm test")], true, None, false);

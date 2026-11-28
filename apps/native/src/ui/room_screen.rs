@@ -8,6 +8,11 @@ use crate::look::controls::{Look, Tone, button, chip, label};
 use crate::look::faces::face;
 use chrono::{DateTime, Utc};
 use locust_core::ledger::{self, Item};
+use locust_core::relay::{ExchangeMission, ExchangePeerMessage, exchange_across};
+use locust_core::room_exchange::{
+    self, ExchangeMissionInfo, LiveTurn, PostForExchange, RoomExchange, RoomExchangeItem,
+    SequenceInput, StartingReply,
+};
 use locust_core::room_store::{
     self, MAX_ROOM_TEAMMATES, PublicRoom, RoomPost, RoomTask, RoomTaskRequest,
 };
@@ -41,6 +46,7 @@ pub(super) struct RoomTranscriptView {
     pub started_at: String,
     pub runtime: String,
     pub model: String,
+    pub live: Option<LiveTurn>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -80,6 +86,7 @@ pub(super) struct RoomsState {
     pub load_job: Latest<Result<RoomsSnapshot, String>>,
     pub action_job: Latest<Result<RoomActionOutcome, String>>,
     pub last_refresh: Option<Instant>,
+    answer_clock_ms: Option<i64>,
     pub create_name: TextEdit,
     pub create_picks: Vec<String>,
     pub create_error: Option<String>,
@@ -529,8 +536,38 @@ pub(super) fn handle_escape(s: &mut State) -> bool {
     false
 }
 
-/// Load `rooms.json` and read transcripts for every run off the UI thread.
-pub(super) fn load_snapshot_for(store: &locust_core::store::Store, live_ids: &[String]) -> Result<RoomsSnapshot, String> {
+fn live_turn_from_line(live: locust_core::thread_view::LiveLine) -> LiveTurn {
+    let thinking = live.waiting || live.register == "thinking";
+    let label = (!live.label.trim().is_empty()).then_some(live.label);
+    LiveTurn {
+        register: live.register,
+        label,
+        action: live.action,
+        detail: live.detail,
+        started_at: live.started_at,
+        thinking,
+    }
+}
+
+fn peer_links_from_state(s: &State) -> Vec<(String, Vec<String>)> {
+    s.ledger_summaries
+        .values()
+        .filter(|sum| !sum.peer_links.is_empty())
+        .map(|sum| {
+            (
+                sum.mission_id.clone(),
+                sum.peer_links.iter().map(|l| l.message_id.clone()).collect(),
+            )
+        })
+        .collect()
+}
+
+/// Load `rooms.json` and read transcripts for every run (and any relayed reply reachable from it) off the UI thread.
+pub(super) fn load_snapshot_for(
+    store: &locust_core::store::Store,
+    live_ids: &[String],
+    peer_links: &[(String, Vec<String>)],
+) -> Result<RoomsSnapshot, String> {
     let (rooms, readable) = match room_store::list(store) {
         Ok(list) => (list, true),
         Err(e) if e == room_store::UNREADABLE => (Vec::new(), false),
@@ -542,6 +579,31 @@ pub(super) fn load_snapshot_for(store: &locust_core::store::Store, live_ids: &[S
         for post in &room.posts {
             for mid in post.missions.values() {
                 mission_ids.insert(mid.clone());
+            }
+        }
+    }
+    if !peer_links.is_empty() && !mission_ids.is_empty() {
+        let mut by_message: HashMap<&str, Vec<&str>> = HashMap::new();
+        let mut by_mission: HashMap<&str, &[String]> = HashMap::new();
+        for (mid, msgs) in peer_links {
+            by_mission.insert(mid.as_str(), msgs.as_slice());
+            for msg in msgs {
+                by_message.entry(msg.as_str()).or_default().push(mid.as_str());
+            }
+        }
+        let mut queue: Vec<String> = mission_ids.iter().cloned().collect();
+        while let Some(mid) = queue.pop() {
+            let Some(msgs) = by_mission.get(mid.as_str()) else {
+                continue;
+            };
+            for msg in *msgs {
+                if let Some(holders) = by_message.get(msg.as_str()) {
+                    for &other in holders {
+                        if mission_ids.insert(other.to_owned()) {
+                            queue.push(other.to_owned());
+                        }
+                    }
+                }
             }
         }
     }
@@ -591,6 +653,7 @@ pub(super) fn load_snapshot_for(store: &locust_core::store::Store, live_ids: &[S
             Some(m) => (m.created_at, m.runtime, m.model),
             None => (String::new(), String::new(), String::new()),
         };
+        let live = is_live.then(|| tr.live.map(live_turn_from_line)).flatten();
         transcripts.insert(
             mid,
             RoomTranscriptView {
@@ -600,6 +663,7 @@ pub(super) fn load_snapshot_for(store: &locust_core::store::Store, live_ids: &[S
                 started_at,
                 runtime,
                 model,
+                live,
             },
         );
     }
@@ -619,10 +683,11 @@ pub(super) fn refresh(s: &mut State) {
         return;
     }
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.last_refresh = Some(Instant::now());
     s.rooms
         .load_job
-        .request((), move |()| load_snapshot_for(&store, &live_ids));
+        .request((), move |()| load_snapshot_for(&store, &live_ids, &peer_links));
 }
 
 fn apply_snapshot(s: &mut State, snap: RoomsSnapshot) {
@@ -658,6 +723,10 @@ pub(super) fn room_toasts_due(s: &mut State, now: std::time::Instant, supported:
 
 /// Sync background loads, actions, engine room notices, and elapsed timers for active runs.
 pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
+    poll_at(s, tx, Utc::now().timestamp_millis())
+}
+
+fn poll_at(s: &mut State, tx: &mut Tx, now_ms: i64) -> bool {
     let mut changed = false;
     let mut need_refresh = false;
 
@@ -732,22 +801,38 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
 
     let viewing_live = if let RoomView::Room(id) = &s.rooms.active {
         s.rooms.rooms.iter().find(|r| &r.room_id == id).is_some_and(|room| {
-            room.posts.iter().any(|post| {
-                !post.queued.is_empty()
-                    || post.missions.values().any(|mid| {
-                        s.seen_live.contains(mid)
-                            || s.rooms
-                                .transcripts
-                                .get(mid)
-                                .is_none_or(|t| t.phase == "running")
-                    })
-            })
+            s.relay_live.starting.is_some()
+                || room.posts.iter().any(|post| {
+                    !post.queued.is_empty()
+                        || post.missions.values().any(|mid| {
+                            s.seen_live.contains(mid)
+                                || s.rooms
+                                    .transcripts
+                                    .get(mid)
+                                    .is_none_or(|t| t.phase == "running")
+                        })
+                        || room_exchange_for(s, room, post).is_some_and(|(ex, _)| {
+                            ex.items.iter().any(|item| match item {
+                                RoomExchangeItem::Replying { .. } => true,
+                                RoomExchangeItem::Said { mission_id, .. }
+                                | RoomExchangeItem::Silent { mission_id, .. } => {
+                                    !s.rooms.transcripts.contains_key(mission_id)
+                                }
+                                RoomExchangeItem::Waiting { .. } => true,
+                            })
+                        })
+                })
         })
     } else {
         false
     };
 
+    // Repaint running answer clocks even when no ledger reply arrives.
     if viewing_live {
+        if s.rooms.answer_clock_ms.is_none_or(|before| before.div_euclid(1_000) != now_ms.div_euclid(1_000)) {
+            s.rooms.answer_clock_ms = Some(now_ms);
+            changed = true;
+        }
         let stale = s
             .rooms
             .last_refresh
@@ -756,6 +841,8 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
             need_refresh = true;
         }
         tx.wake_after(Duration::from_millis(500));
+    } else {
+        s.rooms.answer_clock_ms = None;
     }
 
     if need_refresh {
@@ -779,9 +866,10 @@ pub(super) fn submit_create(s: &mut State) {
         return;
     }
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.action_job.request((), move |()| {
         let room = room_store::create(&store, &name, &picks)?;
-        let snapshot = load_snapshot_for(&store, &live_ids)?;
+        let snapshot = load_snapshot_for(&store, &live_ids, &peer_links)?;
         Ok(RoomActionOutcome::Created { room, snapshot })
     });
 }
@@ -799,9 +887,10 @@ pub(super) fn submit_rename(s: &mut State, room_id: String) {
         return;
     }
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.action_job.request((), move |()| {
         room_store::rename(&store, &room_id, &name)?;
-        let snapshot = load_snapshot_for(&store, &live_ids)?;
+        let snapshot = load_snapshot_for(&store, &live_ids, &peer_links)?;
         Ok(RoomActionOutcome::Renamed { snapshot })
     });
 }
@@ -814,9 +903,10 @@ pub(super) fn submit_remove(s: &mut State, room_id: String) {
         return;
     }
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.action_job.request((), move |()| {
         room_store::remove(&store, &room_id)?;
-        let snapshot = load_snapshot_for(&store, &live_ids)?;
+        let snapshot = load_snapshot_for(&store, &live_ids, &peer_links)?;
         Ok(RoomActionOutcome::Removed { snapshot })
     });
 }
@@ -834,11 +924,12 @@ pub(super) fn submit_post(s: &mut State) {
     }
     let to = (!s.rooms.ask_to.is_empty()).then(|| s.rooms.ask_to.clone());
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.notice = None;
     s.rooms.error = None;
     s.rooms.action_job.request((), move |()| {
         let outcome = rooms::post_to_room(&store, &room_id, &text, to.as_deref())?;
-        let snapshot = load_snapshot_for(&store, &live_ids)?;
+        let snapshot = load_snapshot_for(&store, &live_ids, &peer_links)?;
         Ok(RoomActionOutcome::Posted { outcome, snapshot })
     });
 }
@@ -851,23 +942,22 @@ pub(super) fn submit_task(s: &mut State, request: RoomTaskRequest) {
         return;
     }
     let live_ids = s.seen_live.clone();
+    let peer_links = peer_links_from_state(s);
     s.rooms.action_job.request((), move |()| {
         room_store::update_task(&store, request)?;
-        let snapshot = load_snapshot_for(&store, &live_ids)?;
+        let snapshot = load_snapshot_for(&store, &live_ids, &peer_links)?;
         Ok(RoomActionOutcome::TaskUpdated { snapshot })
     });
 }
 
-fn elapsed_seconds(started_at: &str, post_at: &str, now_ms: i64) -> i64 {
+fn elapsed_seconds(started_at: &str, post_at: &str, now_ms: i64) -> Option<i64> {
     let iso = if started_at.is_empty() {
         post_at
     } else {
         started_at
     };
-    let Ok(dt) = DateTime::parse_from_rfc3339(iso) else {
-        return 0;
-    };
-    ((now_ms - dt.timestamp_millis()) / 1000).max(0)
+    let dt = DateTime::parse_from_rfc3339(iso).ok()?;
+    Some(((now_ms - dt.timestamp_millis()) / 1000).max(0))
 }
 
 fn roster_member_name(roster: &[Teammate], id: &str) -> String {
@@ -1135,7 +1225,7 @@ fn new_room_card(s: &State, l: &Look) -> El {
 }
 
 fn view_room(s: &State, room: &PublicRoom, p: &Palette, l: &Look) -> El {
-    let now_ms = Utc::now().timestamp_millis();
+    let now_ms = s.rooms.answer_clock_ms.unwrap_or_else(|| Utc::now().timestamp_millis());
     let rid = room.room_id.clone();
 
     let mut header = row()
@@ -1600,7 +1690,7 @@ struct BuiltAnswer<'a> {
     text: String,
     note_error: Option<String>,
     model_line: String,
-    elapsed_s: i64,
+    elapsed_s: Option<i64>,
 }
 
 fn view_post(
@@ -1769,7 +1859,9 @@ fn view_post(
                 ),
         );
 
-    if !answers.is_empty() {
+    if let Some((exchange, cost_text)) = room_exchange_for(s, room, post) {
+        post_el = post_el.child(view_exchange(s, post, &exchange, cost_text.as_deref(), p, l));
+    } else if !answers.is_empty() {
         let completed_count = answers.iter().filter(|a| a.phase == "completed").count();
         let is_list = answers.len() > ANSWERS_BEFORE_A_LIST;
         let is_columns = !is_list && s.rooms.side_by_side && answers.len() > 1;
@@ -1843,6 +1935,379 @@ fn view_post(
     post_el
 }
 
+fn exchange_missions_from_state(s: &State, post: &RoomPost) -> Vec<ExchangeMission> {
+    let live_set: HashSet<&str> = s.seen_live.iter().map(String::as_str).collect();
+    let owner_name = |tid: Option<&str>| -> Option<String> {
+        let tid = tid?;
+        s.teammates.iter().find(|t| t.id == tid).map(|t| t.name.clone())
+    };
+    let mut missions: Vec<ExchangeMission> = s
+        .ledger_summaries
+        .values()
+        .map(|sum| {
+            let links = sum
+                .peer_links
+                .iter()
+                .map(|l| ExchangePeerMessage {
+                    message_id: l.message_id.clone(),
+                })
+                .collect();
+            let live = live_set.contains(sum.mission_id.as_str()) || sum.running;
+            let owner_id = s.mission_owners.get(&sum.mission_id).cloned();
+            ExchangeMission {
+                mission_id: sum.mission_id.clone(),
+                runtime: sum.runtime.clone(),
+                model: sum.model.clone(),
+                cost: sum.cost.clone(),
+                peer_messages: links,
+                started_by_hop: sum.started_by_hop,
+                teammate_name: owner_name(owner_id.as_deref()),
+                teammate_id: owner_id,
+                live,
+                run_id: live.then(|| sum.mission_id.clone()),
+            }
+        })
+        .collect();
+    for (tid, mid) in &post.missions {
+        if s.ledger_summaries.contains_key(mid) {
+            continue;
+        }
+        let tr = s.rooms.transcripts.get(mid);
+        let live = live_set.contains(mid.as_str()) || tr.is_some_and(|t| t.phase == "running");
+        missions.push(ExchangeMission {
+            mission_id: mid.clone(),
+            runtime: tr.map(|t| t.runtime.clone()).unwrap_or_default(),
+            model: tr.map(|t| t.model.clone()).unwrap_or_default(),
+            cost: None,
+            peer_messages: Vec::new(),
+            started_by_hop: None,
+            teammate_name: owner_name(Some(tid.as_str())),
+            teammate_id: Some(tid.clone()),
+            live,
+            run_id: live.then(|| mid.clone()),
+        });
+    }
+    missions
+}
+
+/// Compute a post's ordered exchange and formatted cost line, or `None` when the post keeps its card grid
+/// (`App.tsx` `roomExchangeFor` + `roomExchangeCostText`).
+fn room_exchange_for(
+    s: &State,
+    room: &PublicRoom,
+    post: &RoomPost,
+) -> Option<(RoomExchange, Option<String>)> {
+    let roots: Vec<&str> = post.missions.values().map(String::as_str).collect();
+    let exchange_missions = exchange_missions_from_state(s, post);
+    let starting: Vec<StartingReply> = s
+        .relay_live
+        .starting
+        .iter()
+        .map(|st| StartingReply {
+            teammate_id: st.teammate_id.clone(),
+            answering: st.answering.clone(),
+        })
+        .collect();
+    let (reached, hops, cost_text) = if let Some(whole) = exchange_across(&roots, &exchange_missions) {
+        let cost = locust_core::benchmark::cost_line(whole.cost.as_ref());
+        (whole.mission_ids, whole.hops, cost)
+    } else if starting
+        .iter()
+        .any(|st| post.missions.values().any(|mid| mid == &st.answering))
+    {
+        (post.missions.values().cloned().collect(), 0, None)
+    } else {
+        return None;
+    };
+
+    let later_post_at = room
+        .posts
+        .iter()
+        .filter(|entry| entry.at.as_str() > post.at.as_str())
+        .map(|entry| entry.at.as_str())
+        .min();
+
+    let post_for = PostForExchange {
+        post_id: post.post_id.clone(),
+        at: post.at.clone(),
+        missions: post.missions.clone(),
+        waiting: post.queued.clone(),
+    };
+    let missions_info: HashMap<String, ExchangeMissionInfo> = reached
+        .iter()
+        .filter_map(|mid| {
+            let teammate_id = s.mission_owners.get(mid)?.clone();
+            Some((
+                mid.clone(),
+                ExchangeMissionInfo {
+                    mission_id: mid.clone(),
+                    teammate_id,
+                },
+            ))
+        })
+        .collect();
+
+    let input = SequenceInput {
+        post: &post_for,
+        missions: &missions_info,
+        reached: &reached,
+        text_of: Box::new(|mid| {
+            s.rooms
+                .transcripts
+                .get(mid)
+                .map(|t| t.answer_text.trim())
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        }),
+        started_at_of: Box::new(|mid| {
+            s.rooms
+                .transcripts
+                .get(mid)
+                .map(|t| t.started_at.as_str())
+                .filter(|at| !at.is_empty())
+                .or_else(|| {
+                    s.ledger_summaries
+                        .get(mid)
+                        .map(|m| m.created_at.as_str())
+                        .filter(|at| !at.is_empty())
+                })
+                .map(str::to_owned)
+        }),
+        finished_of: Box::new(|mid| {
+            let is_live = s.seen_live.iter().any(|id| id == mid)
+                || s.rooms
+                    .transcripts
+                    .get(mid)
+                    .is_some_and(|t| t.phase == "running")
+                || s.ledger_summaries.get(mid).is_some_and(|m| m.running);
+            !is_live
+        }),
+        name_of: Box::new(|tid| {
+            s.teammates
+                .iter()
+                .find(|t| t.id == tid)
+                .map(|t| t.name.clone())
+                .unwrap_or_else(|| tid.to_owned())
+        }),
+        later_post_at,
+        hops,
+        cap: s.relay_hop_cap as usize,
+        starting: &starting,
+        live_of: Box::new(|mid| s.rooms.transcripts.get(mid).and_then(|t| t.live.clone())),
+    };
+
+    let exchange = room_exchange::sequence_of_post(&input)?;
+    Some((exchange, cost_text))
+}
+
+fn format_exchange_time(iso: &str) -> Option<String> {
+    DateTime::parse_from_rfc3339(iso)
+        .ok()
+        .map(|dt| dt.with_timezone(&chrono::Local).format("%H:%M").to_string())
+}
+
+fn live_turn_words(live: Option<&LiveTurn>) -> String {
+    let Some(live) = live else {
+        return locust_core::thread_view::sweep_text("starting");
+    };
+    let base = match (live.action.as_deref().filter(|a| !a.is_empty()), live.register.as_str()) {
+        (Some(action), _) => action.to_owned(),
+        (None, "connector") => match live.label.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(label) => format!("Using a connector \u{b7} {label}"),
+            None => locust_core::thread_view::sweep_text("using a connector"),
+        },
+        (None, "tool") => match live.label.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(label) => format!("Using a tool \u{b7} {label}"),
+            None => locust_core::thread_view::sweep_text("using a tool"),
+        },
+        (None, register) => {
+            let word = live
+                .label
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(register);
+            locust_core::thread_view::sweep_text(word)
+        }
+    };
+    match live.detail.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+        Some(detail) => format!("{base} \u{b7} {detail}"),
+        None => base,
+    }
+}
+
+/// Render a room post's ordered exchange sequence and its foot (`RoomScreen.tsx` `.lc-roomsaid`).
+fn view_exchange(
+    s: &State,
+    post: &RoomPost,
+    exchange: &RoomExchange,
+    cost_text: Option<&str>,
+    p: &Palette,
+    l: &Look,
+) -> El {
+    let mut list = col()
+        .key(format!("room-exchange-{}", post.post_id))
+        .w_full()
+        .gap(10.0);
+
+    let gutter_w = 28.0;
+
+    for item in &exchange.items {
+        let face_el = |teammate_id: &str, name: &str, key: &str| {
+            row()
+                .key(format!("room-exchange-face-{}-{key}", post.post_id))
+                .w(gutter_w)
+                .label(name.to_owned())
+                .help(name.to_owned())
+                .child(face(
+                    s.image_cache.as_deref(),
+                    teammate_id,
+                    name,
+                    s.looks.get(teammate_id),
+                    gutter_w,
+                    s.settings_panel.settings.terminal_faces,
+                    l,
+                ))
+        };
+
+        match item {
+            RoomExchangeItem::Said {
+                key,
+                teammate_id,
+                name,
+                text: said_text,
+                at,
+                mission_id,
+                show_time,
+                starts_speaker,
+            } => {
+                let gutter = if *starts_speaker {
+                    face_el(teammate_id, name, key)
+                } else {
+                    el().w(gutter_w)
+                };
+                let mut body = col().grow(1.0).min_w(0.0).gap(4.0);
+                if *starts_speaker
+                    && *show_time
+                    && let Some(formatted) = at.as_deref().and_then(format_exchange_time)
+                {
+                    body = body.child(
+                        text(formatted)
+                            .key(format!("room-exchange-time-{}-{mission_id}", post.post_id))
+                            .font(l.ty.mono)
+                            .color(l.c("text-muted")),
+                    );
+                }
+                body = body.child(
+                    Markdown::new(said_text)
+                        .selectable(true)
+                        .render(&markdown_style(p))
+                        .w_full(),
+                );
+                list = list.child(
+                    row()
+                        .key(format!("room-exchange-turn-{}-{key}", post.post_id))
+                        .w_full()
+                        .gap(10.0)
+                        .child(gutter)
+                        .child(body),
+                );
+            }
+            RoomExchangeItem::Replying {
+                key,
+                teammate_id,
+                name,
+                live,
+                ..
+            } => {
+                let words = live_turn_words(live.as_ref());
+                let live_el = crate::working_shimmer::live_word(
+                    &words,
+                    s.frame_clock,
+                    p.muted,
+                    l.c("text-name"),
+                    s.reduced_motion.get(),
+                )
+                .key(format!("room-exchange-live-{}-{key}", post.post_id))
+                .shrink()
+                .truncate();
+                list = list.child(
+                    row()
+                        .key(format!("room-exchange-turn-{}-{key}", post.post_id))
+                        .w_full()
+                        .gap(10.0)
+                        .center_y()
+                        .child(face_el(teammate_id, name, key))
+                        .child(col().grow(1.0).min_w(0.0).child(live_el)),
+                );
+            }
+            RoomExchangeItem::Silent {
+                key,
+                teammate_id,
+                name,
+                ..
+            } => {
+                let msg = format!(
+                    "{name}\u{2019}s turn ended without a reply \u{2014} the runtime finished and wrote nothing back. Nothing was changed."
+                );
+                list = list.child(
+                    row()
+                        .key(format!("room-exchange-turn-{}-{key}", post.post_id))
+                        .w_full()
+                        .gap(10.0)
+                        .child(face_el(teammate_id, name, key))
+                        .child(
+                            col()
+                                .grow(1.0)
+                                .min_w(0.0)
+                                .pl(8.0)
+                                .border_sides([0.0, 0.0, 0.0, 2.0], l.c("border-card"))
+                                .child(text(msg).font(l.ty.body).color(l.c("text-muted")).wrap()),
+                        ),
+                );
+            }
+            RoomExchangeItem::Waiting {
+                key,
+                teammate_id,
+                name,
+            } => {
+                let msg = format!("{name} is finishing another mission. Their reply is queued.");
+                list = list.child(
+                    row()
+                        .key(format!("room-exchange-turn-{}-{key}", post.post_id))
+                        .w_full()
+                        .gap(10.0)
+                        .child(face_el(teammate_id, name, key))
+                        .child(
+                            col()
+                                .grow(1.0)
+                                .min_w(0.0)
+                                .pl(8.0)
+                                .border_sides([0.0, 0.0, 0.0, 2.0], l.c("border-card"))
+                                .child(text(msg).font(l.ty.body).color(l.c("text-muted")).wrap()),
+                        ),
+                );
+            }
+        }
+    }
+
+    list = list.child(
+        col()
+            .w_full()
+            .pt(8.0)
+            .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
+            .child(
+                text(room_exchange::foot_line(&exchange.foot, cost_text))
+                    .key(format!("room-exchange-foot-{}", post.post_id))
+                    .font(l.ty.mono)
+                    .color(l.c("text-muted"))
+                    .wrap(),
+            ),
+    );
+
+    list
+}
+
 fn view_answer_card(
     s: &State,
     post: &RoomPost,
@@ -1857,18 +2322,13 @@ fn view_answer_card(
     let mid_open = ans.mission_id.clone();
 
     let (phase_label, phase_color) = if ans.phase == "running" {
-        if ans.text.is_empty() {
-            if ans.elapsed_s >= NO_WORD_BACK_SECS {
-                (
-                    format!("asked · {}s · no word back yet", ans.elapsed_s),
-                    p.amber,
-                )
-            } else {
-                (format!("asked · {}s", ans.elapsed_s), p.muted)
-            }
-        } else {
-            (format!("running · {}s", ans.elapsed_s), p.muted)
+        let word = if ans.text.is_empty() { "asked" } else { "running" };
+        let quiet = ans.text.is_empty() && ans.elapsed_s.is_some_and(|secs| secs >= NO_WORD_BACK_SECS);
+        let mut label = ans.elapsed_s.map_or_else(|| word.to_owned(), |secs| format!("{word} · {secs}s"));
+        if quiet {
+            label.push_str(" · no word back yet");
         }
+        (label, if quiet { p.amber } else { p.muted })
     } else if ans.phase == "failed" {
         ("failed".to_owned(), p.red)
     } else {
@@ -1954,7 +2414,9 @@ fn view_answer_card(
                                 .child(text(ans.name.clone()).font(type_::TITLE).color(p.text))
                                 .child(text(ans.model_line.clone()).font(l.ty.label).color(p.muted)),
                         )
-                        .child(text(phase_label).font(l.ty.label).color(phase_color)),
+                        .child(text(phase_label)
+                            .key(format!("room-answer-phase-{}-{}", post.post_id, ans.teammate_id))
+                            .font(l.ty.label).color(phase_color)),
                 )
                 .child(acts),
         );
@@ -2157,6 +2619,7 @@ mod tests {
             started_at: "2026-09-26T05:00:00.000Z".into(),
             runtime: "opencode".into(),
             model: "free".into(),
+            live: None,
         }
     }
 
@@ -2588,3 +3051,19 @@ mod room_toast_tests;
 #[cfg(test)]
 #[path = "rooms_index_tests.rs"]
 mod rooms_index_tests;
+
+#[cfg(test)]
+#[path = "room_quiet_tests.rs"]
+mod room_quiet_tests;
+
+#[cfg(test)]
+#[path = "room_exchange_tests.rs"]
+mod room_exchange_tests;
+
+#[cfg(test)]
+#[path = "room_starting_exchange_tests.rs"]
+mod room_starting_exchange_tests;
+
+#[cfg(test)]
+#[path = "room_relayed_transcript_tests.rs"]
+mod room_relayed_transcript_tests;

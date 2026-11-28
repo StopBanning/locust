@@ -1,4 +1,4 @@
-//! Saved voice call pieces in a conversation thread, read with its ledger snapshot.
+//! Live and saved voice call pieces, placed among the turns of a conversation.
 
 use super::*;
 use locust_core::call_log::{self, Piece, Place};
@@ -35,20 +35,34 @@ pub(super) fn pieces(s: &State) -> std::collections::BTreeMap<Place<'_>, Vec<Pie
         .flat_map(|pane| &pane.snapshot.turn_metas)
         .map(|meta| meta.mission_id.as_str())
         .collect();
-    call_log::placements(&s.calls.saved, &ids)
+    let mut calls = call_log::placements(&s.calls.saved, &ids);
+    if let Some(live) = crate::voice_panel::live_thread_call(s) {
+        for (place, pieces) in call_log::placements(std::slice::from_ref(live), &ids) {
+            calls.entry(place).or_default().extend(pieces);
+        }
+    }
+    calls
 }
 
 pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_>]) -> Vec<El> {
+    draw_with_live(s, p, place, pieces, crate::voice_panel::live_thread_call(s))
+}
+
+fn draw_with_live(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_>], active: Option<&serde_json::Value>) -> Vec<El> {
     pieces
         .iter()
         .filter_map(|piece| {
-            let call = &piece.call;
+            let call = piece.call;
             let id = call["callId"].as_str()?;
             let name = call["name"].as_str()?;
-            let open = s.calls.open.contains(id);
+            // Disk data cannot impersonate the active call or offer its approval controls.
+            let live = active.is_some_and(|active| std::ptr::eq(active, call));
+            let open = live || s.calls.open.contains(id);
             let mut view = col().key(format!("call-{id}-{place:?}")).w_full().gap(8.0);
             let duration = length(call);
-            if piece.first {
+            if piece.first && live {
+                view = view.child(crate::messages::thread_marker(&format!("Call with {name}"), &format!("call-live-{id}"), p));
+            } else if piece.first {
                 let n = call["lines"].as_array().map_or(0, Vec::len);
                 let turns = call["turns"].as_array().map_or(0, Vec::len);
                 let mut summary = format!("{n} {} said", if n == 1 { "line" } else { "lines" });
@@ -117,11 +131,19 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
                             ),
                     );
                 }
-                if piece.last {
+                if live && piece.last {
+                    for role in ["you", "voice"] {
+                        if let Some(words) = call["partial"][role].as_str().filter(|words| !words.is_empty()) {
+                            view = view.child(text(words.to_owned()).key(format!("call-partial-{id}-{role}"))
+                                .font(type_::BODY).color(p.muted).wrap());
+                        }
+                    }
+                    view = view.children(crate::voice_panel::connector_cards(s, p, Some(name)));
+                } else if piece.last {
                     view = view.child(crate::messages::thread_marker(&format!("Call ended · {duration}"), &format!("call-ended-{id}"), p));
                 }
             }
-            if piece.last
+            if !live && piece.last
                 && let Some(summary) = handed_summary(s, call, p)
             {
                 view = view.child(summary);
@@ -129,6 +151,17 @@ pub(super) fn draw(s: &State, p: &Palette, place: &Place<'_>, pieces: &[Piece<'_
             Some(view)
         })
         .collect()
+}
+
+fn todo_status(waiting: bool, live: Option<&str>, record: Option<&str>) -> &'static str {
+    if waiting { return "Needs you"; }
+    match live.or(record) {
+        Some("completed") => "Done",
+        Some("failed") => "Failed",
+        Some("cancelled" | "interrupted") => "Stopped",
+        Some("running" | "cancelling") => "Working",
+        _ => "Starting",
+    }
 }
 
 fn handed_summary(s: &State, call: &serde_json::Value, p: &Palette) -> Option<El> {
@@ -167,26 +200,23 @@ fn handed_summary(s: &State, call: &serde_json::Value, p: &Palette) -> Option<El
         ) else {
             continue;
         };
-        let (status, color) = if s.home.waiting_for.contains_key(id) {
-            ("Needs you", p.amber)
-        } else if s
-            .recent
-            .iter()
-            .any(|row| row.id == id && row.state == "running")
-        {
-            ("Working", p.secondary)
-        } else if let Some(row) = s.ledger_summaries.get(id) {
-            if row.running {
-                ("Working", p.secondary)
-            } else if row.failed {
-                ("Failed", p.red)
-            } else if row.cancelled {
-                ("Stopped", p.muted)
-            } else {
-                ("Done", p.green)
-            }
-        } else {
-            ("Starting", p.muted)
+        let live = s.ledger.as_ref().filter(|pane| pane.snapshot.tip == id && pane.snapshot.running)
+            .map(|_| if s.stopping.is_pending() { "cancelling" } else { "running" })
+            .or_else(|| s.flight.as_ref().filter(|flight| flight.conversation_id.as_deref() == Some(id)).map(|_| "starting"));
+        let record = s.recent.iter().find(|row| row.id == id).map(|row| row.state.as_str())
+            .or_else(|| s.ledger_summaries.get(id).map(|row| {
+                if row.running { "running" }
+                else if row.cancelled { "cancelled" }
+                else if row.failed { "failed" }
+                else { "completed" }
+            }));
+        let status = todo_status(s.home.waiting_for.contains_key(id), live, record);
+        let color = match status {
+            "Needs you" => p.amber,
+            "Working" => p.secondary,
+            "Failed" => p.red,
+            "Done" => p.green,
+            _ => p.muted,
         };
         let mut row = row()
             .key(format!("call-todo-{id}"))

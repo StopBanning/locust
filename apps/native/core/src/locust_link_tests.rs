@@ -2,6 +2,7 @@
 //! not yet open and Windows' scheme claim are Electron's host's; Rune keeps the launching link for the window itself.
 use super::*;
 
+// case: opens with the message it carries, however the system spells it
 #[test]
 fn opens_with_the_message_it_carries_however_the_system_spells_it() {
     let link = locust_link_for("Explain this project to me: what it does, and where to start reading.");
@@ -17,6 +18,7 @@ fn opens_with_the_message_it_carries_however_the_system_spells_it() {
     assert_eq!(parse_locust_link(&locust_link_for(odd)), Some(LocustLink { prompt: odd.into() }));
 }
 
+// case: opens nothing that is not a new message of a size to read
 #[test]
 fn opens_nothing_that_is_not_a_new_message_of_a_size_to_read() {
     let long = format!("locust://new?prompt={}", "a".repeat(MAX_LINK_PROMPT_CHARS + 1));
@@ -31,6 +33,7 @@ fn opens_nothing_that_is_not_a_new_message_of_a_size_to_read() {
     assert_eq!(parse_locust_link("locust://new?folder=%2Ftmp&prompt=hi&prompt=second"), Some(LocustLink { prompt: "hi".into() }));
 }
 
+// case: brings only what a person can see
 #[test]
 fn brings_only_what_a_person_can_see() {
     // "Summarize this" with an instruction spelled in Unicode tag characters, which show as nothing.

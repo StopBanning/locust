@@ -73,6 +73,7 @@ fn abandonment_stays_visible_after_acknowledgement_instead_of_reverting_to_never
     assert_eq!(presses, ["Open the saved conversation"]);
 }
 
+// case: says the reason once, and opens the saved conversation rather than printing its id
 #[test]
 fn says_the_reason_once_and_opens_the_saved_conversation_rather_than_printing_its_id() {
     let interrupted = with_execution(json!({"reason": "Review required: that run was interrupted. Nothing will be replayed."}));
@@ -83,6 +84,7 @@ fn says_the_reason_once_and_opens_the_saved_conversation_rather_than_printing_it
     assert!(!said.contains("mission_two") && !said.contains("Saved mission:"));
 }
 
+// case: names when Keep runs it next -- six hours from the decision, not the attempt (0.402 beta retest)
 #[test]
 fn names_when_keep_runs_it_next_six_hours_from_the_decision_not_the_attempt() {
     let before = chrono::Local::now();
@@ -92,6 +94,7 @@ fn names_when_keep_runs_it_next_six_hours_from_the_decision_not_the_attempt() {
     assert!(said.contains(&when(before)) || said.contains(&when(after)), "{said}");
 }
 
+// case: says why Continue is off, and offers to keep the schedule (0.390 beta pass)
 #[test]
 fn says_why_continue_is_off_and_offers_to_keep_the_schedule() {
     let (said, _) = draw(routine(), false);
@@ -109,6 +112,7 @@ fn says_why_continue_is_off_and_offers_to_keep_the_schedule() {
     assert!(draw(unscheduled, true).0.contains("Keep the routine"));
 }
 
+// case: says a refused start would be refused again, not that the step before it never finished (0.818)
 #[test]
 fn says_a_refused_start_would_be_refused_again_not_that_the_step_before_it_never_finished() {
     let too_long = "Step 2 is too long to send: 439 characters too long. Shorten it in Edit, then run the routine again. Nothing was started.";

@@ -5,6 +5,7 @@ use locust_core::{
     runtime::codex_voice::{CallEvent, CallOptions, CallWindow, NativeHost, VoiceCalls},
     voice_audio::{self, Audio, AudioPeer, Recording},
     voice_call_rules::{Target, Teammate as VoiceTeammate},
+    voice_transcript::{Speaker, Transcript},
     voice_typing::{self, Mode, TranscriptionTransport, VoiceSettings},
 };
 use std::sync::{
@@ -19,8 +20,13 @@ struct Capture {
     state: CaptureState,
 }
 
+enum CaptureOpening {
+    Record(Mode, Box<dyn Recording>),
+    AskConsent,
+}
+
 enum CaptureState {
-    Opening(Receiver<Result<(Mode, Box<dyn Recording>), String>>),
+    Opening(Receiver<Result<CaptureOpening, String>>),
     Recording(Mode, Box<dyn Recording>),
     Transcribing(Receiver<Result<String, String>>),
 }
@@ -38,6 +44,35 @@ enum TalkState {
     Closing(CallWindow),
 }
 
+struct LiveWords {
+    transcript: Transcript,
+    snapshot: serde_json::Value,
+}
+
+impl LiveWords {
+    fn new(id: String, name: String, after: Option<String>, at: u64) -> Self {
+        let transcript = Transcript::new(id, name, after, at);
+        let snapshot = transcript.live_snapshot();
+        Self { transcript, snapshot }
+    }
+
+    fn heard(&mut self, role: &str, words: &str, said: bool) {
+        if let Some(speaker) = Speaker::from_wire(role) {
+            let at = chrono::Utc::now().timestamp_millis().max(1) as u64;
+            if said { self.transcript.said(speaker, words, at); }
+            else { self.transcript.delta(speaker, words, at); }
+            self.snapshot = self.transcript.live_snapshot();
+        }
+    }
+}
+
+struct PendingAsk {
+    id: String,
+    question: locust_core::runtime::codex_voice::ConnectorQuestion,
+    at: std::time::Instant,
+    sent: bool,
+}
+
 #[derive(Default)]
 pub(super) struct Panel {
     platform: Option<&'static str>,
@@ -48,7 +83,9 @@ pub(super) struct Panel {
     capture: Option<Capture>,
     call: Option<Talk>,
     note: Option<String>,
-    questions: Vec<(String, locust_core::runtime::codex_voice::ConnectorQuestion)>,
+    consent_for: Option<Option<String>>,
+    words: Option<LiveWords>,
+    questions: Vec<PendingAsk>,
 }
 
 impl Panel {
@@ -89,7 +126,7 @@ fn platform(s: &State) -> &'static str {
 
 fn mic(s: &mut State, tx: &mut Tx) {
     let Some(store) = s.data.clone() else { return };
-    if s.voice.call.is_some() {
+    if s.voice.call.is_some() || s.voice.consent_for.is_some() {
         return;
     }
     s.voice.note = None;
@@ -151,10 +188,10 @@ fn mic(s: &mut State, tx: &mut Tx) {
                 } else if !settings.has_key {
                     Err("Add your OpenAI API key under Voice typing in Settings.".into())
                 } else if !settings.openai_consent {
-                    Err("Allow sending audio to OpenAI before starting voice typing.".into())
+                    Ok(CaptureOpening::AskConsent)
                 } else {
                     voice_audio::open_recording(audio.as_ref(), &cancelled)
-                        .map(|recording| (settings.mode, recording))
+                        .map(|recording| CaptureOpening::Record(settings.mode, recording))
                 };
                 let _ = send.send(result);
             });
@@ -168,7 +205,31 @@ fn mic(s: &mut State, tx: &mut Tx) {
     tx.wake_after(Duration::from_millis(25));
 }
 
+const OPENAI_ASK: &str = "Voice typing will send your recordings to OpenAI using your API key. OpenAI API charges apply. Allow this for future recordings?";
+
+fn allow_openai(s: &mut State, tx: &mut Tx) {
+    let Some(target) = s.voice.consent_for.take() else { return };
+    s.voice.note = None;
+    if target != conversation_draft_key(s) || s.voice.call.is_some() {
+        return;
+    }
+    let Some(store) = s.data.clone() else { return };
+    let secrets = s.voice.secrets.clone().unwrap_or_else(locust_core::own_models::secrets);
+    match VoiceSettings::new(&store, secrets.as_ref(), platform(s)).consent() {
+        Ok(_) => mic(s, tx),
+        Err(why) => s.voice.note = Some(why),
+    }
+}
+
+#[cfg(test)]
+#[path = "voice_mic_consent_tests.rs"]
+mod mic_consent_tests;
+
 pub(super) fn cancel(s: &mut State) -> bool {
+    if s.voice.consent_for.take().is_some() {
+        s.voice.note = None;
+        return true;
+    }
     let Some(capture) = s.voice.capture.take() else {
         return false;
     };
@@ -178,6 +239,11 @@ pub(super) fn cancel(s: &mut State) -> bool {
 }
 
 fn poll_capture(s: &mut State) -> bool {
+    if s.voice.consent_for.as_ref().is_some_and(|target| *target != conversation_draft_key(s)) {
+        s.voice.consent_for = None;
+        s.voice.note = None;
+        return true;
+    }
     let Some(mut capture) = s.voice.capture.take() else {
         return false;
     };
@@ -187,10 +253,14 @@ fn poll_capture(s: &mut State) -> bool {
     }
     let note = match &capture.state {
         CaptureState::Opening(receive) => match receive.try_recv() {
-            Ok(Ok((mode, recording))) => {
+            Ok(Ok(CaptureOpening::Record(mode, recording))) => {
                 capture.state = CaptureState::Recording(mode, recording);
                 s.voice.capture = Some(capture);
                 return true;
+            }
+            Ok(Ok(CaptureOpening::AskConsent)) => {
+                s.voice.consent_for = Some(capture.target);
+                Some(OPENAI_ASK.into())
             }
             Ok(Err(why)) => Some(why),
             Err(TryRecvError::Disconnected) => {
@@ -236,6 +306,10 @@ fn poll_capture(s: &mut State) -> bool {
     true
 }
 
+#[cfg(test)]
+#[path = "voice_talk_choice_tests.rs"]
+mod talk_choice_tests;
+
 fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
     let (teammate, conversation) = selected_conversation(s)?;
     let folder = teammate
@@ -272,7 +346,8 @@ fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
         folder: folder.into(),
         offer: String::new(),
         teammate: voice_teammate,
-        voice: locust_core::talk_shortcut::chosen_voice(store),
+        voice: Some(locust_core::talk_shortcut::chosen_voice(store)
+            .unwrap_or_else(|| crate::voice_settings::DEFAULT_TALK_VOICE.to_owned())),
         preview: None,
         connectors: true,
         anchor_turn: s
@@ -285,6 +360,9 @@ fn call_options(s: &State, store: &store::Store) -> Option<CallOptions> {
 }
 
 fn talk(s: &mut State, tx: &mut Tx) {
+    if s.voice.consent_for.take().is_some() {
+        s.voice.note = None;
+    }
     if let Some(mut call) = s.voice.call.take() {
         call.cancel.store(true, Ordering::Release);
         if let Some(service) = &s.voice.service {
@@ -295,6 +373,7 @@ fn talk(s: &mut State, tx: &mut Tx) {
             s.voice.call = Some(call);
         }
         s.voice.questions.clear();
+        s.voice.words = None;
         tx.wake_after(Duration::from_millis(25));
         return;
     }
@@ -352,7 +431,13 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     return true;
                 };
                 match service.start(options.clone()) {
-                    Ok(window) => call.state = TalkState::Connected(peer, window, false),
+                    Ok(window) => {
+                        s.voice.words = options.teammate.as_ref().map(|teammate| LiveWords::new(
+                            teammate.target.teammate_id.clone(), teammate.name.clone(), options.anchor_turn.clone(),
+                            chrono::Utc::now().timestamp_millis().max(1) as u64,
+                        ));
+                        call.state = TalkState::Connected(peer, window, false);
+                    }
                     Err(why) => {
                         s.voice.note = Some(why);
                         ended = true;
@@ -394,8 +479,14 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             }
             while let Ok(event) = window.events.try_recv() {
                 match event {
-                    CallEvent::Asks { id, question } => s.voice.questions.push((id, question)),
-                    CallEvent::Asked { id, .. } => s.voice.questions.retain(|(key, _)| *key != id),
+                    CallEvent::Partial(role, text) => {
+                        if let Some(words) = &mut s.voice.words { words.heard(role, &text, false); }
+                    }
+                    CallEvent::Said(role, text) => {
+                        if let Some(words) = &mut s.voice.words { words.heard(role, &text, true); }
+                    }
+                    CallEvent::Asks { id, question } => s.voice.questions.push(PendingAsk { id, question, at: std::time::Instant::now(), sent: false }),
+                    CallEvent::Asked { id, .. } => s.voice.questions.retain(|ask| ask.id != id),
                     CallEvent::Ended(why) => {
                         if why.is_some() {
                             s.voice.note = why;
@@ -421,6 +512,7 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             service.stop();
         }
         s.voice.questions.clear();
+        s.voice.words = None;
         wake_ledger_pane(s, now, tx);
     } else {
         s.voice.call = Some(call);
@@ -435,6 +527,15 @@ pub(super) fn tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(25));
     }
     capture || call
+}
+
+/// The live call belongs only to the conversation from which Talk was pressed.
+pub(super) fn live_thread_call(s: &State) -> Option<&serde_json::Value> {
+    let call = s.voice.call.as_ref()?;
+    if call.target != conversation_draft_key(s) || !matches!(call.state, TalkState::Connected(_, _, true)) {
+        return None;
+    }
+    s.voice.words.as_ref().map(|words| &words.snapshot)
 }
 
 pub(super) fn calling(s: &State, id: &str) -> bool {
@@ -488,7 +589,20 @@ pub(super) fn controls(s: &State, p: &Palette) -> Option<El> {
 
 pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
     let mut notices = Vec::new();
-    if let Some(note) = &s.voice.note {
+    if s.voice.consent_for.is_some() {
+        let controls = crate::look::controls::Look::new(p.dark);
+        use crate::look::controls::{button, Tone};
+        notices.push(
+            col().key("voice-consent").role("dialog").label("Allow OpenAI voice typing")
+                .gap(8.0).padding(10.0).radius(8.0).fill(p.raised)
+                .child(text(OPENAI_ASK).font(type_::LABEL).color(p.text).wrap())
+                .child(row().gap(8.0)
+                    .child(button(&controls, "Allow", Tone::Active, false)
+                        .key("voice-consent-allow").on_press_tx(allow_openai))
+                    .child(button(&controls, "Not now", Tone::Neutral, false)
+                        .key("voice-consent-not-now").on_press(|s: &mut State| { cancel(s); }))),
+        );
+    } else if let Some(note) = &s.voice.note {
         notices.push(
             text(note.clone())
                 .key("voice-note")
@@ -497,83 +611,117 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
                 .wrap(),
         );
     }
-    for (id, question) in &s.voice.questions {
-        let mut card = col()
-            .key(format!("voice-question-{id}"))
-            .gap(6.0)
-            .padding(10.0)
-            .radius(8.0)
-            .fill(p.raised)
-            .child(
-                text("Approval required — exact action")
-                    .font(type_::LABEL)
-                    .color(p.amber),
-            )
-            .child(text(question.what.clone()).font(type_::LABEL).color(p.text))
-            .child(
-                text("A connector needs your approval. This action cannot be undone in Locust.")
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .wrap(),
-            );
-        if s.voice
-            .call
-            .as_ref()
-            .is_some_and(|call| call.conversation.is_none())
-            && !question.detail.is_empty()
-        {
-            card = card.child(
-                text(question.detail.clone())
-                    .font(type_::LABEL)
-                    .color(p.text)
-                    .wrap(),
-            );
-        } else {
-            for (name, value) in &question.fields {
-                card = card.child(
-                    text(format!("{name}: {value}"))
-                        .font(type_::LABEL)
-                        .color(p.text)
-                        .wrap(),
-                );
-            }
+    if let Some(live) = live_thread_call(s) {
+        // A brand-new thread has no message column yet. Show the same live piece above its composer.
+        if s.ledger.as_ref().is_none_or(|pane| pane.items.is_empty()) {
+            let place = locust_core::call_log::Place::End;
+            let piece = locust_core::call_log::Piece {
+                call: live, lines: live["lines"].as_array().into_iter().flatten().collect(), first: true, last: true,
+            };
+            notices.extend(crate::call_words::draw(s, p, &place, &[piece]));
+        }
+    } else {
+        if owns_open_call(s) && s.voice.words.is_none() {
+            notices.push(home_voice_orb(p));
+        }
+        notices.extend(connector_cards(s, p, None));
+    }
+    notices
+}
+
+// The quiet halftone sphere from VoiceOrb.tsx. Native media does not expose a level yet.
+fn home_voice_orb(p: &Palette) -> El {
+    const SIZE: f32 = 28.;
+    let pitch = SIZE / 9.;
+    let center = SIZE / 2.;
+    let mut shape = rune::Shape::new().view_box(SIZE, SIZE);
+    for row in 0..11 {
+        for column in 0..=9 {
+            let x = (column as f32 + if row % 2 == 0 { 0.5 } else { 0. }) * pitch;
+            let y = center + (row as f32 - 5.) * pitch * 0.866;
+            let distance = (x - center).hypot(y - center) / (center * 0.8);
+            if distance >= 1. { continue; }
+            let r = (pitch * 0.48 * (1. - distance * distance).powf(0.9) * 0.72).clamp(0.35, pitch * 0.5);
+            let light = 1. - (x - center * 0.62).hypot(y - center * 0.62) / (SIZE * 1.05);
+            let dots: Vec<_> = (0..12).map(|i| {
+                let a = i as f32 * std::f32::consts::TAU / 12.;
+                [x + r * a.cos(), y + r * a.sin()]
+            }).collect();
+            shape = shape.fill(dots, p.secondary.alpha((0.35 + 0.75 * light).clamp(0.18, 1.)));
+        }
+    }
+    rune::canvas(shape).size(SIZE, SIZE).key("voice-chatgpt-orb").label("Voice").a11y_hidden()
+}
+
+fn owns_open_call(s: &State) -> bool {
+    s.voice.call.as_ref().is_some_and(|call|
+        call.target == conversation_draft_key(s) && matches!(call.state, TalkState::Connected(_, _, true)))
+}
+
+fn forward_answer(
+    s: &mut State, id: &str, allowed: bool, at: std::time::Instant, send: impl FnOnce(String, bool),
+) -> bool {
+    if !owns_open_call(s) { return false; }
+    let Some(ask) = s.voice.questions.iter_mut().find(|ask| ask.id == id) else { return false; };
+    if ask.sent || at.saturating_duration_since(ask.at) < Duration::from_millis(500) { return false; }
+    ask.sent = true;
+    send(ask.id.clone(), allowed);
+    true
+}
+
+fn answer_connector(s: &mut State, id: &str, allowed: bool) {
+    let Some(service) = s.voice.service.clone() else { return; };
+    forward_answer(s, id, allowed, std::time::Instant::now(), |id, allowed| service.answer(id, allowed));
+}
+
+/// Drawn after the words in the final live piece, or in the composer strip on Home.
+pub(super) fn connector_cards(s: &State, p: &Palette, name: Option<&str>) -> Vec<El> {
+    if !owns_open_call(s) { return Vec::new(); }
+    s.voice.questions.iter().map(|ask| {
+        let question = &ask.question;
+        let id = &ask.id;
+        let facts = |label: &str, value: &str| row().gap(8.0)
+            .child(text(label.to_owned()).font(type_::LABEL).color(p.muted))
+            .child(text(value.to_owned()).font(type_::LABEL).color(p.text).wrap());
+        let mut card = col().key(format!("voice-question-{id}")).role("group")
+            .label(format!("Allow {}?", question.what))
+            .gap(6.0).padding(10.0).radius(8.0).fill(p.raised)
+            .child(text("Approval required — exact action").font(type_::LABEL).color(p.amber));
+        if let Some(name) = name {
+            card = card.child(text(format!("On the call with {name}")).font(type_::LABEL).color(p.muted));
+        }
+        card = card.child(facts("Action", &question.what));
+        if question.fields.is_empty() && !question.detail.is_empty() {
+            card = card.child(facts("Exact", &question.detail));
+        }
+        for (name, value) in &question.fields {
+            let mut chars = name.chars();
+            let label = chars.next().map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect());
+            card = card.child(facts(&label, value));
         }
         let allow = id.clone();
         let deny = id.clone();
-        notices.push(
-            card.child(
-                row()
-                    .gap(12.0)
-                    .child(
-                        text("Deny")
-                            .role("button")
-                            .key(format!("voice-deny-{id}"))
-                            .font(type_::LABEL)
-                            .color(p.text)
-                            .on_press(move |s: &mut State| {
-                                if let Some(service) = &s.voice.service {
-                                    service.answer(deny.clone(), false);
-                                }
-                            }),
-                    )
-                    .child(
-                        text("Allow once")
-                            .role("button")
-                            .key(format!("voice-allow-{id}"))
-                            .font(type_::LABEL)
-                            .color(p.text)
-                            .on_press(move |s: &mut State| {
-                                if let Some(service) = &s.voice.service {
-                                    service.answer(allow.clone(), true);
-                                }
-                            }),
-                    ),
-            ),
-        );
-    }
-    notices
+        let l = crate::look::controls::Look::new(p.dark);
+        card.child(facts("Data sent", "The input above, to the service the connector reaches. It acts there, not on this machine."))
+            .child(facts("Reversible", "Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there."))
+            .child(row().gap(12.0)
+                .child(crate::look::controls::button(&l, "Deny", crate::look::controls::Tone::Neutral, ask.sent)
+                    .key(format!("voice-deny-{id}")).on_press(move |s: &mut State| answer_connector(s, &deny, false)))
+                .child(crate::look::controls::primary_button(&l, "Allow once", ask.sent)
+                    .key(format!("voice-allow-{id}")).on_press(move |s: &mut State| answer_connector(s, &allow, true))))
+            .child(text("Nothing has happened yet. Saying yes on the call does not allow it; Allow once does.")
+                .font(type_::LABEL).color(p.muted).wrap())
+    }).collect()
 }
 
 #[cfg(test)]
 #[path = "voice_panel_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "b09_live_call_tests.rs"]
+mod b09_live_call_tests;
+
+#[cfg(test)]
+#[path = "voice_connector_owner_tests.rs"]
+mod voice_connector_owner_tests;

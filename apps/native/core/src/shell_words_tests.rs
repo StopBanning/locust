@@ -5,40 +5,47 @@ use crate::mission_export::edit_tool_name;
 
 const PS: &str = r#""C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe""#;
 
+// case: shows what ran, not the host that ran it
 #[test]
 fn a_shell_row_shows_what_ran_not_the_host_that_ran_it() {
     assert_eq!(shell_command_text(&format!(r#"{PS} -Command "npm test""#)), "npm test");
     assert_eq!(shell_command_text(&format!("{PS} -NoProfile -NonInteractive -Command 'node --test'")), "node --test");
 }
 
+// case: keeps a command that was never wrapped
 #[test]
 fn a_shell_row_keeps_a_command_that_was_never_wrapped() {
     assert_eq!(shell_command_text("pnpm build"), "pnpm build");
     assert_eq!(shell_command_text("git diff -- src/streak.js"), "git diff -- src/streak.js");
 }
 
+// case: unwraps a cmd.exe host too
 #[test]
 fn a_shell_row_unwraps_a_cmd_exe_host_too() {
     assert_eq!(shell_command_text(r#"C:\Windows\System32\cmd.exe /d /s /c "npm run build""#), "npm run build");
 }
 
+// case: undoes the quote doubling the host introduced
 #[test]
 fn a_shell_row_undoes_the_quote_doubling_the_host_introduced() {
     assert_eq!(shell_command_text(&format!(r#"{PS} -Command "rg -n ""streak"" src""#)), r#"rg -n "streak" src"#);
 }
 
+// case: shows the command as the shell got it, when Codex escaped every backslash
 #[test]
 fn a_codex_command_shows_as_the_shell_got_it_when_every_backslash_was_escaped() {
     let escaped = r#""C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content 'C:\\Users\\me\\.codex\\skills\\imagegen\\SKILL.md'; Get-Content notes.md""#;
     assert_eq!(shell_command_text(escaped), r"Get-Content 'C:\Users\me\.codex\skills\imagegen\SKILL.md'; Get-Content notes.md");
 }
 
+// case: leaves a command alone when one backslash is not half of a pair
 #[test]
 fn a_codex_command_is_left_alone_when_one_backslash_is_not_half_of_a_pair() {
     let plain = r#""C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Command "Get-Content C:\Users\me\notes.md""#;
     assert_eq!(shell_command_text(plain), r"Get-Content C:\Users\me\notes.md");
 }
 
+// case: still undoes an escaped quote inside an escaped payload
 #[test]
 fn a_codex_command_still_undoes_an_escaped_quote_inside_an_escaped_payload() {
     let quoted = r#""C:\\Windows\\powershell.exe" -Command "rg \"streak\" C:\\work""#;
@@ -83,6 +90,7 @@ fn a_rail_label_never_lets_a_multi_line_command_become_multiple_lines() {
     assert_eq!(rail_label("a\nb\n  c"), "a b c");
 }
 
+// case: does not count a to-do list or a sub-agent writer as a file
 #[test]
 fn a_to_do_list_or_a_sub_agent_writer_is_not_a_file_touched() {
     assert!(!edit_tool_name("todowrite"));
@@ -90,12 +98,14 @@ fn a_to_do_list_or_a_sub_agent_writer_is_not_a_file_touched() {
     assert!(!edit_tool_name("todoread"));
 }
 
+// case: counts a removal, which Cursor calls delete
 #[test]
 fn a_removal_which_cursor_calls_delete_is_a_file_touched() {
     assert!(edit_tool_name("delete"));
     assert!(edit_tool_name("deleteFile"));
 }
 
+// case: still counts the ordinary ones
 #[test]
 fn the_ordinary_edit_tools_still_count_and_the_readers_do_not() {
     for name in ["write", "Write", "edit", "apply_patch", "file_change", "create_file", "rename"] {

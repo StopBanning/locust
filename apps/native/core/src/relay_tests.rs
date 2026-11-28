@@ -1521,3 +1521,6 @@ fn without_a_hub_reader_behaves_exactly_as_before_every_such_reply_is_a_new_root
     assert!(st.starts.iter().all(|s| s.follow_up_of.is_none()), "{:?}", st.starts.iter().map(|s| &s.follow_up_of).collect::<Vec<_>>());
     assert!(st.remembered_hubs.is_empty());
 }
+
+#[path = "automatic_reply_route_sweep_tests.rs"]
+mod automatic_reply_route_sweep_tests;

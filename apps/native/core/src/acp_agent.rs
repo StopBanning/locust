@@ -1,38 +1,40 @@
 //! The team as an Agent Client Protocol agent for editors (Electron `packages/cli/src/acp.ts`): an editor that speaks
 //! ACP v1 over stdio (Zed and others) talks to a Locust teammate. JSON-RPC 2.0, one message per line; stdout belongs to
 //! the protocol alone. This app reaches its teammates through its own door's tools, so a turn here is a turn the
-//! window shows, under the door's rules: its mode, its folder checks, and approval cards answered only in Locust.
+//! window shows, under the door's rules: its mode, its folder checks, and approval cards answered in Locust unless the person enables own-turn answers.
 
+use crate::cli_client::{Abort, CliApproval, CliSession, CliTeammate, Ended, LocalError, LocustClient, TextStream};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-/// One door tool call, answered as the door answers (`ToolResult::to_json`).
-pub type Call = Arc<dyn Fn(&str, &Value) -> Value + Send + Sync>;
 /// One protocol message out.
 pub type Out = Arc<dyn Fn(Value) + Send + Sync>;
 
 const NOT_OPEN: &str = "This editor session is not open. Create a new session in the editor.";
 const MAX_PROMPT: usize = 8_000;
 
-#[derive(Clone, Debug)]
-struct Mate {
-    id: String,
-    name: String,
-    runtime: Option<String>,
-    model: Option<String>,
+struct Session {
+    connection: CliSession,
+    team: Vec<CliTeammate>,
+    used: bool,
+    active: Option<Abort>,
 }
 
-struct Session {
-    cwd: String,
-    teammate: String,
-    team: Vec<Mate>,
-    conversation: Option<String>,
-    used: bool,
-    active: Option<Arc<AtomicBool>>,
+struct Prompt {
+    session_id: String,
+    text: String,
+    cancel: Abort,
+    connection: CliSession,
+}
+
+struct Permission {
+    editor_session: String,
+    approval: String,
+    expires: Instant,
+    answered: Option<bool>,
 }
 
 #[derive(Default)]
@@ -41,10 +43,12 @@ struct State {
     closing: bool,
     sessions: HashMap<String, Session>,
     next: u64,
+    permissions: HashMap<String, Permission>,
+    tasks: Vec<std::thread::JoinHandle<()>>,
 }
 
 pub struct AcpAgent {
-    call: Call,
+    client: LocustClient,
     out: Out,
     /// The teammate an editor session starts on, by name or id; the first on the team otherwise.
     teammate: Option<String>,
@@ -58,21 +62,20 @@ fn err(code: i64, message: &str) -> RpcError {
     RpcError(code, message.to_owned())
 }
 
-/// What a door answer said: its structured part, or its text read as JSON, and its words.
-fn answer_of(result: &Value) -> (Value, String, bool) {
-    let text = result["content"][0]["text"].as_str().unwrap_or("").to_owned();
-    let structured = result.get("structuredContent").cloned().or_else(|| serde_json::from_str::<Value>(&text).ok()).unwrap_or(Value::Null);
-    (structured, text, result["isError"] == true)
+impl From<LocalError> for RpcError {
+    fn from(error: LocalError) -> Self {
+        Self(-32000, error.0)
+    }
 }
 
 impl AcpAgent {
-    pub fn new(call: Call, out: Out, teammate: Option<String>) -> Self {
-        Self { call, out, teammate, state: Arc::default(), poll: Duration::from_secs(5) }
+    pub fn new(client: LocustClient, out: Out, teammate: Option<String>) -> Self {
+        Self { client, out, teammate, state: Arc::default(), poll: Duration::from_millis(250) }
     }
 
     #[cfg(test)]
     fn quick(mut self) -> Self {
-        self.poll = Duration::from_millis(0);
+        self.poll = Duration::from_millis(5);
         self
     }
 
@@ -89,8 +92,8 @@ impl AcpAgent {
         (self.out)(message);
     }
 
-    fn update(out: &Out, session_id: &str, update: Value) {
-        out(json!({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": session_id, "update": update}}));
+    fn update(&self, session_id: &str, update: Value) {
+        self.send(json!({ "method": "session/update", "params": {"sessionId": session_id, "update": update}}));
     }
 
     fn configs(session: &Session) -> Value {
@@ -99,19 +102,7 @@ impl AcpAgent {
             .iter()
             .map(|t| json!({"value": t.id, "name": format!("{} ({} / {})", t.name, t.runtime.as_deref().unwrap_or("agent not set"), t.model.as_deref().unwrap_or("model not set"))}))
             .collect();
-        json!([{"id": "teammate", "name": "Teammate", "type": "select", "currentValue": session.teammate, "options": options}])
-    }
-
-    fn team(&self) -> Result<Vec<Mate>, RpcError> {
-        let (list, words, refused) = answer_of(&(self.call)("list_teammates", &json!({})));
-        let rows = list.as_array().or_else(|| list["teammates"].as_array()).cloned();
-        match rows {
-            Some(rows) if !refused => Ok(rows
-                .iter()
-                .filter_map(|t| Some(Mate { id: t["id"].as_str()?.into(), name: t["name"].as_str()?.into(), runtime: t["runtime"].as_str().map(str::to_owned), model: t["model"].as_str().map(str::to_owned) }))
-                .collect()),
-            _ => Err(RpcError(-32000, if words.is_empty() { "Locust could not list its teammates. Check that Locust is open.".into() } else { words })),
-        }
+        json!([{"id": "teammate", "name": "Teammate", "type": "select", "currentValue": session.connection.teammate.id, "options": options}])
     }
 
     /// One line from the editor.
@@ -126,7 +117,18 @@ impl AcpAgent {
             return self.send(json!({"id": null, "error": {"code": -32600, "message": "Use a JSON-RPC 2.0 object."}}));
         }
         let id = message.get("id").filter(|v| v.is_string() || v.as_f64().is_some_and(f64::is_finite)).cloned();
-        let Some(method) = message["method"].as_str() else { return };
+        let Some(method) = message["method"].as_str() else {
+            if let Some(id) = id.as_ref().and_then(Value::as_str)
+                && let Some(pending) = self.lock().permissions.get_mut(id)
+                && pending.answered.is_none()
+                && Instant::now() < pending.expires
+            {
+                let outcome = &message["result"]["outcome"];
+                pending.answered = Some(message.get("error").is_none()
+                    && outcome["outcome"] == "selected" && outcome["optionId"] == "allow");
+            }
+            return;
+        };
         // Only cancel is a supported notification: never start a hidden turn without a request id to answer.
         if id.is_none() && method != "session/cancel" {
             return;
@@ -143,9 +145,15 @@ impl AcpAgent {
             }
         };
         if method == "session/prompt" {
-            // A turn takes as long as it takes: it answers from its own thread.
+            // Reserve the session while reading this line. The next line may cancel or set its teammate.
+            let prompt = match self.prepare_prompt(&params) {
+                Ok(prompt) => prompt,
+                Err(error) => return respond(Err(error)),
+            };
             let me = self.clone();
-            std::thread::spawn(move || respond(me.prompt(&params)));
+            let mut state = self.lock();
+            state.tasks.retain(|task| !task.is_finished());
+            state.tasks.push(std::thread::spawn(move || respond(me.prompt(prompt))));
         } else {
             respond(self.handle(&method, &params));
         }
@@ -178,19 +186,12 @@ impl AcpAgent {
                 let (Some(cwd), true) = (cwd, servers_empty) else {
                     return Err(err(-32602, "Use an absolute cwd and an empty mcpServers list. Locust uses the teammate\u{2019}s connectors configured in Locust, not programs supplied by the editor."));
                 };
-                let team = self.team()?;
-                let wanted = self.teammate.as_deref().map(str::to_lowercase);
-                let pick = match &wanted {
-                    Some(w) => team.iter().find(|t| t.id.to_lowercase() == *w || t.name.to_lowercase() == *w),
-                    None => team.first(),
-                };
-                let Some(pick) = pick.cloned() else {
-                    return Err(err(-32000, "That teammate is not on the team in Locust. Choose one of its teammates."));
-                };
+                let team = self.client.teammates()?;
+                let connection = self.client.open(self.teammate.as_deref(), Some(cwd))?;
                 let mut state = self.lock();
                 state.next += 1;
                 let session_id = format!("locust-editor-{}", state.next);
-                let session = Session { cwd: cwd.into(), teammate: pick.id, team, conversation: None, used: false, active: None };
+                let session = Session { connection, team, used: false, active: None };
                 let options = Self::configs(&session);
                 state.sessions.insert(session_id.clone(), session);
                 Ok(json!({"sessionId": session_id, "configOptions": options}))
@@ -203,140 +204,198 @@ impl AcpAgent {
                 }
                 let value = params["value"].as_str().unwrap_or("");
                 if params["configId"] != "teammate" || !session.team.iter().any(|t| t.id == value) {
-                    return Err(err(-32602, "Choose a teammate from this session\u{2019}s Teammate option."));
+                    return Err(err(-32602, "Choose a teammate from this session’s Teammate option."));
                 }
-                session.teammate = value.into();
+                // The reader serializes setup and selection. Holding the state also stops a pending prompt from
+                // starting on the old connection while the replacement is being opened.
+                let next = self.client.open(Some(value), Some(&session.connection.workspace))?;
+                if let Err(error) = self.client.close(&session.connection) {
+                    let _ = self.client.close(&next);
+                    return Err(error.into());
+                }
+                session.connection = next;
                 Ok(json!({"configOptions": Self::configs(session)}))
             }
             "session/cancel" => {
-                let state = self.lock();
-                let session = params["sessionId"].as_str().and_then(|id| state.sessions.get(id)).ok_or_else(|| err(-32602, NOT_OPEN))?;
+                let id = params["sessionId"].as_str().unwrap_or("");
+                let mut state = self.lock();
+                let session = state.sessions.get(id).ok_or_else(|| err(-32602, NOT_OPEN))?;
                 if let Some(active) = &session.active {
-                    active.store(true, Ordering::SeqCst);
+                    active.abort();
                 }
+                state.permissions.retain(|_, p| p.editor_session != id);
                 Ok(json!({}))
             }
             _ => Err(err(-32601, "Locust does not offer that ACP method. It offers no editor filesystem or terminal operations.")),
         }
     }
 
-    fn prompt(&self, params: &Value) -> Result<Value, RpcError> {
+    fn prepare_prompt(&self, params: &Value) -> Result<Prompt, RpcError> {
         let session_id = params["sessionId"].as_str().unwrap_or("").to_owned();
+        let mut state = self.lock();
+        if state.closing || !state.initialized {
+            return Err(err(-32600, "Initialize this ACP connection before creating a session."));
+        }
+        let session = state.sessions.get_mut(&session_id).ok_or_else(|| err(-32602, NOT_OPEN))?;
+        if session.active.is_some() {
+            return Err(err(-32600, "This session is still working. Cancel the turn or wait for its reply."));
+        }
         let blocks = params["prompt"].as_array().cloned().unwrap_or_default();
-        let (cancel, teammate, cwd, conversation) = {
-            let mut state = self.lock();
-            if !state.initialized {
-                return Err(err(-32600, "Initialize this ACP connection before creating a session."));
-            }
-            let session = state.sessions.get_mut(&session_id).ok_or_else(|| err(-32602, NOT_OPEN))?;
-            if session.active.is_some() {
-                return Err(err(-32600, "This session is still working. Cancel the turn or wait for its reply."));
-            }
-            if blocks.is_empty() || blocks.iter().any(|b| b["type"] != "text" || !b["text"].is_string()) {
-                return Err(err(-32602, "Locust accepts text prompts only. Send text, not a file, image, audio, or embedded resource."));
-            }
-            let cancel = Arc::new(AtomicBool::new(false));
-            session.active = Some(cancel.clone());
-            session.used = true;
-            (cancel, session.teammate.clone(), session.cwd.clone(), session.conversation.clone())
-        };
+        if blocks.is_empty() || blocks.iter().any(|b| b["type"] != "text" || !b["text"].is_string()) {
+            return Err(err(-32602, "Locust accepts text prompts only. Send text, not a file, image, audio, or embedded resource."));
+        }
         let text = blocks.iter().filter_map(|b| b["text"].as_str()).collect::<Vec<_>>().join("\n\n");
-        let finish = |me: &Self| {
-            if let Some(s) = me.lock().sessions.get_mut(&session_id) {
-                s.active = None;
-            }
-        };
         if text.trim().is_empty() || text.encode_utf16().count() > MAX_PROMPT {
-            finish(self);
             return Err(err(-32602, "Write a text prompt of up to 8,000 characters. Nothing was sent."));
         }
-        let started = match &conversation {
-            None => (self.call)("start_conversation", &json!({"teammate": teammate, "message": text, "folder": cwd})),
-            Some(id) => (self.call)("send_message", &json!({"conversation_id": id, "message": text})),
-        };
-        let (begun, words, refused) = answer_of(&started);
-        let Some(conversation_id) = begun["conversation_id"].as_str().map(str::to_owned).filter(|_| !refused) else {
-            finish(self);
-            return Err(RpcError(-32000, if words.is_empty() { "Locust could not start the turn. Check the conversation in Locust.".into() } else { words }));
-        };
-        if let Some(s) = self.lock().sessions.get_mut(&session_id) {
-            s.conversation = Some(conversation_id.clone());
-        }
-        let mut told_waiting = false;
-        let stop_reason = loop {
-            if cancel.load(Ordering::SeqCst) {
-                let _ = (self.call)("stop_turn", &json!({"conversation_id": conversation_id}));
-                break "cancelled";
-            }
-            let wait = self.poll.as_secs();
-            let (status, words, refused) = answer_of(&(self.call)("read_reply", &json!({"conversation_id": conversation_id, "wait_seconds": wait})));
-            match status["status"].as_str() {
-                _ if refused => {
-                    Self::update(&self.out, &session_id, json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": words}}));
-                    break "end_turn";
-                }
-                Some("working") => {
-                    told_waiting = false;
-                    if self.poll.is_zero() {
-                        std::thread::sleep(Duration::from_millis(5));
-                    }
-                }
-                Some("waiting_for_person") => {
-                    // An editor cannot answer a card: it waits for the person in Locust.
-                    if !told_waiting {
-                        Self::update(&self.out, &session_id, json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": format!("\nWaiting for you in Locust: {words}\n")}}));
-                        told_waiting = true;
-                    }
-                    std::thread::sleep(if self.poll.is_zero() { Duration::from_millis(5) } else { Duration::from_secs(2) });
-                }
-                Some("stopped") => {
-                    Self::update(&self.out, &session_id, json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": words}}));
-                    break "cancelled";
-                }
-                _ => {
-                    Self::update(&self.out, &session_id, json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": words}}));
-                    break "end_turn";
-                }
-            }
-        };
-        finish(self);
-        Ok(json!({"stopReason": stop_reason}))
+        let cancel = Abort::new();
+        session.active = Some(cancel.clone());
+        session.used = true;
+        Ok(Prompt { session_id, text, cancel, connection: session.connection.clone() })
     }
 
-    /// The editor went away: every turn it started stops.
+    fn prompt(&self, prompt: Prompt) -> Result<Value, RpcError> {
+        let Prompt { session_id, text, cancel, connection } = prompt;
+        let mut stream = TextStream::new(|text| { self.say(&session_id, text); Ok(()) });
+        let mut seen = HashSet::new();
+        let mut decision_error = None;
+        let result = self.client.prompt_owned(&connection, &text, Some(&cancel), &mut |event| stream.accept(event),
+            Some(&mut |cards, turn| {
+                if turn.aborted() || cancel.aborted() { return; }
+                let can_answer = |c: &CliApproval| !c.answer_in_locust && c.kind != "question";
+                let offered: HashSet<_> = cards.iter().filter(|c| can_answer(c)).map(|c| c.approval_id.as_str()).collect();
+                let actions = {
+                    let mut state = self.lock();
+                    let mut actions = Vec::new();
+                    state.permissions.retain(|_, pending| {
+                        if pending.editor_session != session_id { return true; }
+                        if !offered.contains(pending.approval.as_str()) { return false; }
+                        if let Some(approve) = pending.answered.or_else(|| (Instant::now() >= pending.expires).then_some(false)) {
+                            actions.push((pending.approval.clone(), approve));
+                            return false;
+                        }
+                        true
+                    });
+                    actions
+                };
+                for (approval, approve) in actions {
+                    // The door rechecks the opt-in and same mission/run/card at the point of decision.
+                    if cancel.aborted() || turn.aborted() { break; }
+                    if let Err(error) = self.client.answer_editor_card(&connection, &approval, approve) {
+                        decision_error = Some(error);
+                        cancel.abort();
+                        return;
+                    }
+                }
+                for card in cards {
+                    if cancel.aborted() { break; }
+                    if seen.insert(card.approval_id.clone()) {
+                        if can_answer(card) {
+                            self.offer_permission(&session_id, card, &cancel);
+                        } else {
+                            self.say(&session_id, &format!("\nWaiting for you in Locust: {}\n", card.summary));
+                        }
+                    }
+                }
+            }), self.poll);
+        {
+            let mut state = self.lock();
+            state.permissions.retain(|_, p| p.editor_session != session_id);
+            if let Some(s) = state.sessions.get_mut(&session_id) { s.active = None; }
+        }
+        if let Some(error) = decision_error { return Err(error.into()); }
+        Ok(json!({"stopReason": match result? { Ended::EndTurn => "end_turn", Ended::Cancelled => "cancelled" }}))
+    }
+
+    fn say(&self, session_id: &str, text: &str) {
+        self.update(session_id, json!({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": text}}));
+    }
+
+    fn offer_permission(&self, session: &str, card: &CliApproval, cancel: &Abort) {
+        let id = {
+            let mut state = self.lock();
+            if state.closing || cancel.aborted() { return; }
+            state.next += 1;
+            let id = format!("locust-permission-{}", state.next);
+            state.permissions.insert(id.clone(), Permission {
+                editor_session: session.into(), approval: card.approval_id.clone(),
+                expires: Instant::now() + Duration::from_secs(120), answered: None,
+            });
+            id
+        };
+        self.send(json!({"id": id, "method": "session/request_permission", "params": {"sessionId": session,
+            "toolCall": {"toolCallId": card.approval_id, "title": card.summary,
+                "kind": match card.kind.as_str() { "command" => "execute", "file-change" => "edit", _ => "other" },
+                "content": [{"type": "content", "content": {"type": "text", "text": card.detail}}],
+                "rawInput": {"detail": card.detail, "cwd": card.cwd}},
+            "options": [{"optionId": "allow", "kind": "allow_once", "name": "Allow once"},
+                {"optionId": "deny", "kind": "reject_once", "name": "Deny"}]}}));
+    }
+
+    fn keepalive(&self) {
+        let connections: Vec<_> = self.lock().sessions.values().map(|s| (s.connection.clone(), s.active.clone())).collect();
+        for (connection, active) in connections {
+            if self.client.keepalive(&connection).is_err() && let Some(active) = active {
+                active.abort();
+            }
+        }
+    }
+
+    /// On EOF, cancel the pending prompts before closing their capability sessions, then wait for cleanup.
     pub fn close(&self) {
-        let actives: Vec<Arc<AtomicBool>> = {
+        let (actives, tasks) = {
             let mut state = self.lock();
             state.closing = true;
-            state.sessions.values().filter_map(|s| s.active.clone()).collect()
+            state.permissions.clear();
+            (state.sessions.values().filter_map(|s| s.active.clone()).collect::<Vec<_>>(), std::mem::take(&mut state.tasks))
         };
-        for active in actives {
-            active.store(true, Ordering::SeqCst);
-        }
+        for active in actives { active.abort(); }
+        for task in tasks { let _ = task.join(); }
+        let sessions = std::mem::take(&mut self.lock().sessions);
+        for session in sessions.into_values() { let _ = self.client.close(&session.connection); }
     }
 }
 
 /// `locust-native --acp [teammate]`: the agent on stdin and stdout, through this machine's open door.
 pub fn acp_main(connection: &Path, teammate: Option<String>) {
-    use std::io::{BufRead, Write};
-    let connection = connection.to_path_buf();
-    let call: Call = Arc::new(move |name: &str, args: &Value| crate::door::bridge_call(&connection, name, args));
-    let stdout = Arc::new(Mutex::new(std::io::stdout()));
+    let Some(profile) = connection.parent() else { return; };
+    acp_stdio(LocustClient::new(profile), teammate, std::io::stdin().lock(), std::io::stdout());
+}
+
+fn acp_stdio(
+    client: LocustClient,
+    teammate: Option<String>,
+    input: impl std::io::BufRead,
+    output: impl std::io::Write + Send + 'static,
+) {
+    let stdout = Arc::new(Mutex::new(output));
     let out: Out = Arc::new(move |message: Value| {
         let mut out = stdout.lock().unwrap_or_else(|e| e.into_inner());
         let _ = writeln!(out, "{message}");
         let _ = out.flush();
     });
-    let agent = Arc::new(AcpAgent::new(call, out, teammate));
-    for line in std::io::stdin().lock().lines() {
+    let agent = Arc::new(AcpAgent::new(client, out, teammate));
+    let stop = Abort::new();
+    let heartbeat = {
+        let (agent, stop) = (agent.clone(), stop.clone());
+        std::thread::spawn(move || {
+            while !stop.aborted() {
+                stop.sleep(Duration::from_secs(10));
+                if !stop.aborted() { agent.keepalive(); }
+            }
+        })
+    };
+    for line in input.lines() {
         let Ok(line) = line else { break };
         if !line.trim().is_empty() {
             agent.accept(&line);
         }
     }
+    stop.abort();
     agent.close();
+    let _ = heartbeat.join();
 }
 
 #[cfg(test)]
-#[path = "acp_agent_tests.rs"]
+#[path = "acp_agent_sessions_tests.rs"]
 mod tests;

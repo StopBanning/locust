@@ -442,3 +442,7 @@ mod tests;
 #[cfg(test)]
 #[path = "cloud_tasks_log_tests.rs"]
 mod log_tests;
+
+#[cfg(test)]
+#[path = "sol_cleanup_sweep_tests.rs"]
+mod sol_cleanup_sweep_tests;

@@ -26,6 +26,8 @@ pub const AWAY_BRANCH: &str = "locust/scout-away";
 pub const AWAY_WORKFLOW_NAME: &str = "Locust Scout";
 pub const AWAY_WORKFLOW_PATH: &str = ".github/workflows/locust-scout.yml";
 pub const AWAY_SCRIPT_PATH: &str = ".github/locust/scout-away.mjs";
+/// The generated scheduled entry installed by the native app and run by GitHub Actions.
+pub const PACKAGED_AWAY_SCRIPT: &str = include_str!("../../../desktop/resources/scout-away.mjs");
 
 // ---- Away letters (shared/away-letter.ts) ---------------------------------------------------------------------------
 
@@ -869,6 +871,7 @@ pub enum ScoutAwayStatus {
         blocked: Option<String>,
         message: Option<String>,
     },
+    Cleaning { message: String },
     Waiting {
         repo: String,
         pr: String,
@@ -899,6 +902,7 @@ pub trait ScoutAwayRelay: Send + Sync {
     fn away_close(&self) -> bool;
     fn keep_away_alerts(&self) -> bool;
     fn post(&self, n: &str, c: &str) -> bool;
+    fn letters(&self, _after: Option<&str>) -> Option<crate::phone_anywhere::LettersPage> { None }
 }
 
 pub trait ScoutAwayGh: Send + Sync {
@@ -935,9 +939,19 @@ struct SavedAway {
     pr: Option<SavedPr>,
     merged: bool,
     last_look: Option<String>,
+    cursor: Option<String>,
+    told: Option<String>,
+    cleanup: Option<AwayCleanup>,
     script: String,
     workflow: Option<String>,
     update: Option<SavedPr>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct AwayCleanup {
+    relay: bool,
+    secret: bool,
+    workflow: bool,
 }
 
 impl SavedAway {
@@ -959,6 +973,17 @@ impl SavedAway {
         obj.insert("merged".into(), json!(self.merged));
         if let Some(ll) = &self.last_look {
             obj.insert("lastLook".into(), json!(ll));
+        }
+        if let Some(cursor) = &self.cursor {
+            obj.insert("cursor".into(), json!(cursor));
+        }
+        if let Some(told) = &self.told {
+            obj.insert("told".into(), json!(told));
+        }
+        if let Some(cleanup) = &self.cleanup {
+            obj.insert("cleanup".into(), json!({
+                "relay": cleanup.relay, "secret": cleanup.secret, "workflow": cleanup.workflow,
+            }));
         }
         obj.insert("script".into(), json!(self.script));
         if let Some(wf) = &self.workflow {
@@ -983,8 +1008,10 @@ impl SavedAway {
                 })
             })
         };
+        let repo = obj.get("repo")?.as_str()?;
+        if !repo_re().is_match(repo) { return None; }
         Some(Self {
-            repo: obj.get("repo")?.as_str()?.to_owned(),
+            repo: repo.to_owned(),
             folder: obj.get("folder").and_then(Value::as_str).unwrap_or("").to_owned(),
             login: obj.get("login").and_then(Value::as_str).unwrap_or("").to_owned(),
             key: obj.get("key")?.as_str()?.to_owned(),
@@ -996,6 +1023,13 @@ impl SavedAway {
             pr: parse_pr("pr"),
             merged: obj.get("merged").and_then(Value::as_bool).unwrap_or(false),
             last_look: obj.get("lastLook").and_then(Value::as_str).map(str::to_owned),
+            cursor: obj.get("cursor").and_then(Value::as_str).map(str::to_owned),
+            told: obj.get("told").and_then(Value::as_str).map(str::to_owned),
+            cleanup: obj.get("cleanup").map(|value| AwayCleanup {
+                relay: value["relay"] == true,
+                secret: value["secret"] == true,
+                workflow: value["workflow"] == true,
+            }),
             script: obj.get("script").and_then(Value::as_str).unwrap_or("").to_owned(),
             workflow: obj.get("workflow").and_then(Value::as_str).map(str::to_owned),
             update: parse_pr("update"),
@@ -1006,6 +1040,10 @@ impl SavedAway {
 pub struct ScoutAway {
     deps: ScoutAwayDeps,
     state: Mutex<ScoutAwayState>,
+    scout: Option<std::sync::Weak<crate::scout::Scout>>,
+    // Kept apart from the state mutex: phone request handlers must not wait on a worker
+    // that is itself waiting for the receiver to deliver the relay's answer.
+    phone: Mutex<Option<(String, crate::phone_anywhere::AwayForPhone)>>,
 }
 
 struct ScoutAwayState {
@@ -1025,36 +1063,214 @@ impl ScoutAway {
                 message: None,
                 carried: None,
             }),
+            scout: None,
+            phone: Mutex::new(None),
         }
+    }
+
+    pub fn with_scout(mut self, scout: &Arc<crate::scout::Scout>) -> Self {
+        self.scout = Some(Arc::downgrade(scout));
+        self
+    }
+
+    pub fn for_phone(&self) -> Option<crate::phone_anywhere::AwayForPhone> {
+        self.phone.lock().unwrap().as_ref().map(|(_, info)| info.clone())
+    }
+
+    pub fn for_phone_in_room(&self, room: &str) -> Option<crate::phone_anywhere::AwayForPhone> {
+        self.phone.lock().unwrap().as_ref()
+            .filter(|(saved, _)| saved == room).map(|(_, info)| info.clone())
+    }
+
+    fn phone_snapshot(&self, saved: Option<&SavedAway>) {
+        *self.phone.lock().unwrap() = saved.filter(|held| held.cleanup.is_none()).map(|held| (held.room.clone(), crate::phone_anywhere::AwayForPhone {
+            key: held.key.clone(),
+            repo: held.repo.clone(),
+        }));
     }
 
     fn load_inner(&self, st: &mut ScoutAwayState) {
-        if st.loaded {
+        if st.loaded { return; }
+        st.loaded = true;
+        st.saved = fs::read_to_string(&self.deps.file).ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+            .and_then(|value| SavedAway::from_json(&value));
+        self.phone_snapshot(st.saved.as_ref());
+    }
+
+    fn persist_inner(&self, st: &mut ScoutAwayState, next: Option<SavedAway>) -> bool {
+        let saved = match &next {
+            None => fs::remove_file(&self.deps.file).or_else(|error|
+                if error.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(error) }),
+            Some(held) => (|| {
+                use std::io::Write;
+                if let Some(parent) = self.deps.file.parent() { fs::create_dir_all(parent)?; }
+                let tmp = self.deps.file.with_extension(format!("tmp-{}", random_text(8)));
+                let mut options = fs::OpenOptions::new();
+                options.write(true).create_new(true);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::OpenOptionsExt;
+                    options.mode(0o600);
+                }
+                let saved = (|| {
+                    let mut file = options.open(&tmp)?;
+                    file.write_all(held.to_json().to_string().as_bytes())?;
+                    file.sync_all()?;
+                    drop(file);
+                    fs::rename(&tmp, &self.deps.file)
+                })();
+                if saved.is_err() { let _ = fs::remove_file(&tmp); }
+                saved
+            })(),
+        };
+        if saved.is_err() {
+            st.message = Some("Scout could not save the away look’s settings.".into());
+            return false;
+        }
+        self.phone_snapshot(next.as_ref());
+        st.saved = next;
+        true
+    }
+
+    /// Read on a worker, not in a phone receive callback. Persist only after delivering the page.
+    pub fn catch_up(&self) {
+        let mut st = self.state.lock().unwrap();
+        self.load_inner(&mut st);
+        let Some(mut held) = st.saved.clone().filter(|held| held.cleanup.is_none()) else { return };
+        let Some(scout) = self.scout.as_ref().and_then(std::sync::Weak::upgrade) else { return };
+        let Some(relay) = (self.deps.relay)() else { return };
+        if !relay.connected() || relay.room().map(|(_, room)| room).as_deref() != Some(held.room.as_str()) {
             return;
         }
-        st.loaded = true;
-        if let Ok(text) = fs::read_to_string(&self.deps.file)
-            && let Ok(val) = serde_json::from_str::<Value>(&text)
-        {
-            st.saved = SavedAway::from_json(&val);
+        let mut cursor = held.cursor.clone();
+        let mut looks = Vec::new();
+        for _ in 0..10 {
+            let Some(page) = relay.letters(cursor.as_deref()) else { break };
+            let before = cursor.clone();
+            for item in page.items {
+                cursor = Some(item.id);
+                if item.from != "away" { continue; }
+                let boxed = SealedAwayBox { n: item.n, c: item.c };
+                if let Some(letter) = open_away_letter(&held.key, &boxed, &held.room, AwayLetterFrom::Away)
+                    && letter.kind == AwayLetterKind::Look
+                    && letter.repo.eq_ignore_ascii_case(&held.repo)
+                {
+                    looks.push(letter);
+                }
+            }
+            if !page.more || cursor == before { break; }
+        }
+        if !looks.is_empty() {
+            if scout.absorb_saved(&looks).is_err() {
+                st.message = Some("Scout could not save the away look. It will read it again.".into());
+                return;
+            }
+            held.last_look = looks.last().map(|letter| letter.at.clone());
+        }
+        if cursor != held.cursor {
+            held.cursor = cursor;
+            self.persist_inner(&mut st, Some(held));
         }
     }
 
-    fn persist_inner(&self, st: &mut ScoutAwayState, next: Option<SavedAway>) {
-        st.saved = next.clone();
-        match next {
-            None => {
-                let _ = fs::remove_file(&self.deps.file);
-            }
-            Some(s) => {
-                if let Some(parent) = self.deps.file.parent() {
-                    let _ = fs::create_dir_all(parent);
-                }
-                let tmp = self.deps.file.with_extension("json.tmp");
-                let _ = fs::write(&tmp, s.to_json().to_string());
-                let _ = fs::rename(&tmp, &self.deps.file);
+    /// Put the desktop's current receipt on the encrypted relay, only after a change.
+    pub fn leave_told(&self) {
+        let mut st = self.state.lock().unwrap();
+        self.load_inner(&mut st);
+        let Some(mut held) = st.saved.clone().filter(|held| held.cleanup.is_none()) else { return };
+        let Some(scout) = self.scout.as_ref().and_then(std::sync::Weak::upgrade) else { return };
+        let Some(relay) = (self.deps.relay)() else { return };
+        if !relay.connected() || relay.room().map(|(_, room)| room).as_deref() != Some(held.room.as_str()) {
+            return;
+        }
+        let mut letter = scout.away_receipt(&held.repo);
+        let mark = sha256_b64url(&letter.to_json().to_string());
+        if held.told.as_deref() == Some(mark.as_str()) { return; }
+        letter.at = (self.deps.now)().to_rfc3339();
+        if let Ok(boxed) = seal_away_letter(&held.key, &letter, &held.room, AwayLetterFrom::Pc)
+            && relay.post(&boxed.n, &boxed.c)
+        {
+            held.told = Some(mark);
+            self.persist_inner(&mut st, Some(held));
+        }
+    }
+
+    pub fn refresh(&self) {
+        self.catch_up();
+        self.leave_told();
+        if let Some(relay) = (self.deps.relay)().filter(|relay| relay.connected())
+            && self.for_phone().is_some()
+        {
+            let _ = relay.keep_away_alerts();
+        }
+    }
+
+    fn remove_remote(&self, held: &SavedAway) -> bool {
+        if let Some(relay) = (self.deps.relay)()
+            && relay.room().map(|(_, room)| room).as_deref() == Some(held.room.as_str())
+        {
+            let _ = relay.away_close();
+        }
+        let folder = (self.deps.folder)().unwrap_or_else(|| held.folder.clone());
+        let secret = self.deps.gh.run(&["secret", "delete", AWAY_SECRET, "--repo", &held.repo], &folder, None);
+        let end = if held.merged {
+            self.deps.gh.run(&["workflow", "disable", AWAY_WORKFLOW_NAME, "--repo", &held.repo], &folder, None)
+        } else if let Some(pr) = &held.pr {
+            self.deps.gh.run(&["pr", "close", &pr.number.to_string(), "--repo", &held.repo, "--delete-branch"], &folder, None)
+        } else {
+            Ok(String::new())
+        };
+        secret.is_ok() && end.is_ok()
+    }
+
+    fn turn_off(&self, st: &mut ScoutAwayState, mut held: SavedAway, room_gone: bool) -> bool {
+        let mut progress = held.cleanup.clone().unwrap_or_default();
+        progress.relay |= room_gone;
+        held.cleanup = Some(progress.clone());
+        // Keep enough state to finish cleanup after restart, and stop exposing the
+        // key before attempting any external operation.
+        if !self.persist_inner(st, Some(held.clone())) { return false; }
+        if !progress.relay
+            && let Some(relay) = (self.deps.relay)()
+        {
+            match relay.room() {
+                Some((_, room)) if room == held.room => progress.relay = relay.away_close(),
+                _ => {}
             }
         }
+        let folder = (self.deps.folder)().unwrap_or_else(|| held.folder.clone());
+        if !progress.secret {
+            progress.secret = self.deps.gh.run(&["secret", "delete", AWAY_SECRET, "--repo", &held.repo], &folder, None).is_ok();
+        }
+        if !progress.workflow {
+            progress.workflow = if held.merged {
+                self.deps.gh.run(&["workflow", "disable", AWAY_WORKFLOW_NAME, "--repo", &held.repo], &folder, None).is_ok()
+            } else if let Some(pr) = &held.pr {
+                self.deps.gh.run(&["pr", "close", &pr.number.to_string(), "--repo", &held.repo, "--delete-branch"], &folder, None).is_ok()
+            } else { true };
+        }
+        if progress.relay && progress.secret && progress.workflow {
+            return self.persist_inner(st, None);
+        }
+        held.cleanup = Some(progress);
+        self.persist_inner(st, Some(held));
+        st.message = Some("Scout stopped using the away look here. Try turning it off again to finish removing it from the relay and GitHub.".into());
+        false
+    }
+
+    /// Called when the user turns the phone off, never on a transient disconnect.
+    /// If the phone still has a closing record, retain the Scout cleanup until its
+    /// relay reset is confirmed instead of losing the room reference.
+    pub fn phone_gone(&self, room_gone: bool) -> ScoutAwayStatus {
+        let mut st = self.state.lock().unwrap();
+        self.load_inner(&mut st);
+        if let Some(held) = st.saved.clone()
+            && self.turn_off(&mut st, held, room_gone)
+        {
+            st.message = Some("Your phones were turned off, so Scout stopped looking while your computer is off. Turn it on again here.".into());
+        }
+        self.status_from(&st)
     }
 
     fn know_carried(&self, st: &mut ScoutAwayState) {
@@ -1091,6 +1307,10 @@ impl ScoutAway {
                 message: st.message.clone(),
             };
         };
+        if held.cleanup.is_some() {
+            return ScoutAwayStatus::Cleaning { message: st.message.clone().unwrap_or_else(||
+                "Scout stopped using the away look here. Finish turning it off to remove what remains.".into()) };
+        }
         if !held.merged {
             return ScoutAwayStatus::Waiting {
                 repo: held.repo.clone(),
@@ -1220,10 +1440,13 @@ impl ScoutAway {
             Some(&pr_body),
         )?)
         .map_err(|e| e.to_string())?;
-        Ok(SavedPr {
-            url: pr_json["url"].as_str().unwrap_or("").to_owned(),
-            number: pr_json["number"].as_u64().unwrap_or(0),
-        })
+        let number = pr_json["number"].as_u64().filter(|number| *number > 0)
+            .ok_or_else(|| "GitHub did not return a pull request number.".to_owned())?;
+        let url = format!("https://github.com/{repo}/pull/{number}");
+        if !pr_json["url"].as_str().is_some_and(|reported| reported.eq_ignore_ascii_case(&url)) {
+            return Err("GitHub did not return this repository’s pull request.".into());
+        }
+        Ok(SavedPr { url, number })
     }
 
     pub fn status(&self, check: bool) -> ScoutAwayStatus {
@@ -1233,6 +1456,7 @@ impl ScoutAway {
         let Some(held) = st.saved.clone() else {
             return self.status_from(&st);
         };
+        if held.cleanup.is_some() { return self.status_from(&st); }
         if check && let Some(up) = &held.update {
             let script = (self.deps.script)();
             let workflow = away_workflow(held.every);
@@ -1268,10 +1492,9 @@ impl ScoutAway {
                     self.persist_inner(&mut st, Some(next));
                 }
                 Some(false) => {
-                    st.message = Some(
-                        "The pull request was closed without merging, so Scout does not look while your computer is off.".into(),
-                    );
-                    self.persist_inner(&mut st, None);
+                    if self.turn_off(&mut st, SavedAway { pr: None, ..held }, false) {
+                        st.message = Some("The pull request was closed without merging, so Scout does not look while your computer is off.".into());
+                    }
                 }
                 None => {}
             }
@@ -1287,6 +1510,7 @@ impl ScoutAway {
             ScoutAwaySet::Update => {
                 if let Some(held) = st.saved.clone()
                     && held.merged
+                    && held.cleanup.is_none()
                     && held.update.is_none()
                     && self.is_outdated(&st, &held)
                 {
@@ -1345,6 +1569,14 @@ impl ScoutAway {
                     return self.status_from(&st);
                 };
                 let repo_name = repo_json["nameWithOwner"].as_str().unwrap_or("").to_owned();
+                if !repo_re().is_match(&repo_name) {
+                    st.message = Some("GitHub did not name a usable repository.".into());
+                    return self.status_from(&st);
+                }
+                if repo_json["viewerPermission"].as_str() != Some("ADMIN") {
+                    st.message = Some(format!("Only an owner or admin of {repo_name} can add the secret the away look needs."));
+                    return self.status_from(&st);
+                }
                 let is_private = repo_json["visibility"].as_str() != Some("PUBLIC");
                 let branch = repo_json["defaultBranchRef"]["name"].as_str().unwrap_or("main").to_owned();
                 let every: u8 = if is_private { 2 } else { 1 };
@@ -1358,10 +1590,22 @@ impl ScoutAway {
                 let token = random_text(32);
                 let key = new_away_key();
                 let script = (self.deps.script)();
-                let workflow = away_workflow(every);
-                if !relay.away_open(&sha256_b64url(&token)) {
+                if script.trim().is_empty() || !(1..=39).contains(&login.len())
+                    || !login.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                {
+                    st.message = Some("Scout’s away program or GitHub login is unavailable.".into());
                     return self.status_from(&st);
                 }
+                let workflow = away_workflow(every);
+                if !relay.away_open(&sha256_b64url(&token)) {
+                    st.message = Some("The relay did not take the away look. Try again in a minute.".into());
+                    return self.status_from(&st);
+                }
+                let (quiet, brief_at) = self.scout.as_ref().and_then(std::sync::Weak::upgrade)
+                    .map_or((None, None), |scout| {
+                        let settings = scout.state().settings;
+                        (settings.quiet, settings.brief_at)
+                    });
                 let cfg = AwayConfig {
                     v: 1,
                     relay: relay_url,
@@ -1370,14 +1614,18 @@ impl ScoutAway {
                     key: key.clone(),
                     login: login.clone(),
                     tz: (self.deps.tz)(),
-                    quiet: None,
-                    brief_at: None,
+                    quiet,
+                    brief_at,
                 };
-                let _ = self.deps.gh.run(
+                if self.deps.gh.run(
                     &["secret", "set", AWAY_SECRET, "--repo", &repo_name],
                     &folder,
                     Some(&cfg.to_json().to_string()),
-                );
+                ).is_err() {
+                    let _ = relay.away_close();
+                    st.message = Some("GitHub did not save the away look’s secret.".into());
+                    return self.status_from(&st);
+                }
                 let draft = SavedAway {
                     repo: repo_name.clone(),
                     folder: folder.clone(),
@@ -1391,14 +1639,31 @@ impl ScoutAway {
                     pr: None,
                     merged: false,
                     last_look: None,
+                    cursor: None,
+                    told: None,
+                    cleanup: None,
                     script: sha256_b64url(&script),
                     workflow: Some(sha256_b64url(&workflow)),
                     update: None,
                 };
+                let cadence = if every == 1 { "every hour" } else { "every two hours" };
+                let cost = if is_private {
+                    "about 360 of the 2,000 free Actions minutes a private repository gets each month"
+                } else { "nothing: Actions are free on public repositories" };
+                let body = format!(
+                    "Scout looks at this repository while your computer is off.\n\n- `{AWAY_WORKFLOW_PATH}` runs `{AWAY_SCRIPT_PATH}` {cadence}, with a read-only GitHub token.\n- Your own /locust comments can reach your phone. Results are sealed for your devices.\n- Cost: {cost}.\n- Turn it off in Locust to remove the secret and disable the workflow."
+                );
                 if self.on_default(&draft, &workflow, &script) {
                     let mut merged = draft;
                     merged.merged = true;
-                    self.persist_inner(&mut st, Some(merged));
+                    if self.deps.gh.run(&["workflow", "enable", AWAY_WORKFLOW_NAME, "--repo", &repo_name], &folder, None).is_err() {
+                        let _ = self.remove_remote(&SavedAway { merged: false, ..merged });
+                        st.message = Some("GitHub did not enable the away workflow.".into());
+                        return self.status_from(&st);
+                    }
+                    if !self.persist_inner(&mut st, Some(merged.clone())) {
+                        let _ = self.remove_remote(&merged);
+                    }
                 } else if let Ok(pr) = self.open_pr(
                     &repo_name,
                     &branch,
@@ -1407,25 +1672,83 @@ impl ScoutAway {
                     &script,
                     "Scout’s away look, from Locust",
                     "Add Scout's away look from Locust",
-                    "Locust’s Scout looks at this repository for you while your computer is off.",
+                    &body,
                 ) {
                     let mut waiting = draft;
                     waiting.pr = Some(pr);
-                    self.persist_inner(&mut st, Some(waiting));
+                    if !self.persist_inner(&mut st, Some(waiting.clone())) {
+                        let _ = self.remove_remote(&waiting);
+                    }
+                } else {
+                    let _ = self.remove_remote(&draft);
+                    st.message = Some("GitHub did not open the pull request for the away look.".into());
                 }
                 let _ = relay.keep_away_alerts();
             }
             ScoutAwaySet::Off => {
                 if let Some(held) = st.saved.clone() {
-                    if let Some(relay) = (self.deps.relay)()
-                        && relay.room().map(|(_, r)| r).as_deref() == Some(held.room.as_str())
-                    {
-                        let _ = relay.away_close();
+                    if self.turn_off(&mut st, held, false) {
+                        st.message = None;
                     }
-                    self.persist_inner(&mut st, None);
                 }
             }
         }
         self.status_from(&st)
     }
 }
+
+#[cfg(test)]
+mod sealed_result_tests {
+    use super::*;
+
+    // case: takes a letter’s links only to its own repository on GitHub, and a look only from the away look
+    #[test]
+    fn sealed_look_opens_only_for_its_room_and_sender_and_keeps_repo_links() {
+        let key = new_away_key();
+        let room = "RRRRRRRRRRRRRRRRRRRRRR";
+        let repo = "acme/app";
+        let good = "https://github.com/acme/app/issues/1";
+        let look = AwayLetter {
+            v: AWAY_LETTER_VERSION,
+            kind: AwayLetterKind::Look,
+            at: "2026-10-23T14:00:00Z".into(),
+            repo: repo.into(),
+            read: true,
+            found: [
+                good,
+                "https://github.com/other/repo/issues/1",
+                "https://evil.example/acme/app",
+                "https://github.com/acme/app.evil/x",
+                "javascript:alert(1)//https://github.com/acme/app/",
+            ].into_iter().enumerate().map(|(idx, url)| AwayFinding {
+                key: format!("finding:{idx}"),
+                urgency: ScoutUrgency::Now,
+                said: "Synthetic finding".into(),
+                detail: None,
+                lines: None,
+                chips: None,
+                url: Some(url.into()),
+            }).collect(),
+            prs: vec![],
+            told: vec![],
+            brief_day: None,
+        };
+        let sealed = seal_away_letter(&key, &look, room, AwayLetterFrom::Away).unwrap();
+        let opened = open_away_letter(&key, &sealed, room, AwayLetterFrom::Away).unwrap();
+        let links: Vec<_> = opened.found.iter().map(|finding| finding.url.as_deref()).collect();
+        assert_eq!(links, [Some(good), None, None, None, None]);
+        assert!(open_away_letter(&key, &sealed, "different-room", AwayLetterFrom::Away).is_none());
+        assert!(open_away_letter(&key, &sealed, room, AwayLetterFrom::Pc).is_none());
+
+        // A correctly encrypted packet still cannot mislabel its letter kind.
+        let as_pc = seal_away_letter(&key, &look, room, AwayLetterFrom::Pc).unwrap();
+        assert!(open_away_letter(&key, &as_pc, room, AwayLetterFrom::Pc).is_none());
+        let told = AwayLetter { kind: AwayLetterKind::Told, ..look };
+        let as_away = seal_away_letter(&key, &told, room, AwayLetterFrom::Away).unwrap();
+        assert!(open_away_letter(&key, &as_away, room, AwayLetterFrom::Away).is_none());
+    }
+}
+
+#[cfg(test)]
+#[path = "scout_away_workflow_tests.rs"]
+mod scout_away_workflow_tests;

@@ -24,6 +24,12 @@ fn direct_uses_of_the_engines_turn_state_only_shrink() {
         ("src/ui/teammate_faces.rs", 1),
         // A test that raises a real card on the shared channel, to see a browser given the window handed it (phone_section.rs).
         ("src/ui/phone_section.rs", 1),
+        // Two tests that raise real cards on the shared channel, to verify active-thread approval and question routing.
+        ("src/ui/approval_active_thread_tests.rs", 2),
+        // Two tests that register a teammate on the shared channel, to check saved-rule offers on secret vs ordinary commands.
+        ("src/ui/approval_secret_rule_tests.rs", 1),
+        // A test that raises a real card on the shared channel, to see only the waiting teammate's rail flyout say so (attention_rail_tests.rs).
+        ("src/ui/attention_rail_tests.rs", 1),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = std::collections::BTreeMap::new();

@@ -88,6 +88,7 @@ fn open_on(s: &mut State, url: &str) -> u64 {
     id
 }
 
+// case: a blocked page says it does not allow pointing
 #[test]
 fn a_blocked_page_says_it_does_not_allow_pointing() {
     let mut s = State::default();
@@ -127,6 +128,7 @@ fn a_pointed_part_is_a_chip_with_a_note_its_styles_and_a_way_to_remove_it() {
     assert!(by_label("Remove button#save").focusable);
 }
 
+// case: a password field's chip has no picture of its contents
 #[test]
 fn a_password_fields_chip_has_no_picture_of_its_contents() {
     let mut s = State::default();
@@ -240,3 +242,6 @@ fn a_part_waits_with_a_message_queued_behind_a_running_turn_and_leaves_the_box_o
     assert_eq!(rt.state.queue_rows.len(), 1);
     assert_eq!(rt.state.page_points.chips.len(), 2);
 }
+
+#[path = "page_points_chip_sweep_tests.rs"]
+mod page_points_chip_sweep_tests;

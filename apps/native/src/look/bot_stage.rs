@@ -1259,3 +1259,11 @@ mod pet_glance_tests {
     }
 }
 
+
+#[cfg(test)]
+#[path = "window_focus_faces_sweep_tests.rs"]
+mod window_focus_faces_sweep_tests;
+
+#[cfg(test)]
+#[path = "full_face_sweep_tests.rs"]
+mod full_face_sweep_tests;

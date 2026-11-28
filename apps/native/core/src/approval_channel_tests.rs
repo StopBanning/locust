@@ -199,6 +199,7 @@ fn refuses_rather_than_queueing_without_limit_when_too_many_are_waiting() {
 }
 
 // a-card-answer-is-recorded-past-64-open-cards.test.ts
+// case: still has the first card when its answer comes after 80 more were raised and answered
 #[test]
 fn still_has_the_first_card_when_its_answer_comes_after_80_more_were_raised_and_answered() {
     let host = channel();

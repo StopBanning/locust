@@ -136,6 +136,10 @@ fn press_keep_it_running(s: &mut State) {
 
 /// This computer's pairing, made once. Tests never reach a relay: without a stand-in of their own there is none.
 fn service(s: &State) -> Option<Arc<RemoteMcp>> {
+    #[cfg(test)]
+    if let Some(remote) = grant_press_tests::scoped_service() {
+        return Some(remote);
+    }
     let mut held = SERVICE.lock().unwrap_or_else(|e| e.into_inner());
     held_or_made(&mut held, || if cfg!(test) { None } else { made(s) })
 }
@@ -860,3 +864,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "remote_mcp_grant_press_tests.rs"]
+mod grant_press_tests;

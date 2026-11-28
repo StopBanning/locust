@@ -52,7 +52,7 @@ fn the_window_asks_for_full_motion_in_the_look_pickers_preview_and_the_default_a
     assert_eq!(asking, vec![("look/faces.rs".to_owned(), 1), ("ui/look_picker.rs".to_owned(), 1)]);
 }
 
-// "is never computed, so the list above is the whole list".
+// case: is never computed, so the list above is the whole list
 #[test]
 fn the_motion_a_face_asks_for_is_never_computed() {
     for (name, text) in window_sources() {
@@ -70,7 +70,7 @@ fn the_motion_a_face_asks_for_is_never_computed() {
     }
 }
 
-// "leaves the header and the sidebar subtle".
+// case: leaves the header and the sidebar subtle
 #[test]
 fn the_sidebar_and_the_rail_and_settings_leave_faces_subtle() {
     for file in ["ui/sidebar.rs", "ui/rail.rs", "ui/settings_panel.rs"] {

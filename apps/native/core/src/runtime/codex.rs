@@ -1099,3 +1099,7 @@ mod codex_decision_schema_tests;
 #[cfg(all(test, unix))]
 #[path = "codex_question_refusal_tests.rs"]
 mod codex_question_refusal_tests;
+
+#[cfg(test)]
+#[path = "codex_deny_parity_tests.rs"]
+mod codex_deny_parity_tests;
