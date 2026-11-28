@@ -185,3 +185,41 @@ fn ninth_pointed_part_is_refused_without_writing_an_orphaned_picture_to_disk() {
     let written = std::fs::read_dir(&parts_dir).map(|d| d.count()).unwrap_or(0);
     assert_eq!(written, 0, "no orphaned PNG should be written when 8 parts are already in the box");
 }
+
+// case: reads a pick, and lets go of one that never comes
+#[test]
+fn reads_a_pick_and_lets_go_of_one_that_never_comes() {
+    use locust_core::browser_point::point_answer;
+    // Reading a valid pick yields Picked; a null pick yields Nothing.
+    let answer = json!({
+        "selector": "main > h1",
+        "html": "<h1>Hi</h1>",
+        "htmlLength": 11,
+        "rect": {"x": 1, "y": 2, "width": 30, "height": 10},
+        "viewport": {"width": 800, "height": 600}
+    });
+    let picked = point_answer(Some(&json!(true)), Ok(Some(&answer)), false, "locust-page://aaa/x.html", |_| None);
+    assert!(matches!(picked, PointAnswer::Picked { ref point, .. } if point.selector() == "main > h1" && point.html() == "<h1>Hi</h1>"));
+    assert_eq!(
+        point_answer(Some(&json!(true)), Ok(Some(&Value::Null)), false, "locust-page://aaa/x.html", |_| None),
+        PointAnswer::Nothing
+    );
+    // A pick that never arrives times out past PICK_WAIT, clears waiting, and queues CancelPoint.
+    let mut s = State::default();
+    let tab_id = {
+        let mut host = crate::invariants::lock(&s.browser.host);
+        let id = host.add(crate::browser::Profile(None)).unwrap();
+        host.tabs[0].url = "locust-page://aaa/x.html".into();
+        id
+    };
+    let (_tx, rx) = std::sync::mpsc::sync_channel::<PointAnswer>(1);
+    let expired = Instant::now().checked_sub(PICK_WAIT + Duration::from_secs(1)).unwrap();
+    s.page_points.waiting = Some((rx, expired, tab_id));
+    assert!(poll(&mut s), "expired pick should be cancelled on poll");
+    assert!(s.page_points.waiting.is_none());
+    let host = crate::invariants::lock(&s.browser.host);
+    assert!(
+        host.tabs[0].commands.iter().any(|c| matches!(c, crate::browser::Command::CancelPoint)),
+        "expected CancelPoint to be sent to the tab"
+    );
+}
