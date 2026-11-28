@@ -102,6 +102,7 @@ fn running(keys: &[String]) -> bool {
 
 // a-page-a-teammate-made-runs-in-its-turn.test.tsx
 
+// case: opens a new web page, so it runs
 #[test]
 fn opens_a_new_web_page_so_it_runs() {
     let (_t, work) = temp("new");
@@ -124,6 +125,7 @@ fn opens_a_new_web_page_so_it_runs() {
     assert!(a_diff_is_open(&said), "{said}");
 }
 
+// case: opens the page even when another file came first, and only the page
 #[test]
 fn opens_the_page_even_when_another_file_came_first_and_only_the_page() {
     let (_t, work) = temp("second");
@@ -134,6 +136,61 @@ fn opens_the_page_even_when_another_file_came_first_and_only_the_page() {
     assert!(!said.contains("export const x") && !a_diff_is_open(&said), "{said}");
 }
 
+// case: stays folded in a comparison's cell, whose page runs above it
+#[test]
+fn stays_folded_in_a_comparisons_cell_whose_page_runs_above_it() {
+    use locust_core::compare::ChangesIn;
+    let (_t, root) = temp("cmp-cell");
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let folder = root.join("project");
+    std::fs::create_dir_all(&folder).unwrap();
+    let copy_a = locust_core::compare_copies::compare_root(&store).join("cmp_cell1-a");
+    std::fs::create_dir_all(&copy_a).unwrap();
+    std::fs::write(copy_a.join("index.html"), "<!doctype html>\n<h1>Cozy Corner Coffee</h1>").unwrap();
+
+    let mut s = state(&folder);
+    s.data = Some(store);
+    s.compare.compares = vec![compare_record("cmp_cell1", Some(ChangesIn::Copy), None)];
+    s.compare.active_id = Some("cmp_cell1".into());
+    s.compare.loaded = true;
+    let mut items = turn(&[("index.html", PAGE)]);
+    for item in &mut items {
+        if let ledger::Item::Tool { detail, .. } = item {
+            detail.arguments = json!({"file_path": "index.html"}).to_string();
+        }
+    }
+    s.compare.snapshots.insert(
+        "m_a".into(),
+        ledger::Snapshot { tip: "m_a".into(), items, ..Default::default() },
+    );
+    s.compare.snapshots.insert(
+        "m_b".into(),
+        ledger::Snapshot { tip: "m_b".into(), items: vec![ledger::Item::Assistant { item_id: "mb".into(), text: "Done.".into(), r#final: true }], ..Default::default() },
+    );
+
+    let mut rt = rune::Runtime::new(
+        s,
+        |s, _| crate::compare_view::view(s, &Palette::new(true)),
+        (1200.0, 1200.0),
+        rune::Env::new(true, 1.0),
+    );
+    for _ in 0..3 {
+        rt.frame(0.05);
+    }
+    let all_keys = keys(&rt);
+    // The comparison cell exposes its single column preview button and never opens a second turn-files page card.
+    assert!(all_keys.iter().any(|k| k == "compare-preview-a-index.html"), "{all_keys:?}");
+    assert!(!running(&all_keys), "comparison cell must not draw a second page preview card: {all_keys:?}");
+    press(&mut rt, "compare-preview-a-index.html");
+    crate::browser_panel::poll(&mut rt.state, &mut Tx::default());
+    let urls = loaded(&rt.state);
+    assert_eq!(urls.len(), 1, "{urls:?} problem: {:?}", rt.state.compare.problem);
+    let res = crate::invariants::lock(&rt.state.browser.host).read_preview(&urls[0]);
+    assert_eq!(res.status, 200);
+    assert_eq!(res.body, b"<!doctype html>\n<h1>Cozy Corner Coffee</h1>");
+}
+
+// case: leaves a changed page and any other new file folded, as before
 #[test]
 fn leaves_a_changed_page_and_any_other_new_file_folded_as_before() {
     let (_t, work) = temp("folded");
@@ -182,7 +239,11 @@ fn runs_the_new_page_beside_the_conversation_at_its_own_address_when_its_page_is
     let urls = loaded(&rt.state);
     assert_eq!(urls.len(), 1, "{urls:?} status: {}", rt.state.status);
     assert!(urls[0].starts_with("locust-page://") && urls[0].ends_with("/index.html"), "{urls:?}");
-    assert!(crate::invariants::lock(&rt.state.browser.host).open);
+    let host = crate::invariants::lock(&rt.state.browser.host);
+    assert!(host.open);
+    let res = host.read_preview(&urls[0]);
+    assert_eq!(res.status, 200, "body: {}", String::from_utf8_lossy(&res.body));
+    assert_eq!(res.body, b"<!doctype html>\n<h1>Cozy Corner Coffee</h1>\n");
 }
 
 // a-page-opens-running.test.tsx: the viewer.
