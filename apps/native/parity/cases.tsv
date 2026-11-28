@@ -1231,7 +1231,7 @@ apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	counts linked pers
 apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	answers only the window, reads the conversation only when it is the teammate’s, and writes nothing	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	closes Unix foreground and background descendants before ending their shell	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	still ends a Unix shell when its process group has already gone	no
-apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	starts only when requested, in the host-resolved conversation folder, with the person’s environment	no
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	starts only when requested, in the host-resolved conversation folder, with the person’s environment	yes
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	refuses an unknown folder or shell before spawning	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	closing a tab ends only that shell and quitting ends every remaining shell	no
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	a quit during an unfinished spawn ends the late shell too	no
@@ -6910,7 +6910,7 @@ apps/desktop/src/shared/image-files.test.ts	refuses SVG on purpose	yes
 apps/desktop/src/shared/image-files.test.ts	handles a path with directories and a name with no dot at all	yes
 apps/desktop/src/shared/image-files.test.ts	bounds a preview well above a screenshot and well below trouble	yes
 apps/desktop/src/shared/kilo-installs-in-one-click.test.ts	is one npm install of its CLI package, signed into only for a paid model	yes
-apps/desktop/src/shared/kilo-installs-in-one-click.test.ts	a Get it page opened asks about every agent on the next return, the uninstalled too	no
+apps/desktop/src/shared/kilo-installs-in-one-click.test.ts	a Get it page opened asks about every agent on the next return, the uninstalled too	yes
 apps/desktop/src/shared/kilo-models.test.ts	uses the same Auto Free id the run starts on	yes
 apps/desktop/src/shared/kilo-models.test.ts	says the privacy cost on Auto Free only	yes
 apps/desktop/src/shared/kilo-models.test.ts	moves a new conversation off the account default once Auto Free is listed	yes
