@@ -117,17 +117,29 @@ pub(crate) struct GlassPanel {
 /// The panel for a sidebar `sidebar_width` wide in a window `window_height` tall (glassPanelFor): from the window's top
 /// inset to its bottom inset, as wide as the sidebar less the inset, or none when there is no room for one.
 pub(crate) fn glass_panel_for(sidebar_width: Option<f32>, window_height: f32) -> Option<GlassPanel> {
-    let width = sidebar_width.filter(|w| w.is_finite())?;
-    if width < 2.0 * GLASS_INSET || !window_height.is_finite() || window_height < 4.0 * GLASS_INSET {
+    let width = panel_width(sidebar_width?)?;
+    let height = (window_height - 2.0 * GLASS_INSET).round();
+    if window_height < 4.0 * GLASS_INSET || !(2.0 * GLASS_INSET..=PANEL_DIMENSION_MAX).contains(&height) {
         return None;
     }
     Some(GlassPanel {
         x: GLASS_INSET,
         y: GLASS_INSET,
-        width: (width - GLASS_INSET).round(),
-        height: (window_height - 2.0 * GLASS_INSET).round(),
+        width,
+        height,
         radius: GLASS_RADIUS,
     })
+}
+
+// mac-glass.ts readGlassPanel rejects dimensions above 20,000 points.
+const PANEL_DIMENSION_MAX: f32 = 20_000.0;
+
+fn panel_width(sidebar_width: f32) -> Option<f32> {
+    if sidebar_width < 2.0 * GLASS_INSET {
+        return None;
+    }
+    let width = (sidebar_width - GLASS_INSET).round();
+    (GLASS_INSET..=PANEL_DIMENSION_MAX).contains(&width).then_some(width)
 }
 
 /// Whether Liquid glass is offered (mac-glass.ts `offered`): only in the Mac's own window, and only where macOS has its
@@ -171,10 +183,12 @@ pub(crate) fn liquid_washes(dark: bool) -> (Color, Color, Color) {
 /// The sidebar's glass panel, under everything else in the window, for a sidebar (or rail) `sidebar_width` wide; none
 /// unless the window is drawn in Liquid glass.
 pub(crate) fn liquid_panel(s: &State, p: &Palette, sidebar_width: f32) -> Option<El> {
-    if !liquid(s) || sidebar_width < 2.0 * GLASS_INSET {
+    if !liquid(s) {
         return None;
     }
+    let width = panel_width(sidebar_width)?;
     let (ground, wash, rim) = liquid_washes(p.dark);
+    let top_rim = Color::WHITE.alpha(if p.dark { 0.20 } else { 0.85 });
     Some(
         el().key("liquid-panel-frame")
             .absolute(0.0, 0.0)
@@ -184,13 +198,18 @@ pub(crate) fn liquid_panel(s: &State, p: &Palette, sidebar_width: f32) -> Option
             .a11y_hidden()
             .child(
                 el().key("liquid-panel")
-                    .w(sidebar_width - GLASS_INSET)
+                    .w(width)
                     .h_full()
                     .radius(GLASS_RADIUS)
                     .system_material(SystemMaterial::Glass)
                     // The smoked ground, everywhere but the panel: the native glass cuts its own interior out of it.
                     .box_shadow(rune::Shadow { spread: 4000.0, color: ground, ..Default::default() })
-                    .child(el().key("liquid-panel-wash").w_full().h_full().radius(GLASS_RADIUS).fill(wash).border(0.5, rim)),
+                    .child(
+                        el().key("liquid-panel-wash").w_full().h_full()
+                            .radius(GLASS_RADIUS).fill(wash).border(0.5, rim).clip_rounded(GLASS_RADIUS)
+                            // The one-point inset shine above the regular rim (shell.css --lc-liquid-rim-top).
+                            .child(el().key("liquid-panel-top-rim").absolute(0.0, 0.0).w_full().h(1.0).fill(top_rim)),
+                    ),
             ),
     )
 }

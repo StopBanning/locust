@@ -699,6 +699,9 @@ impl<H: BackgroundHost> BackgroundRuns<H> {
 
     pub fn start(&mut self, mut request: StartBackgroundRequest) -> StartBackgroundOutcome {
         let refuse = |message| StartBackgroundOutcome::Refused { message, needs_trust: false };
+        if crate::model_lists::free_routes_only_now() {
+            return refuse("This window spends nothing, and a background turn runs Claude Code on your plan.".into());
+        }
         // Check the authority this launch actually gets, not a renderer's label.
         let mode = match background_permission_mode(request.sandbox, request.ask_each) {
             "plan" => "plan",
@@ -720,13 +723,22 @@ impl<H: BackgroundHost> BackgroundRuns<H> {
         ) {
             return refuse(message);
         }
+        let settings_store = || crate::native::store().filter(|store| self.file.parent() == Some(store.root()));
         if let Some(teammate) = request.teammate_id.as_deref() {
-            let Some(store) = crate::native::store().filter(|store| self.file.parent() == Some(store.root())) else {
+            let Some(store) = settings_store() else {
                 return refuse("The teammate's spending limit could not be checked. Nothing was started.".into());
             };
             if let Some(message) = launch_spend_refusal(&store, &policy, Some(teammate)) {
                 return refuse(message);
             }
+        }
+        // A policy that permits Auto does not turn on the person's own Settings switch.
+        if mode == "auto"
+            && !settings_store()
+                .and_then(|store| crate::workspace_settings::load(&store).ok())
+                .is_some_and(|settings| settings.auto_mode)
+        {
+            return refuse("Auto is off in Settings, so a background turn cannot use it.".into());
         }
         let resume_session_id = request
             .conversation
@@ -1815,3 +1827,7 @@ mod tests {
 #[cfg(test)]
 #[path = "claude_background_policy_tests.rs"]
 mod claude_background_policy_tests;
+
+#[cfg(test)]
+#[path = "claude_background_launch_guard_tests.rs"]
+mod launch_guard_tests;

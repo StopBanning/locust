@@ -19,6 +19,9 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 
+#[path = "voice_peer.rs"]
+mod peer;
+
 const RESAMPLE_CHUNK: usize = 1024;
 const INPUT_CHANNEL_BOUND: usize = 64;
 
@@ -389,6 +392,8 @@ impl Recording for NativeRecording {
 pub struct NativeAudio {
     access: AccessCheck,
     device: Device,
+    peer: Option<peer::Factory>,
+    call_devices: Box<dyn peer::Devices>,
 }
 
 impl Default for NativeAudio {
@@ -402,13 +407,15 @@ impl NativeAudio {
         Self {
             access: Box::new(system_access),
             device: Box::new(cpal_device),
+            peer: None, // No deployed SDP/media transport yet: never ask Codex to place a fake call.
+            call_devices: Box::new(peer::CpalDevices),
         }
     }
 
     /// The same recorder over a stand-in permission and device (tests: no microphone is needed).
     #[cfg(test)]
     fn with(access: AccessCheck, device: Device) -> Self {
-        Self { access, device }
+        Self { access, device, ..Self::new() }
     }
 }
 
@@ -430,8 +437,17 @@ impl Audio for NativeAudio {
         }))
     }
 
-    fn call(&self, _cancel: &AtomicBool) -> Result<Box<dyn AudioPeer>, String> {
-        Err("Talk is not here yet.".into())
+    fn call(&self, cancel: &AtomicBool) -> Result<Box<dyn AudioPeer>, String> {
+        peer::check_cancel(cancel)?;
+        let factory = self.peer.as_ref().ok_or(peer::UNAVAILABLE)?;
+        match (self.access)(cancel) {
+            Access::Allowed => {}
+            Access::Denied => return Err(peer::CANNOT_START.into()),
+            Access::Cancelled => return Err(peer::CANCELLED.into()),
+        }
+        peer::check_cancel(cancel)?;
+        let transport = factory(cancel)?;
+        peer::open(transport, self.call_devices.as_ref(), cancel)
     }
 
     fn play(&self, audio: &[u8]) -> Result<Box<dyn Playback>, String> {
@@ -642,3 +658,7 @@ mod tests {
         assert_eq!(err, "Talk is not here yet.");
     }
 }
+
+#[cfg(test)]
+#[path = "voice_peer_tests.rs"]
+mod peer_tests;
