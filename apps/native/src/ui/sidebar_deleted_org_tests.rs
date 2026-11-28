@@ -66,3 +66,55 @@ fn lets_a_deleted_conversation_go_its_pin_its_put_away_mark_owned_or_not() {
         "restoring the record keeps its owner"
     );
 }
+
+#[test]
+fn delete_in_the_sidebar_reports_the_real_trash_error_without_clearing_the_pin() {
+    const ID: &str = "m_delete_blocked_trash";
+    let path = Fixture(std::env::temp_dir().join(format!(
+        "locust-sidebar-blocked-trash-{}-{}",
+        std::process::id(),
+        locust_core::invariants::unique_nanos()
+    )));
+    std::fs::create_dir_all(path.0.join("electron")).unwrap();
+    let store = Store::new(path.0.join("native"), path.0.join("electron")).unwrap();
+    store.save_json("teammates.json", &json!({
+        "schemaVersion": 1, "teammates": [], "missionPins": [ID],
+        "missionSettled": { ID: {"at": "2026-10-11T13:00:00Z"} }
+    })).unwrap();
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+    let live = ledger.join(format!("{ID}.jsonl"));
+    let record = format!("{}\n", json!({
+        "recordType": "mission.created", "metadata": {"missionId": ID, "prompt": "Keep this record"}
+    }));
+    std::fs::write(&live, &record).unwrap();
+    // A file in the directory's place always refuses creation, even if the test runs as root.
+    let blocked = ledger.join(locust_core::trash::TRASH_DIR);
+    std::fs::write(&blocked, "not a directory").unwrap();
+    let expected = std::fs::create_dir_all(&blocked).unwrap_err().to_string();
+    assert_ne!(expected, locust_core::trash::ELECTRON_ONLY);
+
+    let mut s = State::default();
+    s.data = Some(store.clone());
+    s.org = org::load_org(&store);
+    s.org_menu_id = Some(ID.into());
+    let mut rt = rune::Runtime::new(
+        s,
+        |s, _| org_menu(s, &Palette::new(false), ID),
+        (560.0, 640.0),
+        rune::Env::new(false, 1.0),
+    );
+    rt.frame(0.0);
+    let (x, y) = rt.find(&format!("org-delete-{ID}")).expect("the Sidebar Delete action");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.016);
+
+    assert_eq!(rt.state.status, expected);
+    assert!(matches!(rt.state.status_tone, StatusTone::Amber));
+    assert_eq!(std::fs::read_to_string(&live).unwrap(), record);
+    assert_eq!(std::fs::read_to_string(&blocked).unwrap(), "not a directory");
+    let from_disk = org::load_org(&store);
+    assert!(rt.state.org.pins.iter().any(|p| p == ID));
+    assert!(from_disk.pins.iter().any(|p| p == ID));
+}
