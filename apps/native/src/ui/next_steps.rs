@@ -298,3 +298,7 @@ mod tests {
         assert!((head.rect[3] - 13.0 * 1.55).abs() < 0.6, "got {} px", head.rect[3]);
     }
 }
+
+#[cfg(test)]
+#[path = "next_steps_card_parity_tests.rs"]
+mod card_parity_tests;
