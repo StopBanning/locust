@@ -175,9 +175,16 @@ fn places_the_sidebars_panel_only_on_a_window_drawn_in_it() {
 fn takes_a_panel_only_when_every_number_is_finite_positive_and_sane() {
     assert_eq!(glass_panel_for(Some(276.0), 800.0), Some(GlassPanel { x: 8.0, y: 8.0, width: 268.0, height: 784.0, radius: 16.0 }));
     for (width, height) in [(None, 800.0), (Some(0.0), 800.0), (Some(f32::NAN), 800.0), (Some(276.0), f32::NAN),
-        (Some(276.0), 20.0), (Some(-1.0), 800.0), (Some(f32::INFINITY), 800.0)] {
+        (Some(276.0), 20.0), (Some(-1.0), 800.0), (Some(f32::INFINITY), 800.0),
+        (Some(20_009.0), 800.0), (Some(276.0), 1e9)] {
         assert_eq!(glass_panel_for(width, height), None, "{width:?} x {height}");
     }
+    let s = state(LookChoice::Liquid, true, true);
+    let p = Palette::new(true);
+    for width in [f32::NAN, f32::INFINITY, 20_009.0] {
+        assert!(liquid_panel(&s, &p, width).is_none(), "bad width must not reach Rune: {width:?}");
+    }
+    assert!(liquid_panel(&s, &p, 276.0).is_some(), "sane widths still draw");
 }
 
 // case: the sheet and the window agree on where the lights sit
@@ -231,4 +238,27 @@ fn the_sidebars_contents_move_in_by_the_panels_inset_in_liquid_glass() {
     let liquid = left_of_words(LookChoice::Liquid);
     assert!(standard.is_finite(), "the sidebar has words");
     assert_eq!(liquid - standard, 8.0);
+}
+
+
+#[test]
+fn liquid_glass_sidebar_has_the_one_point_rim_only_on_liquid() {
+    // Electron shell.css:25481,25502,25543: 1px inset, white at .20 dark or .85 light.
+    for (dark, opacity) in [(true, 0.20), (false, 0.85)] {
+        for layout in ["wide", "compact"] {
+            let mut s = state(LookChoice::Liquid, true, dark);
+            s.layout_pref = layout.to_owned();
+            let rt = drawn(s);
+            let panel = info(&rt, "liquid-panel").unwrap();
+            let top = info(&rt, "liquid-panel-top-rim").expect("the sidebar's liquid glass top rim");
+            assert_eq!(top.rect, [panel.rect[0], panel.rect[1], panel.rect[2], 1.0]);
+            assert_eq!(top.fill, Color::WHITE.alpha(opacity));
+        }
+    }
+    for (look, offered, mac) in [(LookChoice::Standard, true, true),
+        (LookChoice::Liquid, false, true), (LookChoice::Liquid, true, false)] {
+        let mut s = state(look, offered, true);
+        s.mac_glass = mac;
+        assert!(info(&drawn(s), "liquid-panel-top-rim").is_none());
+    }
 }
