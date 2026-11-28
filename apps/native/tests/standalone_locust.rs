@@ -13,8 +13,12 @@ use std::time::{Duration, Instant};
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
+        // A count as well as the time: this file's tests run at once, and two of them can read the same microsecond
+        // (the gate of 28 Nov: create_dir said "File exists").
+        static MADE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = MADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let path = std::env::temp_dir().join(format!("locust-standalone-{}-{stamp}", std::process::id()));
+        let path = std::env::temp_dir().join(format!("locust-standalone-{}-{n}-{stamp}", std::process::id()));
         std::fs::create_dir(&path).unwrap();
         Self(path)
     }

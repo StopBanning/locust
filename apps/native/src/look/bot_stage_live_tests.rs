@@ -10,6 +10,9 @@ use rune::{Env, Runtime};
 const SLOT: &str = "roster-tm_wren";
 
 /// The real window, focused, the wide sidebar showing Wren, whose face moves while `busy` (Working loops).
+/// The window under test. Each test holds the engine's test lock (`no_saved_rules`) while it counts frames and rebuilds:
+/// in `cargo test`'s one process another test's approval card on the shared channel would otherwise reach this window's
+/// poll and rebuild it mid-count (the gate of 28 Nov: "none of them rebuilt the window", 3 against 2).
 fn window(busy: bool) -> Runtime<State> {
     let mut s = State::default();
     s.layout_pref = "wide".into();
@@ -40,6 +43,7 @@ fn drawn() -> String {
 
 #[test]
 fn a_moving_face_in_a_focused_window_moves_with_no_rebuild() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let mut rt = window(true);
     assert_eq!(rt.state.bot_stage.desired_activity(SLOT), Some(FaceActivity::Working));
     for _ in 0..30 {
@@ -73,6 +77,7 @@ fn painted_face(rt: &Runtime<State>) -> Vec<[f32; 4]> {
 
 #[test]
 fn what_the_window_paints_is_the_pose_the_stage_drew_last() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let mut rt = window(true);
     for _ in 0..40 {
         rt.frame(1.0 / 60.0);
@@ -95,6 +100,7 @@ fn what_the_window_paints_is_the_pose_the_stage_drew_last() {
 
 #[test]
 fn a_face_at_rest_asks_for_nothing_and_a_new_activity_still_rebuilds() {
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let mut rt = window(false);
     for _ in 0..30 {
         rt.frame(1.0 / 60.0);
@@ -111,6 +117,7 @@ fn a_face_at_rest_asks_for_nothing_and_a_new_activity_still_rebuilds() {
 fn a_moving_face_frames_the_window_once_a_step_however_often_something_else_draws() {
     // The window's host: a frame at each wake the window asks for, and every quarter second one more frame between
     // them, as a hover or a landing reply draws one. Two seconds of a face stepping 30 times a second.
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let mut rt = window(true);
     let mut clock = 0.0;
     for _ in 0..6 {
@@ -146,6 +153,7 @@ fn measure_a_focused_window_with_one_moving_face() {
     };
     // LOCUST_FACE_BUSY=0: the same window with the face at rest, for the floor under the face's cost.
     let busy = std::env::var("LOCUST_FACE_BUSY").map_or(true, |v| v != "0");
+    let _engine = locust_core::native::hooks::no_saved_rules();
     let mut rt = window(busy);
     let mut clock = 0.0;
     let step = |rt: &mut Runtime<State>, clock: &mut f64, last: &mut std::time::Instant| -> bool {
