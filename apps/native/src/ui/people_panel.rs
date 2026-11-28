@@ -2523,6 +2523,7 @@ mod renderer_folder_tests {
         rt.frame(0.); rt
     }
     fn texts(rt: &rune::Runtime<State>) -> String { rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n") }
+    // case: is named in the dialog, and reads as the project folder when it has none
     #[test]
     fn is_named_in_the_dialog_and_reads_as_the_project_folder_when_it_has_none() {
         let rt = render(form(None,true,"auto"));
@@ -2532,12 +2533,14 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("Choose folder"));
         assert!(rt.find("team-folder-reset").is_none());
     }
+    // case: says why the folder is worth setting, in the person's terms
     #[test]
     fn says_why_the_folder_is_worth_setting_in_the_persons_terms() {
         let rt = render(form(None,true,"auto"));
         assert!(texts(&rt).contains("MCP server"));
         assert!(texts(&rt).contains("History and memory stay with the project"));
     }
+    // case: does not promise a permission the next mission will not have
     #[test]
     fn does_not_promise_a_permission_the_next_mission_will_not_have() {
         for (mode, words) in [("auto","may edit anything on this machine"),("ask","every write refused"),("accept-edits","may change files in this workspace"),("approve-each","asks before every command"),("plan","changes nothing")] {
@@ -2546,6 +2549,7 @@ mod renderer_folder_tests {
             if mode == "auto" { assert!(!texts(&rt).contains("every write refused")); }
         }
     }
+    // case: is absent while a teammate is being created, because there is nothing to write it onto
     #[test]
     fn is_absent_while_a_teammate_is_being_created_or_without_a_host_chooser() {
         let mut s = form(None,true,"auto"); edit(&mut s,None);
