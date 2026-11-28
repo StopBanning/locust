@@ -18,7 +18,7 @@ pub(super) struct Answers {
 /// of the first still without a choice. Not while a field takes the typing, nor with Ctrl, Alt or Cmd held.
 pub(super) fn handle_key(s: &mut State, event: &KeyEvent) -> bool {
     // Not on a card answered elsewhere: it has nothing to choose.
-    let Some(card) = s.pending_approval.as_ref().filter(|card| !card.questions.is_empty() && card.answer_in.is_none()) else { return false };
+    let Some(card) = crate::approval_card::active_approval(s).filter(|card| !card.questions.is_empty() && card.answer_in.is_none()) else { return false };
     let Key::Text(ref key) = event.key else { return false };
     let modified = event.mods.cmd || event.mods.ctrl || event.mods.alt;
     let typing = s.draft.focused || s.approval_reason.focused || s.question_answers.typed.values().any(|field| field.focused);
@@ -47,7 +47,7 @@ fn answers_for(s: &State, question: &approval::Question) -> Vec<String> {
 }
 
 fn send(s: &mut State) {
-    let Some(card) = s.pending_approval.clone() else { return };
+    let Some(card) = crate::approval_card::active_approval(s).cloned() else { return };
     if card.questions.iter().any(|q| answers_for(s, q).is_empty()) {
         return;
     }
@@ -57,7 +57,7 @@ fn send(s: &mut State) {
 
 /// Skip, where the runtime takes one: every question left alone, and the runtime is told it was skipped.
 fn skip(s: &mut State) {
-    let Some(card) = s.pending_approval.clone().filter(|card| card.skippable) else { return };
+    let Some(card) = crate::approval_card::active_approval(s).cloned().filter(|card| card.skippable) else { return };
     let answers = card.questions.iter().map(|q| (q.id.clone(), Vec::new())).collect();
     answer(s, &card, answers);
 }

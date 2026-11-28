@@ -40,8 +40,17 @@ pub(super) fn sync_approvals(s: &mut State) -> bool {
     changed
 }
 
+/// The pane can change before the engine poll replaces the cached card. Never display or answer the old turn's card
+/// in that gap. A standalone card (without a running window engine) is used in the app's scenes and previews.
+pub(super) fn active_approval(s: &State) -> Option<&approval::Request> {
+    s.pending_approval.as_ref().filter(|card| {
+        s.engine != Some(Kind::Native)
+            || s.ledger.as_ref().is_some_and(|pane| pane.snapshot.tip == card.mission_id)
+    })
+}
+
 pub(super) fn decide_pending(s: &mut State, decision: approval::Decision) {
-    let Some(card) = s.pending_approval.clone() else {
+    let Some(card) = active_approval(s).cloned() else {
         return;
     };
     if decision != approval::Decision::Deny && s.approval_shown.elapsed().as_millis() < 500 {
@@ -137,7 +146,7 @@ fn plain_action_for(card: &approval::Request) -> Option<locust_core::command_pla
 }
 
 pub(super) fn approval_card(s: &State, p: &Palette) -> El {
-    let Some(card) = &s.pending_approval else {
+    let Some(card) = active_approval(s) else {
         return col().w_full();
     };
     let l = crate::look::controls::Look::new(p.dark);
@@ -370,7 +379,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                     crate::look::controls::ghost_button(&l, "Allow this command from now on")
                         .key("dont-ask-again")
                         .on_press(|s: &mut State| {
-                            if let Some(card) = s.pending_approval.clone() {
+                            if let Some(card) = active_approval(s).cloned() {
                                 match locust_core::engine_api::api().save_rule_and_decide(
                                     &card,
                                     crate::approval_rules::RuleEffect::Allow,
@@ -444,7 +453,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         {
                             crate::look::controls::deny_button(&l, "Never allow this (saves a rule)")
                                 .on_press(|s: &mut State| {
-                                    if let Some(card) = s.pending_approval.clone() {
+                                    if let Some(card) = active_approval(s).cloned() {
                                         match locust_core::engine_api::api().save_rule_and_decide(
                                             &card,
                                             crate::approval_rules::RuleEffect::Deny,
@@ -571,3 +580,7 @@ mod approval_shape_tests;
 #[cfg(test)]
 #[path = "command_wraps_tests.rs"]
 mod command_wraps_tests;
+
+#[cfg(test)]
+#[path = "approval_active_thread_tests.rs"]
+mod approval_active_thread_tests;
