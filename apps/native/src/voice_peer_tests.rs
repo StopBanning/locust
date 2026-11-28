@@ -250,3 +250,28 @@ fn talk_peer_an_unanswered_offer_releases_everything_when_dropped() {
     assert!(state.order.contains(&"peer shut"));
     assert!(!state.order.contains(&"peer answer"));
 }
+
+#[test]
+// case: turns the microphone off when the audio cannot be built (#8)
+fn turns_the_microphone_off_when_the_audio_cannot_be_built_8() {
+    let (audio, shared) = fixture(true, None);
+    assert_eq!(
+        audio.call(&AtomicBool::new(false)).err().unwrap(),
+        "The call could not start. Try again."
+    );
+    let held = shared.lock().unwrap();
+    assert_eq!(
+        &held.order,
+        &[
+            "access allowed",
+            "peer open",
+            "mic open",
+            "speaker tried",
+            "mic shut",
+            "peer shut"
+        ]
+    );
+    assert!(held.input.is_none());
+    assert!(held.output.is_none());
+    assert!(held.fed.is_empty());
+}
