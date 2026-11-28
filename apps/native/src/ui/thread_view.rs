@@ -1,5 +1,8 @@
 use super::*;
 
+/// What the thread says while an opened conversation's record is read (main.rs `begin_ledger` sets the same status).
+const LOADING_CONVERSATION: &str = "Loading conversation\u{2026}";
+
 pub(super) fn thread_view(s: &State, p: &Palette) -> El {
     // Local history remains readable even when the MCP engine is unavailable.
     let error = s.load_error.as_ref().filter(|_| s.ledger.is_none());
@@ -61,7 +64,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         } else if items.is_empty() {
             let title = if let Some(pane) = &s.ledger {
                 if pane.loading {
-                    "Loading conversation…".into()
+                    LOADING_CONVERSATION.into()
                 } else {
                     "No transcript items.".into()
                 }
@@ -178,8 +181,11 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     }),
             );
         }
+        // The thread says a conversation is loading; the line over the message box does not say it again (Electron's
+        // Composer.tsx has no words there while App.tsx `openMission` draws the conversation).
+        let said = if s.status == LOADING_CONVERSATION { String::new() } else { s.status.clone() };
         status = status.child(
-            text(s.status.clone())
+            text(said)
                 .font(type_::LABEL)
                 .color(p.status(s.status_tone))
                 .grow(1.0)
@@ -1952,3 +1958,7 @@ mod stop_beam_ui_tests;
 fn composer_line_height() -> f32 {
     if type_::BODY.line_height > 0.0 { type_::BODY.line_height } else { type_::BODY.size * 1.25 }
 }
+
+#[cfg(test)]
+#[path = "loading_said_once_tests.rs"]
+mod loading_said_once_tests;
