@@ -861,3 +861,7 @@ pub fn run_process(argv: &[String]) -> i32 {
 #[cfg(test)]
 #[path = "cli_client_tests.rs"]
 mod cli_client_tests;
+
+#[cfg(test)]
+#[path = "cli_terminal_tests.rs"]
+mod cli_terminal_tests;
