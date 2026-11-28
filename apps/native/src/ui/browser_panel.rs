@@ -73,6 +73,12 @@ fn command(s: &mut State, cmd: Command) {
         t.commands.push_back(cmd);
     }
 }
+/// A test in another module says its window is there. On macOS `poll` returns at once without one, so the folders a
+/// page may read from are never handed over (28 Nov: four page tests written on Linux failed here for that).
+#[cfg(test)]
+pub(crate) fn attach_in_tests() {
+    TEST_ATTACHED.with(|a| a.set(true));
+}
 /// Whether the browser's views have a window to live in: a test may say so without one.
 #[cfg(target_os = "macos")]
 fn attached() -> bool {
