@@ -4,8 +4,8 @@
 //! numbered, and the pages it did not draw said rather than left out. A picture of a page runs nothing, which is why
 //! the viewer shows a PDF at all.
 //!
-//! Electron's card shows the first page's picture once it is drawn; the composer's card here keeps the PDF mark, since
-//! a file is not read for its pictures until it is sent or opened.
+//! The composer can reuse the first page after the viewer has read it. Until then, or if the picture cannot be
+//! displayed, it keeps the PDF mark.
 use super::*;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -53,23 +53,31 @@ fn page_count(path: &str) -> Option<usize> {
 /// A PDF going with the next message, as a card (`PdfTile`): its name and how many pages, never its path.
 pub(super) fn card(s: &State, path: &str, p: &Palette) -> El {
     let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
-    let pages = page_count(&crate::file_menu::rooted_path(path, folder.as_deref()));
+    let reading = folder.as_deref().and_then(|folder| remembered_for_card(std::path::Path::new(folder), path));
+    let pages = reading.as_ref().map(|read| read.pages)
+        .or_else(|| page_count(&crate::file_menu::rooted_path(path, folder.as_deref())));
     let name = crate::file_menu::file_base_name(path);
+    let thumb = reading.as_ref().and_then(|read| read.pictures.first())
+        .and_then(|picture| crate::step_pictures::thread_picture(s, picture));
+    let mut page = col()
+        .key(format!("pdf-card/{path}/page"))
+        .w(22.0)
+        .h(28.0)
+        .center()
+        .radius(3.0)
+        .fill(p.sidebar)
+        .border(1.0, p.hairline);
+    page = if let Some(image) = thumb {
+        let (w, h) = crate::step_pictures::fitted(image.size().unwrap_or([22, 28]), 22.0, 28.0);
+        page.child(el().key("pdf-card-thumbnail").size(w, h).pixels(image.pixels()).a11y_hidden())
+    } else {
+        page.child(text("PDF").font(type_::LABEL).color(p.muted))
+    };
     row()
         .key(format!("pdf-card/{path}"))
         .gap(8.0)
         .center_y()
-        .child(
-            col()
-                .key(format!("pdf-card/{path}/page"))
-                .w(22.0)
-                .h(28.0)
-                .center()
-                .radius(3.0)
-                .fill(p.sidebar)
-                .border(1.0, p.hairline)
-                .child(text("PDF").font(type_::LABEL).color(p.muted)),
-        )
+        .child(page)
         .child(
             col()
                 .gap(1.0)
@@ -78,19 +86,57 @@ pub(super) fn card(s: &State, path: &str, p: &Palette) -> El {
         )
 }
 
-/// What `read_document` read of each PDF it opened (its page count and the pictures it drew), by folder and path, for
-/// the viewer to draw: the viewer holds a file's words, and a PDF is shown as its pages.
-static READ: LazyLock<Mutex<HashMap<(std::path::PathBuf, String), crate::pdf::ReadablePdf>>> = LazyLock::new(Default::default);
+/// A regular source file's identity and change information, without rereading its bytes.
+#[derive(PartialEq, Eq)]
+struct SourceStamp {
+    path: std::path::PathBuf,
+    len: u64,
+    modified: std::time::SystemTime,
+}
 
-/// Keep what was read of the PDF at `path` in `folder`, for [`pages`].
-pub(super) fn keep(folder: &std::path::Path, path: &str, read: crate::pdf::ReadablePdf) {
-    READ.lock().unwrap_or_else(|e| e.into_inner()).insert((folder.to_path_buf(), path.to_owned()), read);
+fn source_stamp(folder: &std::path::Path, path: &str) -> Option<SourceStamp> {
+    let rooted = crate::file_menu::rooted_path(path, folder.to_str());
+    let path = std::fs::canonicalize(rooted).ok()?;
+    let meta = std::fs::metadata(&path).ok()?;
+    if !meta.is_file() {
+        return None;
+    }
+    Some(SourceStamp { path, len: meta.len(), modified: meta.modified().ok()? })
+}
+
+struct RememberedPdf {
+    reading: crate::pdf::ReadablePdf,
+    source: Option<SourceStamp>,
+}
+
+/// An opened viewer holds its original reading. An attachment card only reuses
+/// it while the file it represents is still the file that was read.
+static READ: LazyLock<Mutex<HashMap<(std::path::PathBuf, String), RememberedPdf>>> = LazyLock::new(Default::default);
+
+pub(super) fn keep(folder: &std::path::Path, path: &str, reading: crate::pdf::ReadablePdf) {
+    let source = source_stamp(folder, path);
+    READ.lock().unwrap_or_else(|e| e.into_inner()).insert(
+        (folder.to_path_buf(), path.to_owned()),
+        RememberedPdf { reading, source },
+    );
+}
+
+fn remembered(folder: &std::path::Path, path: &str) -> Option<crate::pdf::ReadablePdf> {
+    let cache = READ.lock().unwrap_or_else(|e| e.into_inner());
+    Some(cache.get(&(folder.to_path_buf(), path.to_owned()))?.reading.clone())
+}
+
+fn remembered_for_card(folder: &std::path::Path, path: &str) -> Option<crate::pdf::ReadablePdf> {
+    let stamp = source_stamp(folder, path)?;
+    let cache = READ.lock().unwrap_or_else(|e| e.into_inner());
+    let entry = cache.get(&(folder.to_path_buf(), path.to_owned()))?;
+    (entry.source.as_ref() == Some(&stamp)).then(|| entry.reading.clone())
 }
 
 /// The PDF at `path` in the viewer, as its pages (`PdfPages`), when Locust drew any; `None` leaves its text.
 pub(super) fn pages(s: &State, path: &str, p: &Palette) -> Option<El> {
     let folder = std::path::PathBuf::from(selected_conversation(s)?.0.folder.as_deref()?);
-    let read = READ.lock().unwrap_or_else(|e| e.into_inner()).get(&(folder, path.to_owned())).cloned()?;
+    let read = remembered(&folder, path)?;
     if read.pictures.is_empty() {
         return None;
     }
@@ -122,3 +168,7 @@ pub(super) fn pages(s: &State, path: &str, p: &Palette) -> Option<El> {
 #[cfg(test)]
 #[path = "pdf_pages_ui_tests.rs"]
 mod pdf_pages_ui_tests;
+
+#[cfg(test)]
+#[path = "pdf_card_fallback_tests.rs"]
+mod pdf_card_fallback_tests;
