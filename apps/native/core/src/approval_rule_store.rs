@@ -407,19 +407,23 @@ mod tests {
             })
             .collect();
         fs::create_dir_all(native).unwrap();
-        fs::write(
-            native.join(FILE_NAME),
-            serde_json::to_string_pretty(&to_json(&rules)).unwrap(),
-        )
-        .unwrap();
+        // Electron's persisted schema, not the serializer under test.
+        let raw_rules: Vec<Value> = (0..count).map(|i| json!({
+            "ruleId": format!("rule_{i}"), "effect": "deny", "kind": "command",
+            "pattern": format!("command_{i}"), "createdAt": "2026-10-04T00:00:00.000Z"
+        })).collect();
+        fs::write(native.join("approval-rules.json"), json!({
+            "schemaVersion": 1, "rules": raw_rules
+        }).to_string()).unwrap();
         rules
     }
 
+    // case: refuses the 201st rule with the reason and keeps the first rule and the file intact
     #[test]
     fn full_store_refuses_the_201st_and_keeps_file_intact() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES);
+        let rules = seed_rules(&native, 200);
         let path = native.join(FILE_NAME);
         let before = fs::read_to_string(&path).unwrap();
 
@@ -434,11 +438,12 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), before);
     }
 
+    // case: returns the existing rule for a duplicate even when the store is full
     #[test]
     fn duplicate_returns_existing_even_when_full() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES);
+        let rules = seed_rules(&native, 200);
         let path = native.join(FILE_NAME);
         let before = fs::read_to_string(&path).unwrap();
 
@@ -451,12 +456,16 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), before);
     }
 
+    // case: reads all 201 rules already on disk without dropping the first one
     #[test]
     fn reads_all_rules_already_on_disk_past_the_cap() {
         let (dir, store) = fixture();
         let native = dir.0.join("native");
-        let rules = seed_rules(&native, MAX_RULES + 1);
+        let rules = seed_rules(&native, 201);
+        let path = native.join("approval-rules.json");
+        let before = fs::read(&path).unwrap();
         assert_eq!(list(&store).unwrap(), rules);
+        assert_eq!(fs::read(&path).unwrap(), before, "reading must not trim a rule on disk");
     }
 
     #[test]
