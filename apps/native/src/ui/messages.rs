@@ -910,7 +910,11 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
             None => {}
         }
     }
-    if snap.damaged {
+    // The durable receipt reader can recover a prefix even when the live Session
+    // refused a bad line before publishing a new snapshot. Use only this turn's receipt.
+    let tip = if snap.tip.is_empty() { pane.conversation.conversation_id.as_deref() } else { Some(snap.tip.as_str()) };
+    let saved_damage = tip.and_then(|id| s.ledger_summaries.get(id)).is_some_and(|summary| summary.integrity_issues);
+    if snap.damaged || saved_damage {
         messages = messages.child(text(tv::DAMAGED_RECORD_NOTE).key("damaged-record-note").font(type_::LABEL).color(p.muted).w_full().wrap());
     }
     // The durable receipt closes the thread, under the notes and the offers (Thread.tsx `ReceiptCard`, fault 17).
@@ -2001,3 +2005,7 @@ mod messages_orb_tests;
 #[cfg(test)]
 #[path = "cloud_attribution_tests.rs"]
 mod cloud_attribution_tests;
+
+#[cfg(test)]
+#[path = "messages_damaged_receipt_tests.rs"]
+mod messages_damaged_receipt_tests;
