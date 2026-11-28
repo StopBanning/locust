@@ -73,9 +73,22 @@ pub fn login_shell_path(shell: Option<&str>, fallback: &str) -> Option<String> {
 
 /// `login_shell_path` with its time to answer given: the app's is three seconds.
 fn login_shell_path_within(shell: Option<&str>, fallback: &str, budget: Duration) -> Option<String> {
+    login_shell_path_with_runner(shell, fallback, |chosen, args| run_login_shell(chosen, args, budget))
+}
+
+fn login_shell_path_with_runner(
+    shell: Option<&str>,
+    fallback: &str,
+    run: impl FnOnce(&str, &[&str]) -> Option<String>,
+) -> Option<String> {
     let chosen = shell.filter(|s| s.starts_with('/')).unwrap_or(fallback);
+    let args = ["-ilc", "printf \"__LOCUST_PATH__%s__LOCUST_PATH__\" \"$PATH\""];
+    between_markers(&run(chosen, &args)?)
+}
+
+fn run_login_shell(chosen: &str, args: &[&str], budget: Duration) -> Option<String> {
     let mut child = Command::new(chosen)
-        .args(["-ilc", "printf \"__LOCUST_PATH__%s__LOCUST_PATH__\" \"$PATH\""])
+        .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -99,7 +112,7 @@ fn login_shell_path_within(shell: Option<&str>, fallback: &str, budget: Duration
             }
         }
     }
-    between_markers(&reader.join().ok()?)
+    reader.join().ok()
 }
 
 /// The PATH Locust should run with (shellPath): the shell's first, then what the app was given, then the usual install
@@ -253,6 +266,7 @@ pub fn npm_bin_directory() -> Option<String> {
 mod tests {
     use super::*;
 
+    // case: on macOS puts the login shell's PATH first, then what it was given, then the usual install folders
     #[test]
     fn on_macos_the_login_shells_path_comes_first_then_what_it_was_given_then_the_usual_folders() {
         let path = shell_path("macos", Some("/usr/bin:/bin:/usr/sbin:/sbin"), "/Users/ian", &|_| {
@@ -267,6 +281,7 @@ mod tests {
         assert_eq!(unique.len(), parts.len());
     }
 
+    // case: still finds the usual folders when the shell cannot be asked
     #[test]
     fn still_finds_the_usual_folders_when_the_shell_cannot_be_asked() {
         let path = shell_path("macos", Some("/usr/bin:/bin"), "/Users/ian", &|_| None).expect("a PATH");
@@ -274,6 +289,7 @@ mod tests {
         assert!(path.starts_with("/usr/bin:/bin:"));
     }
 
+    // case: is left alone on Windows
     #[test]
     fn is_left_alone_on_windows() {
         assert_eq!(shell_path("windows", Some("C:\\Windows"), "", &|_| Some("/nope".into())).as_deref(), Some("C:\\Windows"));
@@ -289,6 +305,7 @@ mod tests {
         assert_eq!(between_markers("__LOCUST_PATH____LOCUST_PATH__"), None);
     }
 
+    // case: merges without repeats or empty entries
     #[test]
     fn merges_without_repeats_or_empty_entries() {
         assert_eq!(merged_path(&[Some("/a:/b"), Some("/b::/c"), None]), "/a:/b:/c");
@@ -343,3 +360,7 @@ mod agy_on_a_mac_tests;
 #[cfg(test)]
 #[path = "npm_prefix_tests.rs"]
 mod npm_prefix_tests;
+
+#[cfg(test)]
+#[path = "shell_path_case_tests.rs"]
+mod shell_path_case_tests;
