@@ -18,7 +18,7 @@ use locust_core::desk_host::{
 };
 use locust_core::desk_snapshot::{DeskSnapshot, snapshot_key, snapshot_with};
 use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine, PhoneNotes};
-use locust_core::phone_host::{PhoneHost, PhoneSettings};
+use locust_core::phone_host::{PhoneCalls, PhoneHost, PhoneSent, PhoneSettings, PhoneState, PhoneTurn, phone_scout_cards};
 use locust_core::phone_anywhere::{AwayCallbacks, AwayForPhone, DeskCallbacks, HooksCallbacks, LettersPage, McpCallbacks, RelayLetter};
 use locust_core::scout_away::{ScoutAway, ScoutAwayDeps, ScoutAwayGh, ScoutAwayRelay, ScoutAwaySet, ScoutAwayStatus, SCOUT_AWAY_FILE};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -857,12 +857,75 @@ fn poll_scout_away(s: &mut State, phone_went_off: bool) -> bool {
     changed
 }
 
+/// Keep normal phone calls on the existing engine, and add the same Scout this window draws.
+struct PhoneScoutCalls {
+    engine: EnginePhoneCalls,
+    scout: Option<Weak<locust_core::scout::Scout>>,
+}
+
+// Electron's phone route accepts card_ followed by 12 lowercase hex digits. Native's
+// older IDs may be longer. Keep the stored ID and use a stable wire alias instead.
+fn phone_scout_id(id: &str) -> String {
+    if id.strip_prefix("card_").is_some_and(|tail| {
+        tail.len() == 12 && tail.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    }) {
+        return id.to_owned();
+    }
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(id.as_bytes());
+    let hex: String = digest[..6].iter().map(|b| format!("{b:02x}")).collect();
+    format!("card_{hex}")
+}
+
+impl PhoneCalls for PhoneScoutCalls {
+    fn state(&self) -> PhoneState {
+        let mut state = self.engine.state();
+        state.scout = self.scout.as_ref().and_then(Weak::upgrade).map(|scout| {
+            let mut cards = phone_scout_cards(&scout.state().cards);
+            for card in &mut cards { card.card_id = phone_scout_id(&card.card_id); }
+            cards
+        });
+        state
+    }
+
+    fn turns(&self, mission_id: &str) -> Option<Vec<PhoneTurn>> { self.engine.turns(mission_id) }
+
+    fn answer_card(&self, approval_id: &str, approve: bool) -> bool {
+        self.engine.answer_card(approval_id, approve)
+    }
+
+    fn send(&self, mission_id: &str, text: &str) -> PhoneSent { self.engine.send(mission_id, text) }
+
+    fn dismiss_scout(&self, card_id: &str) -> Option<bool> {
+        let scout = self.scout.as_ref().and_then(Weak::upgrade)?;
+        let visible = phone_scout_cards(&scout.state().cards);
+        let mut matching = visible.iter().filter(|card| phone_scout_id(&card.card_id) == card_id);
+        match (matching.next(), matching.next()) {
+            (Some(card), None) => {
+                scout.dismiss(&card.card_id, None);
+                Some(true)
+            }
+            // No card, or an ambiguous alias: don't dismiss another card.
+            _ => Some(false),
+        }
+    }
+}
+
+fn phone_calls_with_scout(
+    s: &mut State,
+    store: locust_core::store::Store,
+    now: Arc<dyn Fn() -> i64 + Send + Sync>,
+) -> Arc<PhoneScoutCalls> {
+    let engine = Arc::new(NativePhoneEngine::new(store));
+    let scout = crate::scout_cards::ensure_host(s).map(|host| Arc::downgrade(&host.scout));
+    Arc::new(PhoneScoutCalls { engine: EnginePhoneCalls::new(engine, now), scout })
+}
+
 fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
     let store = s.data.clone().or_else(locust_core::native::store)?;
     let dir = store.root().to_path_buf();
     let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(now_ms);
-    let engine = Arc::new(NativePhoneEngine::new(store));
-    let calls = Arc::new(EnginePhoneCalls::new(engine, now.clone()));
+    let calls = phone_calls_with_scout(s, store, now.clone());
     // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
     let notes = Arc::new(PhoneNotes::new(calls.clone()));
     let (tx, rx) = std::sync::mpsc::channel::<PhoneAnywhereSettings>();
@@ -2544,6 +2607,33 @@ mod tests {
         let entries = host.scout.log().entries;
         assert_eq!(entries.iter().filter(|entry| entry.away).count(), 2);
         assert!(entries.iter().any(|entry| entry.away && entry.github_unread && entry.at.ends_with("T12:00:00.000Z")));
+    }
+
+    #[test]
+    fn the_phone_state_and_dismiss_routes_use_the_windows_scout() {
+        use locust_core::phone_host::answer_phone;
+        let gh = Arc::new(ScoutGithubFake::default());
+        let (_root, store, relay, mut rt) = away_desk("scout-phone-cards", gh);
+        enable_phone_for_scout(&mut rt);
+        request_away(&mut rt, ScoutAwaySet::On);
+        let letter = sealed_result(&saved_away(&store), 11, "acme/app", "A phone-visible finding", false);
+        *relay.away_letters.lock().unwrap() = vec![letter.clone()];
+        relay.push_frame(serde_json::json!({"t":"letter","item":letter}));
+        pump_until(&mut rt, "Scout card came in", |s| s.scout.state.as_ref().is_some_and(|state| !state.cards.is_empty()));
+
+        let calls = phone_calls_with_scout(&mut rt.state, store, Arc::new(|| 0));
+        let get = || answer_phone(calls.as_ref(), "GET", "/api/state", None).unwrap();
+        let card = get().data["scout"][0].clone();
+        assert_eq!(card["said"], "A phone-visible finding");
+        let native_id = rt.state.scout.host.as_ref().unwrap().scout.state().cards[0].card_id.clone();
+        assert_ne!(card["cardId"], native_id, "long native IDs need a compatible phone alias");
+        assert_eq!(get().data["scout"][0]["cardId"], card["cardId"], "aliases are stable across polls");
+        assert!(card.get("take").is_none() && card.get("draft").is_none() && card.get("quote").is_none());
+        let dismissed = answer_phone(calls.as_ref(), "POST", "/api/scout/dismiss",
+            Some(&serde_json::json!({"cardId": card["cardId"]}))).unwrap();
+        assert_eq!(dismissed.data["ok"], true);
+        assert_eq!(get().data["scout"], serde_json::json!([]));
+        assert!(rt.state.scout.host.as_ref().unwrap().scout.state().cards.is_empty());
     }
 
     /// NSURLSession's place, taken by a client that connects nowhere: it answers the PC's auth as the relay does.
