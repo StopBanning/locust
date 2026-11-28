@@ -1716,7 +1716,18 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 .radius(10.0)
                 .fill(l.c("bg-raised"))
                 .border(1.0, l.c("border-card"))
-                .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), s.settings_panel.settings.terminal_faces, &l))
+                .child(crate::look::faces::bot_tile(
+                    s,
+                    &format!("home-{}", mate.id),
+                    &mate.id,
+                    &mate.name,
+                    crate::look::faces::BotFaceOpts {
+                        activity,
+                        motion: locust_core::bot_rig::BotMotionLevel::Subtle,
+                        ..Default::default()
+                    },
+                    &l,
+                ))
                 .child(
                     col()
                         .gap(2.0)
@@ -3196,3 +3207,7 @@ mod home_two_rows_fit_tests;
 #[cfg(test)]
 #[path = "home_agent_marks_tests.rs"]
 mod home_agent_marks_tests;
+
+#[cfg(test)]
+#[path = "home_live_faces_tests.rs"]
+mod home_live_faces_tests;
