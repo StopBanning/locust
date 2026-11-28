@@ -210,6 +210,9 @@ struct StageInner {
     reduced_snap_pending: bool,
     /// When the faces last stepped (ms), so every poll asks for the same next step.
     stepped_ms: f64,
+    /// When the window went behind other windows, so returning to focus banks the paused span
+    /// without jumping any face's animation clock forward.
+    away_since: Option<f64>,
     wake_count: u64,
     old_tweens: OldTweensCleanup,
     #[cfg(test)]
@@ -226,6 +229,7 @@ impl Default for StageInner {
             buddies: HashMap::new(),
             reduced_snap_pending: false,
             stepped_ms: f64::NEG_INFINITY,
+            away_since: None,
             wake_count: 0,
             old_tweens: OldTweensCleanup::new(),
             #[cfg(test)]
@@ -838,7 +842,44 @@ impl BotStage {
         inner.reduced_snap_pending = true;
 
         if !focused {
+            if inner.away_since.is_none() {
+                inner.away_since = Some(now_s);
+            }
             return false;
+        }
+        if let Some(away_at) = inner.away_since.take() {
+            let paused = (now_s - away_at).max(0.0);
+            if paused > 0.0 {
+                for slot in inner.bots.values_mut() {
+                    slot.start_s += paused;
+                    slot.last_step_s += paused;
+                    if let Some(t) = slot.hover_started_s.as_mut() {
+                        *t += paused;
+                    }
+                    if let Some(t) = slot.hover_noticed_s.as_mut() {
+                        *t += paused;
+                    }
+                    if let Some(t) = slot.hover_until_s.as_mut() {
+                        *t += paused;
+                    }
+                }
+                for slot in inner.buddies.values_mut() {
+                    slot.start_s += paused;
+                    slot.last_step_s += paused;
+                    if let Some(t) = slot.hover_started_s.as_mut() {
+                        *t += paused;
+                    }
+                    if let Some(t) = slot.hover_noticed_s.as_mut() {
+                        *t += paused;
+                    }
+                    if let Some(t) = slot.hover_until_s.as_mut() {
+                        *t += paused;
+                    }
+                }
+                if inner.stepped_ms.is_finite() {
+                    inner.stepped_ms += paused * 1000.0;
+                }
+            }
         }
 
         let dwell_s = (NOTICE_DWELL_MS as f64) / 1000.0;
@@ -1263,4 +1304,8 @@ mod pet_glance_tests {
         assert_eq!(stage.inner.borrow().old_tweens_removed, vec!["locust-pet-tweens"]);
     }
 }
+
+#[cfg(test)]
+#[path = "stage_rests_behind_tests.rs"]
+mod stage_rests_behind_tests;
 

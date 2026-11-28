@@ -17,7 +17,7 @@ use crate::bot_spec::Phosphor;
 
 // ---- a-face-rests-behind-other-windows.test.ts, "a moving face, while its window is behind other windows" ----
 
-// "asks for no frames and draws nothing more, holding where it was".
+// case: asks for no frames and draws nothing more, holding where it was
 #[test]
 fn a_moving_face_asks_for_no_frames_and_draws_nothing_more_while_its_window_is_behind_others() {
     let mut clock = BotClock::start(0.0, false, false);
@@ -31,7 +31,7 @@ fn a_moving_face_asks_for_no_frames_and_draws_nothing_more_while_its_window_is_b
     assert!((clock.stepped_seconds - 0.034).abs() < 1e-9, "the face holds where it was: {}", clock.stepped_seconds);
 }
 
-// "picks up when the window comes back, with no jump for the time it was away".
+// case: picks up when the window comes back, with no jump for the time it was away
 #[test]
 fn a_face_picks_up_when_its_window_comes_back_with_no_jump_for_the_time_it_was_away() {
     let mut clock = BotClock::start(0.0, false, false);
@@ -48,7 +48,7 @@ fn a_face_picks_up_when_its_window_comes_back_with_no_jump_for_the_time_it_was_a
     assert!((clock.stepped_seconds - 0.068).abs() < 1e-9, "{}", clock.stepped_seconds);
 }
 
-// "started behind other windows, is drawn once, and moves only once its window is in front".
+// case: started behind other windows, is drawn once, and moves only once its window is in front
 #[test]
 fn a_face_started_behind_other_windows_is_drawn_once_and_moves_only_once_its_window_is_in_front() {
     let mut clock = BotClock::start(0.0, true, false);
@@ -58,8 +58,7 @@ fn a_face_started_behind_other_windows_is_drawn_once_and_moves_only_once_its_win
     assert!(clock.pending_frame().is_some());
 }
 
-// "lets go of its window when it stops, and asks for nothing after" (the watchers are a browser's; what is kept is that
-// a stopped clock asks for nothing, whatever its window does).
+// case: lets go of its window when it stops, and asks for nothing after
 #[test]
 fn a_face_that_has_stopped_asks_for_nothing_after_whatever_its_window_does() {
     let mut clock = BotClock::start(0.0, false, false);
