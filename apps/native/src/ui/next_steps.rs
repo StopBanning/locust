@@ -334,3 +334,7 @@ mod tests {
 #[cfg(test)]
 #[path = "next_steps_refusal_tests.rs"]
 mod next_steps_refusal_tests;
+
+#[cfg(test)]
+#[path = "next_steps_disabled_buttons_tests.rs"]
+mod next_steps_disabled_buttons_tests;
