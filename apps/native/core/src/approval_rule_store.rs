@@ -345,6 +345,7 @@ mod tests {
         assert!(!dir.0.join("electron").join(FILE_NAME).exists());
     }
 
+    // case: leaves zero rules, a readable file, and room for the next one
     #[test]
     fn every_saved_rule_can_go_at_once() {
         let (dir, store) = fixture();
@@ -368,6 +369,7 @@ mod tests {
         assert_eq!(remove_all(&store).unwrap(), 2);
         assert!(list(&store).unwrap().is_empty());
         let raw = fs::read_to_string(dir.0.join("native").join(FILE_NAME)).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), json!({"schemaVersion": 1, "rules": []}));
         assert!(parsed_rule_file(&raw).unwrap().is_empty());
 
         let next = add(
@@ -385,11 +387,14 @@ mod tests {
         );
     }
 
+    // case: is nothing to do on an empty store (control)
     #[test]
     fn remove_all_on_empty_store_is_zero() {
-        let (_dir, store) = fixture();
+        let (dir, store) = fixture();
         assert_eq!(remove_all(&store).unwrap(), 0);
         assert!(list(&store).unwrap().is_empty());
+        let raw = fs::read_to_string(dir.0.join("native").join("approval-rules.json")).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), json!({"schemaVersion": 1, "rules": []}));
     }
 
     fn seed_rules(native: &Path, count: usize) -> Vec<StoredRule> {
