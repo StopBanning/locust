@@ -833,3 +833,7 @@ mod rail_can_be_used_tests;
 #[cfg(all(test, unix))]
 #[path = "attention_rail_tests.rs"]
 mod attention_rail_tests;
+
+#[cfg(test)]
+#[path = "rail_flyout_tone_tests.rs"]
+mod rail_flyout_tone_tests;
