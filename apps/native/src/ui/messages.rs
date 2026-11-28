@@ -638,10 +638,50 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         if let Some(ms) = elapsed {
             line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
         }
+        let mut peek = None;
         if let Some(step) = &live.detail {
-            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
+            let words = text(format!(" · {step}")).font(type_::LABEL).color(p.muted);
+            if let Some(plan) = live.plan.as_deref().filter(|plan| !plan.is_empty()) {
+                let scope = format!("live-plan/{}/{}", conversation_history_key(s), live.started_at);
+                let open = s.activity_open.get(&scope).copied().unwrap_or(false);
+                let dismiss = scope.clone();
+                line = line.child(
+                    words.key("live-step-peek").role("button")
+                        .label(format!("Show the plan, {step}")).expanded(open).focusable(true)
+                        .on_press(move |s: &mut State| {
+                            if open { s.activity_open.remove(&scope); }
+                            else { s.activity_open.insert(scope.clone(), true); }
+                        })
+                        .on_key(move |s: &mut State, event: &KeyEvent, _: &mut Tx| {
+                            if event.key == Key::Escape && open {
+                                s.activity_open.remove(&dismiss);
+                                true
+                            } else {
+                                false
+                            }
+                        }),
+                );
+                if open {
+                    let mut card = col().key("live-plan-peek").role("group").label("Current plan")
+                        .w(260.0).gap(5.0).padding(10.0).radius(7.0)
+                        .fill(p.raised).border(1.0, p.hairline)
+                        .anchored_fit("live-step-peek", rune::Side::Top, rune::Align::End, 6.0);
+                    for (i, row) in plan.iter().enumerate() {
+                        let (mark, ink) = match row.state {
+                            "done" => ("Done", p.green),
+                            "running" => ("Current", p.text),
+                            _ => ("Next", p.muted),
+                        };
+                        card = card.child(text(format!("{mark}: {}", row.text)).key(format!("live-plan-step-{i}"))
+                            .font(type_::LABEL).color(ink).wrap());
+                    }
+                    peek = Some(card);
+                }
+            } else {
+                line = line.child(words.key("live-step-peek"));
+            }
         }
-        messages = messages.child(line);
+        messages = messages.child(line).children(peek);
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -1863,3 +1903,7 @@ mod messages_orb_tests;
 #[cfg(test)]
 #[path = "other_app_origin_thread_sweep_tests.rs"]
 mod other_app_origin_thread_sweep_tests;
+
+#[cfg(test)]
+#[path = "live_plan_peek_parity_tests.rs"]
+mod live_plan_peek_parity_tests;
