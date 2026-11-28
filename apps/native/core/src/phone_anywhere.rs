@@ -708,11 +708,7 @@ impl Saved {
             })
             .unwrap_or_default();
         let closing = obj.get("closing").and_then(Value::as_bool) == Some(true);
-        let github = obj.get("github").and_then(Value::as_object).and_then(|g| {
-            let user = g.get("user").and_then(Value::as_u64)?;
-            let login = g.get("login").and_then(Value::as_str)?;
-            Some((user, login.to_owned()))
-        });
+        let github = obj.get("github").and_then(parse_github_account);
         Some(Self {
             relay: relay.to_owned(),
             room: room.to_owned(),
@@ -1000,6 +996,26 @@ impl PhoneAnywhere {
         } else {
             None
         }
+    }
+
+    /// Settings' local host contract (Electron's `accountLink`). Never used by a browser or phone reply.
+    pub fn account_link(&self) -> Option<crate::your_account::AccountLink> {
+        if self.inner.refusal().is_some() {
+            return None;
+        }
+        let state = self.inner.state.lock().unwrap();
+        let held = state.saved.as_ref()?;
+        if state.disposed || state.refused_by_relay || held.closing || !held.relay.starts_with("https://") {
+            return None;
+        }
+        let (user, login) = held.github.as_ref()?;
+        Some(crate::your_account::AccountLink {
+            relay: held.relay.clone(),
+            room: held.room.clone(),
+            token: held.token.clone(),
+            user: *user,
+            login: login.clone(),
+        })
     }
 
     /// Where to send the person to tie this computer to their GitHub account, or None with why in Settings' note.
@@ -2786,6 +2802,8 @@ mod desk_code_guard_tests {
             PhoneSent::Ok
         }
     }
+
+    include!("phone_account_link_tests.rs");
 
     struct AckSocket {
         callbacks: Mutex<Option<Arc<dyn RelaySocketCallbacks>>>,

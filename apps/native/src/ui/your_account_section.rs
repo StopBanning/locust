@@ -7,8 +7,12 @@
 use super::*;
 use chrono::{DateTime, Utc};
 use locust_core::your_account::{
-    AccountSyncState, BringHereResult, YourAccount, YourAccountStatus,
+    AccountLink, AccountSyncState, BringHereResult, YourAccount, YourAccountOptions, YourAccountStatus,
 };
+use crate::phone_section::SharedLink;
+use std::sync::{Arc, Mutex, mpsc};
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(not(test))]
 use std::sync::OnceLock;
 
 pub(crate) const HEADING: &str = "Your account";
@@ -26,36 +30,97 @@ pub(crate) struct AccountPanelState {
     pub armed_delete: bool,
     pub armed_bring: bool,
     pub armed_approve: Option<String>,
+    worker: Option<AccountWorker>,
+    identity: Option<Identity>,
+    pending: bool,
+    restore_pending: bool,
+    #[cfg(test)]
+    pub(super) service_fixture: Option<YourAccountOptions>,
 }
 
-static ACCOUNT: OnceLock<YourAccount> = OnceLock::new();
+type Identity = (String, String, u64);
+fn identity(link: &AccountLink) -> Identity {
+    (link.relay.clone(), link.room.clone(), link.user)
+}
+
+enum Action {
+    On,
+    Off,
+    Sync,
+    Delete,
+    Bring(String),
+    Ask,
+    Stop,
+    Approve(String, String),
+    Ignore(String),
+}
+
+struct Answer {
+    who: Option<Identity>,
+    status: Option<YourAccountStatus>,
+    action: bool,
+    code: Option<String>,
+    brought: Option<BringHereResult>,
+    restore_pending: bool,
+}
+
+enum Request {
+    Refresh,
+    Act(Identity, Action),
+}
+
+struct AccountWorker {
+    phone: SharedLink,
+    send: mpsc::Sender<Request>,
+    answers: mpsc::Receiver<Answer>,
+}
+
+#[cfg(not(test))]
+struct AccountHost {
+    profile: std::path::PathBuf,
+    secrets: Arc<dyn locust_core::own_models::SecretBox>,
+}
+
+#[cfg(not(test))]
+static HOST: OnceLock<AccountHost> = OnceLock::new();
 
 #[cfg(not(test))]
 pub(crate) fn open() {
-    use locust_core::your_account::YourAccountOptions;
-    use std::sync::Arc;
-
-    if ACCOUNT.get().is_some() {
-        return;
+    if let Some(store) = locust_core::native::store() {
+        let _ = HOST.set(AccountHost {
+            profile: store.root().to_path_buf(),
+            secrets: locust_core::own_models::secrets(),
+        });
     }
-    let Some(store) = locust_core::native::store() else {
-        return;
-    };
-    let root = store.root().to_path_buf();
-    let restore_root = root.clone();
-    let app_version = env!("CARGO_PKG_VERSION").to_owned();
-    let restore_version = app_version.clone();
-    let account = YourAccount::new(YourAccountOptions {
-        profile: root,
-        link: Arc::new(|| None),
-        secrets: locust_core::own_models::secrets(),
+}
+
+#[cfg(test)]
+pub(crate) fn open() {}
+
+#[cfg(not(test))]
+fn host_options(s: &mut State) -> Option<YourAccountOptions> {
+    let host = HOST.get()?;
+    if s.demo || s.engine != Some(Kind::Native) || s.data.as_ref().is_none_or(|store| store.root() != host.profile) {
+        return None;
+    }
+    let restore_root = host.profile.clone();
+    let version = env!("CARGO_PKG_VERSION");
+    Some(YourAccountOptions {
+        profile: host.profile.clone(),
+        link: Arc::new(|| None), // Replaced by the window's live, local-only phone host in setup.
+        secrets: host.secrets.clone(),
         computer: Arc::new(|| {
-            std::env::var("COMPUTERNAME")
+            let name = std::env::var("COMPUTERNAME")
                 .or_else(|_| std::env::var("HOSTNAME"))
-                .unwrap_or_else(|_| "This computer".into())
+                .unwrap_or_else(|_| "This computer".into());
+            if name.to_ascii_lowercase().ends_with(".local") {
+                name[..name.len() - 6].to_owned()
+            } else {
+                name
+            }
         }),
-        app_version,
-        busy: Arc::new(|| false),
+        app_version: version.into(),
+        busy: Arc::new(|| !locust_core::engine_api::api().running().is_empty()),
         remote: None,
         now: None,
         quiet_ms: None,
@@ -63,25 +128,190 @@ pub(crate) fn open() {
         ask_for_ms: None,
         changed: None,
         restore: Some(Arc::new(move |folder| {
-            locust_core::profile_backup::request_restore(
-                folder,
-                &restore_root,
-                &restore_version,
-                0,
-                Utc::now(),
-            )
-            .map(|_| ())
+            use locust_core::profile_backup::{PENDING_RESTORE_FILE, request_restore};
+            if restore_root.join(PENDING_RESTORE_FILE).exists() {
+                return Err("A restore is already waiting. Restart Locust before bringing in another copy.".into());
+            }
+            request_restore(folder, &restore_root, version, locust_core::engine_api::api().running().len(), Utc::now())
+                .map(|_| ())
         })),
-    });
-    let _ = ACCOUNT.set(account);
+    })
 }
 
 #[cfg(test)]
-pub(crate) fn open() {}
+fn host_options(s: &mut State) -> Option<YourAccountOptions> {
+    s.settings_panel.account.service_fixture.take()
+}
+
+pub(super) fn setup(s: &mut State, phone: SharedLink, wake: Waker) {
+    if s.settings_panel.account.worker.is_some() {
+        return;
+    }
+    let Some(mut options) = host_options(s) else { return };
+    let source = phone.clone();
+    // The service uses one consistent, authenticated room per command. It is never populated
+    // from a desk payload, a renderer login string, or a GitHub CLI account.
+    let active = Arc::new(Mutex::new(None));
+    let access = active.clone();
+    options.link = Arc::new(move || access.lock().unwrap().clone());
+    let restoring = Arc::new(AtomicBool::new(false));
+    if let Some(stage) = options.restore.take() {
+        let accepted = restoring.clone();
+        options.restore = Some(Arc::new(move |folder| {
+            stage(folder)?;
+            accepted.store(true, Ordering::Release);
+            Ok(())
+        }));
+    }
+    let account = YourAccount::new(options);
+    let (send, requests) = mpsc::channel();
+    let (reply, answers) = mpsc::channel();
+    let _ = send.send(Request::Refresh);
+    std::thread::spawn(move || {
+        let interval = std::time::Duration::from_millis(locust_core::your_account::ASK_EVERY_MS);
+        let mut last = None;
+        let mut last_who = None;
+        loop {
+            let request = match requests.recv_timeout(interval) {
+                Ok(request) => Some(request),
+                Err(mpsc::RecvTimeoutError::Timeout) => None,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            };
+            let link = source.account_link();
+            let who = link.as_ref().map(identity);
+            if who != last_who {
+                account.link_changed();
+                last_who = who.clone();
+            }
+            *active.lock().unwrap() = link.clone();
+            let mut code = None;
+            let mut brought = None;
+            let action = matches!(&request, Some(Request::Act(..)));
+            let already_pending = restoring.load(Ordering::Acquire);
+            let status = match request {
+                Some(Request::Act(expected, action))
+                    if !already_pending && who.as_ref() == Some(&expected) =>
+                {
+                    match action {
+                        Action::On => {
+                            let result = account.turn_on();
+                            code = result.code;
+                            Some(result.status)
+                        }
+                        Action::Off => Some(account.turn_off()),
+                        Action::Sync => Some(account.sync_now()),
+                        Action::Delete => Some(account.delete_copy()),
+                        Action::Bring(typed) => {
+                            brought = Some(account.bring_here(&typed));
+                            // In particular, a mistyped code must not cause a fresh relay lookup.
+                            None
+                        }
+                        Action::Ask => Some(account.ask()),
+                        Action::Stop => Some(account.stop_asking()),
+                        Action::Approve(room, match_code) => Some(account.approve(&room, &match_code)),
+                        Action::Ignore(room) => Some(account.ignore(&room)),
+                    }
+                }
+                None if !already_pending => Some(account.maintain()),
+                _ => Some(account.status()),
+            };
+            *active.lock().unwrap() = None;
+            let restore_pending = restoring.load(Ordering::Acquire);
+            // Drop an old room's result (especially its one-time code) after a change of sign-in.
+            if source.account_link() != link {
+                last = None;
+                if reply.send(Answer { who, status: None, action, code: None, brought: None, restore_pending }).is_err() {
+                    break;
+                }
+                wake();
+                continue;
+            }
+            if let Some(status) = &status {
+                if !action && last.as_ref().is_some_and(|(a, b)| a == &who && b == status) {
+                    continue;
+                }
+                last = Some((who.clone(), status.clone()));
+            }
+            if reply.send(Answer { who, status, action, code, brought, restore_pending }).is_err() {
+                break;
+            }
+            wake();
+        }
+        account.stop();
+    });
+    s.settings_panel.account.worker = Some(AccountWorker { phone, send, answers });
+}
 
 pub(crate) fn read(s: &mut State) {
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.status();
+    if let Some(worker) = &s.settings_panel.account.worker {
+        let _ = worker.send.send(Request::Refresh);
+    }
+}
+
+pub(super) fn poll(s: &mut State) -> bool {
+    let acct = &mut s.settings_panel.account;
+    let Some(worker) = &acct.worker else { return false };
+    let now = worker.phone.account_link().as_ref().map(identity);
+    let mut changed = false;
+    if now != acct.identity {
+        acct.identity = now;
+        acct.status = YourAccountStatus::default();
+        acct.code = None;
+        acct.failure = None;
+        acct.armed_delete = false;
+        acct.armed_bring = false;
+        acct.armed_approve = None;
+        acct.recovery_input.replace_text(String::new());
+        let _ = worker.send.send(Request::Refresh);
+        changed = true;
+    }
+    while let Ok(answer) = worker.answers.try_recv() {
+        if answer.restore_pending && !acct.restore_pending {
+            acct.restore_pending = true;
+            acct.recovery_input.replace_text(String::new());
+            changed = true;
+        }
+        if answer.action {
+            acct.pending = false;
+            changed = true;
+        }
+        if answer.who != acct.identity {
+            continue;
+        }
+        if let Some(status) = answer.status
+            && acct.status != status
+        {
+            acct.status = status;
+            changed = true;
+        }
+        if let Some(code) = answer.code {
+            acct.code = Some(code);
+            changed = true;
+        }
+        match answer.brought {
+            Some(BringHereResult::Ok { computer }) => {
+                acct.bringing = Some(computer);
+                acct.recovery_input.replace_text(String::new());
+                changed = true;
+            }
+            Some(BringHereResult::Err { reason }) => {
+                acct.failure = Some(reason);
+                changed = true;
+            }
+            None => {}
+        }
+    }
+    changed
+}
+
+fn act(s: &mut State, action: Action) {
+    let acct = &mut s.settings_panel.account;
+    if acct.pending || acct.restore_pending {
+        return;
+    }
+    if let (Some(worker), Some(who)) = (&acct.worker, &acct.identity) {
+        acct.failure = None;
+        acct.pending = worker.send.send(Request::Act(who.clone(), action)).is_ok();
     }
 }
 
@@ -118,93 +348,67 @@ pub(crate) fn ago_of(at: &str, now_ms: i64) -> String {
 }
 
 fn toggle_sync(s: &mut State) {
-    let on = s.settings_panel.account.status.sync == AccountSyncState::On;
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        if on {
-            s.settings_panel.account.status = account.turn_off();
-        } else {
-            let res = account.turn_on();
-            s.settings_panel.account.status = res.status;
-            if let Some(code) = res.code {
-                s.settings_panel.account.code = Some(code);
-            }
-        }
-    }
+    let action = if s.settings_panel.account.status.sync == AccountSyncState::On { Action::Off } else { Action::On };
+    act(s, action);
 }
 
 fn sync_now(s: &mut State) {
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.sync_now();
-    }
+    act(s, Action::Sync);
 }
 
 fn delete_copy(s: &mut State) {
-    if !s.settings_panel.account.armed_delete {
-        s.settings_panel.account.armed_delete = true;
+    let acct = &mut s.settings_panel.account;
+    if acct.pending || acct.restore_pending {
         return;
     }
-    s.settings_panel.account.armed_delete = false;
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.delete_copy();
+    if !acct.armed_delete {
+        acct.armed_delete = true;
+        return;
     }
+    acct.armed_delete = false;
+    act(s, Action::Delete);
 }
 
 fn bring_here(s: &mut State) {
-    if !s.settings_panel.account.armed_bring {
-        s.settings_panel.account.armed_bring = true;
+    let acct = &mut s.settings_panel.account;
+    if acct.pending || acct.restore_pending || acct.recovery_input.text.trim().len() < 10 {
         return;
     }
-    s.settings_panel.account.armed_bring = false;
-    s.settings_panel.account.failure = None;
-    let typed = s.settings_panel.account.recovery_input.text.clone();
-    if let Some(account) = ACCOUNT.get() {
-        match account.bring_here(&typed) {
-            BringHereResult::Ok { computer } => {
-                s.settings_panel.account.bringing = Some(computer);
-                s.settings_panel.account.recovery_input.replace_text(String::new());
-            }
-            BringHereResult::Err { reason } => {
-                s.settings_panel.account.failure = Some(reason);
-            }
-        }
+    if !acct.armed_bring {
+        acct.armed_bring = true;
+        return;
+    }
+    acct.armed_bring = false;
+    let typed = acct.recovery_input.text.clone();
+    if typed.len() <= 200 {
+        act(s, Action::Bring(typed));
     }
 }
 
 fn ask_computer(s: &mut State) {
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.ask();
-    }
+    act(s, Action::Ask);
 }
 
 fn stop_asking(s: &mut State) {
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.stop_asking();
-    }
+    act(s, Action::Stop);
 }
 
 fn approve_ask(s: &mut State, room: String, match_code: String) {
-    if s.settings_panel.account.armed_approve.as_deref() != Some(room.as_str()) {
-        s.settings_panel.account.armed_approve = Some(room);
+    let acct = &mut s.settings_panel.account;
+    if acct.pending {
         return;
     }
-    s.settings_panel.account.armed_approve = None;
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.approve(&room, &match_code);
+    if acct.armed_approve.as_deref() != Some(room.as_str()) {
+        acct.armed_approve = Some(room);
+        return;
     }
+    acct.armed_approve = None;
+    act(s, Action::Approve(room, match_code));
 }
 
 fn ignore_ask(s: &mut State, room: String) {
     s.settings_panel.account.armed_approve = None;
-    s.settings_panel.account.failure = None;
-    if let Some(account) = ACCOUNT.get() {
-        s.settings_panel.account.status = account.ignore(&room);
-    }
+    act(s, Action::Ignore(room));
 }
 
 fn boxed_button(label: impl Into<String>, l: &crate::look::controls::Look) -> El {
@@ -287,7 +491,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
         "Each file is sealed on this computer before it leaves, with a key only your computers hold, so the relay cannot read it. Agent sign-ins and keys are never sent.".to_owned()
     };
 
-    let switch = crate::look::controls::switch(&l, on, SWITCH_LABEL, false)
+    let switch = crate::look::controls::switch(&l, on, SWITCH_LABEL, acct.pending || acct.restore_pending)
         .key("account-switch")
         .on_press(toggle_sync);
 
@@ -370,7 +574,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
             format!("{} other computers keep", elsewhere.computers)
         };
         let bring_label = if acct.armed_bring {
-            "Restart and bring it"
+            "Prepare the copy"
         } else {
             "Bring it here"
         };
@@ -395,7 +599,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
                             .wrap(),
                         )
                         .child(
-                            text("Locust restarts once. What it replaces on this computer is moved aside first, not deleted.")
+                            text("Restart Locust to bring in the copy. What it replaces on this computer is moved aside first, not deleted.")
                                 .font(l.ty.body)
                                 .color(l.c("text-secondary"))
                                 .wrap(),
@@ -420,7 +624,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
                 ),
         );
 
-        if acct.bringing.is_none() {
+        if !acct.restore_pending {
             let ask_row = if let Some(asking) = &status.asking {
                 row()
                     .key("account-asking")
@@ -445,7 +649,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
                                     .color(l.c("text-primary")),
                             )
                             .child(
-                                text("If the codes differ, choose Not mine there. Locust restarts here once it is approved.")
+                                text("If the codes differ, choose Not mine there. Restart Locust here once it is approved.")
                                     .font(l.ty.body)
                                     .color(l.c("text-secondary"))
                                     .wrap(),
@@ -484,7 +688,7 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
     if let Some(computer) = &acct.bringing {
         root = root.child(
             text(format!(
-                "Your Locust from {computer} is ready. Restarting to bring it in\u{2026}"
+                "Your Locust from {computer} is ready. Restart Locust to bring it in."
             ))
             .key("account-bringing")
             .px(10.0)
@@ -581,10 +785,11 @@ pub(crate) fn section_at(s: &State, p: &Palette, now_ms: i64) -> El {
 }
 
 fn append_footer(mut root: El, acct: &AccountPanelState, l: &crate::look::controls::Look) -> El {
-    let text_out = acct
-        .failure
-        .as_deref()
-        .or(acct.status.message.as_deref());
+    let text_out = if acct.restore_pending && acct.bringing.is_none() && acct.status.message.is_none() {
+        Some("A copy is ready. Restart Locust to bring it in.")
+    } else {
+        acct.failure.as_deref().or(acct.status.message.as_deref())
+    };
     if let Some(msg) = text_out {
         root = root.child(
             text(msg.to_owned())

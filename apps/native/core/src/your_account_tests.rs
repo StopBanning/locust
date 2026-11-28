@@ -738,17 +738,17 @@ fn the_mac_asks_both_screens_show_one_code_the_pc_approves_and_the_mac_brings_th
     assert_eq!(approved.good, Some(true));
     assert_eq!(
         approved.message.as_deref(),
-        Some("Approved. Colin's Mac brings your Locust in and restarts.")
+        Some("Approved. Colin's Mac can restart to bring your Locust in.")
     );
     assert!(approved.asks.is_empty());
 
-    mac.account.check_ask();
+    mac.account.maintain();
     assert_eq!(restores.lock().unwrap().len(), 1);
     let status = mac.account.status();
     assert_eq!(status.asking, None);
     assert_eq!(
         status.message.as_deref(),
-        Some("Your Locust from Colin's PC is ready. Restarting to bring it in\u{2026}")
+        Some("Your Locust from Colin's PC is ready. Restart Locust to bring it in.")
     );
     assert!(apply_pending_restore(&mac_profile.0, "0.845.0", Local::now()).unwrap().ok);
     assert!(fs::read_to_string(mac_profile.0.join("teammates.json")).unwrap().contains("Wren"));
@@ -887,4 +887,24 @@ fn after_ten_minutes_with_no_approval_the_ask_is_given_up_and_taken_down() {
     assert!(!relay.held_keys().iter().any(|k| k.ends_with(&aid)));
     pc.account.stop();
     mac.account.stop();
+}
+
+#[test]
+fn account_worker_rearms_a_kept_copy_on_reopen_without_another_opt_in() {
+    let profile = a_profile("resume-sync");
+    let link = link_as(7, "colin");
+    let first = an_account(&profile.0, Some(link.clone()), None, true, "Colin's PC", None, None);
+    let initial = first.account.turn_on();
+    let before = initial.status.last_synced.unwrap().at;
+    first.account.stop();
+
+    fs::write(
+        profile.0.join("memories.json"),
+        r#"{"schemaVersion":2,"memories":[{"text":"Colin ships on Fridays"}]}"#,
+    ).unwrap();
+    let reopened = an_account(&profile.0, Some(link), Some(first.relay.clone()), true, "Colin's PC", None, None);
+    reopened.advance_ms(120_000);
+    let after = reopened.account.maintain();
+    assert_eq!(after.sync, AccountSyncState::On);
+    assert_ne!(after.last_synced.unwrap().at, before);
 }

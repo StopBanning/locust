@@ -28,7 +28,7 @@ pub const ASK_EVERY_MS: u64 = 5_000;
 pub const ASK_FOR_MS: u64 = 10 * 60_000;
 const ASK_NAME_MAX: usize = 60;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AccountLink {
     pub relay: String,
     pub room: String,
@@ -255,6 +255,7 @@ pub struct YourAccount {
     changed: Option<Arc<dyn Fn(YourAccountStatus) + Send + Sync>>,
     restore: Option<Arc<dyn Fn(&Path) -> Result<(), String> + Send + Sync>>,
     schedule: SyncSchedule,
+    last_look: Mutex<Option<u64>>,
     inner: Mutex<Inner>,
 }
 
@@ -287,6 +288,7 @@ impl YourAccount {
             changed: options.changed,
             restore: options.restore,
             schedule: SyncSchedule::new(quiet_ms),
+            last_look: Mutex::new(None),
             inner: Mutex::new(Inner {
                 message: None,
                 storage: None,
@@ -385,7 +387,7 @@ impl YourAccount {
             Vec::new()
         };
         let asking = st.asking.as_ref().and_then(|a| {
-            link.filter(|l| a.room == l.room).map(|_| AccountAsking {
+            link.filter(|l| a.room == l.room && a.account == l.user).map(|_| AccountAsking {
                 match_code: a.match_code.clone(),
                 since: iso_from_ms(a.since_ms),
             })
@@ -544,6 +546,43 @@ impl YourAccount {
 
     pub fn touched(&self) {
         self.schedule.touched(self.now_ms());
+    }
+
+    /// Forget the old room's transient status before a local host changes rooms or accounts.
+    pub fn link_changed(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.message = None;
+        inner.storage = None;
+        inner.elsewhere = None;
+        inner.ignored.clear();
+        inner.granted_to.clear();
+        inner.asking = None;
+        *self.last_look.lock().unwrap() = None;
+    }
+
+    /// One tick on the local account worker. A new process first arms the saved opt-in.
+    pub fn maintain(&self) -> YourAccountStatus {
+        let link = (self.link)();
+        if let Some(link) = link.as_ref() {
+            let now = self.now_ms();
+            if self.read_saved().is_some_and(|saved| saved.on && saved.account == link.user) {
+                let mut last = self.last_look.lock().unwrap();
+                if last.is_none_or(|at| now.saturating_sub(at) >= ACCOUNT_LOOK_MS) {
+                    self.schedule.touched(now);
+                    *last = Some(now);
+                }
+            } else {
+                *self.last_look.lock().unwrap() = None;
+            }
+            if self.schedule.tick(now, (self.busy)()) {
+                self.push_once();
+                self.schedule.finished(self.now_ms());
+            }
+        }
+        if self.inner.lock().unwrap().asking.is_some() {
+            self.check_ask();
+        }
+        self.status()
     }
 
     fn push_once(&self) -> bool {
@@ -906,6 +945,7 @@ impl YourAccount {
         let (ask_keys, since_ms, same_session) = {
             let st = self.inner.lock().unwrap();
             let Some(ref active) = st.asking else {
+                drop(st);
                 return self.build_status(Some(&link));
             };
             (
@@ -955,7 +995,7 @@ impl YourAccount {
             let brought = self.bring_with_key(&link, &opened.profile_key);
             self.inner.lock().unwrap().message = match brought {
                 BringHereResult::Ok { computer } => Some((
-                    format!("Your Locust from {computer} is ready. Restarting to bring it in\u{2026}"),
+                    format!("Your Locust from {computer} is ready. Restart Locust to bring it in."),
                     true,
                 )),
                 BringHereResult::Err { reason } => Some((reason, false)),
@@ -1038,7 +1078,7 @@ impl YourAccount {
                 e.asks.retain(|a| a.room != room);
             }
             st.message = Some((
-                format!("Approved. {name} brings your Locust in and restarts."),
+                format!("Approved. {name} can restart to bring your Locust in."),
                 true,
             ));
         }

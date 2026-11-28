@@ -181,6 +181,10 @@ impl McpCallbacks for ServeMcp {
 }
 
 impl SharedLink {
+    pub(super) fn account_link(&self) -> Option<locust_core::your_account::AccountLink> {
+        self.live().and_then(|phone| phone.account_link())
+    }
+
     fn live(&self) -> Option<PhoneAnywhere> {
         self.live.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
@@ -743,6 +747,10 @@ pub(crate) fn poll(s: &mut State) -> bool {
     if !s.phone_anywhere_link.started {
         start_saved(s);
     }
+    // Native chooses its engine after the initial window setup. The account host may only be ready now.
+    if let Some(waker) = s.phone_anywhere_link.waker.clone() {
+        crate::your_account_section::setup(s, s.phone_anywhere_link.shared.clone(), waker);
+    }
     let mut latest = None;
     if let Some(rx) = &s.phone_anywhere_link.rx {
         while let Ok(next) = rx.try_recv() {
@@ -753,7 +761,7 @@ pub(crate) fn poll(s: &mut State) -> bool {
         s.phone_anywhere = Some(next);
     }
     let covered = poll_desk(s);
-    s.phone_anywhere != before || covered
+    crate::your_account_section::poll(s) | (s.phone_anywhere != before) | covered
 }
 
 /// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
@@ -2606,6 +2614,8 @@ mod tests {
         let signed_out_text = all_text(&rt.elements());
         assert!(signed_out_text.contains("Sign in with GitHub"), "{signed_out_text}");
     }
+
+    include!("account_phone_host_tests.rs");
 
     // ---- A browser holding the window hears what the window hears (index.ts:627 `mirrorToDesk`) ----------------------
 
