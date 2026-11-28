@@ -73,6 +73,12 @@ fn command(s: &mut State, cmd: Command) {
         t.commands.push_back(cmd);
     }
 }
+/// A test in another module says its window is there. On macOS `poll` returns at once without one, so the folders a
+/// page may read from are never handed over (28 Nov: four page tests written on Linux failed here for that).
+#[cfg(test)]
+pub(crate) fn attach_in_tests() {
+    TEST_ATTACHED.with(|a| a.set(true));
+}
 /// Whether the browser's views have a window to live in: a test may say so without one.
 #[cfg(target_os = "macos")]
 fn attached() -> bool {
@@ -156,6 +162,7 @@ fn keep_up(s: &mut State) -> Duration {
     }
     {
         let previous = h.profiles.clone();
+        h.data_root = s.data.as_ref().map(|store| store.root().to_path_buf());
         h.namespace = s
             .data
             .as_ref()
@@ -210,15 +217,38 @@ fn keep_up(s: &mut State) -> Duration {
             }
         }
         // The folder a page may read from: looked up for a newly selected teammate at once, else with the sign-ins.
-        let key = selected_conversation(s).map(|(t, _)| (t.id.clone(), t.folder.clone()));
+        // Falls back to the home folder when comparing without a selected teammate (compare_view::active_folder).
+        let key = selected_conversation(s)
+            .map(|(t, _)| (t.id.clone(), t.folder.clone()))
+            .or_else(|| {
+                s.home
+                    .folder_path
+                    .as_ref()
+                    .filter(|f| !f.is_empty())
+                    .map(|f| (String::new(), Some(f.clone())))
+            });
         if due || key != s.browser.workspace_for {
             #[cfg(test)]
             READS.with(|n| n.set(n.get() + 1));
-            h.workspace = selected_conversation(s).and_then(|(t, _)| {
-                s.data
-                    .as_ref()
-                    .and_then(|store| native::folder_for(t, store.electron()).ok())
-            });
+            h.workspace = selected_conversation(s)
+                .and_then(|(t, _)| {
+                    s.data
+                        .as_ref()
+                        .and_then(|store| native::folder_for(t, store.electron()).ok())
+                        .or_else(|| {
+                            t.folder
+                                .as_deref()
+                                .filter(|f| !f.is_empty())
+                                .map(std::path::PathBuf::from)
+                        })
+                })
+                .or_else(|| {
+                    s.home
+                        .folder_path
+                        .as_deref()
+                        .filter(|f| !f.is_empty())
+                        .map(std::path::PathBuf::from)
+                });
             s.browser.workspace_for = key;
         }
     }
@@ -489,3 +519,7 @@ pub(super) fn light_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "browser_rest_tests.rs"]
 mod browser_rest_tests;
+
+#[cfg(test)]
+#[path = "browser_panel_parity_tests.rs"]
+mod browser_panel_parity_tests;

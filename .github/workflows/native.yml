@@ -1,9 +1,11 @@
 # The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, its tests on Linux except those
 # parity/linux-not-yet.txt names, and a compile check on Linux and Windows that is allowed to fail while the port is
 # Mac-only, so each push shows what stops it building there.
-# Runs only on pushes to exec/native or exec/native-engine (where the port is built until it merges into exec/native)
-# that touch the port, never on pull requests, one run at a time. The macOS job
-# runs on Colin's Mac mini; the rest on GitHub's runners. No secrets.
+# Runs on pushes to exec/native or exec/native-engine (where the port is built until it merges into exec/native) that
+# touch the port, and on pull requests into exec/native-engine (28 Nov: checked batches land as pull requests, and a
+# request that ran nothing of the port said nothing about it). One run at a time per branch. The macOS job runs on
+# Colin's Mac mini, on pushes only: a batch has already passed the full gate on that Mac before its request opens.
+# The rest run on GitHub's runners. No secrets.
 
 name: native
 
@@ -13,13 +15,18 @@ on:
     paths:
       - apps/native/**
       - .github/workflows/native.yml
+  pull_request:
+    branches: [exec/native-engine]
+    paths:
+      - apps/native/**
+      - .github/workflows/native.yml
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: native
+  group: native-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -43,6 +50,7 @@ jobs:
   # job none three times in a row. The runner's guard (_tools/mac-runner-guard.sh) admits this workflow only on
   # exec/native or exec/native-engine, pushed or started by the owner. The build cache lives in the runner's own folder, not GitHub's cache.
   mac:
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, macOS, ARM64, locust-mac]
     timeout-minutes: 60
     env:
@@ -90,9 +98,12 @@ jobs:
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       # ALSA's headers for the microphone crate (cpal), xkbcommon's for the window toolkit, and the sqlite3 program the
-      # session_import tests build their Cursor store with (on GitHub's image already; named so it stays).
+      # session_import tests build their Cursor store with (on GitHub's image already; named so it stays). Mesa's
+      # software Vulkan driver (lavapipe) is the GPU the picture tests render on: the runner has none, and with no GPU
+      # Rune's headless render ends the whole test process with exit status 2 (tooling/headless.rs), which kept this job
+      # red from 27 Nov, when the picture tests came, with no test named.
       - name: Linux system libraries
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev sqlite3
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev sqlite3 mesa-vulkan-drivers libvulkan1
       - name: Tests, except the listed ones
         run: bash scripts/linux-tests.sh
 

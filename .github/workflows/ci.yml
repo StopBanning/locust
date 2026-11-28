@@ -9,7 +9,10 @@ name: ci
 on:
   push:
     branches: [main]
+  # Requests into main only: a batch of the Rust port lands by a request into exec/native-engine, and packaging
+  # Electron for it (one job on the Mac mini) would say nothing about the port. native.yml checks those.
   pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       only:

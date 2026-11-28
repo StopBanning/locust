@@ -170,11 +170,10 @@ define_class!(
             };
             let response = {
                 let h = crate::invariants::lock(&self.ivars().host);
-                h.preview.read(
+                h.read_preview(
                     &url.absoluteString()
                         .map(|s| s.to_string())
                         .unwrap_or_default(),
-                    h.workspace.as_deref(),
                 )
             };
             let keys = [

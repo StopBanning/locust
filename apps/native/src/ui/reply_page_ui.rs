@@ -42,6 +42,12 @@ pub(super) fn open_page(s: &mut State, html: &str) {
 /// `folder` (page_preview): the same way a reply's page, a teammate's new page and the viewer's Page open.
 pub(super) fn run_beside(s: &mut State, path: &std::path::Path, folder: &std::path::Path) -> Result<(), String> {
     let mut host = crate::invariants::lock(&s.browser.host);
+    if let Some(store) = s.data.as_ref() {
+        host.data_root = Some(store.root().to_path_buf());
+        if host.namespace.is_empty() {
+            host.namespace = store.root().to_string_lossy().into_owned();
+        }
+    }
     let tab = match host.active {
         Some(id) => id,
         None => host.add(crate::browser::Profile(None))?,
@@ -62,15 +68,41 @@ pub(super) fn page_control(key: String, path: String, p: &Palette) -> El {
     crate::look::controls::button(&l, RUN_THE_PAGE, crate::look::controls::Tone::Neutral, false)
         .key(key)
         .on_press(move |s: &mut State| {
-            let Some(folder) = selected_conversation(s).and_then(|(t, _)| t.folder.clone()) else {
+            let folder = selected_conversation(s)
+                .and_then(|(t, _)| {
+                    t.folder.clone().filter(|f| !f.is_empty()).or_else(|| {
+                        s.data
+                            .as_ref()
+                            .and_then(|store| native::folder_for(t, store.electron()).ok())
+                            .map(|p| p.to_string_lossy().into_owned())
+                    })
+                })
+                .or_else(|| s.home.folder_path.clone().filter(|f| !f.is_empty()));
+            let Some(folder) = folder else {
                 s.status = "This conversation has no folder, so the page has nowhere to run.".into();
                 s.status_tone = StatusTone::Muted;
                 return;
             };
-            let absolute = std::path::PathBuf::from(crate::file_menu::rooted_path(&path, Some(&folder)));
-            if let Err(why) = run_beside(s, &absolute, std::path::Path::new(&folder)) {
-                s.status = why;
+            if !locust_core::page_preview::is_page_path(std::path::Path::new(&path)) {
+                s.status = "Only a web page (.html) opens as a page.".into();
                 s.status_tone = StatusTone::Muted;
+                return;
+            }
+            let absolute = std::path::PathBuf::from(crate::file_menu::rooted_path(&path, Some(&folder)));
+            let folder_path = std::path::Path::new(&folder);
+            match run_beside(s, &absolute, folder_path) {
+                Ok(()) => {
+                    crate::invariants::lock(&s.browser.host).workspace =
+                        Some(folder_path.canonicalize().unwrap_or_else(|_| folder_path.to_path_buf()));
+                }
+                Err(why) => {
+                    s.status = why;
+                    s.status_tone = StatusTone::Muted;
+                }
             }
         })
 }
+
+#[cfg(test)]
+#[path = "reply_page_ui_tests.rs"]
+mod tests;

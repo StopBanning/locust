@@ -210,6 +210,11 @@ impl<'a> CloudTaskService<'a> {
         {
             return CloudStartResult::Err { message };
         }
+        if crate::model_lists::free_routes_only_now() {
+            return CloudStartResult::Err {
+                message: crate::model_lists::FREE_ONLY_REFUSAL.into(),
+            };
+        }
         let prompt = input.prompt.trim().to_string();
         if prompt.is_empty() {
             return CloudStartResult::Err {
@@ -470,3 +475,7 @@ mod tests;
 #[cfg(test)]
 #[path = "cloud_task_service_policy_tests.rs"]
 mod policy_tests;
+
+#[cfg(test)]
+#[path = "cloud_task_launch_guard_tests.rs"]
+mod launch_guard_tests;

@@ -72,6 +72,69 @@ pub(crate) fn thread_marker(words: &str, key: &str, p: &Palette) -> El {
         .child(text(words.to_uppercase()).key(format!("{key}-words")).font(l.ty.label).color(l.c("text-muted")))
 }
 
+type CloudPlaces = std::sync::Arc<std::collections::BTreeMap<String, locust_core::cloud_turns::CloudPlace>>;
+
+/// The sidecar is written before the corresponding turn is opened. Keep one bounded index
+/// per UI thread and refresh on opening another conversation/tip, not on every stream frame.
+fn cloud_places(s: &State) -> CloudPlaces {
+    use std::cell::RefCell;
+    use std::path::PathBuf;
+    #[derive(PartialEq, Eq)]
+    struct Open {
+        native: PathBuf,
+        electron: PathBuf,
+        tip: String,
+        first: String,
+        count: usize,
+        running: bool,
+    }
+    thread_local! {
+        static OPEN: RefCell<Option<(Open, CloudPlaces)>> = const { RefCell::new(None) };
+    }
+    let Some(store) = s.data.as_ref() else { return CloudPlaces::default() };
+    let Some(pane) = s.ledger.as_ref() else { return CloudPlaces::default() };
+    let Some(first) = pane.snapshot.turn_metas.first() else { return CloudPlaces::default() };
+    OPEN.with(|cached| {
+        let mut cached = cached.borrow_mut();
+        if let Some((key, found)) = cached.as_ref()
+            && key.native == store.root()
+            && key.electron == store.electron()
+            && key.tip == pane.snapshot.tip
+            && key.first == first.mission_id
+            && key.count == pane.snapshot.turn_metas.len()
+            && key.running == pane.snapshot.running
+        {
+            return found.clone();
+        }
+        // Native records take precedence over the imported Electron sidecar.
+        let mut found = locust_core::cloud_turns::recorded_places(&store.electron().join("cloud-turns.json"));
+        if store.root() != store.electron() {
+            found.extend(locust_core::cloud_turns::recorded_places(&store.root().join("cloud-turns.json")));
+        }
+        let found = CloudPlaces::new(found);
+        *cached = Some((Open {
+            native: store.root().to_owned(),
+            electron: store.electron().to_owned(),
+            tip: pane.snapshot.tip.clone(),
+            first: first.mission_id.clone(),
+            count: pane.snapshot.turn_metas.len(),
+            running: pane.snapshot.running,
+        }, found.clone()));
+        found
+    })
+}
+
+fn cloud_marker(place: &locust_core::cloud_turns::CloudPlace, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let which = place.branch.as_ref().map_or_else(
+        || format!("{} · 2 CPUs, 8 GB", place.repository),
+        |branch| format!("{} · {branch} · 2 CPUs, 8 GB", place.repository),
+    );
+    row().w_full().gap(8.0).justify_center().center_y().role("note")
+        .child(text("On your cloud computer").font(l.ty.label).color(p.secondary))
+        .child(text(which).font(l.ty.mono).color(p.muted).wrap())
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -127,6 +190,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }));
     }
     let mut user_index = hidden_turns;
+    let cloud_places = cloud_places(s);
+    let cloud_readout = |ui: usize| {
+        let metas = &s.ledger.as_ref()?.snapshot.turn_metas;
+        let mission = &metas.get(person_turn_at(metas, ui)?)?.mission_id;
+        let words = cloud_places.get(mission)?.ended_note.as_deref()?;
+        Some(thread_note(words, p).key(format!("cloud-readout-{mission}")))
+    };
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
     let peer_turns = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.iter()
         .map(|meta| peer_thread::messages_for_mission(s, &meta.mission_id)).collect::<Vec<_>>()).unwrap_or_default();
@@ -263,6 +333,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let ui = user_index;
                 user_index += 1;
                 if ui > 0 {
+                    if ui > hidden_turns {
+                        messages = messages.children(cloud_readout(ui - 1));
+                    }
                     messages = emit_turn_peers(messages, ui - 1, false);
                     messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui - 1).and_then(|i| pane.snapshot.turn_metas.get(i))).map(|m| m.mission_id.as_str()), p));
                     messages = emit_turn_peers(messages, ui, true);
@@ -374,12 +447,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                         None => col().w_full().on_layout_tx(layout_track).child(notes_row),
                     }
                 };
-                if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
+                let bubble_row = if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
                     col()
                         .w_full()
                         .gap(4.0)
                         .child(bubble_row)
                         .child(row().w_full().justify_end().child(chips))
+                } else {
+                    bubble_row
+                };
+                if let Some(place) = this_meta.and_then(|m| cloud_places.get(&m.mission_id)) {
+                    col().w_full().gap(8.0).child(bubble_row).child(cloud_marker(place, p))
                 } else {
                     bubble_row
                 }
@@ -473,11 +551,28 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
             // A stopped run's receipt: what this turn's record says finished, was cut off, or never started.
             ledger::Item::Note { level, text: body } if level.is_empty() && body == "Stopped" => {
-                let from = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let from_user = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let snapshot = s.ledger.as_ref().map(|pane| &pane.snapshot);
+                let timing = snapshot.and_then(|snap| snap.timings.iter().enumerate().rev().find(|(_, time)| time.before_item <= index));
+                let from = timing.map_or(from_user, |(_, time)| from_user.max(time.before_item));
+                // A route switch can be stitched into one person's message. For separate
+                // turns, use the metadata at the record boundary, not the teammate's current default.
+                let meta = snapshot.and_then(|snap| {
+                    if snap.timings.len() == snap.turn_metas.len() && let Some((at, _)) = timing {
+                        return snap.turn_metas.get(at);
+                    }
+                    items[from_user..index].iter().rev().find_map(|item| {
+                        if let ledger::Item::Handoff { to, .. } = item { Some(to.as_ref()) } else { None }
+                    }).or_else(|| user_index.checked_sub(1)
+                        .and_then(|ui| person_turn_at(&snap.turn_metas, ui))
+                        .and_then(|at| snap.turn_metas.get(at)))
+                });
                 let teammate = selected_conversation(s).map(|(t, _)| t);
-                let runtime = teammate.and_then(|t| t.runtime.clone()).unwrap_or_default();
-                let folder = teammate.and_then(|t| t.folder.clone());
-                let summary = locust_core::cancellation::summary(&items[from..index], &runtime, folder.as_deref());
+                let runtime = meta.map(|m| m.runtime.as_str()).filter(|runtime| !runtime.is_empty())
+                    .or_else(|| teammate.and_then(|t| t.runtime.as_deref())).unwrap_or("");
+                let folder = meta.and_then(|m| m.cwd.as_deref())
+                    .or_else(|| teammate.and_then(|t| t.folder.as_deref()));
+                let summary = locust_core::cancellation::summary(&items[from..index], runtime, folder);
                 let last_stop = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
                 let newest = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::User(_)));
@@ -487,8 +582,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     text(locust_core::sent_again::STOPPED_BEFORE_IT_REPLIED).key(format!("{key}-stopped-before-it-replied")).font(type_::LABEL).color(p.muted).w_full()
                 } else {
                     // The time of the turn's last event, as Electron's stoppedAt reads it from the record.
-                    let stopped_at = s.ledger.as_ref().and_then(|pane| pane.snapshot.timings.iter().rev().find(|t| t.before_item <= index))
-                        .and_then(|t| t.last_at.as_deref()).map(locust_core::time_marker::clock_time).filter(|at| at != "--:--");
+                    let stopped_at = timing.and_then(|(_, time)| time.last_at.as_deref()).map(locust_core::time_marker::clock_time).filter(|at| at != "--:--");
                     let card = crate::cancellation_card::card(&summary, by_person, stopped_at.as_deref(), p);
                     match (newest && !turn_running(s) && locust_core::cancellation::stopped_before_any_tool(&summary))
                         .then(|| items[..from].iter().rev().find_map(|i| if let ledger::Item::User(words) = i { Some(words.clone()) } else { None }))
@@ -558,6 +652,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         messages = messages.child(content.key(key));
     }
+    if user_index > hidden_turns && !turn_running(s) {
+        messages = messages.children(cloud_readout(user_index - 1));
+    }
     messages = emit_turn_peers(messages, user_index.saturating_sub(1), false);
     messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.last()).map(|m| m.mission_id.as_str()), p));
     messages = emit_group_lines_at(
@@ -592,6 +689,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(card) = crate::key_card::card(s, p) {
         messages = messages.child(card);
     }
+    let mut shown_plan = None;
     if live_sweeping(s)
         && let Some(live) = live_for_thread(s)
     {
@@ -622,16 +720,55 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ).map(|orb| orb.mr(6.0)))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
-            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
+            .child(crate::working_shimmer::live_word(&words, s.frame_clock, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get() || stopping)
                 .key("live-step-label").shrink().truncate().help(headline));
         // ThreadItems.tsx (0.631): the clock sits right after the words, before the plan's "step N of M".
         if let Some(ms) = elapsed {
             line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
         }
         if let Some(step) = &live.detail {
-            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
+            let words = format!(" · {step}");
+            let look = crate::look::controls::Look::new(p.dark);
+            if !stopping && let Some(steps) = live.plan.as_deref().filter(|steps| !steps.is_empty()) {
+                let tip = s.ledger.as_ref().map_or("", |pane| pane.snapshot.tip.as_str());
+                let conversation = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()).unwrap_or("");
+                let state_key = format!("live-plan/{conversation}/{tip}/{}", live.started_at);
+                let open = s.activity_open.get(&state_key).copied().unwrap_or(false);
+                let toggle_key = state_key.clone();
+                line = line.child(text(words).key("live-step-peek").font(type_::LABEL).color(p.muted)
+                    .role("button").label(format!("Show the plan, {step}"))
+                    .focusable(true).expanded(open).hover(look.c("hover-surface"))
+                    .on_press(move |s: &mut State| {
+                        if s.activity_open.remove(&toggle_key).is_none() {
+                            s.activity_open.insert(toggle_key.clone(), true);
+                        }
+                    }));
+                shown_plan = Some(state_key.clone());
+                if open {
+                    // Rune owns Escape and click-away while this disclosure is mounted. Its
+                    // focus and dismissal handlers go away with it, including on a turn change.
+                    messages = messages.child(col().w_full().gap(4.0).child(line)
+                        .child(live_plan_card(steps, &look))
+                        .modal(true, move |s: &mut State| { s.activity_open.remove(&state_key); }));
+                } else {
+                    messages = messages.child(line);
+                }
+            } else {
+                messages = messages.child(line.child(text(words).key("live-step-peek").font(type_::LABEL).color(p.muted)));
+            }
+        } else {
+            messages = messages.child(line);
         }
-        messages = messages.child(line);
+    }
+    if s.activity_open.keys().any(|key| key.starts_with("live-plan/") && Some(key) != shown_plan.as_ref()) {
+        // Rune's layout observer reports only changed rectangles. Mount a keyed
+        // observer only when a previous plan disappeared, so even a fixed viewport
+        // clears its stale disclosure without inspecting the map on every layout.
+        let life = format!("reap-live-plan/{}", shown_plan.as_deref().unwrap_or("none"));
+        messages = messages.child(el().key(life).absolute(0.0, 0.0).size(1.0, 1.0)
+            .on_layout_tx(move |s: &mut State, _, _| {
+                s.activity_open.retain(|key, _| !key.starts_with("live-plan/") || Some(key) == shown_plan.as_ref());
+            }));
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -650,6 +787,33 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
         })
 }
+
+/// A compact plan, with each step announced as it is now, not as tool results guessed from the log.
+fn live_plan_card(
+    steps: &[locust_core::thread_view::PlanStepView],
+    look: &crate::look::controls::Look,
+) -> El {
+    let mut list = col().w_full().gap(5.0).role("list").label("Plan steps");
+    for (index, step) in steps.iter().enumerate() {
+        let (mark, state, ink) = match step.state {
+            "done" => ("✓", "Done", "green-text"),
+            "running" => ("•", "Current step", "text-primary"),
+            _ => ("○", "Next", "text-muted"),
+        };
+        let row = row().w_full().gap(8.0).key(format!("live-plan-step-{index}"))
+            .role("listitem").label(step.text.clone()).description(state)
+            .child(text(mark).font(type_::LABEL).color(look.c(ink)).w(14.0))
+            .child(text(step.text.clone()).font(look.ty.body).color(look.c(ink)).grow(1.0).shrink().wrap());
+        list = list.child(row);
+    }
+    col().key("live-plan-card").w_full().max_h(220.0).padding(10.0).radius(8.0)
+        .fill(look.c("bg-raised")).border(1.0, look.c("border-hairline"))
+        .scroll(ScrollSpec { stick_bottom: false }).child(list)
+}
+
+#[cfg(test)]
+#[path = "live_plan_peek_ui_tests.rs"]
+mod live_plan_peek_ui_tests;
 
 /// Under a run stopped before any tool ran: Send again, the same words sent again (Thread.tsx `onSendAgain`). On OpenCode
 /// the card above already says to check the folder, so the line beside the press says nothing (0.696).
@@ -762,7 +926,11 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
             None => {}
         }
     }
-    if snap.damaged {
+    // The durable receipt reader can recover a prefix even when the live Session
+    // refused a bad line before publishing a new snapshot. Use only this turn's receipt.
+    let tip = if snap.tip.is_empty() { pane.conversation.conversation_id.as_deref() } else { Some(snap.tip.as_str()) };
+    let saved_damage = tip.and_then(|id| s.ledger_summaries.get(id)).is_some_and(|summary| summary.integrity_issues);
+    if snap.damaged || saved_damage {
         messages = messages.child(text(tv::DAMAGED_RECORD_NOTE).key("damaged-record-note").font(type_::LABEL).color(p.muted).w_full().wrap());
     }
     // The durable receipt closes the thread, under the notes and the offers (Thread.tsx `ReceiptCard`, fault 17).
@@ -1849,3 +2017,19 @@ mod user_link_tests {
 #[cfg(test)]
 #[path = "messages_orb_tests.rs"]
 mod messages_orb_tests;
+
+#[cfg(test)]
+#[path = "cloud_attribution_tests.rs"]
+mod cloud_attribution_tests;
+
+#[cfg(test)]
+#[path = "messages_damaged_receipt_tests.rs"]
+mod messages_damaged_receipt_tests;
+
+#[cfg(test)]
+#[path = "messages_mission_view_cases.rs"]
+mod messages_mission_view_cases;
+
+#[cfg(test)]
+#[path = "messages_cancellation_route_tests.rs"]
+mod messages_cancellation_route_tests;

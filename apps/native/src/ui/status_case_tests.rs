@@ -199,3 +199,63 @@ fn keeps_separate_conversations_separate_in_the_order_they_were_read() {
     let rows = turns(&[("a1", "first", "completed", None), ("b1", "second", "completed", None), ("a2", "first", "completed", Some("a1"))]);
     assert_eq!(rows.iter().map(|r| r.title.as_str()).collect::<Vec<_>>(), ["first", "second"]);
 }
+
+fn missions_status_window(
+    older_has_damage: bool,
+    older_is_running: bool,
+    filter: &str,
+) -> rune::Runtime<State> {
+    let mut s = State::default();
+    s.missions.open = true;
+    s.missions.filter = filter.into();
+    for (id, parent, at) in [
+        ("m_earlier", None, "2026-11-03T10:00:00Z"),
+        ("m_newest", Some("m_earlier"), "2026-11-03T10:00:01Z"),
+    ] {
+        s.recent.push(ConversationRow {
+            id: id.into(),
+            title: "Set up the parser".into(),
+            teammate: "Codex".into(),
+            started_by: "native".into(),
+            state: "completed".into(),
+            updated: at.into(),
+        });
+        s.ledger_summaries.insert(id.into(), ledger::Summary {
+            mission_id: id.into(), title: "Set up the parser".into(),
+            parent: parent.map(str::to_owned), created_at: at.into(), updated: at.into(),
+            integrity_issues: older_has_damage && id == "m_earlier",
+            ..Default::default()
+        });
+    }
+    if older_is_running {
+        s.missions.running.insert("m_earlier".into());
+    }
+    let mut rt = rune::Runtime::new(s, crate::view, (1160.0, 760.0), rune::Env::new(true, 1.0));
+    for _ in 0..8 { rt.frame(0.05); }
+    rt
+}
+
+fn drawn_conversation_phase(rt: &rune::Runtime<State>) -> Option<rune::ElementInfo> {
+    rt.elements().into_iter().find(|el|
+        !el.exiting && el.key.as_deref() == Some("missions-tag-m_earlier")
+    )
+}
+
+// case: surfaces an integrity issue from any turn, not just the last
+#[test]
+fn missions_older_damage_changes_the_actual_conversation_row() {
+    let damaged = missions_status_window(true, false, "All");
+    let amber = drawn_conversation_phase(&damaged).expect("one conversation with an earlier bad turn");
+    assert_eq!(amber.text.as_deref(), Some("Completed · receipt incomplete"));
+    assert_eq!(amber.text_color, Some(crate::look::controls::Look::new(true).c("amber")));
+    let intact = missions_status_window(false, false, "All");
+    assert_eq!(drawn_conversation_phase(&intact).unwrap().text.as_deref(), Some("Completed"));
+}
+
+// The already-carried grouping case has a separate pure test above. This drives the actual list tag and filter.
+#[test]
+fn missions_older_running_turn_keeps_the_actual_row_on_the_running_filter() {
+    assert_eq!(drawn_conversation_phase(&missions_status_window(false, true, "Running"))
+        .and_then(|el| el.text).as_deref(), Some("Running"));
+    assert!(drawn_conversation_phase(&missions_status_window(false, true, "Completed")).is_none());
+}

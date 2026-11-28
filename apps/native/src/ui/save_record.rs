@@ -206,3 +206,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             ),
     )
 }
+
+#[cfg(test)]
+#[path = "save_record_persistence_tests.rs"]
+mod save_record_persistence_tests;

@@ -84,6 +84,11 @@ fn a_resting_window_s_poll_looks_at_the_browser_again_only_once_a_second() {
     let d = dirs();
     let mut s = window(&d, "one");
     TEST_ATTACHED.with(|a| a.set(true));
+    // Past the first poll's setup, which installs this window's browser as every later turn's browser tools
+    // (`browser_tools::install`, kept for the whole process): left installed by a test, each Codex turn any other test
+    // started afterwards carried `mcp_servers.locust_browser`, which the fake agent refuses outside read-only, and six
+    // window tests failed in the whole-package run (harden-1, 27 Nov). This test is about how soon poll looks again.
+    s.browser.initialized = true;
     let before = reads();
     poll(&mut s, &mut Tx::default());
     assert_eq!(s.browser.look_again, RESTING, "not every 100 ms while the browser is closed");

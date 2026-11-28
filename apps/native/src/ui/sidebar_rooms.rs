@@ -103,7 +103,7 @@ pub(super) fn room_row(s: &State, p: &Palette, room: &PublicRoom, answers: &[&Si
     let here = matches!(&s.rooms.active, crate::room_screen::RoomView::Room(id) if id == &room.room_id);
     let rid = room.room_id.clone();
     let name = if running {
-        crate::working_shimmer::title(&room.name, l.c("text-primary"), s.reduced_motion.get())
+        crate::working_shimmer::title(&room.name, l.c("text-primary"), s.reduced_motion.get(), s.frame_clock)
     } else {
         text(room.name.clone()).color(l.c("text-name"))
     };

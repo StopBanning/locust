@@ -487,3 +487,11 @@ pub fn note_on_page_point(current: &mut [PagePointChip], id: &str, note: &str) {
 #[cfg(test)]
 #[path = "browser_point_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "page_pick_tests.rs"]
+mod page_pick_tests;
+
+#[cfg(test)]
+#[path = "browser_point_parity_tests.rs"]
+mod parity_tests;

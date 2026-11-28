@@ -6,6 +6,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 use url::Url;
+pub const PAGE_SCHEME: &str = "locust-page";
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 struct Root {
     path: PathBuf,
@@ -26,6 +27,35 @@ fn refused(status: u16, words: &str) -> Response {
         body: words.as_bytes().to_vec(),
         mime: "text/plain; charset=utf-8".into(),
     }
+}
+pub fn is_page_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
+}
+/// Electron `page-preview.ts` (0.446): a comparison column's copy under `.locust/compare/cmp_<id>-[abc]/`
+/// is removed once one is kept, and the kept page then lives in the folder itself at the same relative path.
+fn kept_compare_relative(full: &Path) -> Option<PathBuf> {
+    let normalized = full.to_string_lossy().replace('\\', "/");
+    let marker = "/.locust/compare/";
+    let (_, after) = normalized.rsplit_once(marker)?;
+    let (slot_dir, rest) = after.split_once('/')?;
+    let rest_body = slot_dir.strip_prefix("cmp_")?;
+    let (id_part, slot_part) = rest_body.rsplit_once('-')?;
+    if id_part.is_empty()
+        || !id_part.bytes().all(|b| b.is_ascii_alphanumeric())
+        || !matches!(slot_part, "a" | "b" | "c")
+        || rest.is_empty()
+    {
+        return None;
+    }
+    let rel = Path::new(rest);
+    if rel
+        .components()
+        .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
+    {
+        return None;
+    }
+    Some(rel.to_path_buf())
 }
 pub fn never_served(path: &Path) -> bool {
     let parts: Vec<_> = path
@@ -97,19 +127,29 @@ pub(crate) fn open_beneath(_dir: &File, _path: &Path) -> std::io::Result<File> {
 }
 impl Pages {
     pub fn url_for(&mut self, path: &Path, workspace: Option<&Path>) -> Result<String, String> {
-        if !path
-            .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
-        {
+        if !is_page_path(path) {
             return Err("Only a web page (.html) opens as a page.".into());
         }
-        let real = path
+        let full = if path.is_absolute() {
+            path.to_path_buf()
+        } else if let Some(base) = workspace {
+            base.join(path)
+        } else {
+            path.to_path_buf()
+        };
+        let real = full
             .canonicalize()
-            .map_err(|_| "That page is not there. The teammate named it but did not write it.")?;
+            .ok()
+            .or_else(|| {
+                let base = workspace?;
+                let rel = kept_compare_relative(&full)?;
+                base.join(rel).canonicalize().ok()
+            })
+            .ok_or("That page is not there. The teammate named it but did not write it.")?;
         let workspace = workspace
             .and_then(|p| p.canonicalize().ok())
             .ok_or("No conversation folder.")?;
-        if !real.starts_with(workspace) {
+        if !real.starts_with(&workspace) {
             return Err("That page is outside the folder your teammates work in, so Locust will not open it.".into());
         }
         let parent = real
@@ -118,9 +158,10 @@ impl Pages {
         let token = if let Some((token, _)) = self.roots.iter().find(|(_, r)| r.path == parent) {
             token.clone()
         } else {
-            let token = crate::native::uuid_v4()
+            let raw = crate::native::uuid_v4()
                 .map_err(|e| e.to_string())?
                 .replace('-', "");
+            let token = raw[..24.min(raw.len())].to_owned();
             let directory = open_beneath(
                 &File::open("/").map_err(|e| e.to_string())?,
                 parent.strip_prefix("/").map_err(|e| e.to_string())?,
@@ -135,23 +176,30 @@ impl Pages {
             );
             token
         };
-        let mut u = Url::parse(&format!("locust-page://{token}/")).map_err(|e| e.to_string())?;
+        let mut u = Url::parse(&format!("{PAGE_SCHEME}://{token}/")).map_err(|e| e.to_string())?;
         u.path_segments_mut()
             .map_err(|_| "Not an address.")?
             .push(&real.file_name().ok_or("Not an address.")?.to_string_lossy());
         Ok(u.to_string())
     }
     pub fn read(&self, address: &str, workspace: Option<&Path>) -> Response {
+        match workspace {
+            Some(w) => self.read_in(address, &[w]),
+            None => self.read_in(address, &[]),
+        }
+    }
+    pub fn read_in(&self, address: &str, allowed_roots: &[&Path]) -> Response {
         let Ok(u) = Url::parse(address) else {
             return refused(400, "Not an address.");
         };
         let Some(root) = u.host_str().and_then(|h| self.roots.get(h)) else {
             return refused(404, "Nothing is served here.");
         };
-        if u.scheme() != "locust-page"
-            || !workspace
-                .and_then(|p| p.canonicalize().ok())
-                .is_some_and(|p| root.path.starts_with(p))
+        if u.scheme() != PAGE_SCHEME
+            || !allowed_roots
+                .iter()
+                .filter_map(|p| p.canonicalize().ok())
+                .any(|p| root.path.starts_with(p))
         {
             return refused(403, "Outside the page's folder.");
         }
@@ -268,3 +316,8 @@ fn mime(path: &Path) -> &'static str {
         _ => "application/octet-stream",
     }
 }
+
+#[cfg(test)]
+#[path = "page_preview_tests.rs"]
+mod tests;
+
