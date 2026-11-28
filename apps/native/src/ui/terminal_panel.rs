@@ -905,3 +905,7 @@ mod command_carry_tests;
 #[cfg(test)]
 #[path = "terminal_comes_back_tests.rs"]
 mod terminal_comes_back_tests;
+
+#[cfg(test)]
+#[path = "terminal_install_folder_refusal_tests.rs"]
+mod terminal_install_folder_refusal_tests;
