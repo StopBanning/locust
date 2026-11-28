@@ -7,7 +7,7 @@ use super::*;
 use crate::claude_cloud_panel::{CloudFolder, CloudWhere};
 use locust_core::changes;
 use locust_core::cloud_task_service::{self, CloudApplyResult, CloudStartInput, CloudStartResult, CloudTaskService};
-use locust_core::cloud_tasks::{CloudEnvironment, CloudState, CloudTask};
+use locust_core::cloud_tasks::{CloudEnvironment, CloudStartProblem, CloudState, CloudTask, refusal_for};
 use locust_core::store::Store;
 use std::collections::HashSet;
 use std::path::Path;
@@ -146,6 +146,17 @@ pub(crate) fn send(s: &mut State, typed: &str) -> bool {
         return true;
     };
     let svc = build_service(store, &s.cloud.codex.make);
+    // NO ENVIRONMENT, NO DOOMED SEND (27 Nov, Electron `sendOrCompare`): known before the send, it is asked again first --
+    // the words say to make one in the Codex app and send again, and that send must go. Still missing: nothing goes to
+    // Codex Cloud, and the words stay in the box under what to do instead.
+    if let Some(repo) = repo_without_environment(s) {
+        let now = svc.environment(&repo, Path::new(&here));
+        s.cloud.codex.environment = Some(now);
+        if now == CloudEnvironment::Missing {
+            s.composer_note = Some(refusal_for(&CloudStartProblem::NoEnvironment { repo }));
+            return true;
+        }
+    }
     let teammate_id = teammate(s).map(|mate| mate.id.clone());
     match svc.start(CloudStartInput {
         folder: here,
@@ -164,11 +175,26 @@ pub(crate) fn send(s: &mut State, typed: &str) -> bool {
             s.attached.clear();
             s.composer_note = None;
         }
-        CloudStartResult::Err { message } => {
+        CloudStartResult::Err { message, no_environment } => {
+            // Learned from the refusal: the panel says so from now on, and the next send is held back before it goes.
+            if let Some(repo) = no_environment
+                && s.cloud.codex.place.as_ref().and_then(|place| place.repo.as_deref()) == Some(repo.as_str())
+            {
+                s.cloud.codex.environment = Some(CloudEnvironment::Missing);
+            }
             s.composer_note = Some(message);
         }
     }
     true
+}
+
+/// The repository Codex Cloud is known to have no environment for, asked before a send (Electron
+/// `repoWithoutCodexEnvironment`); None while not known so.
+pub(crate) fn repo_without_environment(s: &State) -> Option<String> {
+    if s.cloud.codex.environment != Some(CloudEnvironment::Missing) {
+        return None;
+    }
+    s.cloud.codex.place.as_ref().and_then(|place| place.repo.clone())
 }
 
 fn codex_side(s: &State) -> bool {
