@@ -79,8 +79,8 @@ apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	writes nothin
 apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts	closes the relay link when the kept record cannot be read	yes
 apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts	closes the relay link when this computer cannot encrypt	yes
 apps/desktop/src/main/a-called-link-review.test.ts	hashes a well-formed wrong password for an unknown room the same as for a room that has a link	no
-apps/desktop/src/main/a-called-link-review.test.ts	is not given to a browser that is only reading	no
-apps/desktop/src/main/a-called-link-review.test.ts	is not opened or replaced from a browser	no
+apps/desktop/src/main/a-called-link-review.test.ts	is not given to a browser that is only reading	yes
+apps/desktop/src/main/a-called-link-review.test.ts	is not opened or replaced from a browser	yes
 apps/desktop/src/main/a-called-link-review.test.ts	redacts the password a call already sent once the link has been replaced	yes
 apps/desktop/src/main/a-called-link-review.test.ts	drops a retired password from the file once it is older than a week	yes
 apps/desktop/src/main/a-called-link-review.test.ts	does not leave the caller's content type outside the untrusted block	yes
@@ -1794,7 +1794,7 @@ apps/desktop/src/main/codex-mission.test.ts	never launches Codex when the durabl
 apps/desktop/src/main/codex-mission.test.ts	removes the actual skill copy before returning a failed ledger start	no
 apps/desktop/src/main/codex-mission.test.ts	removes a skill copy if interrupted after preparation but before launch	no
 apps/desktop/src/main/codex-mission.test.ts	removes prepared skills when the command builder refuses its options	no
-apps/desktop/src/main/codex-mission.test.ts	leaves a registered run its skills until process completion owns their cleanup	no
+apps/desktop/src/main/codex-mission.test.ts	leaves a registered run its skills until process completion owns their cleanup	yes
 apps/desktop/src/main/codex-mission.test.ts	gives a Cursor run its copied skills plugin and removes it when the process finishes	no
 apps/desktop/src/main/codex-mission.test.ts	records that a plan was a plan, while still holding it read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when the workspace has Auto switched off, and records nothing	yes
@@ -2023,7 +2023,7 @@ apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off 
 apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	keeps window, routine, relay, compare, voice handoff, CLI and MCP starts on the guarded mission service	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks a handoff target before stopping the existing run and sends resumes through start	yes
-apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	yes
@@ -5864,7 +5864,7 @@ apps/desktop/src/renderer/src/routeName.test.ts	says it is a model, never the ba
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	both routine surfaces render a held attempt from persisted data, with no notification event	no
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	review acknowledgement is unchecked and both decisions start disabled, even for a confirmed step	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	abandonment stays visible after acknowledgement instead of reverting to never ran	yes
-apps/desktop/src/renderer/src/routine-recovery.test.tsx	is a card of its own, never the row meta the Routines screen crushes into one clipped cell (2026-09-27)	no
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	is a card of its own, never the row meta the Routines screen crushes into one clipped cell (2026-09-27)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says the reason once, and opens the saved conversation rather than printing its id	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	names when Keep runs it next -- six hours from the decision, not the attempt (0.402 beta retest)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says why Continue is off, and offers to keep the schedule (0.390 beta pass)	yes
