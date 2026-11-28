@@ -547,9 +547,9 @@ pub(crate) mod tests {
         assert_eq!(state.pins[0], "m_one_more");
     }
 
-    // main/a-conversation-can-be-put-away.test.ts
+    // case: keeps a settle and a snooze, after Locust opens again, until it is brought back
     #[test]
-    fn a_conversation_can_be_put_away_persists() {
+    fn keeps_a_settle_and_a_snooze_after_locust_opens_again_until_it_is_brought_back() {
         let (_dir, store) = temp_store();
         let mut state = OrgState::default();
         settle_mission(&store, &mut state, "m_1", Some(None)).unwrap();
@@ -575,10 +575,19 @@ pub(crate) mod tests {
             load_org(&store).settled.keys().collect::<Vec<_>>(),
             vec!["m_2"]
         );
-        assert!(settle_mission(&store, &mut state, "../escape", Some(None)).is_err());
-        assert!(
-            settle_mission(&store, &mut state, "m_1", Some(Some("tomorrow-ish".into()))).is_err()
+    }
+
+    // case: takes no id it would not take for a name, and no time that is not one
+    #[test]
+    fn takes_no_id_it_would_not_take_for_a_name_and_no_time_that_is_not_one() {
+        let (_dir, store) = temp_store();
+        let mut state = OrgState::default();
+        assert_eq!(settle_mission(&store, &mut state, "../escape", Some(None)), Err("Mission id is invalid".into()));
+        assert_eq!(
+            settle_mission(&store, &mut state, "m_1", Some(Some("tomorrow-ish".into()))),
+            Err("Snooze time is invalid".into())
         );
+        assert!(state.settled.is_empty() && load_org(&store).settled.is_empty());
     }
 
     #[test]
