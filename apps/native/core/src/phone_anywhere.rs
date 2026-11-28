@@ -325,6 +325,8 @@ struct PhoneAnywhereInner {
     pending: Mutex<PendingWaiters>,
     write_lock: Mutex<()>,
     serial_lock: Mutex<()>,
+    // Last acknowledged app opening, scoped to a single authenticated socket.
+    mcp_opened_on: Mutex<Option<u64>>,
     conn_seq: AtomicU64,
     cmd_seq: AtomicU64,
     in_flight: Mutex<Vec<std::thread::JoinHandle<()>>>,
@@ -806,6 +808,7 @@ impl PhoneAnywhere {
                 pending: Mutex::new(PendingWaiters::new()),
                 write_lock: Mutex::new(()),
                 serial_lock: Mutex::new(()),
+                mcp_opened_on: Mutex::new(None),
                 conn_seq: AtomicU64::new(1),
                 cmd_seq: AtomicU64::new(1),
                 in_flight: Mutex::new(Vec::new()),
@@ -1220,10 +1223,34 @@ impl PhoneAnywhere {
     /// The relay takes apps for this room, or no longer: off forgets every app it registered. With no room there is
     /// nothing to turn off, and nothing can be turned on.
     pub fn mcp_open(&self, on: bool) -> bool {
-        if !self.inner.state.lock().unwrap().saved.as_ref().is_some_and(|held| !held.closing) {
-            return !on;
+        // The settings switch and a late auth sync can both ask to open. Hold our own lock
+        // through the acknowledgement, without taking the socket reader's state lock.
+        let mut opened_on = self.inner.mcp_opened_on.lock().unwrap();
+        if !on {
+            *opened_on = None;
         }
-        self.inner.command(json!({ "t": if on { "mcp-open" } else { "mcp-close" } }))
+        let connection = {
+            let st = self.inner.state.lock().unwrap();
+            if !st.saved.as_ref().is_some_and(|held| !held.closing) {
+                return !on;
+            }
+            if !st.connected {
+                return false;
+            }
+            let Some((connection, _)) = st.socket.as_ref() else {
+                return false;
+            };
+            *connection
+        };
+        if on && *opened_on == Some(connection) {
+            return true;
+        }
+        let frame = json!({ "t": if on { "mcp-open" } else { "mcp-close" } });
+        let accepted = matches!(self.inner.answer_of_on(frame, Some(connection)), CommandAnswer::Ok);
+        if on && accepted {
+            *opened_on = Some(connection);
+        }
+        accepted
     }
 
     pub fn hook_open(&self, hook: &str, hash: &str) -> bool {
@@ -1520,12 +1547,17 @@ impl PhoneAnywhereInner {
     }
 
     fn send_frame(&self, frame: Value) -> bool {
+        self.send_frame_on(frame, None)
+    }
+
+    fn send_frame_on(&self, frame: Value, connection: Option<u64>) -> bool {
         let sock = {
             let st = self.state.lock().unwrap();
             if !st.connected {
                 return false;
             }
-            st.socket.as_ref().map(|(_, s)| Arc::clone(s))
+            st.socket.as_ref().filter(|(id, _)| connection.is_none_or(|expected| expected == *id))
+                .map(|(_, s)| Arc::clone(s))
         };
         let Some(s) = sock else {
             return false;
@@ -1533,12 +1565,16 @@ impl PhoneAnywhereInner {
         s.send(frame.to_string()).is_ok()
     }
 
-    fn answer_of(&self, mut frame: Value) -> CommandAnswer {
+    fn answer_of(&self, frame: Value) -> CommandAnswer {
+        self.answer_of_on(frame, None)
+    }
+
+    fn answer_of_on(&self, mut frame: Value, connection: Option<u64>) -> CommandAnswer {
         let id = self.next_cmd_id();
         frame["id"] = json!(id);
         let (tx, rx) = std::sync::mpsc::channel();
         self.pending.lock().unwrap().commands.insert(id.clone(), tx);
-        if !self.send_frame(frame) {
+        if !self.send_frame_on(frame, connection) {
             self.pending.lock().unwrap().commands.remove(&id);
             return CommandAnswer::Failed;
         }
@@ -2054,8 +2090,6 @@ impl PhoneAnywhereInner {
         ) else {
             return;
         };
-        self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
-        let _ = self.command(json!({ "t": "pair-close" }));
         {
             let mut st = self.state.lock().unwrap();
             st.pairing = None;
@@ -2083,6 +2117,10 @@ impl PhoneAnywhereInner {
             self.state.lock().unwrap().message =
                 Some("The new phone could not be saved. It works until Locust closes.".into());
         }
+        // Once the phone gets its token it can send right away. Its local key must
+        // already be installed; closing the pairing offer can wait for its own ack.
+        self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
+        let _ = self.command(json!({ "t": "pair-close" }));
         self.tell();
     }
 
@@ -2857,3 +2895,7 @@ mod desk_code_guard_tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "phone_mcp_generation_tests.rs"]
+mod phone_mcp_generation_tests;

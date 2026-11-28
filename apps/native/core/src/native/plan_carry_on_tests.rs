@@ -14,6 +14,7 @@ fn team_that_cannot_start(t: &Temp, plan: Value) {
     t.store().save_json("teammates.json", &roster).unwrap();
 }
 
+// case: one press starts the turn on the agent offered, as a reply to the turn that ran out, in its mode
 #[test]
 fn one_press_starts_the_turn_on_the_agent_offered_as_a_reply_to_the_turn_that_ran_out_in_its_mode() {
     let t = Temp::new();
@@ -34,6 +35,7 @@ fn one_press_starts_the_turn_on_the_agent_offered_as_a_reply_to_the_turn_that_ra
     assert_eq!(carry("mission_plan_press", "claude", None).unwrap_err(), "This turn was already carried on.");
 }
 
+// case: never twice, never onto the agent that ran out, never a turn that did not run out
 #[test]
 fn never_twice_never_onto_the_agent_that_ran_out_never_a_turn_that_did_not_run_out() {
     let t = Temp::new();
@@ -51,6 +53,7 @@ fn never_twice_never_onto_the_agent_that_ran_out_never_a_turn_that_did_not_run_o
     assert!(carried_from(&t, "mission_plan_same").is_empty() && carried_from(&t, "mission_plan_finished").is_empty());
 }
 
+// case: a turn that asked before each action is never carried to an agent that cannot ask
 #[test]
 fn a_turn_that_asked_before_each_action_is_never_carried_to_an_agent_that_cannot_ask() {
     let t = Temp::new();
@@ -67,6 +70,7 @@ fn a_turn_that_asked_before_each_action_is_never_carried_to_an_agent_that_cannot
     assert_eq!(carried_from(&t, "mission_plan_each")[0]["mode"], "approve-each", "the new turn runs in the stopped turn's mode");
 }
 
+// case: a start that fails can be pressed again
 #[test]
 fn a_start_that_fails_can_be_pressed_again() {
     let t = Temp::new();
@@ -108,6 +112,7 @@ fn without_a_press_only_with_an_agent_picked_and_without_asking_on() {
     assert!(!fs::read_to_string(path_of(&t, "mission_plan_on")).unwrap().contains("host.carry_on"), "no note when it carried on");
 }
 
+// case: and says why when it could not
 #[test]
 fn and_without_asking_says_why_when_it_could_not() {
     let t = Temp::new();

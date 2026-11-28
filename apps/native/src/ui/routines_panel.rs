@@ -469,12 +469,36 @@ fn runner_choice(s: &State, p: &Palette) -> El {
     let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
     let named = s.teammates.iter().find(|t| t.id == owner);
     if !s.routines.choose_runner {
-        let who = named.map_or_else(|| "The teammate who runs it".into(), |t| format!("{} runs it", t.name));
-        let line = match shown_mode(s) {
-            Some(mode) => format!("{who}, in {mode}."),
-            None => who,
+        let mode = shown_mode(s);
+        let Some(teammate) = named else {
+            let line = mode.map_or_else(|| "The teammate who runs it".to_owned(), |mode| format!("The teammate who runs it, in {mode}."));
+            return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
         };
-        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
+        let saved = s.routines.entry["routineId"].as_str().is_some_and(|id| !id.is_empty());
+        let current_route = teammate.runtime.as_deref().zip(teammate.model.as_deref());
+        let route = if saved {
+            current_route
+        } else {
+            let route = &s.routines.entry["route"];
+            route["runtime"].as_str().zip(route["model"].as_str())
+        };
+        let mut line = format!("{} runs it", teammate.name);
+        if let Some((runtime, model)) = route {
+            line.push_str(" on ");
+            line.push_str(&locust_core::teammate_tooltip::route_label(runtime, model));
+        }
+        if let Some(mode) = mode {
+            line.push_str(&format!(", in {mode}"));
+        }
+        line.push_str(&format!(". Each run uses the model {} last worked on", teammate.name));
+        if current_route.is_none() {
+            line.push_str(" (this one, until they have worked on one)");
+        }
+        if let Some(mode) = mode {
+            line.push_str(&format!(", and always {mode}"));
+        }
+        line.push('.');
+        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary).wrap();
     }
     let mut choice = col().gap(6.0)
         .child(text("Who runs it").font(type_::LABEL).color(p.secondary))
@@ -2744,3 +2768,7 @@ mod routine_waiting_on_board_tests;
 #[cfg(test)]
 #[path = "routines_page_tests.rs"]
 mod routines_page_tests;
+
+#[cfg(test)]
+#[path = "routine_route_mode_window_tests.rs"]
+mod routine_route_mode_window_tests;

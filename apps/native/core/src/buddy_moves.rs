@@ -2383,6 +2383,7 @@ mod tests {
 
     const FRAME: f64 = 1.0 / 30.0;
 
+    // case: shuts his eyes, brings the new ones in under the lids, opens them, and only then moves his body
     #[test]
     fn shuts_his_eyes_brings_the_new_ones_in_under_the_lids_opens_them_and_only_then_moves_his_body() {
         let idle = ask_for("idle");
@@ -2422,6 +2423,7 @@ mod tests {
         assert_eq!(cond.frame(began + 1.0, &working, None, None).move_name, "workout");
     }
 
+    // case: flashes a finish green as his new eyes come in, never on the old ones, and fades back
     #[test]
     fn flashes_a_finish_green_as_his_new_eyes_come_in_never_on_the_old_ones_and_fades_back() {
         let working = ask_for("working");
@@ -2444,6 +2446,7 @@ mod tests {
         assert_eq!(cond.frame(began + SWAP_S + 0.05, &done, None, None).move_name, flex_move().name);
     }
 
+    // case: is his at once on a still face: the move’s still pose, its eyes at rest, settled
     #[test]
     fn is_his_at_once_on_a_still_face_the_moves_still_pose_its_eyes_at_rest_settled() {
         for key in ["idle", "thinking", "working", "waiting", "done", "blocked", "receiving"] {
@@ -2461,6 +2464,7 @@ mod tests {
         }
     }
 
+    // case: he finishes his move, his springs and his eyes come to rest, and he is settled: stuck under the weights
     #[test]
     fn he_finishes_his_move_his_springs_and_his_eyes_come_to_rest_and_he_is_settled_stuck_under_the_weights() {
         let working = ask_for("working");
@@ -2488,6 +2492,7 @@ mod tests {
         assert_eq!(last.squash, 1.0);
     }
 
+    // case: at rest he does not blink on his own; moving, he does
     #[test]
     fn at_rest_he_does_not_blink_on_his_own_moving_he_does() {
         let idle = ask_for("idle");
@@ -2509,6 +2514,7 @@ mod tests {
         assert!(moving_blinks > 0);
     }
 
+    // case: starts each time from the next lift
     #[test]
     fn starts_each_time_from_the_next_lift() {
         let idle = ask_for("idle");
@@ -2543,6 +2549,7 @@ mod tests {
         assert_eq!(begun[2], (begun[0] + 2) % lifts.len());
     }
 
+    // case: turns his eyes that way while it lasts, easing there and back, and he is not settled while it does
     #[test]
     fn turns_his_eyes_that_way_while_it_lasts_easing_there_and_back_and_he_is_not_settled_while_it_does() {
         let idle = ask_for("idle");
@@ -2568,6 +2575,7 @@ mod tests {
         assert!(run(&mut face, None, 1.0, &mut s).rig.look.abs() < 0.02);
     }
 
+    // case: come no sooner after a change than a bot’s, and no more than 5 s apart
     #[test]
     fn come_no_sooner_after_a_change_than_a_bots_and_no_more_than_5_s_apart() {
         for seed in [0.0, 0.4, 0.93] {
@@ -2596,6 +2604,7 @@ mod tests {
         }
     }
 
+    // case: are none on a still face, and the same every time
     #[test]
     fn are_none_on_a_still_face_and_the_same_every_time() {
         assert_eq!(pet_blink_shut(0.0, 0.0, 0.5), 0.0);
@@ -2606,6 +2615,7 @@ mod tests {
         ShownFace { pair: pair.map(|[a, b]| [a.to_string(), b.to_string()]), tone: Phosphor::Cyan, key: Some(key.to_string()) }
     }
 
+    // case: is the bots’ and his: faceChanges, read frame by frame
     #[test]
     fn is_the_bots_and_his_face_changes_read_frame_by_frame() {
         let mut changes = FaceChanges::new(shown(Some(["|", "|"]), "idle"));
@@ -2622,6 +2632,7 @@ mod tests {
         assert_eq!(open.count, 1);
     }
 
+    // case: rests his eyes as it rests a still bot’s: a still face changes at once
     #[test]
     fn rests_his_eyes_as_it_rests_a_still_bots_a_still_face_changes_at_once() {
         let mut changes = FaceChanges::new(shown(None, "idle"));
@@ -2665,6 +2676,7 @@ mod tests {
         (data, width, height)
     }
 
+    // case: is his alone: no other pet has a screen measured for it, or moves of its own
     #[test]
     fn is_his_alone_no_other_pet_has_a_screen_measured_for_it_or_moves_of_its_own() {
         assert!(std::ptr::eq(screen_face_for("codex-buddy").unwrap(), &CODEX_BUDDY));
@@ -2674,6 +2686,7 @@ mod tests {
         assert!(!has_routine("hoodie-cat"));
     }
 
+    // case: has a screen on every one of his drawings, inside the drawing he is painted in
     #[test]
     fn has_a_screen_on_every_one_of_his_drawings_inside_the_drawing_he_is_painted_in() {
         for (row, &count) in CODEX_BUDDY.counts.iter().enumerate() {
@@ -2694,6 +2707,7 @@ mod tests {
         }
     }
 
+    // case: holds its size as he moves: one size for each way he faces
     #[test]
     fn holds_its_size_as_he_moves_one_size_for_each_way_he_faces() {
         use std::collections::BTreeSet;
@@ -2727,6 +2741,7 @@ mod tests {
         }
     }
 
+    // case: at every size, so his face is half as big again as fitted whole, where he is usually seen and larger
     #[test]
     fn at_every_size_so_his_face_is_half_as_big_again_as_fitted_whole_where_he_is_usually_seen_and_larger() {
         let win = pet_window(208.0, BUDDY_RIG_MIDDLE);
@@ -2753,6 +2768,7 @@ mod tests {
         );
     }
 
+    // case: never cuts his face: on every drawing, his screen is inside his window
     #[test]
     fn never_cuts_his_face_on_every_drawing_his_screen_is_inside_his_window() {
         let shown = pet_window(208.0, BUDDY_RIG_MIDDLE);
@@ -2766,18 +2782,21 @@ mod tests {
         }
     }
 
+    // case: takes the sheet that was measured
     #[test]
     fn takes_the_sheet_that_was_measured() {
         let (data, width, height) = sheet_like(&CODEX_BUDDY, None);
         assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: takes it re-compressed: an edge a pixel or two off is the same drawing
     #[test]
     fn takes_it_re_compressed_an_edge_a_pixel_or_two_off_is_the_same_drawing() {
         let (data, width, height) = sheet_like(&CODEX_BUDDY, Some((5, 2, 2)));
         assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: refuses one redrawn, resized, or with a drawing where his has none
     #[test]
     fn refuses_one_redrawn_resized_or_with_a_drawing_where_his_has_none() {
         let (moved, mw, mh) = sheet_like(&CODEX_BUDDY, Some((7, 3, (EDGE_SLACK + 2) as isize)));
@@ -2791,6 +2810,7 @@ mod tests {
         assert!(!screen_fits(&CODEX_BUDDY, &data, width, height));
     }
 
+    // case: reads a drawing’s painted sides
     #[test]
     fn reads_a_drawings_painted_sides() {
         let (data, width, _) = sheet_like(&CODEX_BUDDY, None);

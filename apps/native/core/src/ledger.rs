@@ -4128,3 +4128,7 @@ mod saved_turn_last_tests;
 #[cfg(test)]
 #[path = "restated_reply_tests.rs"]
 mod restated_reply_tests;
+
+#[cfg(test)]
+#[path = "mission_view_row_projection_sweep_tests.rs"]
+mod mission_view_row_projection_sweep_tests;

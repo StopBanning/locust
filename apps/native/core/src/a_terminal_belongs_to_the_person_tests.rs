@@ -18,6 +18,7 @@ fn state(policy: serde_json::Value) -> PolicyState {
 
 // a terminal owned by the person
 
+// case: an organization terminal restriction refuses even a direct host request
 #[test]
 fn an_organization_terminal_restriction_refuses_even_a_direct_host_request() {
     let parsed = parse_policy(&json!({"terminal": false}), &mut |_| {}).expect("a policy");
@@ -46,6 +47,7 @@ fn an_organization_terminal_restriction_refuses_even_a_direct_host_request() {
     assert_eq!(allowed, Ok(()));
 }
 
+// case: an unrestricted terminal cannot bypass other organization restrictions
 #[test]
 fn an_unrestricted_terminal_cannot_bypass_other_organization_restrictions() {
     for policy in [json!({"highestMode": "ask"}), json!({"allowedAgents": []}), json!({"allowedModels": {}}), json!({"monthlyLimitUsd": 0})] {

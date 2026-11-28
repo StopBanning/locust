@@ -1390,3 +1390,7 @@ mod tests {
         assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.58.0 | Sign in again | READY");
     }
 }
+
+#[cfg(test)]
+#[path = "agent_update_copy_parity_tests.rs"]
+mod agent_update_copy_parity_tests;

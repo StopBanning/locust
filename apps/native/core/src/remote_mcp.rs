@@ -363,6 +363,8 @@ fn is_verifier(text: &str) -> bool {
 pub struct RemoteMcp {
     options: Options,
     inner: Mutex<Inner>,
+    // Do not send an old enabled snapshot after a newer settings change.
+    relay_transition: Mutex<()>,
     /// Writes to the file one at a time, in order.
     writing: Mutex<()>,
 }
@@ -372,6 +374,7 @@ impl RemoteMcp {
         Self {
             options,
             inner: Mutex::new(Inner { enabled: false, grants: Vec::new(), message: None, codes: Vec::new(), asking: Vec::new(), used_due: None }),
+            relay_transition: Mutex::new(()),
             writing: Mutex::new(()),
         }
     }
@@ -681,11 +684,13 @@ impl RemoteMcp {
 
     /// The relay is told again, as the PC connects: it answers apps only while this says so.
     pub fn sync(&self) {
+        let _transition = self.relay_transition.lock().unwrap_or_else(|p| p.into_inner());
         let enabled = self.lock().enabled;
         self.options.relay.open(enabled);
     }
 
     pub fn set_enabled(&self, next: &Value) -> RemoteMcpState {
+        let transition = self.relay_transition.lock().unwrap_or_else(|p| p.into_inner());
         self.lock().message = None;
         let Some(next) = next.as_bool() else { return self.settings() };
         if next {
@@ -720,6 +725,7 @@ impl RemoteMcp {
         if self.persist().is_err() {
             self.lock().message = Some(NOT_SAVED.into());
         }
+        drop(transition);
         self.tell();
         self.settings()
     }

@@ -873,6 +873,10 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             .child(crate::look_picker::preview(s, &l))
             .child(identity_fields),
     );
+    // Choose the new teammate's model before adjusting its look.
+    if creating {
+        form = form.child(model_row(s, p));
+    }
     // The look comes before the role, as in Electron's dialog.
     form = form.child(crate::look_picker::section(s, &l));
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].into_iter().enumerate().skip(1) {
@@ -880,7 +884,9 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
-    form = form.child(model_row(s, p));
+    if !creating {
+        form = form.child(model_row(s, p));
+    }
     if let Some(folder) = teammate_folder_row(s, p) { form = form.child(folder); }
     form = form.child(text(locust_core::mode_facts::mode_summary(shown_route(s).as_ref().map(|r| r.mode.as_str()).unwrap_or("ask"))).key("team-permissions").font(type_::LABEL).color(p.secondary).wrap());
     let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
@@ -2517,6 +2523,7 @@ mod renderer_folder_tests {
         rt.frame(0.); rt
     }
     fn texts(rt: &rune::Runtime<State>) -> String { rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n") }
+    // case: is named in the dialog, and reads as the project folder when it has none
     #[test]
     fn is_named_in_the_dialog_and_reads_as_the_project_folder_when_it_has_none() {
         let rt = render(form(None,true,"auto"));
@@ -2526,12 +2533,14 @@ mod renderer_folder_tests {
         assert!(texts(&rt).contains("Choose folder"));
         assert!(rt.find("team-folder-reset").is_none());
     }
+    // case: says why the folder is worth setting, in the person's terms
     #[test]
     fn says_why_the_folder_is_worth_setting_in_the_persons_terms() {
         let rt = render(form(None,true,"auto"));
         assert!(texts(&rt).contains("MCP server"));
         assert!(texts(&rt).contains("History and memory stay with the project"));
     }
+    // case: does not promise a permission the next mission will not have
     #[test]
     fn does_not_promise_a_permission_the_next_mission_will_not_have() {
         for (mode, words) in [("auto","may edit anything on this machine"),("ask","every write refused"),("accept-edits","may change files in this workspace"),("approve-each","asks before every command"),("plan","changes nothing")] {
@@ -2540,6 +2549,7 @@ mod renderer_folder_tests {
             if mode == "auto" { assert!(!texts(&rt).contains("every write refused")); }
         }
     }
+    // case: is absent while a teammate is being created, because there is nothing to write it onto
     #[test]
     fn is_absent_while_a_teammate_is_being_created_or_without_a_host_chooser() {
         let mut s = form(None,true,"auto"); edit(&mut s,None);
@@ -3187,3 +3197,7 @@ mod team_card_words_tests;
 #[cfg(test)]
 #[path = "team_last_run_tests.rs"]
 mod team_last_run_tests;
+
+#[cfg(test)]
+#[path = "first_hour_teammate_model_tests.rs"]
+mod first_hour_teammate_model_tests;

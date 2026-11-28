@@ -255,6 +255,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
     }
+    // case: stops a command that is still running
     #[test]
     fn stop_kills_and_records_stopped_without_exit() {
         let dir = std::env::temp_dir();
@@ -317,3 +318,7 @@ mod tests {
         assert_eq!(omitted_note(omitted_lines, omitted_bytes), None);
     }
 }
+
+#[cfg(test)]
+#[path = "bang_folder_sweep_tests.rs"]
+mod bang_folder_sweep_tests;

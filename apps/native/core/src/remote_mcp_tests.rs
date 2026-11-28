@@ -715,3 +715,51 @@ fn the_doors_own_tools_answer_an_app_from_anywhere_in_ask_unless_each_teammates_
     assert_eq!(runs_in(&tools), (json!("Reader"), json!("plan")));
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn sync_and_settings_hold_the_same_transition_until_the_relay_answers() {
+    use std::sync::{OnceLock, TryLockError, Weak};
+
+    #[derive(Default)]
+    struct Witness {
+        service: OnceLock<Weak<RemoteMcp>>,
+        wire: Mutex<Vec<(bool, bool)>>,
+        during_notification: Mutex<Vec<bool>>,
+    }
+
+    impl Witness {
+        fn transition_is_held(&self) -> bool {
+            let service = self.service.get().unwrap().upgrade().unwrap();
+            matches!(service.relay_transition.try_lock(), Err(TryLockError::WouldBlock))
+        }
+    }
+
+    impl McpRelay for Witness {
+        fn address(&self) -> Option<String> {
+            Some("https://relay.test/v1/room/r/mcp".into())
+        }
+        fn open(&self, on: bool) -> bool {
+            self.wire.lock().unwrap().push((on, self.transition_is_held()));
+            true
+        }
+    }
+
+    let dir = folder("transition");
+    let witness = Arc::new(Witness::default());
+    let mut options = Options::new(dir.join(REMOTE_MCP_FILE), witness.clone(), Arc::new(FakeTools::default()));
+    let changed = witness.clone();
+    options.changed = Arc::new(move |_| {
+        changed.during_notification.lock().unwrap().push(changed.transition_is_held());
+    });
+    let service = Arc::new(RemoteMcp::new(options));
+    assert!(witness.service.set(Arc::downgrade(&service)).is_ok());
+
+    service.sync();
+    assert!(service.set_enabled(&json!(true)).enabled);
+    service.sync();
+    assert!(!service.set_enabled(&json!(false)).enabled);
+    let _ = std::fs::remove_dir_all(dir);
+
+    assert_eq!(*witness.wire.lock().unwrap(), [(false, true), (true, true), (true, true), (false, true)]);
+    assert_eq!(*witness.during_notification.lock().unwrap(), [false, false]);
+}

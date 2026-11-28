@@ -1246,9 +1246,10 @@ fn home_agents(s: &State, p: &Palette) -> El {
     let mut line = row()
         .key("home-agents")
         .w_full()
+        .flex_wrap()
         .gap(8.0)
         .center_y()
-        .child(text("Connected accounts").font(l.ty.control).color(l.c("text-primary")))
+        .child(text("Connected accounts").font(l.ty.control).color(l.c("text-primary")).key("home-agents-title"))
         .child(text(format!("{} ready", ready.len())).font(l.ty.label).color(l.c("green-text")).key("home-agents-ready"));
     match checking.as_slice() {
         [] => {}
@@ -3059,3 +3060,11 @@ mod home_issue_starter_tests {
 #[cfg(test)]
 #[path = "home_folder_strip_tests.rs"]
 mod home_folder_strip_tests;
+
+#[cfg(test)]
+#[path = "free_promise_window_tests.rs"]
+mod free_promise_window_tests;
+
+#[cfg(test)]
+#[path = "home_account_marks_case_tests.rs"]
+mod home_account_marks_case_tests;

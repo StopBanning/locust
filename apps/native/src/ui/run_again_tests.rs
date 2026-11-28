@@ -50,12 +50,14 @@ fn a_run_that_got_started_offers_nothing() {
     assert!(!texts.contains("Run it again"), "{texts}");
 }
 
+// case: says what is missing and that the file is kept
 #[test]
 fn a_damaged_record_says_what_is_missing_and_that_the_file_is_kept() {
     let (texts, _) = shown(None, "Summarize the turns", false, false, true);
     assert!(texts.contains("could not be read, so what came after it is missing here. The file is kept as it is."), "{texts}");
 }
 
+// case: says nothing of the kind when the record read whole
 #[test]
 fn a_record_that_read_whole_says_nothing_of_the_kind() {
     let (texts, _) = shown(None, "Summarize the turns", false, false, false);

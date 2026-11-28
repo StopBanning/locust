@@ -62,7 +62,6 @@ fn the_helper_row_the_window_draws_says_its_summary_as_words() {
     assert!(!said.contains("**"), "no Markdown marks on the row: {said}");
 }
 
-// case: offers shorter forms: names give way to counts, then the last phrases to "and N more"
 #[test]
 fn the_steps_line_the_window_draws_says_every_name_whole_on_hover() {
     let all = drawn(vec![edited("e1", LONG)], &[]);

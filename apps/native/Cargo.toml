@@ -3,6 +3,7 @@ members = [".", "core"]
 
 [package]
 name = "locust-native"
+default-run = "locust-native"
 version = "0.883.0"
 edition = "2024"
 license = "MIT"
@@ -12,6 +13,10 @@ publish = false
 [[bin]]
 name = "locust-native"
 path = "src/main.rs"
+
+[[bin]]
+name = "locust"
+path = "src/bin/locust.rs"
 
 [dependencies]
 # The engine. The window adds drawing and nothing else.

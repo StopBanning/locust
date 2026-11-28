@@ -536,14 +536,14 @@ fn the_screen_flicks_for_about_one_beat_in_three_never_every_one() {
 
 // ---- one-fact-one-surface.test.ts, "one mission, one duration" ----
 
-// "a 41-second run is 41s, not 0m".
+// case: a 41-second run is 41s, not 0m
 #[test]
 fn a_41_second_run_is_41s_not_0m() {
     assert_eq!(crate::ledger::duration_text(41_000), "41s");
     assert!(!crate::ledger::duration_text(41_000).contains("0m"));
 }
 
-// "and a long one still reads in minutes".
+// case: and a long one still reads in minutes
 #[test]
 fn a_long_run_still_reads_in_minutes() {
     assert_eq!(crate::ledger::duration_text(150_000), "2m 30s");
@@ -576,6 +576,7 @@ fn sign(x: f64) -> f64 {
 }
 
 // "eases toward each glance: from rest, never past it or back, slowing all the way to its landing, then held".
+// case: eases toward each glance: from rest, never past it or back, slowing all the way to its landing, then held
 #[test]
 fn a_thinking_face_eases_toward_each_glance_never_past_it_or_back_slowing_to_its_landing_then_held() {
     // The second glance, up and to the right, leaves where the first landed: across the head's turn and tilt.
@@ -615,6 +616,7 @@ fn a_thinking_face_eases_toward_each_glance_never_past_it_or_back_slowing_to_its
 }
 
 // "takes the head as the loop begins and gives it back before the dots are halfway through their bounce".
+// case: takes the head as the loop begins and gives it back before the dots are halfway through their bounce
 #[test]
 fn a_thinking_face_takes_the_head_as_the_loop_begins_and_gives_it_back_before_the_dots_are_halfway() {
     let mut last = thinking_glance(CYCLE * 2.0 + MS).mix;
@@ -639,6 +641,7 @@ fn a_thinking_face_takes_the_head_as_the_loop_begins_and_gives_it_back_before_th
 }
 
 // "looks up, and to both sides, as the dots used to".
+// case: looks up, and to both sides, as the dots used to
 #[test]
 fn a_thinking_face_looks_up_and_to_both_sides() {
     let looks: Vec<HeadGlance> = (0..210).map(|i| thinking_glance(CYCLE * 5.0 + i as f64 / 100.0)).collect();
@@ -679,6 +682,7 @@ fn a_thinking_glance_replaces_the_rigs_heading_as_its_mix_rises() {
 }
 
 // "holds the rig's own turning back meanwhile, so no turn of the head is faster than its glances (the real rig)".
+// case: holds the rig's own turning back meanwhile, so no turn of the head is faster than its glances (the real rig)
 #[test]
 fn a_thinking_face_holds_the_rigs_own_turning_back_so_no_turn_is_faster_than_its_glances() {
     // Ten seconds of a thinking face at 30 frames a second, on the rig itself: its heading wanders up to 0.6 either way.
@@ -710,6 +714,7 @@ fn a_thinking_face_holds_the_rigs_own_turning_back_so_no_turn_is_faster_than_its
 }
 
 // "fades its look in and out from wherever it is, gliding on when changed midway".
+// case: fades its look in and out from wherever it is, gliding on when changed midway
 #[test]
 fn a_thinking_look_fades_in_and_out_from_wherever_it_is_gliding_on_when_changed_midway() {
     let mut thinking = EasedValue::new(0.0, HEAD_GLANCE_S);

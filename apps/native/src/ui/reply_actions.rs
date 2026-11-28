@@ -260,10 +260,9 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
             return Err("That document is too large to show here.".into());
         }
         let doc = crate::office::read_office(&bytes, &ext)?;
-        return Ok(crate::office::document_words(
-            crate::file_menu::file_base_name(&target.path).as_str(),
-            &doc,
-        ));
+        let words = crate::office::document_words(&crate::file_menu::file_base_name(&target.path), &doc);
+        keep_office_document(root, &target.path, doc);
+        return Ok(words);
     }
     if ext == "xlsx" {
         let path = root.join(&target.path);
@@ -283,6 +282,70 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
         return Ok(words);
     }
     read_file(root, target)
+}
+
+type OfficeRead = (std::path::PathBuf, String, std::sync::Arc<crate::office::OfficeDocument>);
+
+static OFFICE_READS: std::sync::Mutex<Vec<OfficeRead>> = std::sync::Mutex::new(Vec::new());
+
+fn keep_office_document(root: &Path, path: &str, document: crate::office::OfficeDocument) {
+    let mut reads = crate::invariants::lock(&OFFICE_READS);
+    reads.retain(|(folder, name, _)| folder != root || name != path);
+    if reads.len() >= 16 {
+        reads.remove(0);
+    }
+    reads.push((root.to_path_buf(), path.to_owned(), std::sync::Arc::new(document)));
+}
+
+fn office_document_view(s: &State, path: &str, p: &Palette) -> Option<El> {
+    use crate::office::{DocumentBlock, DocumentKind};
+    if !matches!(crate::file_menu::file_extension(path).as_str(), "docx" | "pptx") {
+        return None;
+    }
+    let (teammate, _) = selected_conversation(s)?;
+    let folder = Path::new(teammate.folder.as_deref()?);
+    let document = {
+        let reads = crate::invariants::lock(&OFFICE_READS);
+        reads.iter().find(|(root, name, _)| root == folder && name == path)?.2.clone()
+    };
+    let slides = document.kind == DocumentKind::Slides;
+    let note = |words: String| text(words).font(type_::LABEL).color(p.muted).wrap_anywhere();
+    let paragraph = |words: &str| text(words.to_owned()).font(type_::BODY).color(p.text).w_full().wrap_anywhere();
+    let mut body = col().key("office-document").w_full().gap(8.0).child(note(if slides {
+        "The words on each slide, in order. Pictures and layout are not shown.".into()
+    } else {
+        "The words in this document. Pictures and layout are not shown.".into()
+    }));
+    if document.blocks.is_empty() {
+        body = body.child(paragraph(if slides { "This deck has no words on its slides." } else { "This document has no words in it." }));
+    }
+    for block in &document.blocks {
+        let block = match block {
+            DocumentBlock::Heading { level, text: words } => paragraph(words).role("heading").level((*level).clamp(1, 3) as u32)
+                .font(rune::TextStyle::new(18.0 - (*level).clamp(1, 3) as f32, 600.0)),
+            DocumentBlock::Paragraph { text } => paragraph(text),
+            DocumentBlock::Item { depth, text } => paragraph(text).pl(14.0 + (*depth).min(12) as f32 * 18.0),
+            DocumentBlock::Slide { number, title } => {
+                let words = format!("Slide {number}");
+                let label = match title.as_deref() { Some(title) => format!("{words}: {title}"), None => words };
+                paragraph(&label).role("heading").level(3).font(rune::TextStyle::new(16.0, 600.0))
+            }
+            DocumentBlock::Table { rows } => {
+                let table = rows.iter().enumerate().fold(col().role("table").gap(2.0), |table, (index, cells)| {
+                    table.child(cells.iter().fold(row().role("row").gap(8.0), |line, cell| {
+                        line.child(text(cell.clone()).w(100.0).font(type_::LABEL).color(p.text).wrap_anywhere()
+                            .role(if index == 0 { "columnheader" } else { "cell" }))
+                    }))
+                });
+                col().w_full().scroll_xy().child(table)
+            }
+        };
+        body = body.child(block);
+    }
+    if document.more > 0 {
+        body = body.child(note(format!("{} more parts are not shown here.", document.more)));
+    }
+    Some(col().grow(1.0).min_h(0.0).w_full().scroll(ScrollSpec { stick_bottom: false }).child(body))
 }
 
 fn format_workbook(book: &crate::office::Workbook) -> String {
@@ -1053,6 +1116,10 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                     let p = &palette;
                     let diagram_tab = el()
                         .key(format!("diagram-{}/tab-diagram", frame.index))
+                        .role("tab")
+                        .label(crate::diagram::TAB_DIAGRAM)
+                        .focusable(true)
+                        .focus_selected(!code_on)
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if !code_on { p.selected } else { p.raised })
@@ -1066,6 +1133,10 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         });
                     let code_tab = el()
                         .key(format!("diagram-{}/tab-code", frame.index))
+                        .role("tab")
+                        .label(crate::diagram::TAB_CODE)
+                        .focusable(true)
+                        .focus_selected(code_on)
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if code_on { p.selected } else { p.raised })
@@ -1385,9 +1456,11 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
     let pdf_pages = if body.is_ok() && crate::pdf::is_pdf_path(&target.path) { crate::pdf_pages_ui::pages(s, &target.path, p) } else { None };
     // A spreadsheet is shown as its grid (SheetView, 0.364).
     let sheet = if body.is_ok() { crate::sheet_view::grid(s, &target.path, p) } else { None };
+    let office = if body.is_ok() { office_document_view(s, &target.path, p) } else { None };
     match body {
         Ok(_) if pdf_pages.is_some() => pane = pane.children(pdf_pages),
         Ok(_) if sheet.is_some() => pane = pane.children(sheet),
+        Ok(_) if office.is_some() => pane = pane.children(office),
         Ok(_) if picture => {
             // ThreadImage's press: the picture at the pane's width, with zoom and pan controls (ZoomableImage.tsx).
             pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(s, &image, &target.path, p)) {
@@ -1549,3 +1622,11 @@ mod reply_copy_tests;
 #[cfg(test)]
 #[path = "reply_file_rows_tests.rs"]
 mod reply_file_rows_tests;
+
+#[cfg(test)]
+#[path = "blockers1_diagram_tabs_tests.rs"]
+mod blockers1_diagram_tabs_tests;
+
+#[cfg(test)]
+#[path = "blockers1_office_view_tests.rs"]
+mod blockers1_office_view_tests;

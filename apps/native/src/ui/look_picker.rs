@@ -234,3 +234,6 @@ fn segment(
 #[cfg(test)]
 #[path = "look_picker_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+mod buddy_picker_tests;

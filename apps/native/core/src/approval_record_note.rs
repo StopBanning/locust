@@ -208,6 +208,9 @@ impl AnswerLedger for FileLedger {
         if first["schemaVersion"].as_u64().is_none_or(|v| v < 20) {
             return Err("Mission ledger version cannot hold approvals".into());
         }
+        if first["schemaVersion"].as_u64() == Some(20) && approval["by"] == "earlier-always" {
+            return Err("Mission ledger version cannot hold an answer by an earlier Always".into());
+        }
         let ledger = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
         let at = approval["occurredAt"].as_str().map(str::to_owned).unwrap_or_else(crate::ledger_write::now);
         let record = json!({"schemaVersion": first["schemaVersion"], "recordType": "mission.approval", "ledgerSequence": ledger, "occurredAt": at, "approval": approval});

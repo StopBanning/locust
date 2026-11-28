@@ -10,7 +10,7 @@
 //!
 //! The native app keeps its own connection file in its own data folder, so it and Electron can both run.
 
-use crate::door_tools::{Begun, Locust, Route, StartRequest, Tools, Turn};
+use crate::door_tools::{Begun, Locust, Route, StartRequest, ToolResult, Tools, Turn};
 use crate::engine::Teammate;
 use crate::store::Store;
 use serde_json::{Value, json};
@@ -341,7 +341,7 @@ pub(crate) fn open_voice_door(store: Store, exe: &Path, folder: PathBuf, here: O
     let settings = Arc::new(Mutex::new(Settings { own_mode: true, ..Settings::default() }));
     let tools = Tools::new(Engine { store, settings: settings.clone(), voice: true }).with_voice(scope.clone());
     let exe = exe.to_str()?;
-    let door = Door::with(dir, exe, settings, Arc::new(move |name, args| tools.call(name, args).to_json()))
+    let door = Door::with(dir, exe, settings, Arc::new(move |name, args| call_live_tools(&tools, name, args).to_json()))
         .with_refusal(Arc::new(|| None));
     door.start().ok()?;
     let config = crate::voice_call_rules::AddOn {
@@ -389,7 +389,7 @@ impl Door {
         let sessions = editors.clone();
         // The editors' `cli/*` names are answered in front of the tools (index.ts), never listed in the bridge.
         let call: Caller = Arc::new(move |name: &str, args: &Value| {
-            if name.starts_with("cli/") { sessions.call(name, args).to_json() } else { tools.call(name, args).to_json() }
+            if name.starts_with("cli/") { sessions.call(name, args).to_json() } else { call_live_tools(&tools, name, args).to_json() }
         });
         let mut door = Self::with(dir, exe, settings, call);
         door.editors = Some(editors);
@@ -411,7 +411,7 @@ impl Door {
         }
         let settings = Arc::new(Mutex::new(saved));
         let tools = Arc::new(Tools::new(Engine { store, settings, voice: false }));
-        Ok(Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json()))
+        Ok(Arc::new(move |name: &str, args: &Value| call_live_tools(&tools, name, args).to_json()))
     }
 
     /// Where the native window's door writes its connection while it is open.
@@ -714,6 +714,36 @@ pub fn list_models_here(teammate: Option<&str>) -> Result<String, String> {
     if said.is_error { Err(said.text) } else { Ok(said.text) }
 }
 
+/// Read the same saved runs as the window. Project only Electron's PublicBackgroundRun fields.
+fn listed_background(store: &Store) -> ToolResult {
+    let rows: Vec<_> = crate::native::background_runs_for(store).list().into_iter().map(|run| {
+        let mut row = json!({
+            "id": run.id, "prompt": run.prompt, "startedAt": run.started_at, "state": run.state.as_str()
+        });
+        for (name, value) in [
+            ("account", run.account), ("conversation", run.conversation), ("teammateId", run.teammate_id),
+            ("model", run.model), ("waitingFor", run.waiting_for), ("name", run.name),
+            ("broughtIn", run.brought_in), ("notBroughtIn", run.not_brought_in),
+        ] {
+            if let Some(value) = value {
+                row[name] = json!(value);
+            }
+        }
+        row
+    }).collect();
+    ToolResult::ok(Value::Array(rows).to_string())
+}
+
+fn call_live_tools(tools: &Tools<Engine>, name: &str, args: &Value) -> ToolResult {
+    // Run the existing voice lifetime/allowlist gate first. Only replace the allowed empty background result.
+    let answer = tools.call(name, args);
+    if name == "list_background_runs" && !answer.is_error {
+        listed_background(&tools.locust.store)
+    } else {
+        answer
+    }
+}
+
 /// The door's tools for an app that reaches this computer through Locust's relay (index.ts's `mcpTools`, which
 /// remote-mcp.ts calls): what an app on this computer gets, with the same rules. The person's saved switches are read
 /// as each call comes, so a turn is Ask unless each teammate's own mode is on.
@@ -728,7 +758,7 @@ pub fn tools_from_anywhere(store: Store) -> impl Fn(&str, &Value) -> crate::door
             .map(|v| Settings::parse(&v))
             .unwrap_or_default();
         *settings.lock().unwrap_or_else(|e| e.into_inner()) = saved;
-        tools.call(name, arguments)
+        call_live_tools(&tools, name, arguments)
     }
 }
 
@@ -1440,3 +1470,7 @@ mod door_stdio_tests;
 #[cfg(test)]
 #[path = "an_app_turn_after_carry_on_tests.rs"]
 mod an_app_turn_after_carry_on_tests;
+
+#[cfg(test)]
+#[path = "door_background_window_tests.rs"]
+mod door_background_window_tests;

@@ -80,6 +80,7 @@ pub(super) struct RoomsState {
     pub load_job: Latest<Result<RoomsSnapshot, String>>,
     pub action_job: Latest<Result<RoomActionOutcome, String>>,
     pub last_refresh: Option<Instant>,
+    answer_clock_ms: Option<i64>,
     pub create_name: TextEdit,
     pub create_picks: Vec<String>,
     pub create_error: Option<String>,
@@ -658,6 +659,10 @@ pub(super) fn room_toasts_due(s: &mut State, now: std::time::Instant, supported:
 
 /// Sync background loads, actions, engine room notices, and elapsed timers for active runs.
 pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
+    poll_at(s, tx, Utc::now().timestamp_millis())
+}
+
+fn poll_at(s: &mut State, tx: &mut Tx, now_ms: i64) -> bool {
     let mut changed = false;
     let mut need_refresh = false;
 
@@ -747,7 +752,12 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
         false
     };
 
+    // Repaint running answer clocks even when no ledger reply arrives.
     if viewing_live {
+        if s.rooms.answer_clock_ms.is_none_or(|before| before.div_euclid(1_000) != now_ms.div_euclid(1_000)) {
+            s.rooms.answer_clock_ms = Some(now_ms);
+            changed = true;
+        }
         let stale = s
             .rooms
             .last_refresh
@@ -756,6 +766,8 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
             need_refresh = true;
         }
         tx.wake_after(Duration::from_millis(500));
+    } else {
+        s.rooms.answer_clock_ms = None;
     }
 
     if need_refresh {
@@ -858,16 +870,14 @@ pub(super) fn submit_task(s: &mut State, request: RoomTaskRequest) {
     });
 }
 
-fn elapsed_seconds(started_at: &str, post_at: &str, now_ms: i64) -> i64 {
+fn elapsed_seconds(started_at: &str, post_at: &str, now_ms: i64) -> Option<i64> {
     let iso = if started_at.is_empty() {
         post_at
     } else {
         started_at
     };
-    let Ok(dt) = DateTime::parse_from_rfc3339(iso) else {
-        return 0;
-    };
-    ((now_ms - dt.timestamp_millis()) / 1000).max(0)
+    let dt = DateTime::parse_from_rfc3339(iso).ok()?;
+    Some(((now_ms - dt.timestamp_millis()) / 1000).max(0))
 }
 
 fn roster_member_name(roster: &[Teammate], id: &str) -> String {
@@ -1135,7 +1145,7 @@ fn new_room_card(s: &State, l: &Look) -> El {
 }
 
 fn view_room(s: &State, room: &PublicRoom, p: &Palette, l: &Look) -> El {
-    let now_ms = Utc::now().timestamp_millis();
+    let now_ms = s.rooms.answer_clock_ms.unwrap_or_else(|| Utc::now().timestamp_millis());
     let rid = room.room_id.clone();
 
     let mut header = row()
@@ -1600,7 +1610,7 @@ struct BuiltAnswer<'a> {
     text: String,
     note_error: Option<String>,
     model_line: String,
-    elapsed_s: i64,
+    elapsed_s: Option<i64>,
 }
 
 fn view_post(
@@ -1857,18 +1867,13 @@ fn view_answer_card(
     let mid_open = ans.mission_id.clone();
 
     let (phase_label, phase_color) = if ans.phase == "running" {
-        if ans.text.is_empty() {
-            if ans.elapsed_s >= NO_WORD_BACK_SECS {
-                (
-                    format!("asked · {}s · no word back yet", ans.elapsed_s),
-                    p.amber,
-                )
-            } else {
-                (format!("asked · {}s", ans.elapsed_s), p.muted)
-            }
-        } else {
-            (format!("running · {}s", ans.elapsed_s), p.muted)
+        let word = if ans.text.is_empty() { "asked" } else { "running" };
+        let quiet = ans.text.is_empty() && ans.elapsed_s.is_some_and(|secs| secs >= NO_WORD_BACK_SECS);
+        let mut label = ans.elapsed_s.map_or_else(|| word.to_owned(), |secs| format!("{word} · {secs}s"));
+        if quiet {
+            label.push_str(" · no word back yet");
         }
+        (label, if quiet { p.amber } else { p.muted })
     } else if ans.phase == "failed" {
         ("failed".to_owned(), p.red)
     } else {
@@ -1954,7 +1959,9 @@ fn view_answer_card(
                                 .child(text(ans.name.clone()).font(type_::TITLE).color(p.text))
                                 .child(text(ans.model_line.clone()).font(l.ty.label).color(p.muted)),
                         )
-                        .child(text(phase_label).font(l.ty.label).color(phase_color)),
+                        .child(text(phase_label)
+                            .key(format!("room-answer-phase-{}-{}", post.post_id, ans.teammate_id))
+                            .font(l.ty.label).color(phase_color)),
                 )
                 .child(acts),
         );
@@ -2588,3 +2595,7 @@ mod room_toast_tests;
 #[cfg(test)]
 #[path = "rooms_index_tests.rs"]
 mod rooms_index_tests;
+
+#[cfg(test)]
+#[path = "room_quiet_tests.rs"]
+mod room_quiet_tests;

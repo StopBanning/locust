@@ -286,6 +286,7 @@ struct GatherResult {
 }
 
 pub struct Scout {
+    away: Mutex<Option<std::sync::Weak<crate::scout_away::ScoutAway>>>,
     deps: Arc<dyn ScoutDeps>,
     scheduler: Arc<dyn ScoutScheduler>,
     state: Mutex<EngineState>,
@@ -413,6 +414,7 @@ impl Scout {
             write_lock: Mutex::new(()),
             log_write_lock: Mutex::new(()),
             comment_read_lock: Mutex::new(()),
+            away: Mutex::new(None),
             disposed: AtomicBool::new(false),
         })
     }
@@ -553,6 +555,10 @@ impl Scout {
         let (target_gen, value, log_to_disk) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
             let current = st.look_log.take().unwrap_or_default();
+            if entry.away && current.contains(&entry) {
+                st.look_log = Some(current);
+                return;
+            }
             let next = with_look(&current, entry, now);
             st.log_gen += 1;
             let val = Value::Array(next.iter().map(ScoutLogEntry::to_json).collect());
@@ -1074,7 +1080,19 @@ impl Scout {
         self.look_mode(true)
     }
 
+    pub fn connect_away(&self, away: &Arc<crate::scout_away::ScoutAway>) {
+        *self.away.lock().unwrap() = Some(Arc::downgrade(away));
+    }
+
     fn look_mode(self: &Arc<Self>, scheduled: bool) -> ScoutState {
+        let away = self.away.lock().unwrap().as_ref().and_then(std::sync::Weak::upgrade);
+        if let Some(away) = &away { away.catch_up(); }
+        let result = self.look_local(scheduled);
+        if let Some(away) = &away { away.leave_told(); }
+        result
+    }
+
+    fn look_local(self: &Arc<Self>, scheduled: bool) -> ScoutState {
         let from = self.load();
         {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -1661,10 +1679,35 @@ impl Scout {
         self.load().state(self.deps.now())
     }
 
+    /// What Scout already told the person, without the clock (the away owner adds it after comparing).
+    pub fn away_receipt(&self, repo: &str) -> crate::scout_away::AwayLetter {
+        let st = self.load();
+        let mut told = st.seen;
+        if told.len() > crate::scout_away::MAX_TOLD {
+            told.drain(..told.len() - crate::scout_away::MAX_TOLD);
+        }
+        crate::scout_away::AwayLetter {
+            v: crate::scout_away::AWAY_LETTER_VERSION,
+            kind: crate::scout_away::AwayLetterKind::Told,
+            at: String::new(),
+            repo: repo.to_owned(),
+            read: true,
+            found: vec![],
+            prs: st.prs.into_iter().filter(|pr| crate::scout_away::repo_link(repo, Some(&pr.url)).is_some()).collect(),
+            told,
+            brief_day: st.last_brief_day,
+        }
+    }
+
     /// Absorbs away looks' letters once the PC is back (`scout.ts` `absorb`, 0.829 / 0.838):
     /// `/locust` asks passed to the phone (`AWAY_ASK_KEY`) never become cards here because the
     /// comment itself becomes the card on the PC.
     pub fn absorb(&self, letters: &[crate::scout_away::AwayLetter]) -> ScoutState {
+        self.absorb_saved(letters).unwrap_or_else(|_| self.state())
+    }
+
+    /// The relay reader must not advance its cursor unless the cards and seen keys are durable.
+    pub fn absorb_saved(&self, letters: &[crate::scout_away::AwayLetter]) -> Result<ScoutState, String> {
         use crate::scout_away::{AWAY_ASK_KEY, AwayLetterKind, fact_of};
         let mut looks: Vec<&crate::scout_away::AwayLetter> = letters
             .iter()
@@ -1672,29 +1715,7 @@ impl Scout {
             .collect();
         looks.sort_by(|a, b| a.at.cmp(&b.at));
         if looks.is_empty() {
-            return self.state();
-        }
-        for letter in &looks {
-            let at = chrono::DateTime::parse_from_rfc3339(&letter.at)
-                .unwrap_or_else(|_| self.deps.now());
-            let raised: Vec<ScoutLogItem> = letter
-                .found
-                .iter()
-                .map(|f| ScoutLogItem {
-                    key: f.key.clone(),
-                    said: f.said.clone(),
-                })
-                .collect();
-            self.log_look(look_entry(&LookEntryInput {
-                at,
-                raised: &raised,
-                aside: &[],
-                off: &[],
-                github_unread: !letter.read,
-                github: None,
-                skipped_quiet_hours: false,
-                away: true,
-            }));
+            return Ok(self.state());
         }
         let mut newest: Vec<(String, crate::scout_away::AwayFinding, String)> = Vec::new();
         for letter in &looks {
@@ -1719,7 +1740,7 @@ impl Scout {
             .filter_map(|l| l.brief_day.as_ref())
             .max()
             .cloned();
-        self.mutate(|latest| {
+        let state = self.mutate_away_saved(|latest| {
             let seen: HashSet<&str> = latest.seen.iter().map(String::as_str).collect();
             let fresh: Vec<&(String, crate::scout_away::AwayFinding, String)> = newest
                 .iter()
@@ -1731,7 +1752,7 @@ impl Scout {
                 .find(|(k, _, _)| k.starts_with("brief:"))
                 .map(|(k, _, _)| k.as_str());
             let mut cards = Vec::new();
-            for (idx, (k, finding, at_str)) in fresh.iter().enumerate() {
+            for (k, finding, at_str) in &fresh {
                 if k.starts_with("brief:") && Some(k.as_str()) != last_brief_key {
                     continue;
                 }
@@ -1744,7 +1765,7 @@ impl Scout {
                 fact.chips = Some(chips);
                 let at = chrono::DateTime::parse_from_rfc3339(at_str)
                     .unwrap_or_else(|_| self.deps.now());
-                cards.push(card_of(fact, format!("card_away_{idx}"), at, false));
+                cards.push(card_of(fact, new_card_id(), at, false));
             }
             let new_brief = cards.iter().any(|c| c.fact.key.starts_with("brief:"));
             let mut next = latest.clone();
@@ -1782,7 +1803,54 @@ impl Scout {
                 next.last_brief_day = Some(day.clone());
             }
             next
-        })
+        })?;
+        for letter in &looks {
+            let at = chrono::DateTime::parse_from_rfc3339(&letter.at)
+                .unwrap_or_else(|_| self.deps.now());
+            let raised: Vec<ScoutLogItem> = letter
+                .found
+                .iter()
+                .map(|f| ScoutLogItem {
+                    key: f.key.clone(),
+                    said: f.said.clone(),
+                })
+                .collect();
+            self.log_look(look_entry(&LookEntryInput {
+                at,
+                raised: &raised,
+                aside: &[],
+                off: &[],
+                github_unread: !letter.read,
+                github: None,
+                skipped_quiet_hours: false,
+                away: true,
+            }));
+        }
+        Ok(state)
+    }
+
+    fn mutate_away_saved(&self, change: impl FnOnce(&Kept) -> Kept) -> Result<ScoutState, String> {
+        let _ = self.load();
+        let files = self.deps.files();
+        let path = files.scout_path().map_err(|e| e.to_string())?;
+        let state = {
+            // Normal edits release the state lock before taking the write lock. Hold both
+            // here so a local /locust comment cannot be overwritten by this saved snapshot.
+            let _write = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let Some(kept) = st.kept.as_ref().filter(|_| st.save_to_disk) else {
+                return Err("Scout's away results could not be kept.".into());
+            };
+            let next = change(kept);
+            files.save_json_atomic(&path, SCOUT_FILE, &next.to_json())?;
+            let state = next.state(self.deps.now());
+            st.kept = Some(next);
+            st.save_gen += 1;
+            st.last_written_gen = st.save_gen;
+            state
+        };
+        self.deps.changed(&state);
+        Ok(state)
     }
 
     pub fn log(&self) -> ScoutLogSnapshot {

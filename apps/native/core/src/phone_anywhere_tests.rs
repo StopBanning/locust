@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // ---- Temp dir helper ------------------------------------------------------------------------------------------------
@@ -77,24 +77,33 @@ impl PeerRole {
     }
 }
 
+enum SocketEvent {
+    Open,
+    Message(String),
+    Close,
+}
+
+type SocketEvents = Arc<Mutex<Option<mpsc::Sender<SocketEvent>>>>;
+
 struct RelayPeer {
     role: PeerRole,
-    callbacks: Arc<Mutex<Option<Arc<dyn RelaySocketCallbacks>>>>,
+    callbacks: SocketEvents,
 }
 
 impl RelayPeer {
-    fn deliver_frame(&self, frame: Value) {
-        let cb = self.callbacks.lock().unwrap().clone();
-        if let Some(cb) = cb {
-            let text = frame.to_string();
-            std::thread::spawn(move || cb.on_message(text));
+    fn deliver_message(&self, text: String) {
+        if let Some(tx) = self.callbacks.lock().unwrap().as_ref() {
+            let _ = tx.send(SocketEvent::Message(text));
         }
     }
 
+    fn deliver_frame(&self, frame: Value) {
+        self.deliver_message(frame.to_string());
+    }
+
     fn deliver_close(&self) {
-        let cb = self.callbacks.lock().unwrap().take();
-        if let Some(cb) = cb {
-            std::thread::spawn(move || cb.on_close());
+        if let Some(tx) = self.callbacks.lock().unwrap().take() {
+            let _ = tx.send(SocketEvent::Close);
         }
     }
 }
@@ -139,6 +148,7 @@ struct RoomState {
     owner: Option<String>,
     devices: HashMap<String, String>,
     pairing: Option<(String, i64, usize)>,
+    hold_pair_close_ack: Option<mpsc::Sender<(u64, Option<String>)>>,
     away_hash: Option<String>,
     away_alerts: Vec<StoredAwayAlert>,
     hooks: HashMap<String, StoredHook>,
@@ -163,6 +173,7 @@ impl RoomState {
             owner: None,
             devices: HashMap::new(),
             pairing: None,
+            hold_pair_close_ack: None,
             away_hash: None,
             away_alerts: Vec::new(),
             hooks: HashMap::new(),
@@ -206,10 +217,7 @@ impl RoomState {
     fn handle_message(&mut self, peer_id: u64, text: &str) {
         if text == "ping" {
             if let Some(p) = self.peers.get(&peer_id) {
-                let cb = p.callbacks.lock().unwrap().clone();
-                if let Some(cb) = cb {
-                    std::thread::spawn(move || cb.on_message("pong".to_owned()));
-                }
+                p.deliver_message("pong".to_owned());
             }
             return;
         }
@@ -325,7 +333,11 @@ impl RoomState {
             }
             "pair-close" if matches!(role, PeerRole::Pc) => {
                 self.pairing = None;
-                self.send_done(peer_id, "pair-close", cmd_id);
+                if let Some(gate) = self.hold_pair_close_ack.take() {
+                    gate.send((peer_id, cmd_id)).unwrap();
+                } else {
+                    self.send_done(peer_id, "pair-close", cmd_id);
+                }
             }
             "github-open" if matches!(role, PeerRole::Pc) => {
                 if self.github_forget.is_none() {
@@ -842,12 +854,13 @@ impl RoomState {
 #[derive(Clone)]
 struct MemoryRelay {
     room: Arc<Mutex<RoomState>>,
+    pairing_ready: Arc<Condvar>,
 }
 
 struct MemoryLine {
     relay: MemoryRelay,
     peer_id: u64,
-    callbacks: Arc<Mutex<Option<Arc<dyn RelaySocketCallbacks>>>>,
+    callbacks: SocketEvents,
     closed: AtomicBool,
 }
 
@@ -856,11 +869,14 @@ impl RelaySocket for MemoryLine {
         if self.closed.load(Ordering::SeqCst) {
             return Err("closed".into());
         }
-        let relay = self.relay.clone();
-        let peer_id = self.peer_id;
-        std::thread::spawn(move || {
-            relay.room.lock().unwrap().handle_message(peer_id, &text);
-        });
+        // A WebSocket delivers accepted writes in order. Room actions only queue events;
+        // no application callback runs inline or takes the room lock on this thread.
+        let mut room = self.relay.room.lock().unwrap();
+        let was_open = room.pairing.is_some();
+        room.handle_message(self.peer_id, &text);
+        if !was_open && room.pairing.is_some() {
+            self.relay.pairing_ready.notify_all();
+        }
         Ok(())
     }
 
@@ -869,16 +885,26 @@ impl RelaySocket for MemoryLine {
             return;
         }
         self.callbacks.lock().unwrap().take();
-        let relay = self.relay.clone();
-        let peer_id = self.peer_id;
-        std::thread::spawn(move || {
-            relay.room.lock().unwrap().handle_closed(peer_id);
-        });
+        self.relay.room.lock().unwrap().handle_closed(self.peer_id);
     }
 
     fn set_callbacks(&self, callbacks: Arc<dyn RelaySocketCallbacks>) {
-        *self.callbacks.lock().unwrap() = Some(Arc::clone(&callbacks));
-        std::thread::spawn(move || callbacks.on_open());
+        let (tx, rx) = mpsc::channel();
+        tx.send(SocketEvent::Open).unwrap();
+        *self.callbacks.lock().unwrap() = Some(tx);
+        std::thread::spawn(move || {
+            // One reader per line, just like the WebSocket. Events cannot overtake each other.
+            for event in rx {
+                match event {
+                    SocketEvent::Open => callbacks.on_open(),
+                    SocketEvent::Message(text) => callbacks.on_message(text),
+                    SocketEvent::Close => {
+                        callbacks.on_close();
+                        break;
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -886,6 +912,7 @@ impl MemoryRelay {
     fn new(push_fn: Option<Arc<dyn Fn(&str, &str) -> u16 + Send + Sync>>) -> Self {
         Self {
             room: Arc::new(Mutex::new(RoomState::new(push_fn))),
+            pairing_ready: Arc::new(Condvar::new()),
         }
     }
 
@@ -894,6 +921,7 @@ impl MemoryRelay {
         state.github_forget = Some(forget);
         Self {
             room: Arc::new(Mutex::new(state)),
+            pairing_ready: Arc::new(Condvar::new()),
         }
     }
 
@@ -978,6 +1006,15 @@ impl MemoryRelay {
         for (_, p) in peers {
             p.deliver_close();
         }
+    }
+
+    fn wait_for_pairing_offer(&self) {
+        let (room, _) = self.pairing_ready.wait_timeout_while(
+            self.room.lock().unwrap(),
+            Duration::from_secs(3),
+            |room| room.pairing.is_none(),
+        ).unwrap();
+        assert!(room.pairing.is_some(), "PC did not open pairing at the relay");
     }
 
     fn pc_auths(&self) -> usize {
@@ -1268,7 +1305,8 @@ impl PhoneSession {
         let ans = self
             .reader
             .next_matching(3_000, |f| f.get("t").and_then(Value::as_str) == Some("msg"))
-            .expect("expected msg reply");
+            .unwrap_or_else(|| panic!("expected msg reply for {path} ({id}); auth {:?}, unmatched kinds {:?}",
+                self.ok["t"], self.reader.buf.iter().map(|frame| &frame["t"]).collect::<Vec<_>>()));
         let said = open_json(
             &self.phone.keys.open,
             ans["n"].as_str().unwrap(),
@@ -1837,13 +1875,40 @@ fn closes_a_removed_phone_and_forgets_every_phone_and_the_room_when_it_is_turned
 }
 
 #[test]
+fn answers_the_first_phone_request_while_the_pair_close_ack_is_held() {
+    let relay = MemoryRelay::new(None);
+    let (close_tx, close_rx) = mpsc::channel();
+    relay.room.lock().unwrap().hold_pair_close_ack = Some(close_tx);
+    let dir = TempDir::new("locust-pair-first-request");
+    let calls = FakeCalls::new();
+    let pc = make_pc(&relay, dir.path().clone(), calls.clone(), None, None, None, None);
+    let on = pc.set_enabled(true);
+    relay.wait_for_pairing_offer();
+    let phone = pair_phone(&relay, &on.code.unwrap().url, None).unwrap();
+    // Hold the relay's acknowledgement. On the old ordering this held the PC
+    // before its local key installation, even though the phone received its token.
+    let (peer, id) = close_rx.recv_timeout(Duration::from_secs(3)).expect("PC did not close pairing");
+    let mut device = PhoneSession::open(&relay, &phone, 0);
+    assert_eq!(device.ok["t"], "ok");
+    assert_eq!(
+        device.ask("/api/send", Some(json!({ "missionId": "m1", "text": "First" }))).0["status"],
+        200,
+    );
+    relay.room.lock().unwrap().send_done(peer, "pair-close", id);
+    pc.dispose();
+    assert_eq!(*calls.sent.lock().unwrap(), vec![("m1".to_owned(), "First".to_owned())]);
+}
+
+#[test]
 // case: connects again after the line drops, and keeps its phones and their numbers across a restart
 fn connects_again_after_the_line_drops_and_keeps_its_phones_and_their_numbers_across_a_restart() {
     let relay = MemoryRelay::new(None);
     let dir = TempDir::new("locust-reconnect");
     let first = make_pc(&relay, dir.path().clone(), FakeCalls::new(), None, None, None, None);
     let on = first.set_enabled(true);
-    until(3_000, || first.settings().connected);
+    // "Connected" reports PC auth. The fake phone needs the next protocol step:
+    // the relay must have received the PC's pairing offer before a phone can use it.
+    relay.wait_for_pairing_offer();
     let phone = pair_phone(&relay, &on.code.unwrap().url, None).unwrap();
     let mut device = PhoneSession::open(&relay, &phone, 0);
     let (_, asked) = device.ask("/api/send", Some(json!({ "missionId": "m1", "text": "Before" })));
@@ -1870,12 +1935,14 @@ fn connects_again_after_the_line_drops_and_keeps_its_phones_and_their_numbers_ac
     );
     // Replay of the pre-restart request is ignored.
     later.line.send(asked).unwrap();
-    std::thread::sleep(Duration::from_millis(80));
+    // The ordered socket dispatched the replay before this request. Requests themselves
+    // run on tracked workers; disposing joins them before the negative assertion.
+    assert_eq!(later.ask("/api/state", None).0["status"], 200);
+    second.dispose();
     assert_eq!(
         *calls2.sent.lock().unwrap(),
         vec![("m1".to_owned(), "After".to_owned())]
     );
-    second.dispose();
 }
 
 #[test]

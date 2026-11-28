@@ -159,7 +159,7 @@ pub fn take_undrawn_markers(body: &str) -> (String, HashMap<usize, String>) {
     let marker_prefix = "<!--locust-diagram-undrawn:";
     while let Some(at) = rest.find(marker_prefix) {
         let before = &rest[..at];
-        fence_index += count_closed_fences(before);
+        fence_index += count_framed_blocks(before);
         clean.push_str(before);
         let after_prefix = &rest[at + marker_prefix.len()..];
         let Some(end) = after_prefix.find("-->") else {
@@ -180,22 +180,20 @@ pub fn take_undrawn_markers(body: &str) -> (String, HashMap<usize, String>) {
     (clean, markers)
 }
 
-fn count_closed_fences(text: &str) -> usize {
-    let mut n = 0;
-    let mut rest = text;
-    while let Some(start) = find_fence_open(rest) {
-        let after = &rest[start.byte + start.open_len..];
-        match find_fence_close(after, start.ticks) {
-            Some(close_at) => {
-                n += 1;
-                let after_close = &after[close_at..];
-                let line_end = after_close.find('\n').map(|i| i + 1).unwrap_or(after_close.len());
-                rest = &after_close[line_end..];
-            }
-            None => break,
-        }
+// Rune numbers Code and Mermaid frames together. A Diff block is drawn by a
+// different renderer and never takes a frame index. Reuse the real Markdown
+// parser so indented code, tilde fences and nested code also count correctly.
+fn count_framed_blocks(text: &str) -> usize {
+    use rune_kit::markdown::Block;
+    fn count(blocks: &[Block]) -> usize {
+        blocks.iter().map(|block| match block {
+            Block::Code(_) | Block::Mermaid(_) => 1,
+            Block::Quote(children) => count(children),
+            Block::List { items, .. } => items.iter().map(|item| count(item)).sum(),
+            _ => 0,
+        }).sum()
     }
-    n
+    count(&rune_kit::markdown::parse_cached(text))
 }
 
 struct FenceOpen {
@@ -393,3 +391,7 @@ mod diagram_drawn_tests;
 #[cfg(test)]
 #[path = "diagram_shown_tests.rs"]
 mod diagram_shown_tests;
+
+#[cfg(test)]
+#[path = "diagram_fallback_window_tests.rs"]
+mod diagram_fallback_window_tests;

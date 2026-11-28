@@ -949,14 +949,14 @@ fn render_card(
         .filter(|t| !t.is_empty())
     {
         box_el = box_el.child(
-            text(take.to_owned())
+            text(format!("Scout: {take}"))
                 .font(rune::TextStyle::new(12.5, 400.0))
                 .color(l.c("text-primary"))
                 .wrap(),
         );
     } else if card.reading {
         box_el = box_el.child(
-            text("Reading against your goal…".to_owned())
+            text("Scout is reading it…")
                 .font(rune::TextStyle::new(12.0, 400.0))
                 .color(l.c("text-muted"))
                 .wrap(),
@@ -1594,10 +1594,6 @@ pub(super) mod tests {
             .child(home_section(s, &Look::new(true)).unwrap_or_else(el))
     }
 
-    fn invite_tile_el(_s: &State, _: &mut Cx<State>) -> El {
-        col().w_full().h_full().child(invite_team_tile(&Look::new(true)))
-    }
-
     fn invite_dlg_el(s: &State, _: &mut Cx<State>) -> El {
         col()
             .w_full()
@@ -1669,12 +1665,15 @@ pub(super) mod tests {
 
     // --- 1:1 ports of `scout-says-what-needs-you.test.tsx` (13 Part-2a cases) ---
 
+    // case: raise what needs the person now, first, whenever it was found
     #[test]
     fn renders_cards_puts_now_first_shows_the_drafted_message_and_dims_the_notice_below_it() {
         let mut s = base_state(true);
         let mut soon = make_card("soon-1", ScoutUrgency::Soon, "PR #7 failing");
+        soon.at = "2026-04-12T11:00:00Z".into();
         soon.fact.detail = Some("Tests failed on main".into());
         let mut now = make_card("now-1", ScoutUrgency::Now, "Lin waiting on design question");
+        now.fact.quote = Some("pnpm test --filter desktop".into());
         now.fact.draft = Some(ScoutDraft {
             teammate_id: "lin".into(),
             name: "Lin".into(),
@@ -1688,12 +1687,64 @@ pub(super) mod tests {
         let soon_pos = all.find("PR #7 failing").unwrap();
         assert!(now_pos < soon_pos, "Now urgency must render before Soon");
         assert!(all.contains("Needs you"));
+        assert!(all.contains("pnpm test --filter desktop"));
         // Review change 4 (docs/REVIEW-ui-changes-2026-11-26.md): a plain notice is a row now, with no "Noticed" title
         // under the "Scout noticed" heading it sits beneath (Electron's `ScoutCards.tsx:116-117`).
         assert!(!all.lines().any(|line| line == "Noticed"), "{all}");
         assert!(rt.find("scout-row-title-soon-1").is_some(), "the plain notice is a row");
         assert!(all.contains("Drafted for Lin"));
         assert!(all.contains("Use the small token table."));
+    }
+
+    // case: lead with Locust’s sentence, say who noticed it and when, and open what it is about
+    #[test]
+    fn a_plain_notice_leads_with_locusts_sentence_and_opens_its_target() {
+        let mut s = base_state(true);
+        s.scout.now_ms = Some(chrono::DateTime::parse_from_rfc3339("2026-04-12T10:06:00Z").unwrap().timestamp_millis());
+        let sentence = "Someone asked you to review pull request #214, Rename the call log.";
+        let mut card = make_card("pr", ScoutUrgency::Soon, sentence);
+        card.fact.open = Some(ScoutOpen::Url {
+            url: "https://github.com/acme/app/pull/214".into(),
+            label: "Open the pull request".into(),
+        });
+        s.scout.state.as_mut().unwrap().cards = vec![card];
+        let mut rt = render_state(s, home_sec_el);
+        let text = collect_rt_text(&rt);
+        assert!(text.contains("Scout noticed · 1"), "{text}");
+        assert!(text.contains(sentence), "{text}");
+        assert!(text.contains("6 min ago"), "{text}");
+        assert!(text.contains("Open the pull request"));
+        assert!(text.contains("Dismiss"));
+        assert!(rt.find("scout-send-pr").is_none());
+        click_key(&mut rt, "scout-open-pr");
+        assert_eq!(rt.state.opened_links, ["https://github.com/acme/app/pull/214"]);
+    }
+
+    // case: show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading
+    #[test]
+    fn a_take_credits_scout_and_a_read_in_progress_says_so() {
+        let mut s = base_state(true);
+        let mut drafted = make_card("drafted", ScoutUrgency::Soon, "A review needs you.");
+        drafted.take = Some("Ada renamed the file the call log reads.".into());
+        drafted.fact.draft = Some(ScoutDraft {
+            teammate_id: "tm_atlas".into(),
+            name: "Atlas".into(),
+            message: "Review #214 before I do.".into(),
+        });
+        let mut reading = make_card("reading", ScoutUrgency::Soon, "A check needs you.");
+        reading.reading = true;
+        s.scout.state.as_mut().unwrap().cards = vec![drafted, reading];
+
+        let rt = render_state(s, home_sec_el);
+        let text = collect_rt_text(&rt);
+        for words in ["Scout: Ada renamed the file the call log reads.", "Drafted for Atlas",
+            "Review #214 before I do.", "Send to Atlas", "Change it first", "Noticed, and drafted",
+            "Scout is reading it…"] {
+            assert!(text.contains(words), "missing {words:?} in {text}");
+        }
+        assert!(rt.find("scout-send-drafted").is_some());
+        assert!(rt.find("scout-draft-drafted").is_some());
+        assert!(rt.find("scout-send-reading").is_none());
     }
 
     #[test]
@@ -1724,6 +1775,7 @@ pub(super) mod tests {
         assert!(rt.state.scout.state.as_ref().unwrap().cards.is_empty());
     }
 
+    // case: keeps a card brought into view even when it is past the first three
     #[test]
     fn limits_to_three_cards_until_show_all_is_clicked_and_keeps_a_focused_card_in_sight() {
         let mut s = base_state(true);
@@ -1744,6 +1796,7 @@ pub(super) mod tests {
         assert!(rt.find("scout-card-c5").is_some());
     }
 
+    // case: before its first look, says one is on its way
     #[test]
     fn says_first_look_is_on_its_way_before_the_first_look() {
         let s = base_state(true);
@@ -1752,6 +1805,7 @@ pub(super) mod tests {
         assert!(text.contains("its first look is on its way"));
     }
 
+    // case: says it keeps watch, when it last looked, and that nothing needs the person
     #[test]
     fn says_when_it_last_looked_once_a_look_has_happened() {
         let mut s = base_state(true);
@@ -1761,25 +1815,34 @@ pub(super) mod tests {
                 .timestamp_millis(),
         );
         s.scout.state.as_mut().unwrap().last_look_at = Some("2026-04-12T10:00:00.000Z".into());
-        let rt = render_state(s, home_sec_el);
+        let mut rt = render_state(s, home_sec_el);
         let text = collect_rt_text(&rt);
+        assert!(rt.find("scout-watching").is_some());
         assert!(text.contains("looked 12 min ago · nothing needs you"));
+        assert!(text.contains("Look now"));
+        rt.update(|s, _| s.scout.looking = true);
+        rt.frame(0.0);
+        assert!(collect_rt_text(&rt).contains("Looking…"));
     }
 
+    // case: say why its model added nothing, and show three until asked for all
     #[test]
     fn shows_the_model_reason_banner_when_the_model_failed() {
         let mut s = base_state(true);
         let st = s.scout.state.as_mut().unwrap();
-        st.cards = vec![make_card("c1", ScoutUrgency::Soon, "Fallback card")];
+        st.cards = (1..=4).map(|i| make_card(&format!("c{i}"), ScoutUrgency::Soon, &format!("Fallback card {i}"))).collect();
         st.model_said = Some("OpenCode free limit reached.".into());
-        let rt = render_state(s, home_sec_el);
+        let mut rt = render_state(s, home_sec_el);
         assert!(rt.find("scout-model-said").is_some());
         let text = collect_rt_text(&rt);
         assert!(text.contains("OpenCode free limit reached. The cards below are in Locust’s words."));
+        assert_eq!(rt.elements().iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("scout-card-"))).count(), 3);
+        assert!(text.contains("Show all 4"));
+        click_key(&mut rt, "scout-show-all");
+        assert!(rt.find("scout-card-c4").is_some());
     }
 
-    #[test]
-    fn renders_the_meet_scout_invite_with_the_free_model_name_and_turn_on_button() {
+    fn eligible_invite_state() -> State {
         let mut s = base_state(false);
         s.teammates.push(Teammate {
             id: "lin".into(),
@@ -1808,23 +1871,45 @@ pub(super) mod tests {
             }],
         );
 
-        assert!(invite_offer_active(&s));
-        // Urgency grouping must not remove the invitation when nobody is Ready.
-        s.teammates[0].busy = true;
-        let home = render_state(s, |s, _| crate::home_panel::home_view(s, &Palette::new(true)));
-        assert!(home.find("scout-invite-card").is_some());
-        let s = home.state;
-        let mut tile = render_state(State::default(), invite_tile_el);
-        assert!(tile.find("scout-invite-card").is_some());
-        assert!(tile.find("scout-not-now").is_some());
-        click_key(&mut tile, "scout-not-now");
-        assert!(tile.state.scout.not_now);
+        s
+    }
 
-        let dlg = render_state(s, invite_dlg_el);
+    // case: is offered as a card on the team, in the slot Scout will take, with Not now as its x
+    #[test]
+    fn the_home_team_offers_scout_after_the_teammates_and_lets_you_dismiss_it() {
+        let s = eligible_invite_state();
+        assert!(invite_offer_active(&s));
+        let mut home = render_state(s, |s, _| crate::home_panel::home_view(s, &Palette::new(true)));
+        let elements = home.elements();
+        let card = |key| elements.iter().position(|e| e.key.as_deref() == Some(key)).unwrap();
+        assert!(card("home-card-lin") < card("scout-invite-card"));
+        assert_eq!(elements[card("scout-not-now")].label.as_deref(), Some("Not now: do not offer Scout again"));
+
+        click_key(&mut home, "scout-invite-card");
+        assert!(home.state.scout.invite_open);
+        click_key(&mut home, "scout-not-now");
+        assert!(home.state.scout.not_now);
+        assert!(!home.state.scout.invite_open);
+        assert!(home.find("scout-invite-card").is_none());
+
+        // Urgency grouping must not remove the invitation when nobody is Ready.
+        let mut busy = eligible_invite_state();
+        busy.teammates[0].busy = true;
+        let home = render_state(busy, |s, _| crate::home_panel::home_view(s, &Palette::new(true)));
+        assert!(home.find("scout-invite-card").is_some());
+    }
+
+    // case: says what it reads, with which model, and that it never acts by itself
+    #[test]
+    fn renders_the_meet_scout_invite_with_the_free_model_name_and_turn_on_button() {
+        let dlg = render_state(eligible_invite_state(), invite_dlg_el);
         let joined = collect_rt_text(&dlg);
         assert!(joined.contains(SCOUT_INVITE_TITLE));
         assert!(joined.contains("Qwen 3 Free"));
+        assert!(joined.contains("pull requests and their checks"));
+        assert!(joined.contains("It never sends, merges or changes anything: you press."));
         assert!(dlg.find("scout-invite-turn-on").is_some());
+        assert!(dlg.find("scout-invite-not-now").is_some());
     }
 
     #[test]
@@ -1875,6 +1960,7 @@ pub(super) mod tests {
         assert!(collect_rt_text(&dlg).contains("OpenCode could not add Scout."));
     }
 
+    // case: are not there while Scout is off, or has nothing to say
     #[test]
     fn dims_scout_cards_into_watching_when_cards_clear() {
         let mut s = base_state(true);
@@ -1885,6 +1971,16 @@ pub(super) mod tests {
         rt.update(|st, _| st.scout.state.as_mut().unwrap().cards.clear());
         rt.frame(0.0);
         assert!(rt.find("scout-watching").is_some());
+        assert!(rt.find("scout-cards").is_none());
+
+        rt.update(|s, _| {
+            let state = s.scout.state.as_mut().unwrap();
+            state.settings.on = false;
+            state.cards.push(make_card("off", ScoutUrgency::Now, "Do not draw this"));
+        });
+        rt.frame(0.0);
+        assert!(rt.find("scout-card-off").is_none());
+        assert!(rt.find("scout-watching").is_none());
     }
 
     #[test]
@@ -2390,6 +2486,7 @@ pub(super) mod tests {
 
     // --- 1:1 ports of `scout-says-what-needs-you.test.tsx` (2 Part-2b Post card cases) ---
 
+    // case: shows the full reply, editable attribution, Post and Dismiss
     #[test]
     fn comment_answer_post_card_shows_full_reply_editable_attribution_post_and_dismiss() {
         let mut card = make_card("c_post_1", ScoutUrgency::Now, "Ada answered your ask on #212");
@@ -2438,6 +2535,7 @@ pub(super) mod tests {
         assert!(updated_words.contains("Post it on #212"));
     }
 
+    // case: says when posted or failed and never offers Post again
     #[test]
     fn comment_answer_post_card_says_when_posted_or_failed_and_never_offers_post_again() {
         let mut posted = make_card("c_posted", ScoutUrgency::Now, "Ada answered your ask on #212");

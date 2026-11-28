@@ -140,7 +140,7 @@ pub fn cost_cell(cost: Option<&RunCost>, model: &str) -> String {
     {
         return "free".into();
     }
-    cost_line(cost).unwrap_or_else(|| "—".into())
+    cost_line(cost).unwrap_or_else(|| "not reported".into())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1051,3 +1051,7 @@ mod tests {
 #[cfg(test)]
 #[path = "benchmark_check_tests.rs"]
 mod benchmark_check_tests;
+
+#[cfg(test)]
+#[path = "one_fact_cost_sweep_tests.rs"]
+mod one_fact_cost_sweep_tests;

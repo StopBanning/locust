@@ -58,6 +58,13 @@ fn window_in(mode: &str) -> (Dirs, Store, Runtime<State>) {
     (Dirs(root), store, rt)
 }
 
+/// This headless fixture has no browser surface. Leave its process-wide browser bridge uninstalled.
+fn window_without_browser_bridge(mode: &str) -> (Dirs, Store, Runtime<State>) {
+    let (dirs, store, mut rt) = window_in(mode);
+    rt.state.browser.initialized = true;
+    (dirs, store, rt)
+}
+
 fn fake(script: &str, scenario: &str) -> Option<(PathBuf, Vec<String>)> {
     Some((PathBuf::from("python3"), vec![format!("{}/scripts/fixtures/{script}", env!("CARGO_MANIFEST_DIR")), scenario.into()]))
 }
@@ -1353,7 +1360,7 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
 
 #[test]
 fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let work = dirs.0.join("work");
     let ws_id = locust_core::workspace_settings::workspace_id_for(&work);
     let mut settings = locust_core::workspace_settings::WorkspaceSettings::default();
@@ -2667,7 +2674,7 @@ fn a_step_that_waits_for_your_ok_shows_its_card_and_go_ahead_runs_the_next_step(
 
 #[test]
 fn a_copy_runs_changes_are_kept_into_the_folder_or_discarded() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let work = dirs.0.join("work").canonicalize().unwrap();
     seed_routine_team(&store, &work, "accept-edits");
     let id = seed_routine(&store, json!({"routineId": "rt_notes", "name": "Notes", "steps": ["Write notes.txt."], "inCopy": true,
@@ -3462,7 +3469,7 @@ fn connectors_list_their_states_in_words_and_copy_a_report() {
 /// words with each note under it.
 #[test]
 fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubble() {
-    let (dirs, store, mut rt) = window_in("accept-edits");
+    let (dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-review-notes"));
     let work = dirs.0.join("work");
     let git = |args: &[&str]| {
@@ -3531,7 +3538,7 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
 /// after the person's words as page content with its picture attached, and the box is empty after.
 #[test]
 fn a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box() {
-    let (_dirs, store, mut rt) = window_in("accept-edits");
+    let (_dirs, store, mut rt) = window_without_browser_bridge("accept-edits");
     let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-review-notes"));
     let raw = serde_json::json!({
         "selector": "button#save", "html": "<button id=\"save\">Save</button><input value=\"typed-in\">", "htmlLength": 56,
@@ -5126,7 +5133,10 @@ fn scenario(store: &Store, guard: native::hooks::Guard, name: &str) -> native::h
 
 /// A conversation of two turns in the window ("Synthetic prompt", then "Synthetic follow-up"), the turn ids oldest first.
 fn two_turns() -> (Dirs, Store, Runtime<State>, native::hooks::Guard, String, String) {
-    let (dirs, store, mut rt) = window();
+    two_turns_in(window())
+}
+
+fn two_turns_in((dirs, store, mut rt): (Dirs, Store, Runtime<State>)) -> (Dirs, Store, Runtime<State>, native::hooks::Guard, String, String) {
     let guard = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
     type_and_send(&mut rt, "Synthetic prompt");
     pump(&mut rt, "the first answer", answered);
@@ -5194,7 +5204,7 @@ fn editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_an
 
 #[test]
 fn sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable() {
-    let (_dirs, store, mut rt, g, first, second) = two_turns();
+    let (_dirs, store, mut rt, g, first, second) = two_turns_in(window_without_browser_bridge("ask"));
     click(&mut rt, &format!("edit-message-{second}"));
     pump(&mut rt, "the records read", |s| !s.edit.offer_job.is_pending());
     let _g = scenario(&store, g, "rewind");
@@ -6044,7 +6054,7 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
 
 #[test]
 fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
-    let (dirs, store, mut rt) = window();
+    let (dirs, store, mut rt) = window_without_browser_bridge("ask");
     let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-scout-fix"));
     let folder = dirs.0.join("fix-repo");
     let fix_root = dirs.0.join("scout-fixes-root");

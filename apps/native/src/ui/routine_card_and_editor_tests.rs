@@ -115,7 +115,7 @@ fn in_edit_change_files_is_chosen_and_the_file_trigger_says_what_lands_in_the_fo
     assert!(any_text(&all, "What a run changes lands in the folder straight away"));
     assert!(any_text(&all, "It may change files, and what it changes lands in the folder straight away."));
     assert!(!any_text(&all, "changes nothing, as every routine runs in Ask"));
-    assert_eq!(shown(&all, "routine-runs-it").as_deref(), Some("Codec runs it, in Edit."));
+    assert_eq!(shown(&all, "routine-runs-it").as_deref(), Some("Codec runs it on Codex / GPT-6.1 Sol, in Edit. Each run uses the model Codec last worked on, and always Edit."));
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn the_choice_is_saved_as_the_mode_only_when_it_moved() {
     s.routines.reads_only = Some(false);
     assert_eq!(shown_mode(&s), Some("Edit"));
     let all = draw(s);
-    assert_eq!(shown(&all, "routine-runs-it").as_deref(), Some("Codec runs it, in Edit."));
+    assert_eq!(shown(&all, "routine-runs-it").as_deref(), Some("Codec runs it on Codex / GPT-6.1 Sol, in Edit. Each run uses the model Codec last worked on, and always Edit."));
     assert!(any_text(&all, "It may change files, and what it changes lands in the folder straight away."));
     // A routine not saved yet has no mode, and the choice is not offered or said.
     let mut fresh = screen(vec![], None);

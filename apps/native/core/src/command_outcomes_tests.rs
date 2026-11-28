@@ -148,6 +148,7 @@ fn does_not_call_a_command_that_never_reported_a_pass() {
         })
     );
 }
+// case: does not count an unfinished turnu2019s open command as unreported
 #[test]
 fn does_not_count_an_unfinished_turns_open_command_as_unreported() {
     assert_eq!(

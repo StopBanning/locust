@@ -616,3 +616,7 @@ mod renderer_screen_tests {
 #[cfg(test)]
 #[path = "teammate_bot_markup_tests.rs"]
 mod teammate_bot_markup_tests;
+
+#[cfg(test)]
+#[path = "buddy_face_tests.rs"]
+mod buddy_face_tests;

@@ -18,6 +18,7 @@ pub(crate) fn completed() -> Value {
     json!({"type": "run.completed", "sourceAdapter": "codex", "payload": {}})
 }
 
+// case: knows a plan ran out from what the agent said, and not from a warning or a run that went on
 #[test]
 fn a_plan_ran_out_is_known_from_what_the_agent_said_not_from_a_warning_or_a_run_that_went_on() {
     assert!(plan_ran_out(&[quota()]));
@@ -47,6 +48,7 @@ fn pick(runtime: &str, model: Option<&str>) -> PlanRunsOut {
     PlanRunsOut { runtime: runtime.into(), model: model.map(str::to_owned), automatic: false }
 }
 
+// case: the card offers the agent picked, else the first ready that is not the one that ran out
 #[test]
 fn the_card_offers_the_agent_picked_else_the_first_ready_that_is_not_the_one_that_ran_out() {
     let ready_three = ready(&["claude", "codex", "opencode"]);
@@ -62,6 +64,7 @@ fn the_card_offers_the_agent_picked_else_the_first_ready_that_is_not_the_one_tha
     assert_eq!(carry_on_offer("codex", None, &ready(&["codex"])), None);
 }
 
+// case: the setting holds only an agent a turn can run on
 #[test]
 fn the_setting_holds_only_an_agent_a_turn_can_run_on() {
     assert_eq!(parse_plan_runs_out(&json!({"runtime": "claude", "automatic": true})), Some(PlanRunsOut { runtime: "claude".into(), model: None, automatic: true }));
